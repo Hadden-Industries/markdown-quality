@@ -8,7 +8,8 @@ npm install --save-dev --save-exact --ignore-scripts @hadden-industries/markdown
 npm ci --ignore-scripts
 ```
 
-The version above identifies the candidate; it is not currently a published registry promise.
+Version `0.1.0-alpha.3` is published under the `pilot` tag and qualified for fresh anonymous root and isolated installations on Windows x64 and Ubuntu 24.04 x64.
+It remains a prerelease; pilot acceptance and stable promotion are pending.
 Keep the consumer lockfile.
 An isolated `tooling/markdown` npm project supports consumers that do not use Node for their application.
 Its commands must pass the actual repository root.

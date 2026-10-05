@@ -1,7 +1,7 @@
 name: Transported candidate qualification
 on:
   push:
-    branches: [implement-markdown-quality]
+    branches: [main]
     paths:
       - .github/workflows/candidate.yml
       - scripts/pack.js

@@ -2,7 +2,11 @@
 
 The user authorized draft 4 implementation, commits, pushes, and required configuration in this checkout on 2026-10-05.
 The original six uncommitted files were retained in signed commit `755b863d7fdb4300ac32f876e4590987916803a7` before implementation.
-The branch is `implement-markdown-quality`.
+Implementation began on `implement-markdown-quality` as originally requested.
+On 2026-10-05 the owner requested direct continuation on `main` so public npm documentation links resolve through the default branch.
+Local and remote `main` were fast-forwarded to `efa20ae592c05490ef063112be566b1067f057b5`, retaining the complete signed linear history without a merge or rewrite.
+The owner performed the remote push after the installed direct-main guard blocked agent execution.
+Implementation now continues on `main`.
 The owner subsequently requested public npm distribution after approved native authentication reached an E402 private-entitlement rejection.
 The initial public candidate was `0.1.0-alpha.2`; core and both native manifests declare public access.
 All three alpha.2 packages were published under the pilot tag, and fresh anonymous archive hashes matched the exact frozen tuple at `d7ec17783a2c894f2e94c904e29a51339fa6ddac`.
@@ -15,6 +19,11 @@ The packer recomputes archive integrity after this bounded header correction.
 The three original native executable/source/notice identities remain unchanged; no new native compilation or runtime installation is needed.
 Regression cases cover Windows-generated mode `0644`, unchanged member content, a wrong executable digest, and a linked member rejected before archive mutation.
 The rejected alpha.2 Linux result remains historical evidence; corrected transported archives and both registry platforms require fresh proof before pilots.
+The same Windows-produced alpha.3 archives passed both Windows and Ubuntu 24.04 consumers in transported candidate run `37291588423`.
+All three public alpha.3 publish commands succeeded; anonymous downloads match the exact frozen archive SHA-256 and SHA-512 integrity values.
+Registry run `37292917165` initially encountered a Linux metadata 404 immediately after publication.
+After fresh anonymous readback observed all three versions, one bounded failed-job rerun passed both Windows and Ubuntu 24.04 root and isolated installations.
+The public registry qualification and readback do not establish pilot acceptance or stable promotion.
 The original unpublished private alpha.1 archives and all failed publication responses remain retained external evidence.
 Public installation requires no recipient credential or paid organization plan; fresh anonymous registry acquisition and both platform consumers replace private-recipient denial as the delivery proof.
 The original tracked AGPL-3.0-only license digest is `8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef`.

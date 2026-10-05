@@ -1,7 +1,7 @@
 name: Public registry qualification
 on:
   push:
-    branches: [implement-markdown-quality]
+    branches: [main]
     paths:
       - test/registry-alpha.3.json
   workflow_dispatch:

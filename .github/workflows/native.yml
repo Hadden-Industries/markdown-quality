@@ -2,7 +2,7 @@ name: Controlled native build
 on:
   workflow_dispatch:
   push:
-    branches: [implement-markdown-quality]
+    branches: [main]
     paths:
       - .github/workflows/native.yml
       - assets/native-build.json
