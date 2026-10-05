@@ -20,6 +20,14 @@ if (
 )
   throw new Error("Original AGPL-3.0-only license bytes changed.");
 resolveTool();
+const nativeEvidence = spawnSync("python", ["test/native-evidence.py"], {
+  cwd: root,
+  stdio: "inherit",
+  timeout: 30_000,
+  windowsHide: true,
+});
+if (nativeEvidence.error || nativeEvidence.status !== 0)
+  process.exit(nativeEvidence.status ?? 2);
 for (const folder of ["src", "scripts", "test"])
   for (const path of readdirSync(
     new URL("../" + folder + "/", import.meta.url),

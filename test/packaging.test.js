@@ -14,6 +14,7 @@ import { spawnSync } from "node:child_process";
 import { packRelease } from "../scripts/pack.js";
 import { npmCommand } from "../scripts/commands.js";
 import { checkLinks } from "../src/analysis.js";
+import { digest } from "../src/contracts.js";
 test("packed root and isolated consumers install without lifecycle scripts and execute offline", (t) => {
   const temp = mkdtempSync(join(tmpdir(), "markdown-quality-install-"));
   t.after(() => rmSync(temp, { recursive: true, force: true }));
@@ -69,6 +70,45 @@ test("packed root and isolated consumers install without lifecycle scripts and e
       readFileSync(join(install, "node_modules", native.package, "LICENSE")),
       originalLicense,
     );
+    const nativeSpec =
+      release.native.platforms[`${process.platform}-${process.arch}`];
+    if (release.native.schemaVersion === 2) {
+      for (const [name, hash] of Object.entries(nativeSpec.files)) {
+        const path =
+          name === nativeSpec.executable.split("/").at(-1)
+            ? nativeSpec.executable
+            : name;
+        assert.equal(
+          digest(
+            readFileSync(join(install, "node_modules", native.package, path)),
+          ),
+          hash,
+          name,
+        );
+      }
+      const inventory = JSON.parse(
+        readFileSync(
+          join(
+            install,
+            "node_modules",
+            native.package,
+            "component-inventory.json",
+          ),
+          "utf8",
+        ),
+      );
+      assert.equal(inventory.binarySha256, nativeSpec.sha256);
+      assert.ok(
+        inventory.packages.some(
+          (p) => p.name === "webpki-roots" && p.version === "0.25.4",
+        ),
+      );
+      assert.ok(
+        readFileSync(
+          join(install, "node_modules", native.package, "MPL-SOURCE.tar.xz"),
+        ).length > 0,
+      );
+    }
     for (const file of core.files.filter((f) => f.path.endsWith(".md"))) {
       const text = readFileSync(join(installedCore, file.path), "utf8");
       assert.deepEqual(

@@ -13,6 +13,7 @@ HISEW personal registration is active with focused, affected, and full profiles.
 The protected accepted requirement snapshot is `bce7dd7e-0e52-46b8-ba9e-aa09365fd8ae`.
 R2 execution is `741e28c7-393f-45ae-8284-4a0e2fd6acc1`.
 Refining the verification profiles rerouted the same accepted scope to execution `75684321-3987-4d14-bfcc-b8d132976e4b`.
+The current continued execution is `9a864ccd-82f7-4de9-a0d4-f648fcdc5127`.
 Supplemental evidence belongs to the configured external task-artifact directory for chat `01a10942-8e9b-7b62-ae73-e6977b59718d`.
 
 ## Software selection refresh
@@ -23,7 +24,8 @@ Snapper 0.11.9 supersedes the historical 0.11.7 selection.
 The selected source is upstream commit `407c2beb04607f6ccb421e6f6418dcc00e4c1e94`.
 Archive and executable identities are frozen in the shipped tool manifest.
 Windows native execution was observed locally.
-Linux archive identity is verified; Linux execution requires the hosted Ubuntu lane because WSL is absent.
+The upstream executable tuple passed both hosted platform suites and root/isolated packed consumers at commit `3493e3c28088a214bbafecce609f3ba73b4afc3b`, in run `37252375162`.
+This evidence applies to the upstream binaries and must be repeated for the controlled build tuple.
 Python zipfile/tarfile reads only named regular members after archive/member size and hash checks.
 No upstream acquisition script is executed.
 
@@ -31,6 +33,11 @@ The implementation and qualification tests are authored here.
 The narrow list-boundary recheck adapts OwlAPI's approach and retains its original MIT notice and revision attribution.
 MIT JS components retain their upstream notices through npm installation.
 Native compiled component coverage remains a registry-release gate.
+The owner subsequently authorized controlled hosted builds of the same frozen source to establish attributable component evidence.
+The [native build procedure](native-builds.md) preserves the local tool environment and records the source, lock, toolchain, embedded graph, original nested notices, and Rust runtime material.
+The first hosted attempt rejected a stale extractor source lock.
+The diagnosed correction uses the checksum-pinned published extractor crate and its immutable packaged lock, with `--locked` retained.
+New executable hashes, independent rights reconciliation, and both platform qualifications remain mandatory.
 
 ## NSH-01 exception
 

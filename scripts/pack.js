@@ -32,6 +32,12 @@ export function packRelease(output) {
       digest(readFileSync(join(directory, spec.executable))) !== spec.sha256
     )
       throw new Error("Native package identity mismatch: " + key);
+    for (const [name, hash] of Object.entries(spec.files ?? {})) {
+      const path =
+        name === spec.executable.split("/").at(-1) ? spec.executable : name;
+      if (digest(readFileSync(join(directory, path))) !== hash)
+        throw new Error("Native rights evidence identity mismatch: " + key);
+    }
   }
   output = resolve(output);
   mkdirSync(output, { recursive: true });
@@ -143,6 +149,9 @@ export function packRelease(output) {
           "source npm lock graph; compiled native components not covered",
       },
       native: manifest,
+      nativeRights:
+        manifest.build?.rights ??
+        "pending complete compiled-component inventory",
       archives,
       registry: "not-published",
     };

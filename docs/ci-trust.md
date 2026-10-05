@@ -29,8 +29,9 @@ Do not execute candidate source in an elevated `pull_request_target` job.
 Do not expose private archives through public artifacts or caches.
 Missing entitlement or credential isolation blocks pilot cutover.
 
-The current npm identity check returned E401.
-No private package or authorized team access has been established.
-No pilot configuration is mutated while this prerequisite remains unresolved.
+The owner restored npm login on 2026-10-05, and the native identity and organization queries now succeed.
+The account is an organization owner; this does not prove paid private-package entitlement or recipient installation access.
+No private Markdown quality package has been published yet.
+Pilot cutover still requires restricted publication, recipient readback, credential isolation, and native rights qualification.
 
 References: [GitHub event trust](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target), [private npm CI](https://docs.npmjs.com/using-private-packages-in-a-ci-cd-workflow/), and [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/).

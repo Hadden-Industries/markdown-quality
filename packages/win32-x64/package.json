@@ -13,7 +13,14 @@
     "bin",
     "LICENSE",
     "LICENSE.snapper",
-    "component.json"
+    "component.json",
+    "COPYRIGHT-library.html",
+    "THIRD-PARTY-NOTICES.txt",
+    "embedded-dependencies.json",
+    "component-inventory.json",
+    "cargo-notices.json",
+    "build-evidence.json",
+    "MPL-SOURCE.tar.xz"
   ],
   "exports": {
     "./package.json": "./package.json"

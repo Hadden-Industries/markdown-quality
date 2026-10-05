@@ -10,7 +10,8 @@ Its checkout contains untracked review documents.
 The observed WebVOWL base is `5f5a5e955f3ac5ac6f3bceaf3201a79708759938`.
 Its checkout contains unrelated design-plan and skills-lock changes.
 These consumer checkouts have not been changed by this task.
-Registry delivery is blocked by the owner's explicit instruction on 2026-10-05.
+The owner lifted the registry hold with “Proceed” on 2026-10-05 and restored npm login.
+Native rights, restricted entitlement/readback, and hosted controlled-binary qualification remain delivery gates.
 The dependent installed-release cutovers remain pending.
 
 For each cutover, retain the base revision, exact configuration and lock, old scripts and workflows, selected paths and preimage hashes, unrelated-file sentinels, candidate tuple, and diagnostic/output differences.

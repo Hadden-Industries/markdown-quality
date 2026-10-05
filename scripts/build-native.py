@@ -174,18 +174,48 @@ def main():
     config_path.write_text('accepted = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", '
                           '"Unicode-3.0", "Unicode-DFS-2016", "Zlib", "BSL-1.0", "CC0-1.0", "Unlicense"]\n'
                           'ignore-dev-dependencies = true\nignore-build-dependencies = false\n'
-                          'ignore-transitive-dependencies = false\ntargets = ["' + target + '"]\n', encoding='utf-8')
+                          'ignore-transitive-dependencies = false\ntargets = ["' + target + '"]\n'
+                          '[webpki-roots]\naccepted = ["MPL-2.0"]\n', encoding='utf-8')
     run([str(tools / ('cargo-about' + suffix)), 'generate', '--locked', '--fail', '--format', 'json',
          '--config', str(config_path), '--manifest-path', str(source / 'Cargo.toml'),
          '--output-file', str(output / 'cargo-notices.json')], source)
     cargo_notices = json.loads(read(output / 'cargo-notices.json'))
     packages = []
+    mpl_source = output / 'MPL-SOURCE.tar.xz'
+    mpl_packages = [p for p in metadata['packages'] if 'MPL-2.0' in (p.get('license') or '')]
+    if [(p['name'], p['version'], p['license']) for p in mpl_packages] != [('webpki-roots', '0.25.4', 'MPL-2.0')]:
+        raise ValueError('Changed MPL component set requires new rights qualification')
+    with tarfile.open(mpl_source, mode='w:xz') as archive:
+        total = 0
+        for package in mpl_packages:
+            base = pathlib.Path(package['manifest_path']).parent
+            for path in sorted(base.rglob('*')):
+                if path.is_symlink():
+                    raise ValueError('MPL source contains a symlink')
+                if path.is_file():
+                    data = read(path, 8_000_000)
+                    total += len(data)
+                    if total > MAX_TEXT:
+                        raise ValueError('MPL source resource bound')
+                    info = tarfile.TarInfo(package['name'] + '-' + package['version'] + '/' + path.relative_to(base).as_posix())
+                    info.size, info.mode, info.mtime = len(data), 0o644, 0
+                    archive.addfile(info, io.BytesIO(data))
     notice_sections = ['Third-party notices for controlled Snapper 0.11.9 build.\n'
-                       'Conservative coverage includes build-only dependencies; this does not relicense components.']
+                       'Conservative coverage includes build-only dependencies; this does not relicense components.\n'
+                       'Unmodified webpki-roots 0.25.4 source is provided in MPL-SOURCE.tar.xz under MPL-2.0.\n'
+                       'The wrapper remains AGPL-3.0-only; original native component licenses remain applicable.']
     for package in sorted(metadata['packages'], key=lambda p: (p['name'], p['version'])):
         base = pathlib.Path(package['manifest_path']).parent
         notices = notice_files(base)
         entry = {key: package.get(key) for key in ('name', 'version', 'license', 'source', 'repository')}
+        if package.get('source', '').startswith('registry+') if package.get('source') else False:
+            checksum = json.loads(read(base / '.cargo-checksum.json'))
+            entry['sourceArchiveSha256'] = checksum['package']
+            entry['sourceFileSha256'] = checksum['files']
+            entry['sourceArchiveUrl'] = ('https://static.crates.io/crates/' + package['name'] + '/'
+                                         + package['name'] + '-' + package['version'] + '.crate')
+        else:
+            entry['sourceCommit'] = CONFIG['sourceCommit']
         entry['notices'] = notices
         packages.append(entry)
         for notice in notices:
@@ -200,6 +230,18 @@ def main():
     if not runtime.is_file():
         raise ValueError('Official Rust standard-library notices missing')
     shutil.copyfile(runtime, output / 'COPYRIGHT-library.html')
+    rust_commit = re.search(r'^commit-hash: ([0-9a-f]{40})$', toolchain, re.MULTILINE)
+    if rust_commit is None:
+        raise ValueError('Rust source revision unavailable')
+    runtime_terms = []
+    for name in ('LICENSE-MIT', 'LICENSE-APACHE', 'LICENSES/Unicode-3.0.txt'):
+        url = 'https://raw.githubusercontent.com/rust-lang/rust/' + rust_commit.group(1) + '/' + name
+        with urllib.request.urlopen(url, timeout=60) as response:
+            data = response.read(1_000_001)
+        if len(data) > 1_000_000:
+            raise ValueError('Rust license text resource bound')
+        runtime_terms.append({'path': name, 'url': url, 'sha256': digest(data)})
+        notice_sections.append('\n===== Rust runtime / ' + name + ' =====\n' + data.decode('utf-8'))
     shutil.copyfile(source / 'LICENSE', output / 'LICENSE.snapper')
     shutil.copyfile(executable, output / ('snapper-fmt' + suffix))
     notices_text = '\n'.join(notice_sections)
@@ -212,12 +254,16 @@ def main():
     save('component-inventory.json', {'schemaVersion': 1, 'binarySha256': digest(binary),
          'coverage': 'Conservative target-filtered Cargo graph, original nested notices, embedded auditable graph, official Rust runtime notices. Native and system linkage requires independent reconciliation.',
          'packages': packages})
+    for filename, field in [('Cargo.lock', 'lockSha256'), ('Cargo.toml', 'manifestSha256')]:
+        if digest(read(source / filename)) != CONFIG[field]:
+            raise ValueError('Native build changed frozen source inputs')
     # Absolute runner paths are not part of the recipient inventory.
     save('build-evidence.json', {'schemaVersion': 1, 'status': 'pending independent rights review and platform qualification',
          'source': CONFIG['sourceCommit'], 'lockSha256': CONFIG['lockSha256'],
          'manifestSha256': CONFIG['manifestSha256'], 'rust': toolchain,
          'target': target, 'profile': CONFIG['profile'], 'features': CONFIG['features'],
          'tools': provenance, 'extractorSource': extractor_provenance,
+         'rustRuntimeLicenseInputs': runtime_terms,
          'githubRun': os.environ['GITHUB_RUN_ID'], 'workflowCommit': os.environ['GITHUB_SHA'],
          'binarySha256': digest(binary),
          'files': {p.name: digest(read(p, 100_000_000)) for p in sorted(output.iterdir())}})

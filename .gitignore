@@ -3,5 +3,12 @@ packages/*/bin/
 packages/*/LICENSE
 packages/*/LICENSE.snapper
 packages/*/component.json
+packages/*/COPYRIGHT-library.html
+packages/*/THIRD-PARTY-NOTICES.txt
+packages/*/embedded-dependencies.json
+packages/*/component-inventory.json
+packages/*/cargo-notices.json
+packages/*/build-evidence.json
+packages/*/MPL-SOURCE.tar.xz
 *.tgz
 dist/
