@@ -32,6 +32,10 @@ export async function formatDocument(text, context, tool) {
   };
   const layout = await prettier.format(text, options);
   const result = await prettier.format(runNative(tool, layout), options);
+  // Byte identity proves preservation and an observed fixed point of the entire
+  // deterministic formatter pipeline. The independent prose check still runs.
+  if (result === text)
+    return { output: result, diagnostics: checkProse(tool, result) };
   if (
     JSON.stringify(semantic(parse(text))) !==
     JSON.stringify(semantic(parse(result)))
