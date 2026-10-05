@@ -1,0 +1,318 @@
+{
+  "schemaVersion": 1,
+  "source": "8978abb36a122eb7567cb8df56a1bcbb8f521935",
+  "version": "0.1.0-alpha.3",
+  "archives": [
+    {
+      "name": "win32-x64",
+      "package": "@hadden-industries/markdown-quality-win32-x64",
+      "version": "0.1.0-alpha.3",
+      "filename": "hadden-industries-markdown-quality-win32-x64-0.1.0-alpha.3.tgz",
+      "sha256": "a35171f415d8468749d20b8387ed6bab5e43a6ece11d6627ce0c3d038acf0f29",
+      "integrity": "sha512-OisZOnFexsQgKpTQrUGI+TSDCG6Ux58ijGMifMcgIsD9Rci7jB4ApTE3wqX/noNV9ORjYameRK7lNVCHjJOm2Q==",
+      "executableMode": null,
+      "files": [
+        {
+          "path": "COPYRIGHT-library.html",
+          "size": 1512520,
+          "sha256": "68129500b616d5838629e68f55ff3aed5e096dacf60ce9eb41bbe599a563afa6"
+        },
+        {
+          "path": "LICENSE",
+          "size": 34523,
+          "sha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
+        },
+        {
+          "path": "LICENSE.snapper",
+          "size": 1070,
+          "sha256": "fa4d98afdb9f06e6b57032bdb35010a97eb25044b54b7c7d5e01bd7c92c6507c"
+        },
+        {
+          "path": "MPL-SOURCE.tar.xz",
+          "size": 221796,
+          "sha256": "252156d485d814a0b00d4ae9a6ea1a8dc704c8dcd5f0e4a8398f971ac616f371"
+        },
+        {
+          "path": "SUPPLEMENTAL-NOTICES.txt",
+          "size": 281406,
+          "sha256": "f49f1558c32755f0599f39b5bace5587c003573a84810871ead841f478d0349d"
+        },
+        {
+          "path": "THIRD-PARTY-NOTICES.txt",
+          "size": 2926477,
+          "sha256": "0ba4d38b631ff9d29ed17edf88a8486be875efdcec2a7621eb829da22c36be43"
+        },
+        {
+          "path": "bin/snapper-fmt.exe",
+          "size": 30734336,
+          "sha256": "e10c4d3dcc0be7243a0daec06f2e14078cf108a4b3c63c5f4dde6c3dab6dd0e8"
+        },
+        {
+          "path": "build-evidence.json",
+          "size": 3572,
+          "sha256": "9f6dec95aa27aff7b05095cf4a16bcf2c2ccb9922c43c26aeaa09b9a46274d54"
+        },
+        {
+          "path": "cargo-notices.json",
+          "size": 2934065,
+          "sha256": "f5459fbdcf02354f87e1caf051238493f097be172b5af3e4f5e74b359146c29e"
+        },
+        {
+          "path": "component-inventory.json",
+          "size": 4307199,
+          "sha256": "20946bc5e18d05989a4588d1c74b3610a1d8b37befc02b282a90f6aba74120bb"
+        },
+        {
+          "path": "component.json",
+          "size": 368360,
+          "sha256": "eab9da67fae0ec63d81bc453e4fb3fda1c163c09774de1696c6d0b1e27e2d25b"
+        },
+        {
+          "path": "embedded-dependencies.json",
+          "size": 42857,
+          "sha256": "7ee860225752042d92ef965797a837223c43944c03ade144b7b9b5aa415047f1"
+        },
+        {
+          "path": "package.json",
+          "size": 811,
+          "sha256": "6a9ea7196d0f762947a827ac7845cdf2cdcf560fa10d2818e14c2046ce97b843"
+        },
+        {
+          "path": "rights-evidence.json",
+          "size": 355274,
+          "sha256": "79810ecc3ee8f1d7f82b15fe5f1715c395a33ee4e884d1edd7e8eb6dc57bac69"
+        }
+      ]
+    },
+    {
+      "name": "linux-x64",
+      "package": "@hadden-industries/markdown-quality-linux-x64",
+      "version": "0.1.0-alpha.3",
+      "filename": "hadden-industries-markdown-quality-linux-x64-0.1.0-alpha.3.tgz",
+      "sha256": "d2349b5216f56dc7c45238c6dc47dade7c49c9dc9a2f7036bbb453f9038082ba",
+      "integrity": "sha512-MBlkXLptyUKtuf/godOOwmhXuRx5WHrfbBmqLJRul+FQqtdrdojfeTWXcK+VNOoaeevl2fUe1KF1NHOQzT/AHQ==",
+      "executableMode": {
+        "sourceSha256": "87f32176946bb2780fda0fb1707404e07513a10ad044c0b31fa5889b863273b5",
+        "sha256": "d2349b5216f56dc7c45238c6dc47dade7c49c9dc9a2f7036bbb453f9038082ba",
+        "member": "package/bin/snapper-fmt",
+        "binarySha256": "b8d1975d40fc28314ce0e1191b484960685c66f2dc2bca2f5352e5d7e5f4a429",
+        "beforeMode": "0o644",
+        "mode": "0o755",
+        "allMemberBytesPreserved": true
+      },
+      "files": [
+        {
+          "path": "COPYRIGHT-library.html",
+          "size": 1512520,
+          "sha256": "68129500b616d5838629e68f55ff3aed5e096dacf60ce9eb41bbe599a563afa6"
+        },
+        {
+          "path": "LICENSE",
+          "size": 34523,
+          "sha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
+        },
+        {
+          "path": "LICENSE.snapper",
+          "size": 1070,
+          "sha256": "fa4d98afdb9f06e6b57032bdb35010a97eb25044b54b7c7d5e01bd7c92c6507c"
+        },
+        {
+          "path": "MPL-SOURCE.tar.xz",
+          "size": 221796,
+          "sha256": "252156d485d814a0b00d4ae9a6ea1a8dc704c8dcd5f0e4a8398f971ac616f371"
+        },
+        {
+          "path": "SUPPLEMENTAL-NOTICES.txt",
+          "size": 281406,
+          "sha256": "f49f1558c32755f0599f39b5bace5587c003573a84810871ead841f478d0349d"
+        },
+        {
+          "path": "THIRD-PARTY-NOTICES.txt",
+          "size": 2860552,
+          "sha256": "8b44d1ee8374e79ee8abb09c529940aa6e1d26e528e0bc50fd03e2f9b8877579"
+        },
+        {
+          "path": "bin/snapper-fmt",
+          "size": 28385848,
+          "sha256": "b8d1975d40fc28314ce0e1191b484960685c66f2dc2bca2f5352e5d7e5f4a429"
+        },
+        {
+          "path": "build-evidence.json",
+          "size": 3510,
+          "sha256": "3847989fdde68d10a1396da2455c8cda8f13f2739fdff29598e3cf46d6712923"
+        },
+        {
+          "path": "cargo-notices.json",
+          "size": 2816253,
+          "sha256": "22473eb073afc5d9f451888f96ab31dffc9bf3a55c50650f6fad058ba726df85"
+        },
+        {
+          "path": "component-inventory.json",
+          "size": 4269841,
+          "sha256": "f816c4092b17bc493ae0ce3a9146e497f8047812a6f3dd54caaa0f1f6859b956"
+        },
+        {
+          "path": "component.json",
+          "size": 368345,
+          "sha256": "67bee1c91953b22eb2409290cb3fad153da82c48f145f899f2ddda7aa0a4caf3"
+        },
+        {
+          "path": "embedded-dependencies.json",
+          "size": 40172,
+          "sha256": "d56f821a1e0363edf2e32fd9633a723d2c1ae511309ea1d2d36863915582667e"
+        },
+        {
+          "path": "package.json",
+          "size": 840,
+          "sha256": "bd0cd21166fbd64d25887b965d0ed86dab51c73e76766d5364e4901e33b75f01"
+        },
+        {
+          "path": "rights-evidence.json",
+          "size": 355274,
+          "sha256": "79810ecc3ee8f1d7f82b15fe5f1715c395a33ee4e884d1edd7e8eb6dc57bac69"
+        }
+      ]
+    },
+    {
+      "name": "core",
+      "package": "@hadden-industries/markdown-quality",
+      "version": "0.1.0-alpha.3",
+      "filename": "hadden-industries-markdown-quality-0.1.0-alpha.3.tgz",
+      "sha256": "6430d3337dc834659ae71ed5cd1cbf5c66319d1c6385a49608dc0bdf2b52cf64",
+      "integrity": "sha512-iB++cRnbYj2PX4iURkGUbijAL0kCyyDlnzKO60qICXIyS89EWjvi4PAeUYHF758NKM4UGuWpU7iTN6u88gvoTw==",
+      "executableMode": null,
+      "files": [
+        {
+          "path": "LICENSE",
+          "size": 34523,
+          "sha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
+        },
+        {
+          "path": "LICENSES/MIT-universal-ontology.txt",
+          "size": 1088,
+          "sha256": "8e5a2aca6bb8db5b03156c3ab511e9207efdd3ade6d3a0175d9a7fac4161eb46"
+        },
+        {
+          "path": "README.md",
+          "size": 2436,
+          "sha256": "671e517620f58e1042b3dc5af8ea5aaf2bfaafb9d91b52131b85e4fe66689f25"
+        },
+        {
+          "path": "THIRD-PARTY-NOTICES.md",
+          "size": 2986,
+          "sha256": "c429313692af04c872d9c2c1f083bc14497571ccaae4a292890f3e9cede54a89"
+        },
+        {
+          "path": "assets/native-build.json",
+          "size": 2688,
+          "sha256": "04e03e2d5324f54ab19def9e978ee7771018c430aad352831349016bd689bacf"
+        },
+        {
+          "path": "assets/native-rights.json",
+          "size": 355274,
+          "sha256": "79810ecc3ee8f1d7f82b15fe5f1715c395a33ee4e884d1edd7e8eb6dc57bac69"
+        },
+        {
+          "path": "assets/snapper.toml",
+          "size": 57,
+          "sha256": "52efa75f872e7b34d792d6f649e731b1a2110fa744b30d0dd7ca768afd8226fe"
+        },
+        {
+          "path": "assets/tool-manifest.json",
+          "size": 366756,
+          "sha256": "6f067f9678f423b95a038aa10f4d2464c0c0466356bcf5d77832e94968c95d71"
+        },
+        {
+          "path": "docs/ci-trust.md",
+          "size": 4361,
+          "sha256": "4c62ccc011f59aad961c18dee31ed1f17dc5bc76b701a1a4d8346709c4611e70"
+        },
+        {
+          "path": "docs/consumer-guide.md",
+          "size": 4768,
+          "sha256": "2c51b6ccf0fc565bf9a1afef4a00f63cf8c2472c179305d574864c9aeb3f4e56"
+        },
+        {
+          "path": "docs/support-and-release.md",
+          "size": 5232,
+          "sha256": "49cc73be7d5d3cd682f84b0c5d8d7a6309080c8570fca80120abb44d6f28296b"
+        },
+        {
+          "path": "package.json",
+          "size": 1323,
+          "sha256": "290ecefce8a7c2b06bb16d50a625172baa619137843a857384d70fa2bfe2d7b4"
+        },
+        {
+          "path": "schemas/configuration.schema.json",
+          "size": 1338,
+          "sha256": "57685ba05407fecbeb52265b2f410dee234c954650fded6d4b6fc7501928685e"
+        },
+        {
+          "path": "schemas/result.schema.json",
+          "size": 5658,
+          "sha256": "e9e0a80ceb9bcb6cc0eb835f13bc6f8f4c4d47458bea318e9b02b7132521c28c"
+        },
+        {
+          "path": "src/analysis.js",
+          "size": 3984,
+          "sha256": "58071c3cba92d1a8ada310e60be48a87dd3ed7d3992885164e9d2c5b666e889f"
+        },
+        {
+          "path": "src/cli.js",
+          "size": 3089,
+          "sha256": "2458b370b63038b138d374af17443d1ffb608aab73303da3886c102b6091be65"
+        },
+        {
+          "path": "src/configuration.js",
+          "size": 4167,
+          "sha256": "243f54e2488d929bb79a2442410c594e15867476c2cd538b5e1f08c7188379ab"
+        },
+        {
+          "path": "src/contracts.js",
+          "size": 1606,
+          "sha256": "833f07c2a9bd60ccd6ef72444343d506359167fdd4eea7a985c5fbdd0e91ba86"
+        },
+        {
+          "path": "src/document-analysis.js",
+          "size": 2080,
+          "sha256": "263284711851ce3a3b760f86af3636bd7e9a15e37c234ec543701906592a69ba"
+        },
+        {
+          "path": "src/document-worker.js",
+          "size": 1139,
+          "sha256": "1ae6282aebb0baaf0613b4d7c99a497410ad3b73839fe5cdd2ff1e479b3ee858"
+        },
+        {
+          "path": "src/documents.js",
+          "size": 4292,
+          "sha256": "db8894a58f74f75c49b49bb0130912cdf141842262cb86d849bcf947f05c8050"
+        },
+        {
+          "path": "src/formatting.js",
+          "size": 1578,
+          "sha256": "600f1d05461e0bc515dd2f8e221f8941563f628fa410145d5154bfacae4afab6"
+        },
+        {
+          "path": "src/native-tool.js",
+          "size": 4505,
+          "sha256": "48b2161d64c5f9767cc83383bb0aa7e728729f450c046a5600da8c75512d8bf1"
+        },
+        {
+          "path": "src/prose-diagnostics.js",
+          "size": 2265,
+          "sha256": "cdccce12be489c64e23ddd71e5c79b3e5d7ec9c2d4d3be85bfa5f238e42c4ddc"
+        },
+        {
+          "path": "src/quality.js",
+          "size": 5337,
+          "sha256": "429490682d39fd05b693d4b3d06927ed1397c9af382b9403034e78bafaf2b948"
+        },
+        {
+          "path": "src/replacement.js",
+          "size": 1640,
+          "sha256": "9e4eaa20339bc0174886171ca4d73fdcd4d90b5841cd56f89ef41fafc842f8d3"
+        }
+      ]
+    }
+  ]
+}
