@@ -24,7 +24,7 @@ const expected = JSON.parse(
   readFileSync(
     values.manifest
       ? resolve(values.manifest)
-      : new URL("../test/registry-alpha.2.json", import.meta.url),
+      : new URL("../test/registry-alpha.4.json", import.meta.url),
     "utf8",
   ),
 );
