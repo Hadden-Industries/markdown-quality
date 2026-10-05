@@ -4,7 +4,7 @@ Install an exact coordinated public release after registry availability is verif
 Acquisition needs no npm account or token; disable lifecycle scripts.
 
 ```sh
-npm install --save-dev --save-exact --ignore-scripts @hadden-industries/markdown-quality@0.1.0-alpha.2
+npm install --save-dev --save-exact --ignore-scripts @hadden-industries/markdown-quality@0.1.0-alpha.3
 npm ci --ignore-scripts
 ```
 

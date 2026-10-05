@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { npmCommand } from "./commands.js";
 import { digest, metadata } from "../src/contracts.js";
 import { manifest } from "../src/native-tool.js";
@@ -97,13 +98,47 @@ export function packRelease(output) {
         throw new Error("Unexpected npm pack response");
       const [pack] = records;
       const path = join(output, pack.filename);
+      let executableMode = null;
+      if (name === "linux-x64") {
+        const spec = manifest.platforms[name];
+        const normalized = spawnSync(
+          "python",
+          [
+            join(root, "scripts/package-archive.py"),
+            path,
+            "package/" + spec.executable,
+            spec.sha256,
+          ],
+          {
+            encoding: "utf8",
+            timeout: 30000,
+            maxBuffer: 1048576,
+            windowsHide: true,
+          },
+        );
+        if (normalized.error || normalized.status !== 0)
+          throw new Error(
+            "Native package executable mode qualification failed: " +
+              (normalized.stderr ?? "").slice(0, 2000),
+          );
+        executableMode = JSON.parse(normalized.stdout);
+        if (
+          executableMode.sha256 !== digest(readFileSync(path)) ||
+          executableMode.mode !== "0o755" ||
+          executableMode.allMemberBytesPreserved !== true
+        )
+          throw new Error("Native package mode evidence mismatch");
+      }
       archives.push({
         name,
         package: pack.name,
         version: pack.version,
         filename: pack.filename,
         sha256: digest(readFileSync(path)),
-        integrity: pack.integrity,
+        integrity:
+          "sha512-" +
+          createHash("sha512").update(readFileSync(path)).digest("base64"),
+        executableMode,
         files: pack.files.map((f) => ({
           path: f.path,
           size: f.size,

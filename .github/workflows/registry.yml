@@ -3,9 +3,7 @@ on:
   push:
     branches: [implement-markdown-quality]
     paths:
-      - .github/workflows/registry.yml
-      - scripts/qualify-public-registry.mjs
-      - test/registry-alpha.2.json
+      - test/registry-alpha.3.json
   workflow_dispatch:
 permissions:
   contents: read
@@ -25,7 +23,7 @@ jobs:
         with:
           node-version: "24.21.0"
       - name: Qualify anonymous registry tuple and both consumer layouts
-        run: node scripts/qualify-public-registry.mjs registry-qualification.json
+        run: node scripts/qualify-public-registry.mjs --manifest test/registry-alpha.3.json registry-qualification.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: registry-${{ matrix.os }}

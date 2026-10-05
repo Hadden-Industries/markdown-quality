@@ -134,7 +134,7 @@ test("packed root and isolated consumers install without lifecycle scripts and e
     const lock = JSON.parse(lockBefore);
     assert.equal(
       lock.packages["node_modules/@hadden-industries/markdown-quality"].version,
-      "0.1.0-alpha.2",
+      "0.1.0-alpha.3",
     );
     writeFileSync(
       join(consumer, ".markdown-quality.json"),

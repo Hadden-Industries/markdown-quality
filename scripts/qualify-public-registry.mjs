@@ -7,18 +7,32 @@ import {
   readFileSync,
   writeFileSync,
   rmSync,
+  statSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { npmCommand } from "./commands.js";
+import { parseArgs } from "node:util";
 
+const { values, positionals } = parseArgs({
+  options: { manifest: { type: "string" }, archives: { type: "string" } },
+  allowPositionals: true,
+});
+assert.ok(positionals.length <= 1);
 const expected = JSON.parse(
   readFileSync(
-    new URL("../test/registry-alpha.2.json", import.meta.url),
+    values.manifest
+      ? resolve(values.manifest)
+      : new URL("../test/registry-alpha.2.json", import.meta.url),
     "utf8",
   ),
 );
+const source =
+  typeof expected.source === "string" ? expected.source : expected.source.head;
+assert.match(source, /^[a-f0-9]{40}$/u);
+assert.match(expected.version, /^\d+\.\d+\.\d+-alpha\.\d+$/u);
+const archives = values.archives ? resolve(values.archives) : null;
 const digest = (data) => createHash("sha256").update(data).digest("hex");
 const temporary = mkdtempSync(join(tmpdir(), "markdown-quality-registry-"));
 const records = [];
@@ -42,18 +56,22 @@ async function acquire(url, maximum) {
 }
 try {
   for (const archive of expected.archives) {
-    const metadata = JSON.parse(
-      await acquire(
-        `https://registry.npmjs.org/${encodeURIComponent(archive.package)}/${expected.version}`,
-        1048576,
-      ),
-    );
-    assert.equal(metadata.name, archive.package);
-    assert.equal(metadata.version, expected.version);
-    assert.equal(metadata.publishConfig.access, "public");
-    assert.equal(metadata.license, "AGPL-3.0-only");
-    assert.equal(metadata.dist.integrity, archive.integrity);
-    const bytes = await acquire(metadata.dist.tarball, 20000000);
+    let bytes;
+    if (archives) bytes = readFileSync(join(archives, archive.filename));
+    else {
+      const metadata = JSON.parse(
+        await acquire(
+          `https://registry.npmjs.org/${encodeURIComponent(archive.package)}/${expected.version}`,
+          1048576,
+        ),
+      );
+      assert.equal(metadata.name, archive.package);
+      assert.equal(metadata.version, expected.version);
+      assert.equal(metadata.publishConfig.access, "public");
+      assert.equal(metadata.license, "AGPL-3.0-only");
+      assert.equal(metadata.dist.integrity, archive.integrity);
+      bytes = await acquire(metadata.dist.tarball, 20000000);
+    }
     assert.equal(digest(bytes), archive.sha256);
     assert.equal(
       `sha512-${createHash("sha512").update(bytes).digest("base64")}`,
@@ -62,7 +80,8 @@ try {
     records.push({
       package: archive.package,
       version: expected.version,
-      publicAnonymousAcquisition: true,
+      publicAnonymousAcquisition: !archives,
+      frozenTransportedArchive: Boolean(archives),
       sha256: archive.sha256,
       integrity: archive.integrity,
       bytes: bytes.length,
@@ -106,8 +125,26 @@ try {
         version: "1.0.0",
         private: true,
         devDependencies: {
-          "@hadden-industries/markdown-quality": expected.version,
+          "@hadden-industries/markdown-quality": archives
+            ? "file:" +
+              join(
+                archives,
+                expected.archives.find((a) => a.name === "core").filename,
+              )
+            : expected.version,
         },
+        ...(archives
+          ? {
+              optionalDependencies: Object.fromEntries(
+                expected.archives
+                  .filter((a) => a.name !== "core")
+                  .map((a) => [
+                    a.package,
+                    "file:" + join(archives, a.filename),
+                  ]),
+              ),
+            }
+          : {}),
       }),
     );
     npmCommand(["install", "--ignore-scripts", "--no-audit", "--no-fund"], {
@@ -122,6 +159,17 @@ try {
     const verifyFiles = () => {
       for (const archive of active) {
         const directory = join(install, "node_modules", archive.package);
+        const metadata = JSON.parse(
+          readFileSync(join(directory, "package.json"), "utf8"),
+        );
+        assert.equal(metadata.publishConfig.access, "public");
+        assert.equal(metadata.license, "AGPL-3.0-only");
+        assert.equal(metadata.version, expected.version);
+        if (archive.name === "linux-x64")
+          assert.ok(
+            statSync(join(directory, "bin/snapper-fmt")).mode & 0o111,
+            "Installed native executable lacks execute permissions",
+          );
         assert.equal(
           lock.packages[`node_modules/${archive.package}`].version,
           expected.version,
@@ -202,7 +250,8 @@ try {
       allInstalledFileHashesVerified: true,
       lockSha256: digest(lockBytes),
       lifecycleScripts: "disabled",
-      anonymousFreshCacheInstall: true,
+      anonymousFreshCacheInstall: !archives,
+      frozenTransportedArchiveInstall: Boolean(archives),
       offlineFrozenLockReinstall: true,
       credentialFreeOfflineRuntime: true,
       unchangedDocumentAndConvergentFormatting: true,
@@ -210,7 +259,10 @@ try {
   }
   const report = {
     schemaVersion: 1,
-    candidate: expected.source,
+    candidate: source,
+    qualification: archives
+      ? "transported candidate archives"
+      : "public registry",
     version: expected.version,
     platform,
     passed: true,
@@ -218,9 +270,9 @@ try {
     provenanceAttestation: "not-issued by local bootstrap",
     records,
   };
-  if (process.argv.length > 2)
+  if (positionals.length)
     writeFileSync(
-      resolve(process.argv[2]),
+      resolve(positionals[0]),
       JSON.stringify(report, null, 2) + "\n",
       { flag: "wx" },
     );

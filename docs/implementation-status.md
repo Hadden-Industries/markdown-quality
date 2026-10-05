@@ -4,7 +4,17 @@ The user authorized draft 4 implementation, commits, pushes, and required config
 The original six uncommitted files were retained in signed commit `755b863d7fdb4300ac32f876e4590987916803a7` before implementation.
 The branch is `implement-markdown-quality`.
 The owner subsequently requested public npm distribution after approved native authentication reached an E402 private-entitlement rejection.
-The public candidate is `0.1.0-alpha.2`; core and both native manifests declare public access.
+The initial public candidate was `0.1.0-alpha.2`; core and both native manifests declare public access.
+All three alpha.2 packages were published under the pilot tag, and fresh anonymous archive hashes matched the exact frozen tuple at `d7ec17783a2c894f2e94c904e29a51339fa6ddac`.
+Windows root and isolated registry consumers passed.
+Linux registry qualification in run `37290033405` failed: the Windows-produced archive stored the frozen Linux executable with mode `0644`.
+The same hosted package tests passed because each platform packed its own local files; that proof did not cover the transported Windows-produced release archive.
+The corrective immutable candidate is `0.1.0-alpha.3`.
+Python's native tarfile library now assigns executable mode `0755` in the generated Linux npm archive and independently verifies every member byte remains unchanged before replacement.
+The packer recomputes archive integrity after this bounded header correction.
+The three original native executable/source/notice identities remain unchanged; no new native compilation or runtime installation is needed.
+Regression cases cover Windows-generated mode `0644`, unchanged member content, a wrong executable digest, and a linked member rejected before archive mutation.
+The rejected alpha.2 Linux result remains historical evidence; corrected transported archives and both registry platforms require fresh proof before pilots.
 The original unpublished private alpha.1 archives and all failed publication responses remain retained external evidence.
 Public installation requires no recipient credential or paid organization plan; fresh anonymous registry acquisition and both platform consumers replace private-recipient denial as the delivery proof.
 The original tracked AGPL-3.0-only license digest is `8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef`.

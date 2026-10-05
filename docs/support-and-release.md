@@ -40,7 +40,10 @@ An upstream Cargo lock is a superset of features and development inputs and does
 The original upstream license and per-asset repack identity are retained.
 
 The owner selected public distribution after npm rejected the private publication with E402.
-All three packages declare public access and share version 0.1.0-alpha.2.
+All three corrective packages declare public access and share version 0.1.0-alpha.3.
+The public alpha.2 archives remain immutable historical delivery evidence and are unqualified for Linux execution.
+The packer normalizes the Linux npm member's executable mode with Python tarfile, verifies all member bytes are unchanged, and recomputes the final archive integrity.
+Qualify the exact transported release archives on both platforms, rather than each platform's independently generated package.
 The unpublished private alpha.1 candidate and all rejected attempts remain historical evidence.
 Direct first publication uses explicit public access; a staged placeholder is unnecessary.
 OIDC publication is preferred after actual package/workflow eligibility is configured.

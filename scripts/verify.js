@@ -28,6 +28,14 @@ const nativeEvidence = spawnSync("python", ["test/native-evidence.py"], {
 });
 if (nativeEvidence.error || nativeEvidence.status !== 0)
   process.exit(nativeEvidence.status ?? 2);
+const packageEvidence = spawnSync("python", ["test/package-archive.py"], {
+  cwd: root,
+  stdio: "inherit",
+  timeout: 30000,
+  windowsHide: true,
+});
+if (packageEvidence.error || packageEvidence.status !== 0)
+  process.exit(packageEvidence.status ?? 2);
 for (const folder of ["src", "scripts", "test"])
   for (const path of readdirSync(
     new URL("../" + folder + "/", import.meta.url),
