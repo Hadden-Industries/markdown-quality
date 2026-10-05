@@ -1,0 +1,31 @@
+{
+  "name": "@hadden-industries/markdown-quality-linux-x64",
+  "version": "0.1.0-alpha.1",
+  "description": "Pinned Snapper asset for Markdown quality",
+  "license": "AGPL-3.0-only",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "libc": [
+    "glibc"
+  ],
+  "files": [
+    "bin",
+    "LICENSE",
+    "LICENSE.snapper",
+    "component.json"
+  ],
+  "exports": {
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Hadden-Industries/markdown-quality.git"
+  }
+}

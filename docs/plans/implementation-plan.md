@@ -1,6 +1,8 @@
 # Shared Markdown Quality Package: Implementation Plan
 
-Date: 2026-10-05, Europe/Bucharest. Revision: draft 4. Initial plan: 2026-10-03.
+Date: 2026-10-05, Europe/Bucharest.
+Revision: draft 4.
+Initial plan: 2026-10-03.
 Planning owner and proposed acceptance owner: Maksym Shostak.
 Task references: initial planning in Codex chat `01a1014e-c54e-7c63-8c24-6313be12493a`; review synthesis in chat `01a1090f-4eb0-7210-b541-c9b62f3984dc`.
 
@@ -8,7 +10,7 @@ Task references: initial planning in Codex chat `01a1014e-c54e-7c63-8c24-6313be1
 
 This is a reviewable draft requirement dossier, design, and implementation plan.
 The companion [software-selection record](software-selection.md) holds the comparative research and dated source evidence.
-Draft 4 incorporates the substantive recommendations in the [validation and revision review](../../reviews/markdown-quality/implementation-plan-validation-and-revision.md).
+Draft 4 incorporates the substantive recommendations in the [validation and revision review](../reviews/implementation-plan-validation-and-revision.md).
 It preserves existing IDs while revising release scope, CI delivery, assurance, compatibility, and maintenance contracts.
 The user's instruction selects agentic coding apps for implementation, so the review's labour estimates, cost envelope, staffing/RACI, role assignments, meeting cadence, and personnel-derived calendar are excluded.
 Implementation is sequenced by dependencies and demonstrated exit conditions; agent execution does not imply acceptance, rights clearance, or publication authority.
@@ -274,7 +276,8 @@ Local installation uses the operator's authorized npm identity through native np
 CI acquisition uses read-only granular package credentials, with explicit expiry/rotation recorded in the acquisition procedure and a separate publication path.
 Prefer npm Trusted Publishing/OIDC from a reviewed supported release workflow; qualify the actual repository, runner, package, environment, and allowed publication operation before relying on it.
 Record a supported bootstrap or alternative publication method where OIDC cannot yet be used; it requires its own authorization and must preserve restricted access.
-OIDC publication does not authenticate private dependency installation. See [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) and [private-package CI authentication](https://docs.npmjs.com/using-private-packages-in-a-ci-cd-workflow/).
+OIDC publication does not authenticate private dependency installation.
+See [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) and [private-package CI authentication](https://docs.npmjs.com/using-private-packages-in-a-ci-cd-workflow/).
 Registry secrets stay in ephemeral acquisition configuration, never in committed `.npmrc`, locks, package archives, caches/artifacts intended for sharing, or document diagnostics.
 Remove acquisition credential material from the checking process environment and filesystem before invoking any content-processing runtime.
 Qualify secret redaction and failed-install behavior, including registry errors and package-manager debug logs.
@@ -321,7 +324,8 @@ Retaining an older supported preset preserves its documented behavior rather tha
 | Dependency/native tool upgrade                                             | Derive the increment from observed contract/preset deltas, not the dependency's own version label.                                                      |
 
 This is the package's proposed compatibility policy using [Semantic Versioning](https://semver.org/); it is not evidence that a particular future change is compatible.
-Published version contents remain immutable. Document supported package/preset combinations and each end-of-support transition in the release runbook.
+Published version contents remain immutable.
+Document supported package/preset combinations and each end-of-support transition in the release runbook.
 Material revisions to DEC-003, 005, 011, 013, 014, 015, or 016 require a dated decision with evidence and affected ACs in the existing decision record; avoid a parallel administrative log.
 
 ## 6. Interface and architecture
@@ -586,7 +590,8 @@ Publish an optional compatible thin Action revision only if included in the auth
 Stable promotion requires both accepted pilots, the approved support/incident/recovery runbook, and no unresolved release-blocking risk; later fleet migration and conditional v1.1 do not block v1.0.
 
 Proof: frozen archive/SBOM/provenance/manifest hashes, native asset inventory, review/security/rights dispositions, release-readiness decision, registry readback, packed/registry consumer checks, pilot recovery evidence, and duplicate-consumer search for accepted cutovers.
-Dependencies: candidate assurance uses SLICE-006; authorized pilot availability follows that assurance; stable promotion uses SLICE-007/008. Fleet cleanup follows only individually accepted migrations.
+Dependencies: candidate assurance uses SLICE-006; authorized pilot availability follows that assurance; stable promotion uses SLICE-007/008.
+Fleet cleanup follows only individually accepted migrations.
 Release implication: package availability is not automatic fleet adoption; delete only named spent artifacts after retained evidence and active consumers are accounted for.
 
 ### Slice traceability
@@ -665,7 +670,8 @@ Validate any supplemental SPDX/CycloneDX representation with its supported tools
 The release builder uses a frozen install with lifecycle scripts disabled, then explicitly invokes only reviewed build/repack steps with their declared inputs.
 Packaging provenance must distinguish upstream assertions, locally observed extraction/repack facts, and independently verified proof; absence of upstream attestations is recorded, never fabricated.
 
-npm automatic provenance requires a public source repository and public package, so it cannot be promised for the selected private-package model. See [npm's provenance conditions](https://docs.npmjs.com/trusted-publishers/#automatic-provenance-generation).
+npm automatic provenance requires a public source repository and public package, so it cannot be promised for the selected private-package model.
+See [npm's provenance conditions](https://docs.npmjs.com/trusted-publishers/#automatic-provenance-generation).
 Retain the internal manifest in every case; when the selected GitHub entitlement supports [artifact attestations](https://docs.github.com/en/actions/concepts/security/artifact-attestations), verify subject digests and the expected repository/workflow identity and retain the verification result.
 If that facility is unavailable, GATE-08 requires an explicit disposition of the remaining provenance gap and any assessed native signing alternative; a manifest hash is not represented as a signature or SLSA level.
 
@@ -803,7 +809,8 @@ No missing prerequisite is marked complete by this plan.
 ### Risk disposition register
 
 The review's numerical likelihood/impact scores are uncalibrated planning estimates; retain the concrete risks and proof obligations without treating those scores as measured probabilities.
-All rows remain unqualified at this draft stage. At each milestone, bind the current disposition and residual limitation to evidence in the release manifest.
+All rows remain unqualified at this draft stage.
+At each milestone, bind the current disposition and residual limitation to evidence in the release manifest.
 
 | Risk                                                                      | Required control/proof and decision point                                                                                                                    |
 | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |

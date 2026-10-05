@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "snapperVersion": "0.11.9",
+  "source": {
+    "repository": "https://github.com/TurtleTech-ehf/snapper",
+    "tag": "v0.11.9",
+    "commit": "407c2beb04607f6ccb421e6f6418dcc00e4c1e94"
+  },
+  "platforms": {
+    "win32-x64": {
+      "package": "@hadden-industries/markdown-quality-win32-x64",
+      "executable": "bin/snapper-fmt.exe",
+      "sha256": "54c6093407f048661cbe331dd57973dfe6ccad9ac645228c6745f6af9db45830",
+      "archiveSha256": "326540c4c687fbdd4bdab7a9af1543b46e7110e92f1b840c613181496edd931f",
+      "url": "https://github.com/TurtleTech-ehf/snapper/releases/download/v0.11.9/snapper-fmt-x86_64-pc-windows-msvc.zip"
+    },
+    "linux-x64": {
+      "package": "@hadden-industries/markdown-quality-linux-x64",
+      "executable": "bin/snapper-fmt",
+      "sha256": "f48057d3123e3fac9684c3e54ad5fccacad67d235cdc63b268b8abdaa31988aa",
+      "archiveSha256": "5b5597271249ff6c8ac2efe74b0f378645b21fc44257b85e576e65a0cdbbe262",
+      "url": "https://github.com/TurtleTech-ehf/snapper/releases/download/v0.11.9/snapper-fmt-x86_64-unknown-linux-gnu.tar.xz"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "preset": "authored-gfm@1",
+  "include": [
+    "*.md",
+    "docs/**/*.md"
+  ],
+  "exclude": [
+    "docs/reviews/**"
+  ],
+  "ignoreFiles": [
+    ".gitignore"
+  ],
+  "lint": {},
+  "links": {
+    "localFiles": true,
+    "rootRelative": "reject"
+  },
+  "layout": {
+    "endOfLine": "lf"
+  }
+}

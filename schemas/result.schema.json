@@ -1,0 +1,247 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "package",
+    "preset",
+    "tools",
+    "operation",
+    "configDigest",
+    "selection",
+    "diagnostics",
+    "outcome",
+    "exitCode",
+    "written",
+    "unchanged",
+    "unprocessed",
+    "errors",
+    "configuration"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "preset": {
+      "const": "authored-gfm@1"
+    },
+    "tools": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "operation": {
+      "enum": ["check", "format", "inspect", "unknown"]
+    },
+    "configDigest": {
+      "type": ["string", "null"]
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "files", "exclusions"],
+      "properties": {
+        "mode": {
+          "enum": ["full", "explicit"]
+        },
+        "files": {
+          "$ref": "#/definitions/paths"
+        },
+        "exclusions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "reason": {
+                "enum": ["mandatory", "not-included", "excluded", "ignored"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "source",
+          "rule",
+          "line",
+          "column",
+          "message",
+          "severity"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "source": {
+            "enum": ["formatter", "snapper", "eslint", "links"]
+          },
+          "rule": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "column": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "message": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": ["error", "warning"]
+          }
+        }
+      }
+    },
+    "outcome": {
+      "enum": ["clean", "findings", "error"]
+    },
+    "exitCode": {
+      "enum": [0, 1, 2]
+    },
+    "written": {
+      "$ref": "#/definitions/paths"
+    },
+    "unchanged": {
+      "$ref": "#/definitions/paths"
+    },
+    "unprocessed": {
+      "$ref": "#/definitions/paths"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "configuration": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schemaVersion", "preset", "include"],
+          "properties": {
+            "schemaVersion": {
+              "const": 1
+            },
+            "preset": {
+              "const": "authored-gfm@1"
+            },
+            "include": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            },
+            "exclude": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            },
+            "ignoreFiles": {
+              "type": "array",
+              "maxItems": 10,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            },
+            "lint": {
+              "type": "object",
+              "maxProperties": 30,
+              "additionalProperties": {
+                "enum": ["off", "warn", "error"]
+              }
+            },
+            "links": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "localFiles": {
+                  "type": "boolean"
+                },
+                "rootRelative": {
+                  "enum": ["reject", "root"]
+                }
+              }
+            },
+            "layout": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "endOfLine": {
+                  "enum": ["lf", "crlf", "preserve"]
+                },
+                "tabWidth": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

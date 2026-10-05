@@ -1,0 +1,59 @@
+{
+  "name": "@hadden-industries/markdown-quality",
+  "version": "0.1.0-alpha.1",
+  "description": "Shared, bounded Markdown formatting, GFM linting, and local-link checking",
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "engines": {
+    "node": ">=24.21.0 <25"
+  },
+  "bin": {
+    "markdown-quality": "src/cli.js"
+  },
+  "exports": {
+    ".": "./src/quality.js",
+    "./configuration-schema": "./schemas/configuration.schema.json",
+    "./result-schema": "./schemas/result.schema.json"
+  },
+  "files": [
+    "src",
+    "schemas",
+    "assets",
+    "LICENSE",
+    "LICENSES",
+    "README.md",
+    "THIRD-PARTY-NOTICES.md",
+    "docs/consumer-guide.md",
+    "docs/ci-trust.md",
+    "docs/support-and-release.md"
+  ],
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Hadden-Industries/markdown-quality.git"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "check:focused": "node --test test/contracts.test.js",
+    "check:affected": "node --test test/*.test.js",
+    "check:full": "node scripts/verify.js",
+    "format": "prettier --write src scripts test schemas assets package.json docs README.md THIRD-PARTY-NOTICES.md",
+    "docs:check": "node src/cli.js check"
+  },
+  "dependencies": {
+    "@eslint/markdown": "8.0.3",
+    "ajv": "8.20.0",
+    "eslint": "10.12.0",
+    "mdast-util-from-markdown": "2.1.0",
+    "mdast-util-gfm": "3.1.0",
+    "micromark-extension-gfm": "3.0.0",
+    "picomatch": "4.0.7",
+    "prettier": "3.9.9"
+  },
+  "optionalDependencies": {
+    "@hadden-industries/markdown-quality-win32-x64": "file:packages/win32-x64",
+    "@hadden-industries/markdown-quality-linux-x64": "file:packages/linux-x64"
+  }
+}

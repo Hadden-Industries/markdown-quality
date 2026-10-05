@@ -1,1 +1,7 @@
 node_modules/
+packages/*/bin/
+packages/*/LICENSE
+packages/*/LICENSE.snapper
+packages/*/component.json
+*.tgz
+dist/

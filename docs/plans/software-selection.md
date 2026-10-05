@@ -1,6 +1,7 @@
 # Software selection for the proposed Markdown quality package
 
-Initial assessment: 2026-10-03. Record extracted and selected release metadata refreshed: 2026-10-04, Europe/Bucharest.
+Initial assessment: 2026-10-03.
+Record extracted and selected release metadata refreshed: 2026-10-04, Europe/Bucharest.
 This research record supports the [draft implementation plan](implementation-plan.md).
 The provisional npm identity is `@hadden-industries/markdown-quality`; its exact name and registry availability are not accepted or allocated.
 
@@ -26,9 +27,11 @@ Status:
 
 - Comparative research: sufficient for the conditional draft; native runtime/extraction/parity experiments remain open.
 - Release identities: selected core metadata refreshed on 2026-10-04 as described below; integration at those exact versions is unverified.
-- Rights: registry declarations and donor notices are inventory evidence. Exact selected-component licence text, bundled/transitive notices, source-delivery obligations, and accountable clearance remain open at GATE-03.
+- Rights: registry declarations and donor notices are inventory evidence.
+  Exact selected-component licence text, bundled/transitive notices, source-delivery obligations, and accountable clearance remain open at GATE-03.
 - Source identity: donor HEADs and exploratory checks are historical observations from 2026-10-03; refresh actual branch, dirty working bytes, file hashes, and notices before extraction or migration.
-- Effects: this follow-up writes planning documents only. No package installation, newly acquired executable execution, security scan, source-repository creation, credential/configuration change, publication, or consumer migration occurred.
+- Effects: this follow-up writes planning documents only.
+  No package installation, newly acquired executable execution, security scan, source-repository creation, credential/configuration change, publication, or consumer migration occurred.
 
 ## Observed donor capabilities (2026-10-03)
 
@@ -111,13 +114,25 @@ That source wrapper also declares a postinstall script; source existence is not 
 
 ## Supported consumer interfaces and remaining proof
 
-- [Prettier API](https://prettier.io/docs/api): use `format`/`check` for layout and `getFileInfo` with explicit `ignorePath` and `resolveConfig: false` for native ignored-file decisions. Pass accepted formatting options directly. Do not trigger automatic consumer JavaScript configuration or plugin loading. An API's accepting a path does not prove filesystem containment or ownership; those remain package responsibilities.
-- [ESLint Markdown](https://github.com/eslint/markdown): reuse native GFM parsing, rule option validation, and diagnostics. The candidate includes same-document fragment checks; cross-document heading validation remains outside v1. Recommended defaults and the additional table rule must be exercised at the frozen release, rather than copied from a moving main branch.
-- [Snapper CLI](https://snapper.turtletech.us/docs/reference/cli): the documented native backend and JSON diagnostics are the candidate sentence-formatting interface. Published docs identify 0.11.6 while the selected release is 0.11.7; inspect tagged source/help and actual binary diagnostics before acceptance. Exit success or unchanged text does not establish absence of findings.
-- [mdast parser](https://github.com/syntax-tree/mdast-util-from-markdown), [GFM AST extension](https://github.com/syntax-tree/mdast-util-gfm), and [GFM tokenizer extension](https://github.com/micromark/micromark-extension-gfm): parse links, images, and reference definitions using maintained syntax. Filesystem target resolution, containment, and impact accounting are the residual contract, rather than another Markdown grammar.
-- [Ajv](https://ajv.js.org/guide/getting-started.html): validate shipped package configuration/result schemas. Resolve only shipped schema references and reject unknown fields/versions without silent coercion. Native ESLint validation still owns upstream rule-option contracts.
-- [npm installation](https://docs.npmjs.com/cli/v12/commands/npm-ci/) and [lockfile semantics](https://docs.npmjs.com/cli/v12/configuring-npm/package-lock-json/): consumers own the installed graph. A dependency's source lockfile is not automatically the consumer's lock. Qualify packed root and isolated-tooling consumers with lifecycle scripts disabled and matching optional platform packages.
-- [GitHub composite actions](https://docs.github.com/en/actions/tutorials/create-actions/create-a-composite-action): compose native installation/invocation steps without a second lint implementation. Private-package access, fork-event trust, Action sharing, and actual hosted outcomes need separate qualification at GATE-11.
+- [Prettier API](https://prettier.io/docs/api): use `format`/`check` for layout and `getFileInfo` with explicit `ignorePath` and `resolveConfig: false` for native ignored-file decisions.
+  Pass accepted formatting options directly.
+  Do not trigger automatic consumer JavaScript configuration or plugin loading.
+  An API's accepting a path does not prove filesystem containment or ownership; those remain package responsibilities.
+- [ESLint Markdown](https://github.com/eslint/markdown): reuse native GFM parsing, rule option validation, and diagnostics.
+  The candidate includes same-document fragment checks; cross-document heading validation remains outside v1.
+  Recommended defaults and the additional table rule must be exercised at the frozen release, rather than copied from a moving main branch.
+- [Snapper CLI](https://snapper.turtletech.us/docs/reference/cli): the documented native backend and JSON diagnostics are the candidate sentence-formatting interface.
+  Published docs identify 0.11.6 while the selected release is 0.11.7; inspect tagged source/help and actual binary diagnostics before acceptance.
+  Exit success or unchanged text does not establish absence of findings.
+- [mdast parser](https://github.com/syntax-tree/mdast-util-from-markdown), [GFM AST extension](https://github.com/syntax-tree/mdast-util-gfm), and [GFM tokenizer extension](https://github.com/micromark/micromark-extension-gfm): parse links, images, and reference definitions using maintained syntax.
+  Filesystem target resolution, containment, and impact accounting are the residual contract, rather than another Markdown grammar.
+- [Ajv](https://ajv.js.org/guide/getting-started.html): validate shipped package configuration/result schemas. Resolve only shipped schema references and reject unknown fields/versions without silent coercion.
+  Native ESLint validation still owns upstream rule-option contracts.
+- [npm installation](https://docs.npmjs.com/cli/v12/commands/npm-ci/) and [lockfile semantics](https://docs.npmjs.com/cli/v12/configuring-npm/package-lock-json/): consumers own the installed graph.
+  A dependency's source lockfile is not automatically the consumer's lock.
+  Qualify packed root and isolated-tooling consumers with lifecycle scripts disabled and matching optional platform packages.
+- [GitHub composite actions](https://docs.github.com/en/actions/tutorials/create-actions/create-a-composite-action): compose native installation/invocation steps without a second lint implementation.
+  Private-package access, fork-event trust, Action sharing, and actual hosted outcomes need separate qualification at GATE-11.
 
 Core version metadata authorities: [Prettier](https://registry.npmjs.org/prettier/latest), [ESLint](https://registry.npmjs.org/eslint/latest), [ESLint Markdown](https://registry.npmjs.org/@eslint%2Fmarkdown/latest), [Ajv](https://registry.npmjs.org/ajv/latest), [mdast parser](https://registry.npmjs.org/mdast-util-from-markdown/latest), [mdast GFM](https://registry.npmjs.org/mdast-util-gfm/latest), and [micromark GFM](https://registry.npmjs.org/micromark-extension-gfm/latest).
 Alternative release authorities: [markdownlint-cli2](https://registry.npmjs.org/markdownlint-cli2/latest), [remark-cli](https://registry.npmjs.org/remark-cli/latest), and [mdformat](https://pypi.org/pypi/mdformat/json).
