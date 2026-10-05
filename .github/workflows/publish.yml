@@ -30,9 +30,6 @@ jobs:
       CANDIDATE_RUN: ${{ inputs.candidate-run }}
       MANIFEST_SHA: ${{ inputs.manifest-sha256 }}
       NPM_CONFIG_IGNORE_SCRIPTS: "true"
-      NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/publication-user.npmrc
-      NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/publication-global.npmrc
-      NPM_CONFIG_CACHE: ${{ runner.temp }}/publication-cache
       NODE_AUTH_TOKEN: ""
       NPM_TOKEN: ""
       NPM_CONFIG_TOKEN: ""
@@ -46,6 +43,12 @@ jobs:
         with:
           node-version: "24.21.0"
           package-manager-cache: false
+      - name: Select isolated npm configuration
+        shell: bash
+        run: |
+          echo "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/publication-user.npmrc" >> "$GITHUB_ENV"
+          echo "NPM_CONFIG_GLOBALCONFIG=$RUNNER_TEMP/publication-global.npmrc" >> "$GITHUB_ENV"
+          echo "NPM_CONFIG_CACHE=$RUNNER_TEMP/publication-cache" >> "$GITHUB_ENV"
       - name: Inspect exact completed candidate and current default branch
         env:
           GH_TOKEN: ${{ github.token }}
@@ -109,9 +112,6 @@ jobs:
     timeout-minutes: 20
     env:
       NPM_CONFIG_IGNORE_SCRIPTS: "true"
-      NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/qualification-user.npmrc
-      NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/qualification-global.npmrc
-      NPM_CONFIG_CACHE: ${{ runner.temp }}/qualification-cache
       NODE_AUTH_TOKEN: ""
       NPM_TOKEN: ""
       NPM_CONFIG_TOKEN: ""
@@ -128,6 +128,12 @@ jobs:
         with:
           node-version: "24.21.0"
           package-manager-cache: false
+      - name: Select isolated npm configuration
+        shell: bash
+        run: |
+          echo "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/qualification-user.npmrc" >> "$GITHUB_ENV"
+          echo "NPM_CONFIG_GLOBALCONFIG=$RUNNER_TEMP/qualification-global.npmrc" >> "$GITHUB_ENV"
+          echo "NPM_CONFIG_CACHE=$RUNNER_TEMP/qualification-cache" >> "$GITHUB_ENV"
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: candidate-release
