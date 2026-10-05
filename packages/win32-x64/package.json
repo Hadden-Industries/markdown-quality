@@ -16,6 +16,8 @@
     "component.json",
     "COPYRIGHT-library.html",
     "THIRD-PARTY-NOTICES.txt",
+    "SUPPLEMENTAL-NOTICES.txt",
+    "rights-evidence.json",
     "embedded-dependencies.json",
     "component-inventory.json",
     "cargo-notices.json",

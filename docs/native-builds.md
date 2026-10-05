@@ -37,6 +37,13 @@ Each hosted artifact binds its executable, notice files, inventory, and embedded
 The freeze script checks those identities and creates deterministic acquisition archives.
 It emits a candidate manifest without approving rights or mutating the accepted manifest.
 Independent review must reconcile native code, embedded data, Rust runtime, and system linkage before private release.
+Cargo-about can supply generic license text when a crate omits its original license file.
+That text alone does not establish original copyright attribution.
+Repack qualification must retain any missing original notices from the exact crate's source revision in a separately reviewed rights supplement.
+The supplement is bound to source archive checksums and both binary hashes, and included in each delivered `component.json` as well as the core tool manifest.
+Both acquisition archives and native packages also deliver `rights-evidence.json` and readable original notices in `SUPPLEMENTAL-NOTICES.txt`.
+Original hosted files and build evidence remain unchanged; this supplement records a separate repack step.
+The freeze command's `--rights` input includes the supplement without issuing rights approval.
 New binaries must pass both platform suites, packed consumers, the bounded quoted-list exception regressions, and semantic and literal preservation checks.
 
 Keep the original failed build proof before a diagnosed retry.

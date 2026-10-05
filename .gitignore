@@ -5,6 +5,8 @@ packages/*/LICENSE.snapper
 packages/*/component.json
 packages/*/COPYRIGHT-library.html
 packages/*/THIRD-PARTY-NOTICES.txt
+packages/*/SUPPLEMENTAL-NOTICES.txt
+packages/*/rights-evidence.json
 packages/*/embedded-dependencies.json
 packages/*/component-inventory.json
 packages/*/cargo-notices.json

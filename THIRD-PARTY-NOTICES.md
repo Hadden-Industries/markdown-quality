@@ -23,8 +23,12 @@ The lockfile freezes their exact integrity identities.
 Native packages retain `LICENSE.snapper` and a fixed executable/repack component record.
 The AGPL declaration applies to the packaging implementation and does not relabel upstream executable bytes.
 
-Native compiled transitive-component licensing and attributable build coverage remain incomplete.
-Registry distribution is blocked until that inventory is reconciled with actual release features and notices.
+Controlled native build run `37274204161` binds Snapper source, Cargo inputs, Rust toolchain and the exact Windows/Linux executable hashes.
+Both native packages retain the original component inventories, complete harvested notices, official Rust runtime copyright report and unchanged MPL-2.0 `webpki-roots` 0.25.4 source.
+The separately recorded [rights supplement](assets/native-rights.json) restores original notices omitted from published crate archives, including native per-file copyright comments.
+Every native archive and package includes its exact `rights-evidence.json` and readable `SUPPLEMENTAL-NOTICES.txt`.
+Independent reconciliation cleared the identified attribution gaps; the original hosted evidence remains unchanged.
+Registry distribution still requires actual platform and packed-consumer qualification, restricted publication and readback.
 No complete rights clearance or SLSA level is claimed from a hash or upstream MIT declaration alone.
 
 Primary authorities: [Snapper license](https://github.com/TurtleTech-ehf/snapper/blob/v0.11.9/LICENSE), [Snapper source manifest](https://github.com/TurtleTech-ehf/snapper/blob/v0.11.9/Cargo.toml), [npm lock semantics](https://docs.npmjs.com/cli/v12/configuring-npm/package-lock-json/), and [AGPL text](https://www.gnu.org/licenses/agpl.en.html).

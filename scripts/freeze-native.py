@@ -31,13 +31,26 @@ def read(path):
     return data
 
 
-def freeze(inputs, output, run_id, workflow_commit, release_url):
-    manifest = json.loads((ROOT / 'assets/tool-manifest.json').read_text())
-    build = json.loads((ROOT / 'assets/native-build.json').read_text())
+def freeze(inputs, output, run_id, workflow_commit, release_url, rights_path=None):
+    manifest = json.loads((ROOT / 'assets/tool-manifest.json').read_text(encoding='utf-8'))
+    build = json.loads((ROOT / 'assets/native-build.json').read_text(encoding='utf-8'))
     output.mkdir(parents=True, exist_ok=False)
     manifest['schemaVersion'] = 2
     manifest['build'] = {'runId': run_id, 'workflowCommit': workflow_commit,
                          'rights': 'pending independent reconciliation', 'configSha256': sha(read(ROOT / 'assets/native-build.json'))}
+    supplement = None
+    if rights_path is not None:
+        supplement_bytes = read(rights_path)
+        if len(supplement_bytes) > 1_000_000:
+            raise ValueError('Rights supplement exceeds bound')
+        supplement = json.loads(supplement_bytes)
+        if (supplement['schemaVersion'] != 1 or supplement['sourceCommit'] != build['sourceCommit']
+                or str(supplement['githubRun']) != str(run_id)
+                or supplement['workflowCommit'] != workflow_commit):
+            raise ValueError('Rights supplement provenance mismatch')
+        manifest['build']['rightsSupplementSha256'] = sha(supplement_bytes)
+        # This separately authored repack evidence must never masquerade as build output.
+        manifest['build']['rightsSupplement'] = supplement
     for key, spec in manifest['platforms'].items():
         directory = inputs / ('native-' + key)
         binary_name = pathlib.PurePosixPath(spec['executable']).name
@@ -60,6 +73,32 @@ def freeze(inputs, output, run_id, workflow_commit, release_url):
         inventory = json.loads(evidence_bytes['component-inventory.json'])
         if inventory['binarySha256'] != expected[binary_name]:
             raise ValueError('Native inventory is not bound to binary')
+        if supplement is not None:
+            if supplement['binarySha256'][key] != expected[binary_name]:
+                raise ValueError('Rights supplement binary mismatch')
+            components = {(p['name'], p['version']): p for p in inventory['packages']}
+            for item in supplement['components']:
+                component = components[(item['name'], item['version'])]
+                if component['sourceArchiveSha256'] != item['sourceArchiveSha256']:
+                    raise ValueError('Rights supplement source mismatch')
+                for notice in item['notices']:
+                    if sha(notice['text'].encode('utf-8')) != notice['sha256']:
+                        raise ValueError('Rights supplement notice mismatch')
+                    if ('sourceFileSha256' in notice and
+                            component['sourceFileSha256'].get(notice['path']) != notice['sourceFileSha256']):
+                        raise ValueError('Rights supplement original-file mismatch')
+                for matched in item.get('sourceCorrespondence', {}).get('sourceMatches', []):
+                    if component['sourceFileSha256'].get(matched['cratePath']) != matched['sha256']:
+                        raise ValueError('Rights supplement correspondence mismatch')
+            evidence_bytes['rights-evidence.json'] = supplement_bytes
+            sections = ['Original source notices added during qualified repacking.\n'
+                        'Original hosted build outputs remain unchanged.\n'
+                        'Component licenses remain applicable; wrapper license is AGPL-3.0-only.']
+            for item in supplement['components']:
+                for notice in item['notices']:
+                    sections.append(f"\n===== {item['name']} {item['version']} / {notice.get('path', 'source notice')} =====\n{notice['text']}")
+            evidence_bytes['SUPPLEMENTAL-NOTICES.txt'] = ('\n'.join(sections) + '\n').encode('utf-8')
+            expected.update({name: sha(evidence_bytes[name]) for name in ('rights-evidence.json', 'SUPPLEMENTAL-NOTICES.txt')})
         archive_name = 'snapper-windows.zip' if key.startswith('win') else 'snapper-linux.tar.xz'
         stream = io.BytesIO()
         if key.startswith('win'):
@@ -96,5 +135,7 @@ if __name__ == '__main__':
     parser.add_argument('--run-id', required=True)
     parser.add_argument('--workflow-commit', required=True)
     parser.add_argument('--release-url', required=True)
+    parser.add_argument('--rights', type=pathlib.Path,
+                        help='Separate reviewed original-notice supplement; does not grant approval')
     args = parser.parse_args()
-    print(json.dumps(freeze(args.inputs, args.output, args.run_id, args.workflow_commit, args.release_url)))
+    print(json.dumps(freeze(args.inputs, args.output, args.run_id, args.workflow_commit, args.release_url, args.rights)))

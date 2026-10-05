@@ -2,7 +2,7 @@
 """Explicit build-only acquisition of frozen native assets."""
 import hashlib, json, pathlib, subprocess, sys, tempfile, urllib.request
 root = pathlib.Path(__file__).resolve().parent.parent
-manifest = json.loads((root / 'assets/tool-manifest.json').read_text())
+manifest = json.loads((root / 'assets/tool-manifest.json').read_text(encoding='utf-8'))
 with tempfile.TemporaryDirectory(prefix='markdown-quality-native-') as temporary:
     target = pathlib.Path(temporary)
     for key, spec in manifest['platforms'].items():

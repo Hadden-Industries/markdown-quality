@@ -3,7 +3,7 @@
 import argparse, hashlib, io, json, pathlib, stat, sys, tarfile, zipfile
 
 root = pathlib.Path(__file__).resolve().parent.parent
-manifest = json.loads((root / 'assets/tool-manifest.json').read_text())
+manifest = json.loads((root / 'assets/tool-manifest.json').read_text(encoding='utf-8'))
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--archives', type=pathlib.Path, required=True)
 args = parser.parse_args()
@@ -19,6 +19,8 @@ for key, spec in manifest['platforms'].items():
         required = {'LICENSE.snapper', 'COPYRIGHT-library.html', 'THIRD-PARTY-NOTICES.txt',
                     'embedded-dependencies.json', 'component-inventory.json', 'cargo-notices.json',
                     'build-evidence.json', 'MPL-SOURCE.tar.xz', pathlib.PurePosixPath(spec['executable']).name}
+        if manifest['build'].get('rightsSupplement'):
+            required.update(('rights-evidence.json', 'SUPPLEMENTAL-NOTICES.txt'))
         if set(spec['files']) != required:
             raise ValueError('Incomplete controlled native manifest')
         files = {}
@@ -46,6 +48,10 @@ for key, spec in manifest['platforms'].items():
         binary_name = pathlib.PurePosixPath(spec['executable']).name
         if spec['files'][binary_name] != spec['sha256']:
             raise ValueError('Controlled executable identity mismatch')
+        if manifest['build'].get('rightsSupplement'):
+            if (hashlib.sha256(files['rights-evidence.json']).hexdigest() != manifest['build']['rightsSupplementSha256']
+                    or json.loads(files['rights-evidence.json']) != manifest['build']['rightsSupplement']):
+                raise ValueError('Repack rights supplement identity mismatch')
         package = root / 'packages' / key
         executable = package / spec['executable']
         executable.parent.mkdir(exist_ok=True)

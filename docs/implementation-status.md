@@ -13,7 +13,8 @@ HISEW personal registration is active with focused, affected, and full profiles.
 The protected accepted requirement snapshot is `bce7dd7e-0e52-46b8-ba9e-aa09365fd8ae`.
 R2 execution is `741e28c7-393f-45ae-8284-4a0e2fd6acc1`.
 Refining the verification profiles rerouted the same accepted scope to execution `75684321-3987-4d14-bfcc-b8d132976e4b`.
-The current continued execution is `9a864ccd-82f7-4de9-a0d4-f648fcdc5127`.
+The continued execution was `9a864ccd-82f7-4de9-a0d4-f648fcdc5127`.
+Owner-authorized native build and notice inputs rerouted the same scope through `b6a72a50-3fe2-4654-b4c6-060f89bf59ea` to current execution `245bceec-2d47-49b3-83bd-fe6e80d7a126`.
 Supplemental evidence belongs to the configured external task-artifact directory for chat `01a10942-8e9b-7b62-ae73-e6977b59718d`.
 
 ## Software selection refresh
@@ -38,6 +39,18 @@ The [native build procedure](native-builds.md) preserves the local tool environm
 The first hosted attempt rejected a stale extractor source lock.
 The diagnosed correction uses the checksum-pinned published extractor crate and its immutable packaged lock, with `--locked` retained.
 New executable hashes, independent rights reconciliation, and both platform qualifications remain mandatory.
+
+The controlled native build completed on both platforms in run `37274204161` at source `722a0ab76bdae368b0f282f4a0e9ebee05ccdc59`.
+Windows executable SHA-256 is `e10c4d3dcc0be7243a0daec06f2e14078cf108a4b3c63c5f4dde6c3dab6dd0e8`.
+Linux executable SHA-256 is `b8d1975d40fc28314ce0e1191b484960685c66f2dc2bca2f5352e5d7e5f4a429`.
+Three diagnosed failures were retained before this fourth and final bounded build attempt.
+The native pipeline received one Antigravity review and one narrow correction follow-up, each allowed the requested 900-second response budget and finishing naturally.
+The follow-up found no concrete correction-only defect.
+An independent actual-artifact review verified embedded metadata, source checksums, MPL source, runtime notices and system imports.
+Its original attribution findings are addressed by the separately authored, binary-bound [notice supplement](../assets/native-rights.json).
+The supplement preserves original upstream license files, declared authors where no original copyright notice exists, and native per-file notices.
+It accompanies the unchanged hosted evidence in both acquisition archives and npm native packages.
+Repack review, controlled-binary platform qualification and registry readback remain separate acceptance gates.
 
 ## NSH-01 exception
 

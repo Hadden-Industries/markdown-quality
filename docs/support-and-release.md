@@ -3,6 +3,9 @@
 The initial contract targets Node 24.21.0, Windows x64, and Ubuntu 24.04 x64 with glibc.
 Only observed passing platform evidence can establish support.
 Other Node majors, macOS, ARM, and musl are unqualified.
+Controlled Linux builds require glibc 2.39, as supplied by Ubuntu 24.04.
+Windows requires the installed x64 Microsoft Visual C++ runtime (`VCRUNTIME140.dll` and UCRT).
+No system runtime installer or runtime download is shipped.
 Core and platform packages share one immutable release version.
 Consumers pin the package, preset, and lockfile.
 

@@ -21,6 +21,12 @@ export function packRelease(output) {
     "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
   )
     throw new Error("Original license identity changed");
+  if (
+    manifest.build?.rightsSupplementSha256 &&
+    digest(readFileSync(join(root, "assets/native-rights.json"))) !==
+      manifest.build.rightsSupplementSha256
+  )
+    throw new Error("Native rights supplement identity mismatch");
   for (const [key, spec] of Object.entries(manifest.platforms)) {
     const directory = join(root, "packages", key);
     const pkg = JSON.parse(
@@ -37,6 +43,13 @@ export function packRelease(output) {
         name === spec.executable.split("/").at(-1) ? spec.executable : name;
       if (digest(readFileSync(join(directory, path))) !== hash)
         throw new Error("Native rights evidence identity mismatch: " + key);
+    }
+    if (manifest.build?.rightsSupplement) {
+      const component = JSON.parse(
+        readFileSync(join(directory, "component.json"), "utf8"),
+      );
+      if (JSON.stringify(component.build) !== JSON.stringify(manifest.build))
+        throw new Error("Native repack rights supplement mismatch: " + key);
     }
   }
   output = resolve(output);

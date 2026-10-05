@@ -98,6 +98,13 @@ test("packed root and isolated consumers install without lifecycle scripts and e
         ),
       );
       assert.equal(inventory.binarySha256, nativeSpec.sha256);
+      const component = JSON.parse(
+        readFileSync(
+          join(install, "node_modules", native.package, "component.json"),
+          "utf8",
+        ),
+      );
+      assert.deepEqual(component.build, release.native.build);
       assert.ok(
         inventory.packages.some(
           (p) => p.name === "webpki-roots" && p.version === "0.25.4",

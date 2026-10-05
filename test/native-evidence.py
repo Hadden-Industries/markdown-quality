@@ -134,7 +134,9 @@ class ArtifactBindingTests(unittest.TestCase):
             data = {name: b'original fixture evidence' for name in freezer.FILES if name != 'build-evidence.json'}
             data[binary] = b'fixture executable, never executed'
             binary_hash = freezer.sha(data[binary])
-            data['component-inventory.json'] = json.dumps({'binarySha256': binary_hash}).encode()
+            data['component-inventory.json'] = json.dumps({'binarySha256': binary_hash,
+                'packages': [{'name': 'demo', 'version': '1.0.0', 'sourceArchiveSha256': 'a' * 64,
+                              'sourceFileSha256': {'src/native.c': 'b' * 64}}]}).encode()
             evidence = {'githubRun': '123', 'workflowCommit': 'f' * 40,
                         'source': builder.CONFIG['sourceCommit'], 'lockSha256': builder.CONFIG['lockSha256'],
                         'manifestSha256': builder.CONFIG['manifestSha256'], 'target': config['target'],
@@ -171,6 +173,49 @@ class ArtifactBindingTests(unittest.TestCase):
             self.assertEqual(result['build']['rights'], 'pending independent reconciliation')
             self.assertEqual(result['platforms']['win32-x64']['archiveSha256'],
                              freezer.sha((base / 'output/snapper-windows.zip').read_bytes()))
+
+    def supplement(self, base):
+        text = 'Copyright © 2026 Fixture owner. Original fixture notice.\n'
+        value = {'schemaVersion': 1, 'sourceCommit': builder.CONFIG['sourceCommit'],
+                 'githubRun': '123', 'workflowCommit': 'f' * 40,
+                 'binarySha256': {key: freezer.sha(b'fixture executable, never executed')
+                                  for key in builder.CONFIG['tools']},
+                 'components': [{'name': 'demo', 'version': '1.0.0',
+                     'sourceArchiveSha256': 'a' * 64,
+                     'notices': [{'text': text, 'sha256': freezer.sha(text.encode())}]}]}
+        path = base / 'rights.json'
+        path.write_text(json.dumps(value), encoding='utf-8')
+        return path, value
+
+    def test_supplement_retains_original_build_outputs_and_does_not_approve_rights(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = pathlib.Path(temporary)
+            self.inputs(base)
+            path, value = self.supplement(base)
+            result = freezer.freeze(base, base / 'output', '123', 'f' * 40,
+                                    'https://fixture.invalid/release', path)
+            self.assertEqual(result['build']['rightsSupplement'], value)
+            self.assertEqual(result['build']['rights'], 'pending independent reconciliation')
+            with zipfile.ZipFile(base / 'output/snapper-windows.zip') as archive:
+                self.assertEqual(archive.read('build-evidence.json'),
+                                 (base / 'native-win32-x64/build-evidence.json').read_bytes())
+
+    def test_supplement_rejects_changed_notice_or_binary_identity(self):
+        for field in ('notice', 'binary', 'original-file'):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as temporary:
+                base = pathlib.Path(temporary)
+                self.inputs(base)
+                path, value = self.supplement(base)
+                if field == 'notice':
+                    value['components'][0]['notices'][0]['text'] = 'changed attribution'
+                elif field == 'binary':
+                    value['binarySha256']['win32-x64'] = '0' * 64
+                else:
+                    value['components'][0]['notices'][0].update(path='src/native.c', sourceFileSha256='0' * 64)
+                path.write_text(json.dumps(value), encoding='utf-8')
+                with self.assertRaisesRegex(ValueError, 'Rights supplement .* mismatch'):
+                    freezer.freeze(base, base / 'output', '123', 'f' * 40,
+                                   'https://fixture.invalid/release', path)
 
 
 if __name__ == '__main__':
