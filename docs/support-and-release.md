@@ -66,8 +66,22 @@ One pilot rehearsal is required before stable promotion.
 Security reports use GitHub's private vulnerability reporting route when enabled; otherwise contact the repository owner through the project's existing private channel.
 No unattended observation service is assumed.
 During this authorized session, critical/high reports block promotion immediately.
-Durable acknowledgement, triage, mitigation targets, reporting availability, and maintenance ownership require owner acceptance before stable release.
-Retain release source, build inputs, notices, recipient delivery evidence, and recovery inputs for the maintained release lifetime and its accepted retention period.
+The owner accepted maintained support targets on 2026-10-05; see [the security policy](../SECURITY.md).
+Maksym Shostak / Hadden Industries owns manual report handling and dependency/advisory review.
+Private reporting is enabled for this repository, as read back from GitHub on 2026-10-05; the existing organization security mailbox is the fallback.
+Review dependency/advisory health at each release preparation and monthly while maintained.
+Retain release source, build inputs, notices, recipient delivery/qualification evidence, and accepted recovery inputs for the maintained release lifetime plus three years after support ends, honoring any applicable license obligations requiring more.
+This is an operational retention floor, not a legal interpretation.
+Before stable, only the prerelease designated by `pilot` is maintained; after stable, only the latest stable release designated by `latest` is maintained unless another line is explicitly accepted.
+Consumers remain exactly pinned and upgrades individually qualified; older downloadable releases have no implied support or backport promise.
+
+Pilot qualification uses six consecutive valid full checks per frozen corpus/platform, excluding installation, with observed nearest-rank sample p95 at most 30 seconds.
+With six samples, that is the observed maximum; it is not a statistical tail or arbitrary-repository guarantee.
+The memory budgets are 512 MiB Windows Job Object committed memory and 512 MiB Linux whole-process-tree resident memory, reported separately as different metrics.
+These budgets do not impose OS runtime limits or raise existing package limits.
+Require zero unexpected errors or adjudicated false positives in the window and accepted fixture/probe corpus, retaining expected negative probes separately.
+Rehearse one task-owned pilot restoration within 60 minutes through byte/sentinel readback and incumbent local checks; hosted required-status recovery remains separate acceptance evidence.
+Accepted budgets do not establish that the pending Linux corpus, hosted pilots, or restoration have passed.
 
 Provide AGPL corresponding source and build materials alongside object-code delivery to actual recipients.
 Preserve third-party license texts and attribution.

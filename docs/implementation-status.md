@@ -7,6 +7,12 @@ On 2026-10-05 the owner requested direct continuation on `main` so public npm do
 Local and remote `main` were fast-forwarded to `efa20ae592c05490ef063112be566b1067f057b5`, retaining the complete signed linear history without a merge or rewrite.
 The owner performed the remote push after the installed direct-main guard blocked agent execution.
 Implementation now continues on `main`.
+The signed follow-up `e21e29f6f6cc905da1f7bb4ade0f4aa91357f832` was pushed after the owner approved a narrow DCG policy change making ordinary main pushes log-only; other destructive-operation rules remain enforced.
+All three main workflow runs passed: package qualification `37296982491`, transported candidate qualification `37296982513`, and native selector qualification `37296982662`.
+The selector qualification does not replace the release's frozen native binaries.
+The owner selected retention of platform-specific packages after reviewing the combined-download tradeoff.
+The spent local implementation branch was archived and removed through HISEW; the owner manually removed the remote ref after DCG separately blocked agent-driven remote deletion.
+Remote readback observed only `main`, and the local retired-branch archive retains the original tip.
 The owner subsequently requested public npm distribution after approved native authentication reached an E402 private-entitlement rejection.
 The initial public candidate was `0.1.0-alpha.2`; core and both native manifests declare public access.
 All three alpha.2 packages were published under the pilot tag, and fresh anonymous archive hashes matched the exact frozen tuple at `d7ec17783a2c894f2e94c904e29a51339fa6ddac`.
@@ -95,6 +101,20 @@ The unlimited-width preset separately omits validated advisory `long` findings.
 This is the selected length policy described by upstream CLI documentation, rather than a list compatibility exception.
 
 ## Completion boundary
+
+Revision 6 records the owner's accepted trusted-run boundary, pilot budgets and maintained support targets.
+Its accepted snapshot is `ea52a437-0240-423b-93de-9c1140ae7d4d`, digest `cd95ef6aa2af3c0910366a655102b8bfe3d7c0e96b30c289c5f0f59d47af8876`.
+The owner-authorized amendment continues the same R2 scope in active execution `07272002-8c09-47ba-bda7-513931395f7d`, superseding `29adbc86-b10c-49fb-8591-b1a0e750f802` without resetting the original repository baseline.
+Preserve all existing OwlAPI and WebVOWL required checks; before each pilot merge the owner accepts the exact candidate and attributable trusted hosted run.
+GitHub name/App selectors do not automatically enforce workflow identity.
+GATE-05 uses six full valid runs per frozen corpus/platform, observed sample p95 at most 30 seconds, platform-specific 512 MiB memory budgets, zero unexpected failures/adjudicated false positives, and one task-owned restoration within 60 minutes.
+Six paired Windows runs observed shared maxima of 24.904 seconds for OwlAPI's 63 documents and 19.439 seconds for WebVOWL's 66 documents.
+Separate Windows Job Object measurements observed 407183360 and 366223360 committed bytes including the driver and descendants; no surviving descendants remained.
+The slower relative timings remain retained evidence; these finite windows do not establish population rates or tail guarantees.
+Linux corpus timing/memory, actual hosted pilot controls, accepted per-consumer manifests, duplicate-tool retirement, and timed recovery remain pending.
+A disposable unchanged-input fixed-point optimization passed 23 existing preservation/contract tests; it is deferred and has not changed runtime or published package bytes.
+The owner accepted private reporting, five-working-day acknowledgement and further five-working-day triage targets, severity-specific fix/mitigation targets, monthly manual dependency review, and maintained-lifetime-plus-three-years evidence retention.
+GitHub private vulnerability reporting was read back as enabled on 2026-10-05; the existing organization security mailbox remains the fallback.
 
 The consolidated source candidate received one Antigravity static review with Gemini 3.8 Flash on high reasoning.
 It was allowed a 900-second response budget and 960-second process hierarchy budget and finished naturally after approximately 359 seconds.

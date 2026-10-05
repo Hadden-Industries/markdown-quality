@@ -52,6 +52,7 @@ node([
   "package.json",
   "docs",
   "README.md",
+  "SECURITY.md",
   "THIRD-PARTY-NOTICES.md",
 ]);
 node([

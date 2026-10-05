@@ -1,12 +1,19 @@
 # Shared Markdown Quality Package: Implementation Plan
 
 Date: 2026-10-05, Europe/Bucharest.
-Revision: draft 5, owner-requested public distribution amendment.
+Revision: 6, owner-accepted pilot trust, operating targets, and support amendment.
 Initial plan: 2026-10-03.
 Planning owner and proposed acceptance owner: Maksym Shostak.
 Task references: initial planning in Codex chat `01a1014e-c54e-7c63-8c24-6313be12493a`; review synthesis in chat `01a1090f-4eb0-7210-b541-c9b62f3984dc`.
 
 ## 1. Status, authority, and purpose
+
+On 2026-10-05, the owner accepted revision 6's bounded amendments in the current implementation chat: keep platform-specific packages; require owner acceptance of attributable trusted hosted runs before each pilot merge; adopt the measured qualification budgets and maintained support targets below.
+This revision continues the already accepted R2 implementation scope and AGPL-3.0-only license.
+The public alpha.3 tuple passed exact transported-archive and anonymous registry qualification on both supported platforms.
+Existing published archives remain immutable; this documentation amendment does not replace their bytes.
+The original draft-stage statements and gate table below describe the planning baseline; current execution evidence and remaining gates are recorded in [implementation status](../implementation-status.md).
+Each consumer still requires its exact migration manifest, hosted proof, owner acceptance, and recovery evidence before cutover; stable promotion remains blocked until both pilots qualify.
 
 This is a reviewable draft requirement dossier, design, and implementation plan.
 The companion [software-selection record](software-selection.md) holds the comparative research and dated source evidence.
@@ -302,6 +309,16 @@ Repository visibility and entitlements are unresolved until inspected; do not in
 The matrix must cover same-repository PRs, fork PRs where supported, protected-branch checks, and dependency/configuration change PRs.
 Untrusted JSON policy is bounded input, not authority to change the reviewed tool graph, exclusions, or required policy; define which changes need a trusted policy review before cutover.
 Missing access is a blocked prerequisite, never a skipped green required check.
+
+Revision 6 accepts owner enforcement of trusted-run identity for the two pilots.
+GitHub required-status selectors identify a context and App, not a workflow revision or event; GitHub Actions App 15368 cannot independently distinguish trusted and candidate-controlled jobs with the same name.
+Preserve OwlAPI's existing `CI / required` ruleset check and WebVOWL's `WebVOWL application`, `Dependency review`, and `CodeQL gate` classic-protection checks.
+Before each pilot merge, the owner accepts a retained record of the current candidate head/tree, trusted workflow source, locked core/native identities, trusted policy/ignore digests, selected paths, actual hosted run/job/check IDs, outputs, and required-status readback.
+Changes to the candidate, trusted base/policy/workflow, or tool graph invalidate that acceptance.
+A same-name candidate check does not establish trusted acceptance; skipped jobs cannot be reported as passes.
+This is an explicit manual acceptance boundary, not automatic workflow-specific enforcement.
+No new GitHub App, subscription, write-capable reporter, secret, or unattended service is introduced.
+Hosted negative probes still establish malformed-link failure, policy/exclusion isolation, candidate-code non-execution, and credential absence.
 
 Direct CLI installation/invocation is the canonical reference workflow for both root and isolated-tooling consumers.
 GitHub's [private Action sharing controls](https://docs.github.com/en/actions/how-tos/reuse-automations/share-with-your-organization) require caller access qualification; optional wrapper availability must not determine whether a consumer can use the CLI.
@@ -755,8 +772,24 @@ Collect local/CI evidence with a declared workload, host/tool identity, sample c
 | Recovery                                                                 | Rehearse at least one pilot restoration, verify exact bytes/config/lock/workflow and unrelated sentinels, and meet the accepted elapsed-time bound before stable promotion.                    |
 | Release-blocking risks                                                   | Zero unresolved correctness, rights, credential-isolation, native-parity, or required-assurance gaps at stable promotion; accepted residual limitations remain explicit.                       |
 
-The review's candidate targets of under 1% operating/false-positive rates, at most 125% of incumbent p95 time, and restoration within 60 minutes are experiment hypotheses for GATE-05, not evidence-backed commitments.
-Retain, replace, or reject each with measured consumer constraints and a recorded rationale; do not use a rate threshold to excuse semantic corruption or secret exposure.
+The owner accepted these GATE-05 qualification targets on 2026-10-05, replacing the speculative under-1-percent rates and 125-percent incumbent timing ratio.
+For each frozen pilot corpus on each supported platform, record six consecutive valid full checks, excluding installation, with exact source/selection bytes, host, Node, package and policy identities.
+The nearest-rank observed sample p95 must be at most 30 seconds; with six samples this is the observed maximum, not a statistical tail guarantee or arbitrary-repository promise.
+Peak Windows Job Object committed memory, including the measurement driver and descendants, must be at most 512 MiB.
+Peak Linux whole-process-tree resident memory must be at most 512 MiB, measured and reported separately because it is a different metric.
+These are qualification budgets, not OS-enforced runtime caps; existing input/output/time limits remain unchanged.
+Retain selected file/subprocess counts and archive/install sizes descriptively.
+Require zero unexpected operational failures and zero independently adjudicated false positives across that window, the accepted corpus/fixtures, and hosted probes; designed failing probes have separate expected outcomes.
+Investigate every novel failure and preserve failed evidence; no population error-rate claim follows from this finite window.
+Rehearse one pilot restoration within 60 minutes, measured through exact task-owned byte/sentinel readback and incumbent local checks; required hosted-status recovery is separately observed before cutover.
+Never use timing/rate acceptance to excuse semantic corruption, scope omission, credential exposure, rights gaps, or lost required checks.
+
+Six paired Windows runs at the frozen 63-document OwlAPI and 66-document WebVOWL inputs observed shared-check maxima of 24.904 and 19.439 seconds, compared with incumbent maxima of 13.867 and 2.874 seconds.
+The relative costs remain evidence; shared checking adds GFM and local-target validation.
+Independent Windows Job Object measurements observed 407183360 and 366223360 committed bytes, 505 and 515 checker/descendant process instances, and zero surviving descendants.
+These measurements include the driver and are not RSS.
+Linux corpus timing/memory and real hosted pilot controls remain unqualified; accepted budgets are not passing evidence.
+The disposable fixed-point optimization is deferred to preserve the already qualified alpha.3 runtime while it meets the accepted Windows latency budget.
 Conditional v1.1 is considered only when accepted full-check constraints are breached and the cheapest supported improvements do not resolve them.
 
 ### Support, dependency upkeep, and incident response
@@ -765,6 +798,18 @@ Before stable promotion, accept a concise runbook covering the supported Node/OS
 Initial support is the qualified v1 release line and explicit preset identities; additional release lines or platforms require an accepted support decision and qualification.
 Specify measurable vulnerability acknowledgement/triage and remediation-or-mitigation targets by severity at GATE-08, with a reachable reporting route and explicit observation responsibility for the authorized session or configured service.
 No unattended monitoring or schedule is created by this plan, and an inactive coding app is not an assumed incident-response service.
+
+The owner accepted GATE-08 support targets on 2026-10-05.
+Maksym Shostak / Hadden Industries owns manual reporting and dependency/advisory review, using GitHub private vulnerability reporting when enabled and the existing `security@haddenindustries.com` fallback.
+Target acknowledgement within five working days, then initial severity/reachability triage within five further working days.
+For confirmed critical/high issues, hold affected promotion immediately upon observation and target a qualified fix or effective mitigation within five working days of confirmation; target 30 calendar days for medium and 90 for low.
+Targets are not an SLA or guaranteed resolution; a miss requires an owner, interim disposition/mitigation, and dated next review through the private reporting channel.
+Prioritize active exploitation, exposed credentials, actual reachability and impact regardless of score; CVSS v4 informs documented severity rather than deciding release automatically.
+Before stable, maintain only the prerelease designated by `pilot`; after stable, maintain only the latest stable release designated by `latest`, unless another line is explicitly accepted.
+Consumers retain exact pins and qualified upgrades; downloadability is not maintenance and no automatic backports are promised.
+Review advisories/dependencies at every release preparation and monthly while maintained, without an implicit unattended observer.
+Retain release source, build inputs, notices, recipient delivery/qualification records, and accepted recovery inputs for the maintained lifetime plus three years after support ends, honoring any applicable license obligations requiring more.
+That period is an operational retention floor, not a legal interpretation.
 
 Use approved native advisory/dependency-update services where available; review dependency changes with SBOM, rights, corpus, and consumer deltas.
 Native Snapper updates require fresh standalone/reference parity, platform/runtime, asset provenance and output qualification; update proposals do not authorize unattended adoption.

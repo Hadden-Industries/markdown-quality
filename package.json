@@ -21,6 +21,7 @@
     "assets",
     "LICENSE",
     "LICENSES",
+    "SECURITY.md",
     "README.md",
     "THIRD-PARTY-NOTICES.md",
     "docs/consumer-guide.md",
@@ -39,7 +40,7 @@
     "check:focused": "node --test test/contracts.test.js",
     "check:affected": "node --test test/*.test.js",
     "check:full": "node scripts/verify.js",
-    "format": "prettier --write src scripts test schemas assets package.json docs README.md THIRD-PARTY-NOTICES.md",
+    "format": "prettier --write src scripts test schemas assets package.json docs README.md SECURITY.md THIRD-PARTY-NOTICES.md",
     "docs:check": "node src/cli.js check"
   },
   "dependencies": {

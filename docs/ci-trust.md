@@ -9,8 +9,8 @@ A private shared Action is optional and does not solve public caller access.
 
 | Event                    | Trusted graph and policy                              | Acquisition                                     | Candidate processing                                 | Current status                               |
 | ------------------------ | ----------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------- | -------------------------------------------- |
-| Package pull request     | Public locked dependencies and fixed native manifests | Public upstream inputs, no private secrets      | Package tests run without elevated authority         | Hosted qualification pending                 |
-| Pilot protected branch   | Reviewed capability release and consumer policy       | Public locked graph, lifecycle scripts disabled | Full authored scope without credentials              | Public registry qualification pending        |
+| Package pull request     | Public locked dependencies and fixed native manifests | Public upstream inputs, no private secrets      | Package tests run without elevated authority         | Hosted package qualification passed          |
+| Pilot protected branch   | Reviewed capability release and consumer policy       | Public locked graph, lifecycle scripts disabled | Full authored scope without credentials              | Alpha.3 registry passed; pilot proof pending |
 | Pilot same-repository PR | Reviewed base tooling and policy                      | Separate trusted acquisition                    | Candidate Markdown and link target tree only         | Architecture selected; qualification pending |
 | Pilot fork PR            | Reviewed base tooling and policy                      | Separate trusted acquisition                    | Candidate data only; no candidate scripts or graph   | Architecture selected; qualification pending |
 | Tool or policy update PR | Existing accepted graph until review                  | New graph requires owner review                 | Never treat candidate graph or exclusions as trusted | Required review remains explicit             |
@@ -27,6 +27,18 @@ Candidate checkout must not execute application tooling, Git hooks, package life
 The checking process must not inherit checkout write credentials, npm configuration, or OIDC issuance authority.
 Trusted policy review is required for any change to required scope or exclusions.
 
+The owner accepted a manual trusted-run boundary for the two pilots on 2026-10-05.
+GitHub required checks select a name/context and App identity, not a workflow revision or event.
+App 15368 identifies GitHub Actions, including candidate-controlled jobs.
+Preserve OwlAPI's `CI / required` and WebVOWL's `WebVOWL application`, `Dependency review`, and `CodeQL gate` required checks.
+Before each pilot merge, the owner accepts the exact candidate head/tree and attributable trusted hosted run, including trusted workflow source, core/native hashes, policy/ignore digests, selected paths, run/job/check IDs, outputs and required-status readback.
+Any changed candidate, base policy/workflow or tool identity invalidates that acceptance.
+A same-name candidate job or green PR summary cannot substitute for this record.
+This route provides manual owner enforcement; it does not claim automatic workflow-specific enforcement.
+No separate App, paid entitlement, write-capable status reporter, OIDC authority or new secret is created.
+Negative hosted probes must still show malformed-link failure, candidate policy/ignore non-authority, candidate marker non-execution and credential absence.
+The single owner's own PR does not constitute independent human approval; any necessary integration route must be explicit and recorded.
+
 Do not give publication or repository-write credentials to a PR-controlled dependency graph.
 Do not execute candidate source in an elevated `pull_request_target` job.
 Public capability archives are available to all recipients; source/notice and integrity obligations still apply.
@@ -38,3 +50,4 @@ The subsequent owner request selects public distribution and removes the paid-pr
 Pilot cutover still requires exact public tuple readback, fresh credential-free installation, event/policy isolation and accepted consumer deltas.
 
 References: [GitHub event trust](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target), [public scoped publication](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/), and [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/).
+Required-check identity limitations are documented in [GitHub ruleset troubleshooting](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/troubleshooting-rules).
