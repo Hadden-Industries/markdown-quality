@@ -1,5 +1,29 @@
 # Implementation decisions and evidence
 
+## Current completion state on 2026-10-06
+
+The coordinated source candidate is 1.0.0; publication, anonymous registry verification and latest promotion are separate outcomes.
+The immutable alpha.4 tuple passed transported qualification in run `37313706547` and Windows/Linux anonymous root and isolated registry qualification in run `37316561023`.
+No alpha.4 attestation or SLSA level is claimed.
+The new main-only hosted publisher and native npm provenance verification still require actual environment/trust configuration, exact candidate archives and hosted registry proof.
+Native binaries, corresponding source, notices and the original AGPL-3.0-only licence bytes remain unchanged.
+
+OwlAPI's alpha.4 cutover was accepted for exact candidate `8dc38edbff5929cf0d30b39b577838928f29d875` and trusted run `37338581639`, then normally integrated through PR #46 at `073beefb7805130bc0452472d1a9c801471fbaf1`.
+Its LF guard is included in the incumbent test route; first-party provenance inputs reject checkout drift while original upstream notices retain their bytes.
+WebVOWL's shadow bootstrap PR #53 was normally integrated at `9b5d984d68a52418b267f97f274fa4b1d196ec69` after all required checks passed.
+Its approved cutover passed the remaining local formatting, staging/probe and application tests and a 123.485-second actual bootstrap restoration.
+The retired final tooling JavaScript exposed an obsolete ESLint operand; exact approval of the two-script correction, corrected final checks, hosted windows and separate owner acceptance remain pending.
+Both pilots ultimately must qualify and accept the exact stable tuple before latest promotion.
+
+Authored evidence LF checks cover Git index and physical tracked bytes, including CRLF/mixed, Unicode and native Git fixtures.
+The freezer rejects authored JSON CR bytes before hashing and emits explicit LF while preserving original hosted/upstream binary and notice bytes.
+The final source follow-up received one bounded Antigravity attempt with a 900-second response allowance; its own timeout returned an empty final response and is retained as incomplete review.
+The authorized independent Codex fallback reviewed all thirteen changed source/metadata/test files and supporting callers without an actionable finding.
+One native Codex Security diff scan completed with no reportable findings; structural fixtures and static review do not replace real cryptographic or hosted acceptance.
+The accepted revision 6 snapshot continues in execution `3532c2df-a4da-44ec-8ce5-f3bdc222dbd0`; earlier execution and review records below remain historical.
+
+## Retained implementation history
+
 The user authorized draft 4 implementation, commits, pushes, and required configuration in this checkout on 2026-10-05.
 The original six uncommitted files were retained in signed commit `755b863d7fdb4300ac32f876e4590987916803a7` before implementation.
 Implementation began on `implement-markdown-quality` as originally requested.

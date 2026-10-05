@@ -4,12 +4,14 @@ Install an exact coordinated public release after registry availability is verif
 Acquisition needs no npm account or token; disable lifecycle scripts.
 
 ```sh
-npm install --save-dev --save-exact --ignore-scripts @hadden-industries/markdown-quality@0.1.0-alpha.3
+npm install --save-dev --save-exact --ignore-scripts @hadden-industries/markdown-quality@1.0.0
 npm ci --ignore-scripts
 ```
 
-Version `0.1.0-alpha.3` is published under the `pilot` tag and qualified for fresh anonymous root and isolated installations on Windows x64 and Ubuntu 24.04 x64.
-It remains a prerelease; pilot acceptance and stable promotion are pending.
+The source candidate is `1.0.0`; confirm its registry availability and exact tuple qualification before using the command above.
+Publication under `pilot` and promotion to `latest` are separate steps.
+The previously qualified alpha.4 tuple remains immutable historical evidence.
+Both consumer pilots must accept the exact stable tuple before promotion.
 Keep the consumer lockfile.
 An isolated `tooling/markdown` npm project supports consumers that do not use Node for their application.
 Its commands must pass the actual repository root.

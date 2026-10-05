@@ -31,16 +31,23 @@ def read(path):
     return data
 
 
+def read_authored_json(path):
+    data = read(path)
+    if b'\r' in data:
+        raise ValueError('Authored provenance JSON must use LF before hashing: ' + str(path))
+    return data
+
+
 def freeze(inputs, output, run_id, workflow_commit, release_url, rights_path=None):
-    manifest = json.loads((ROOT / 'assets/tool-manifest.json').read_text(encoding='utf-8'))
-    build = json.loads((ROOT / 'assets/native-build.json').read_text(encoding='utf-8'))
-    output.mkdir(parents=True, exist_ok=False)
+    manifest = json.loads(read_authored_json(ROOT / 'assets/tool-manifest.json'))
+    build_bytes = read_authored_json(ROOT / 'assets/native-build.json')
+    build = json.loads(build_bytes)
     manifest['schemaVersion'] = 2
     manifest['build'] = {'runId': run_id, 'workflowCommit': workflow_commit,
-                         'rights': 'pending independent reconciliation', 'configSha256': sha(read(ROOT / 'assets/native-build.json'))}
+                         'rights': 'pending independent reconciliation', 'configSha256': sha(build_bytes)}
     supplement = None
     if rights_path is not None:
-        supplement_bytes = read(rights_path)
+        supplement_bytes = read_authored_json(rights_path)
         if len(supplement_bytes) > 1_000_000:
             raise ValueError('Rights supplement exceeds bound')
         supplement = json.loads(supplement_bytes)
@@ -51,6 +58,7 @@ def freeze(inputs, output, run_id, workflow_commit, release_url, rights_path=Non
         manifest['build']['rightsSupplementSha256'] = sha(supplement_bytes)
         # This separately authored repack evidence must never masquerade as build output.
         manifest['build']['rightsSupplement'] = supplement
+    output.mkdir(parents=True, exist_ok=False)
     for key, spec in manifest['platforms'].items():
         directory = inputs / ('native-' + key)
         binary_name = pathlib.PurePosixPath(spec['executable']).name
@@ -124,7 +132,7 @@ def freeze(inputs, output, run_id, workflow_commit, release_url, rights_path=Non
         spec.update({'sha256': expected[binary_name], 'archiveSha256': sha(data),
                      'url': release_url.rstrip('/') + '/' + archive_name,
                      'files': {name: sha(data) for name, data in sorted(evidence_bytes.items())}})
-    (output / 'tool-manifest.candidate.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+    (output / 'tool-manifest.candidate.json').write_bytes((json.dumps(manifest, indent=2) + '\n').encode('utf-8'))
     return manifest
 
 

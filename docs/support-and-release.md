@@ -16,7 +16,7 @@ Changed defaults require a new preset major, and a package major when existing i
 Dependency upgrades are classified from observed corpus and consumer deltas.
 Never overwrite a published version.
 
-The current alpha is not stable v1.0.
+The current source prepares version 1.0.0 under the pilot tag; stable promotion remains gated.
 Stable promotion requires the same qualified tuple on both platforms, public registry readback and unauthenticated installation, both pilot acceptances, and a timed restoration exercise.
 Changed/referrer mode and later fleet adoptions remain deferred.
 
@@ -40,16 +40,23 @@ An upstream Cargo lock is a superset of features and development inputs and does
 The original upstream license and per-asset repack identity are retained.
 
 The owner selected public distribution after npm rejected the private publication with E402.
-All three packages declare public access and share the candidate version 0.1.0-alpha.4.
-The alpha.4 candidate avoids duplicate formatting of byte-identical documents while retaining independent prose checks and the changed-document preservation/convergence checks.
+All three packages declare public access and share the source candidate version 1.0.0.
+It retains alpha.4's qualified native executable/source/notice bytes and avoids duplicate formatting of byte-identical documents while retaining independent prose checks and preservation/convergence checks.
 The first alpha.3 hosted OWLAPI shadow checks passed correctness but exceeded the accepted 30-second budget on both platforms.
-Alpha.3 remains immutable historical evidence; alpha.4 requires fresh transported-archive, registry, and pilot qualification before promotion.
+Alpha.3 and alpha.4 remain immutable historical evidence; every new tuple requires fresh transported-archive, registry, and exact-version pilot qualification before promotion.
 The public alpha.2 archives remain immutable historical delivery evidence and are unqualified for Linux execution.
 The packer normalizes the Linux npm member's executable mode with Python tarfile, verifies all member bytes are unchanged, and recomputes the final archive integrity.
 Qualify the exact transported release archives on both platforms, rather than each platform's independently generated package.
 The unpublished private alpha.1 candidate and all rejected attempts remain historical evidence.
 Direct first publication uses explicit public access; a staged placeholder is unnecessary.
-OIDC publication is preferred after actual package/workflow eligibility is configured.
+The manual publisher uses npm 12.2.0 in hosted CI and requires all three npm trusted-publisher mappings for this repository, publish.yml and the npm-publication environment.
+That environment must permit exactly the main branch.
+It verifies a successful same-source candidate run, all three same-attempt jobs, the approved manifest digest and exact frozen archive bytes before publishing native packages and then core under pilot.
+Only the publication job has OIDC issuance permission; no long-lived npm token is supplied.
+Both registry jobs use native npm signature/attestation verification and bind the verified provenance to the approved source, workflow and publication run.
+Structural provenance fixtures do not establish cryptographic acceptance.
+The workflow does not promote latest; both pilots and recovery must accept the exact tuple first.
+GitHub artifacts expire after 30 days, so export the complete frozen source, manifest, archives and verification bundles to the retained evidence store before expiry, for the security policy's maintained-lifetime-plus-three-years floor.
 Public installation needs no registry token, subscription, or OIDC authority.
 Public npm provenance is eligible only through a qualified supported publisher; do not claim it for the local bootstrap.
 Retain attributable source/build/repack evidence and qualify attestations separately.
@@ -75,7 +82,7 @@ Private reporting is enabled for this repository, as read back from GitHub on 20
 Review dependency/advisory health at each release preparation and monthly while maintained.
 Retain release source, build inputs, notices, recipient delivery/qualification evidence, and accepted recovery inputs for the maintained release lifetime plus three years after support ends, honoring any applicable license obligations requiring more.
 This is an operational retention floor, not a legal interpretation.
-Before stable, only the prerelease designated by `pilot` is maintained; after stable, only the latest stable release designated by `latest` is maintained unless another line is explicitly accepted.
+Before stable promotion, only the candidate designated by `pilot` is maintained; after stable promotion, only the latest stable release designated by `latest` is maintained unless another line is explicitly accepted.
 Consumers remain exactly pinned and upgrades individually qualified; older downloadable releases have no implied support or backport promise.
 
 Pilot qualification uses six consecutive valid full checks per frozen corpus/platform, excluding installation, with observed nearest-rank sample p95 at most 30 seconds.

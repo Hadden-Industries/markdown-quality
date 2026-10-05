@@ -14,9 +14,15 @@ import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { npmCommand } from "./commands.js";
 import { parseArgs } from "node:util";
+import { verifyReleaseProvenance } from "./provenance.js";
 
 const { values, positionals } = parseArgs({
-  options: { manifest: { type: "string" }, archives: { type: "string" } },
+  options: {
+    manifest: { type: "string" },
+    archives: { type: "string" },
+    provenance: { type: "boolean", default: false },
+    "publication-run": { type: "string" },
+  },
   allowPositionals: true,
 });
 assert.ok(positionals.length <= 1);
@@ -31,11 +37,19 @@ const expected = JSON.parse(
 const source =
   typeof expected.source === "string" ? expected.source : expected.source.head;
 assert.match(source, /^[a-f0-9]{40}$/u);
-assert.match(expected.version, /^\d+\.\d+\.\d+-alpha\.\d+$/u);
+assert.match(
+  expected.version,
+  /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-alpha\.(?:0|[1-9]\d*))?$/u,
+);
 const archives = values.archives ? resolve(values.archives) : null;
 const digest = (data) => createHash("sha256").update(data).digest("hex");
 const temporary = mkdtempSync(join(tmpdir(), "markdown-quality-registry-"));
+assert.ok(
+  !values.provenance || !archives,
+  "Transported archives have no registry attestations",
+);
 const records = [];
+const provenanceRecords = [];
 const platform = `${process.platform}-${process.arch}`;
 assert.ok(["win32-x64", "linux-x64"].includes(platform));
 async function acquire(url, maximum) {
@@ -187,6 +201,25 @@ try {
       }
     };
     verifyFiles();
+    if (values.provenance) {
+      const audit = JSON.parse(
+        npmCommand(
+          ["audit", "signatures", "--json", "--include-attestations"],
+          { cwd: install, env: environment },
+        ),
+      );
+      const verified = verifyReleaseProvenance(audit, active, {
+        version: expected.version,
+        source,
+        publicationRun: values["publication-run"],
+      });
+      provenanceRecords.push({
+        layout,
+        platform,
+        records: verified,
+        nativeAudit: audit,
+      });
+    }
     writeFileSync(
       join(consumer, ".markdown-quality.json"),
       JSON.stringify({
@@ -267,7 +300,10 @@ try {
     platform,
     passed: true,
     observedAt: new Date().toISOString(),
-    provenanceAttestation: "not-issued by local bootstrap",
+    provenanceAttestation: values.provenance
+      ? "verified by npm audit signatures and bound to approved source/workflow/run"
+      : "not checked; no attestation claim",
+    provenanceRecords,
     records,
   };
   if (positionals.length)

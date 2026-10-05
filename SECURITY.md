@@ -1,7 +1,7 @@
 # Security policy
 
-Before stable release, security support covers only the single prerelease designated by npm's `pilot` tag.
-After stable release, it covers only the latest stable release designated by `latest`, unless an explicit policy accepts another line.
+Before stable promotion, security support covers only the single candidate designated by npm's `pilot` tag.
+After stable promotion, it covers only the latest stable release designated by `latest`, unless an explicit policy accepts another line.
 Consumers should pin exact versions and qualify upgrades.
 Older releases remaining downloadable does not imply maintenance or backport support.
 The supported runtime is Node 24.21.0 on Windows x64 and Ubuntu 24.04 x64 with glibc 2.39, with the qualified core/native tuple and explicit preset.

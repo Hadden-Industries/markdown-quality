@@ -15,8 +15,10 @@ A private shared Action is optional and does not solve public caller access.
 | Pilot fork PR            | Reviewed base tooling and policy                      | Separate trusted acquisition                    | Candidate data only; no candidate scripts or graph   | Architecture selected; qualification pending |
 | Tool or policy update PR | Existing accepted graph until review                  | New graph requires owner review                 | Never treat candidate graph or exclusions as trusted | Required review remains explicit             |
 
-The package CI has no registry secret or OIDC permission.
-It installs with lifecycle scripts disabled and qualifies both OS targets.
+Package tests and candidate/registry qualification have no registry secret or OIDC permission.
+They install with lifecycle scripts disabled and qualify both OS targets.
+The separately dispatched publisher grants OIDC issuance only to its main-restricted npm-publication job.
+Its exact candidate/source/manifest gate precedes public pilot publication; registry qualification remains credential-free and latest promotion remains separately gated.
 Packed-consumer tests acquire public JavaScript dependencies before testing offline frozen-lock reinstallation and runtime execution.
 The source lock acquisition alone does not populate metadata for a fresh consumer install.
 It cannot serve as evidence that a pilot's private access works.
@@ -35,7 +37,7 @@ Before each pilot merge, the owner accepts the exact candidate head/tree and att
 Any changed candidate, base policy/workflow or tool identity invalidates that acceptance.
 A same-name candidate job or green PR summary cannot substitute for this record.
 This route provides manual owner enforcement; it does not claim automatic workflow-specific enforcement.
-No separate App, paid entitlement, write-capable status reporter, OIDC authority or new secret is created.
+The pilot trusted-run boundary creates no separate App, paid entitlement, write-capable status reporter, OIDC authority or new secret.
 Negative hosted probes must still show malformed-link failure, candidate policy/ignore non-authority, candidate marker non-execution and credential absence.
 The single owner's own PR does not constitute independent human approval; any necessary integration route must be explicit and recorded.
 

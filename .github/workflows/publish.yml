@@ -1,0 +1,152 @@
+name: Publish qualified public tuple
+on:
+  workflow_dispatch:
+    inputs:
+      candidate-run:
+        description: Successful transported candidate run at this exact main commit
+        required: true
+        type: string
+      manifest-sha256:
+        description: Approved release-manifest SHA-256
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: markdown-quality-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
+    environment: npm-publication
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    env:
+      CANDIDATE_RUN: ${{ inputs.candidate-run }}
+      MANIFEST_SHA: ${{ inputs.manifest-sha256 }}
+      NPM_CONFIG_IGNORE_SCRIPTS: "true"
+      NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/publication-user.npmrc
+      NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/publication-global.npmrc
+      NPM_CONFIG_CACHE: ${{ runner.temp }}/publication-cache
+      NODE_AUTH_TOKEN: ""
+      NPM_TOKEN: ""
+      NPM_CONFIG_TOKEN: ""
+      NODE_OPTIONS: ""
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: "24.21.0"
+          package-manager-cache: false
+      - name: Inspect exact completed candidate and current default branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$CANDIDATE_RUN" =~ ^[1-9][0-9]{0,15}$ ]]
+          [[ "$MANIFEST_SHA" =~ ^[a-f0-9]{64}$ ]]
+          mkdir provider
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN" > provider/run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/jobs?per_page=100" > provider/jobs.json
+          gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" > provider/current-ref.json
+          gh api "repos/$GITHUB_REPOSITORY/environments/npm-publication" > provider/environment.json
+          gh api "repos/$GITHUB_REPOSITORY/environments/npm-publication/deployment-branch-policies?per_page=100" > provider/branches.json
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: candidate-release
+          path: frozen-release
+          run-id: ${{ inputs.candidate-run }}
+          github-token: ${{ github.token }}
+          digest-mismatch: error
+      - name: Verify approved archives without installation or repacking
+        run: node scripts/verify-publication.js frozen-release "$MANIFEST_SHA" provider
+      - name: Acquire pinned hosted publisher
+        shell: bash
+        run: |
+          touch "$NPM_CONFIG_USERCONFIG" "$NPM_CONFIG_GLOBALCONFIG"
+          NPM_PREFIX="$(node --input-type=module -e 'import {dirname,resolve} from "node:path"; console.log(resolve(dirname(process.execPath),".."))')"
+          npm install --global npm@12.2.0 --prefix "$NPM_PREFIX" --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
+          test "$(npm --version)" = 12.2.0
+          node --input-type=module -e 'import {npmCommand} from "./scripts/commands.js"; if(npmCommand(["--version"]).trim()!=="12.2.0") throw new Error("Selected Node publisher version mismatch")'
+      - name: Publish Windows package under pilot and verify integrity
+        run: |
+          npm publish "frozen-release/hadden-industries-markdown-quality-win32-x64-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag pilot --provenance --registry=https://registry.npmjs.org/
+          test "$(npm view "@hadden-industries/markdown-quality-win32-x64@$RELEASE_VERSION" dist.integrity --registry=https://registry.npmjs.org/)" = "$WIN32_X64_INTEGRITY"
+      - name: Publish Linux package under pilot and verify integrity
+        run: |
+          npm publish "frozen-release/hadden-industries-markdown-quality-linux-x64-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag pilot --provenance --registry=https://registry.npmjs.org/
+          test "$(npm view "@hadden-industries/markdown-quality-linux-x64@$RELEASE_VERSION" dist.integrity --registry=https://registry.npmjs.org/)" = "$LINUX_X64_INTEGRITY"
+      - name: Publish coherent core under pilot and verify integrity
+        run: |
+          npm publish "frozen-release/hadden-industries-markdown-quality-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag pilot --provenance --registry=https://registry.npmjs.org/
+          test "$(npm view "@hadden-industries/markdown-quality@$RELEASE_VERSION" dist.integrity --registry=https://registry.npmjs.org/)" = "$CORE_INTEGRITY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: publication-source-and-manifest
+          path: |
+            provider/*.json
+            frozen-release/release-manifest.json
+          if-no-files-found: error
+          retention-days: 30
+  registry:
+    needs: publish
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      NPM_CONFIG_IGNORE_SCRIPTS: "true"
+      NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/qualification-user.npmrc
+      NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/qualification-global.npmrc
+      NPM_CONFIG_CACHE: ${{ runner.temp }}/qualification-cache
+      NODE_AUTH_TOKEN: ""
+      NPM_TOKEN: ""
+      NPM_CONFIG_TOKEN: ""
+      NODE_OPTIONS: ""
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: "24.21.0"
+          package-manager-cache: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: candidate-release
+          path: frozen-release
+          run-id: ${{ inputs.candidate-run }}
+          github-token: ${{ github.token }}
+          digest-mismatch: error
+      - name: Acquire pinned hosted verifier from selected Node installation
+        run: |
+          touch "$NPM_CONFIG_USERCONFIG" "$NPM_CONFIG_GLOBALCONFIG"
+          NPM_PREFIX="$(node --input-type=module -e 'import {dirname,resolve} from "node:path"; console.log(process.platform==="win32"?dirname(process.execPath):resolve(dirname(process.execPath),".."))')"
+          npm install --global npm@12.2.0 --prefix "$NPM_PREFIX" --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
+          node --input-type=module -e 'import {npmCommand} from "./scripts/commands.js"; if(npmCommand(["--version"]).trim()!=="12.2.0") throw new Error("Selected Node verifier version mismatch")'
+      - name: Verify anonymous registry bytes, signatures and attested source
+        run: node scripts/qualify-public-registry.mjs --manifest frozen-release/release-manifest.json --provenance --publication-run "$GITHUB_RUN_ID" registry-qualification.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: attested-registry-${{ matrix.os }}
+          path: registry-qualification.json
+          if-no-files-found: error
+          retention-days: 30

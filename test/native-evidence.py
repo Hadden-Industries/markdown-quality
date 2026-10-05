@@ -174,6 +174,33 @@ class ArtifactBindingTests(unittest.TestCase):
             self.assertEqual(result['platforms']['win32-x64']['archiveSha256'],
                              freezer.sha((base / 'output/snapper-windows.zip').read_bytes()))
 
+    def test_candidate_manifest_uses_lf_and_original_upstream_crlf_is_preserved(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = pathlib.Path(temporary)
+            self.inputs(base)
+            platform = base / 'native-win32-x64'
+            original_notice = b'Original upstream notice\r\nCopyright fixture\r\n'
+            (platform / 'LICENSE.snapper').write_bytes(original_notice)
+            evidence = json.loads((platform / 'build-evidence.json').read_bytes())
+            evidence['files']['LICENSE.snapper'] = freezer.sha(original_notice)
+            (platform / 'build-evidence.json').write_bytes(json.dumps(evidence).encode('utf-8'))
+            freezer.freeze(base, base / 'output', '123', 'f' * 40, 'https://fixture.invalid/release')
+            manifest = (base / 'output/tool-manifest.candidate.json').read_bytes()
+            self.assertNotIn(b'\r', manifest)
+            self.assertTrue(manifest.endswith(b'\n'))
+            with zipfile.ZipFile(base / 'output/snapper-windows.zip') as archive:
+                self.assertEqual(archive.read('LICENSE.snapper'), original_notice)
+
+    def test_crlf_authored_rights_are_rejected_before_output_or_hashing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = pathlib.Path(temporary)
+            self.inputs(base)
+            path, value = self.supplement(base)
+            path.write_bytes(json.dumps(value, indent=2).replace('\n', '\r\n').encode('utf-8'))
+            with self.assertRaisesRegex(ValueError, 'must use LF before hashing'):
+                freezer.freeze(base, base / 'output', '123', 'f' * 40, 'https://fixture.invalid/release', path)
+            self.assertFalse((base / 'output').exists())
+
     def supplement(self, base):
         text = 'Copyright © 2026 Fixture owner. Original fixture notice.\n'
         value = {'schemaVersion': 1, 'sourceCommit': builder.CONFIG['sourceCommit'],
