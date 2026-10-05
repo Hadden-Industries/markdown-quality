@@ -16,7 +16,7 @@ function node(args) {
 }
 if (
   digest(readFileSync(new URL("../LICENSE", import.meta.url))) !==
-  "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75"
+  "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
 )
   throw new Error("Original AGPL-3.0-only license bytes changed.");
 resolveTool();

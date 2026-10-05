@@ -3,7 +3,11 @@
 The user authorized draft 4 implementation, commits, pushes, and required configuration in this checkout on 2026-10-05.
 The original six uncommitted files were retained in signed commit `755b863d7fdb4300ac32f876e4590987916803a7` before implementation.
 The branch is `implement-markdown-quality`.
-The original AGPL-3.0-only license digest is `6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75`.
+The original tracked AGPL-3.0-only license digest is `8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef`.
+The preexisting local CRLF checkout had digest `6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75`.
+The first hosted run exposed that line-ending difference in the initial guard.
+The guard now binds the original repository blob, and the local license uses the same LF bytes.
+The tracked `LICENSE` blob remains identical to the original repository revision.
 
 HISEW personal registration is active with focused, affected, and full profiles.
 The protected accepted requirement snapshot is `bce7dd7e-0e52-46b8-ba9e-aa09365fd8ae`.

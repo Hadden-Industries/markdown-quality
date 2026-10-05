@@ -18,7 +18,7 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 export function packRelease(output) {
   if (
     digest(readFileSync(join(root, "LICENSE"))) !==
-    "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75"
+    "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
   )
     throw new Error("Original license identity changed");
   for (const [key, spec] of Object.entries(manifest.platforms)) {

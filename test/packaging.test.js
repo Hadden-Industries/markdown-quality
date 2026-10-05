@@ -57,6 +57,17 @@ test("packed root and isolated consumers install without lifecycle scripts and e
       install,
       "node_modules/@hadden-industries/markdown-quality",
     );
+    const originalLicense = readFileSync(
+      new URL("../LICENSE", import.meta.url),
+    );
+    assert.deepEqual(
+      readFileSync(join(installedCore, "LICENSE")),
+      originalLicense,
+    );
+    assert.deepEqual(
+      readFileSync(join(install, "node_modules", native.package, "LICENSE")),
+      originalLicense,
+    );
     for (const file of core.files.filter((f) => f.path.endsWith(".md"))) {
       const text = readFileSync(join(installedCore, file.path), "utf8");
       assert.deepEqual(
