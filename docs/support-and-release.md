@@ -17,7 +17,7 @@ Dependency upgrades are classified from observed corpus and consumer deltas.
 Never overwrite a published version.
 
 The current alpha is not stable v1.0.
-Stable promotion requires the same qualified tuple on both platforms, restricted registry readback, both pilot acceptances, and a timed restoration exercise.
+Stable promotion requires the same qualified tuple on both platforms, public registry readback and unauthenticated installation, both pilot acceptances, and a timed restoration exercise.
 Changed/referrer mode and later fleet adoptions remain deferred.
 
 Prepare assets explicitly from their frozen manifest.
@@ -39,16 +39,19 @@ The JS SBOM must be reconciled with every compiled native/runtime component befo
 An upstream Cargo lock is a superset of features and development inputs and does not prove exact shipped component coverage.
 The original upstream license and per-asset repack identity are retained.
 
-Private first publication must use a verified restricted path.
-Do not create a public staged placeholder.
+The owner selected public distribution after npm rejected the private publication with E402.
+All three packages declare public access and share version 0.1.0-alpha.2.
+The unpublished private alpha.1 candidate and all rejected attempts remain historical evidence.
+Direct first publication uses explicit public access; a staged placeholder is unnecessary.
 OIDC publication is preferred after actual package/workflow eligibility is configured.
-OIDC does not provide private acquisition authentication.
-npm automatic public provenance cannot be claimed for private packages.
-Use internal attributable source/build/repack evidence and qualified attestations where available.
+Public installation needs no registry token, subscription, or OIDC authority.
+Public npm provenance is eligible only through a qualified supported publisher; do not claim it for the local bootstrap.
+Retain attributable source/build/repack evidence and qualify attestations separately.
 
 Publish native packages first under a pilot tag and publish the core only when the tuple is coherent.
-Read back hashes, restricted visibility, authorized installation, and unauthorized denial for every package.
-Do not perform registry publication while rights, authentication, independent assurance, or platform evidence remains missing.
+Read back hashes, public visibility, and fresh unauthenticated archive acquisition for every package.
+Qualify root and isolated consumers on both supported platforms from the registry, without credentials.
+Do not perform registry publication while rights, publisher authentication, independent assurance, or platform evidence remains missing.
 A partial publication stays unpromoted and receives a new corrective version if bytes change.
 
 For recovery, retain the exact consumer base revision, old manifest and lock, workflows, selected document preimages, and unrelated-file sentinels.
@@ -65,5 +68,5 @@ Retain release source, build inputs, notices, recipient delivery evidence, and r
 
 Provide AGPL corresponding source and build materials alongside object-code delivery to actual recipients.
 Preserve third-party license texts and attribution.
-Private registry access changes acquisition permissions and does not waive source obligations.
+Public registry access does not waive source obligations.
 The repository's original `LICENSE` bytes are verified by the full check.

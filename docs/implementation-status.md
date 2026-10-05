@@ -3,6 +3,10 @@
 The user authorized draft 4 implementation, commits, pushes, and required configuration in this checkout on 2026-10-05.
 The original six uncommitted files were retained in signed commit `755b863d7fdb4300ac32f876e4590987916803a7` before implementation.
 The branch is `implement-markdown-quality`.
+The owner subsequently requested public npm distribution after approved native authentication reached an E402 private-entitlement rejection.
+The public candidate is `0.1.0-alpha.2`; core and both native manifests declare public access.
+The original unpublished private alpha.1 archives and all failed publication responses remain retained external evidence.
+Public installation requires no recipient credential or paid organization plan; fresh anonymous registry acquisition and both platform consumers replace private-recipient denial as the delivery proof.
 The original tracked AGPL-3.0-only license digest is `8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef`.
 The preexisting local CRLF checkout had digest `6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75`.
 The first hosted run exposed that line-ending difference in the initial guard.
@@ -16,6 +20,8 @@ Refining the verification profiles rerouted the same accepted scope to execution
 The continued execution was `9a864ccd-82f7-4de9-a0d4-f648fcdc5127`.
 Owner-authorized native build and notice inputs rerouted the same scope through `b6a72a50-3fe2-4654-b4c6-060f89bf59ea` to current execution `245bceec-2d47-49b3-83bd-fe6e80d7a126`.
 Supplemental evidence belongs to the configured external task-artifact directory for chat `01a10942-8e9b-7b62-ae73-e6977b59718d`.
+The owner-selected public distribution amendment is captured in protected snapshot `ed503186-c08d-4023-b9db-4029a97f9d63` and continues the same R2 scope in active execution `29adbc86-b10c-49fb-8591-b1a0e750f802`.
+The required focused/affected/full command definitions and configuration inputs remain unchanged.
 
 ## Software selection refresh
 
@@ -50,7 +56,10 @@ An independent actual-artifact review verified embedded metadata, source checksu
 Its original attribution findings are addressed by the separately authored, binary-bound [notice supplement](../assets/native-rights.json).
 The supplement preserves original upstream license files, declared authors where no original copyright notice exists, and native per-file notices.
 It accompanies the unchanged hosted evidence in both acquisition archives and npm native packages.
-Repack review, controlled-binary platform qualification and registry readback remain separate acceptance gates.
+Independent repack verification passed for both eleven-file native archives, retaining the unchanged original nine hosted outputs.
+Controlled-binary root and isolated packed consumers passed both Windows and Ubuntu 24.04 in hosted run `37280015212` at source `2800741212e3106702e42e2fb5b13e3e628b9605`.
+The public metadata/version/documentation amendment requires fresh package qualification; the exact cleared native binary/source/notice hashes are retained.
+Actual public registry readback remains a separate delivery gate.
 
 ## NSH-01 exception
 
@@ -82,6 +91,6 @@ Antigravity's unsupported native-environment failure claim is not accepted: empt
 The security report's original-snapshot warning is retained; Git confirmed the original reviewed source tree remained `65ba0febfbd50d73015221d32fc7a23ef4a50514` before corrections.
 
 Internal source tests and local packed consumers do not establish stable v1.0.
-Restricted registry authentication, exact native component rights/build inventory, both hosted platforms, independent assurance, two accepted pilot cutovers, and recovery proof remain required.
+Publisher authentication, public registry tuple readback and anonymous installation, exact native component rights/build inventory, both hosted platforms, independent assurance, two accepted pilot cutovers, and recovery proof remain required.
 Optional Action, changed mode, and later fleet migrations are deferred under draft 4.
 All statuses must be reconciled against actual verification and review evidence before final delivery.

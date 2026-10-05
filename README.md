@@ -4,8 +4,9 @@ This package supplies one CLI and library for Markdown layout, sentence lines, G
 Consumers declare their authored-document scope in `.markdown-quality.json`.
 The package preserves the existing AGPL-3.0-only license.
 
-The current version is an internal alpha.
-Registry delivery, native component clearance, hosted platform qualification, and pilot acceptance remain release gates.
+The current version is a candidate for public alpha distribution.
+Controlled native component clearance and Windows/Linux packed qualification passed for the retained binaries.
+The public package tuple requires fresh registry qualification before use; both accepted pilots and recovery evidence still block stable v1.0.
 
 ```sh
 markdown-quality check --root /path/to/repository

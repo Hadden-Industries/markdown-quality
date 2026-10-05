@@ -1,10 +1,10 @@
 # Consumer guide
 
-Install an exact coordinated release after restricted registry availability is verified.
-Use native npm authentication for acquisition and disable lifecycle scripts.
+Install an exact coordinated public release after registry availability is verified.
+Acquisition needs no npm account or token; disable lifecycle scripts.
 
 ```sh
-npm install --save-dev --save-exact --ignore-scripts @hadden-industries/markdown-quality@0.1.0-alpha.1
+npm install --save-dev --save-exact --ignore-scripts @hadden-industries/markdown-quality@0.1.0-alpha.2
 npm ci --ignore-scripts
 ```
 
@@ -79,9 +79,9 @@ It conservatively refuses unsupported semantic or literal changes.
 Ordinary file permission bits are preserved; ownership changes, alternate streams, ACL inheritance, arbitrary metadata, and adversarial filesystem races are not promised as preserved.
 Use a clean baseline or retained preimages when original uncommitted bytes must be recoverable.
 
-Private CI acquisition must use a trusted reviewed graph in a separate job or credential scope.
-Remove acquisition credentials and credential files before processing documents.
+CI acquisition uses the exact public release and a trusted reviewed graph without registry credentials.
+The checking process receives no publication, repository-write or OIDC credentials.
 The package itself needs no registry credentials at runtime.
 Fork content cannot supply the executable, dependency graph, workflow, scripts, or trusted policy.
-An unavailable private check is a blocked required check, not a successful skip.
+An unavailable check is a blocked required check, not a successful skip.
 The [CI trust decision](ci-trust.md) records the actual pilot constraints.

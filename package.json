@@ -1,6 +1,6 @@
 {
   "name": "@hadden-industries/markdown-quality",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "description": "Shared, bounded Markdown formatting, GFM linting, and local-link checking",
   "type": "module",
   "license": "AGPL-3.0-only",
@@ -28,7 +28,7 @@
     "docs/support-and-release.md"
   ],
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "repository": {
     "type": "git",
