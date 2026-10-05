@@ -15,6 +15,8 @@ A private shared Action is optional and does not solve public caller access.
 
 The package CI has no registry secret or OIDC permission.
 It installs with lifecycle scripts disabled and qualifies both OS targets.
+Packed-consumer tests acquire public JavaScript dependencies before testing offline frozen-lock reinstallation and runtime execution.
+The source lock acquisition alone does not populate metadata for a fresh consumer install.
 It cannot serve as evidence that a pilot's private access works.
 
 A pilot integration must acquire the exact tool graph from a protected source, remove all credential material, and process a separately fetched candidate data tree.

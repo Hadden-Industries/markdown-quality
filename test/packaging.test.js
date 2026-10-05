@@ -48,10 +48,11 @@ test("packed root and isolated consumers install without lifecycle scripts and e
         ),
       }),
     );
-    npmCommand(
-      ["install", "--ignore-scripts", "--offline", "--no-audit", "--no-fund"],
-      { cwd: install },
-    );
+    // Fresh acquisition resolves public JS metadata without private credentials.
+    // The frozen-lock reinstall and runtime below must work offline.
+    npmCommand(["install", "--ignore-scripts", "--no-audit", "--no-fund"], {
+      cwd: install,
+    });
     const lockBefore = readFileSync(join(install, "package-lock.json"));
     const installedCore = join(
       install,
