@@ -16,6 +16,7 @@ import shutil
 import stat
 import subprocess
 import tarfile
+import tomllib
 import urllib.request
 import zipfile
 
@@ -62,7 +63,7 @@ def acquire_tool(name, spec, directory, suffix):
                 raise ValueError('Tool archive member ambiguity')
             member = members[0]
             kind = stat.S_IFMT(member.external_attr >> 16)
-            if member.is_dir() or (member.create_system == 3 and kind not in (0, stat.S_IFREG)):
+            if member.is_dir() or member.external_attr & 0x10 or (member.create_system == 3 and kind not in (0, stat.S_IFREG)):
                 raise ValueError('Tool member is not regular')
             executable = archive.read(member)
     else:
@@ -126,6 +127,28 @@ def acquire_extractor(directory):
     return spec
 
 
+def registry_source(package, locked):
+    """Normal Cargo cache archives are verified against the frozen lock, not vendor metadata."""
+    base = pathlib.Path(package['manifest_path']).parent
+    identity = (package['name'], package['version'], package['source'])
+    checksum = locked[identity]['checksum']
+    archive_name = package['name'] + '-' + package['version'] + '.crate'
+    cache = base.parent.parent.parent / 'cache' / base.parent.name / archive_name
+    data = read(cache, 100_000_000)
+    if digest(data) != checksum:
+        raise ValueError('Cargo cache archive does not match frozen lock')
+    source_files = {}
+    for path in sorted(base.rglob('*')):
+        if path.is_symlink():
+            raise ValueError('Registry source symlink requires qualification')
+        if path.is_file() and path.name != '.cargo-ok':
+            if len(source_files) >= 10000:
+                raise ValueError('Registry source file count bound')
+            source_files[path.relative_to(base).as_posix()] = digest(read(path))
+    return {'sourceArchiveSha256': checksum, 'sourceFileSha256': source_files,
+            'sourceArchiveUrl': 'https://static.crates.io/crates/' + package['name'] + '/' + archive_name}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--platform', choices=CONFIG['tools'], required=True)
@@ -141,6 +164,11 @@ def main():
         # Git checkout on Windows must preserve the committed LF bytes.
         if digest(read(source / filename)) != CONFIG[field]:
             raise ValueError('Frozen source identity mismatch: ' + filename)
+    source_manifest = tomllib.loads(read(source / 'Cargo.toml').decode())
+    if source_manifest['features']['default'] != CONFIG['features']:
+        raise ValueError('Declared feature set differs from frozen source defaults')
+    locked = {(p['name'], p['version'], p.get('source')): p
+              for p in tomllib.loads(read(source / 'Cargo.lock').decode())['package']}
     output.mkdir(parents=True, exist_ok=False)
     tools = output.parent / ('native-tools-' + args.platform)
     tools.mkdir(exist_ok=False)
@@ -158,18 +186,12 @@ def main():
     toolchain = run(['rustc', '--version', '--verbose'], capture=True).decode()
     if not toolchain.startswith('rustc ' + CONFIG['rust'] + ' '):
         raise ValueError('Unexpected Rust toolchain')
+    if 'commit-hash: ' + CONFIG['rustSourceCommit'] not in toolchain.splitlines():
+        raise ValueError('Unexpected Rust source revision')
     target = spec['target']
+    features = ['--no-default-features', '--features', ','.join(CONFIG['features'])]
     metadata = json.loads(run(['cargo', 'metadata', '--locked', '--format-version', '1',
-                              '--filter-platform', target], source, True))
-    # Build the official bounded native extractor from its independent frozen lock.
-    run(['cargo', 'build', '--locked', '--release', '--manifest-path',
-         str(audit / 'Cargo.toml')], audit)
-    extractor = audit / ('target/release/rust-audit-info' + suffix)
-    run(['cargo', 'auditable', 'build', '--locked', '--profile', CONFIG['profile'],
-         '--bin', 'snapper-fmt', '--target', target], source)
-    executable = source / 'target' / target / CONFIG['profile'] / ('snapper-fmt' + suffix)
-    binary = read(executable, 100_000_000)
-    embedded = json.loads(run([str(extractor), str(executable), '100000000', '8388608'], capture=True))
+                              '--filter-platform', target, *features], source, True))
     config_path = tools / 'about.toml'
     config_path.write_text('accepted = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", '
                           '"Unicode-3.0", "Unicode-DFS-2016", "Zlib", "BSL-1.0", "CC0-1.0", "Unlicense"]\n'
@@ -178,7 +200,8 @@ def main():
                           '[webpki-roots]\naccepted = ["MPL-2.0"]\n', encoding='utf-8')
     run([str(tools / ('cargo-about' + suffix)), 'generate', '--locked', '--fail', '--format', 'json',
          '--config', str(config_path), '--manifest-path', str(source / 'Cargo.toml'),
-         '--output-file', str(output / 'cargo-notices.json')], source)
+         '--output-file', str(output / 'cargo-notices.json'), '--no-default-features',
+         '--features', ' '.join(CONFIG['features'])], source)
     cargo_notices = json.loads(read(output / 'cargo-notices.json'))
     packages = []
     mpl_source = output / 'MPL-SOURCE.tar.xz'
@@ -208,14 +231,12 @@ def main():
         base = pathlib.Path(package['manifest_path']).parent
         notices = notice_files(base)
         entry = {key: package.get(key) for key in ('name', 'version', 'license', 'source', 'repository')}
-        if package.get('source', '').startswith('registry+') if package.get('source') else False:
-            checksum = json.loads(read(base / '.cargo-checksum.json'))
-            entry['sourceArchiveSha256'] = checksum['package']
-            entry['sourceFileSha256'] = checksum['files']
-            entry['sourceArchiveUrl'] = ('https://static.crates.io/crates/' + package['name'] + '/'
-                                         + package['name'] + '-' + package['version'] + '.crate')
-        else:
+        if (package.get('source') or '').startswith('registry+'):
+            entry.update(registry_source(package, locked))
+        elif package['name'] == 'snapper-fmt' and base == source and package.get('source') is None:
             entry['sourceCommit'] = CONFIG['sourceCommit']
+        else:
+            raise ValueError('Unqualified non-registry dependency: ' + package['name'])
         entry['notices'] = notices
         packages.append(entry)
         for notice in notices:
@@ -231,23 +252,32 @@ def main():
         raise ValueError('Official Rust standard-library notices missing')
     shutil.copyfile(runtime, output / 'COPYRIGHT-library.html')
     rust_commit = re.search(r'^commit-hash: ([0-9a-f]{40})$', toolchain, re.MULTILINE)
-    if rust_commit is None:
+    if rust_commit is None or rust_commit.group(1) != CONFIG['rustSourceCommit']:
         raise ValueError('Rust source revision unavailable')
     runtime_terms = []
-    for name in ('LICENSE-MIT', 'LICENSE-APACHE', 'LICENSES/Unicode-3.0.txt'):
-        url = 'https://raw.githubusercontent.com/rust-lang/rust/' + rust_commit.group(1) + '/' + name
+    for license_spec in CONFIG['rustRuntimeLicenseInputs']:
+        name, url = license_spec['path'], license_spec['url']
         with urllib.request.urlopen(url, timeout=60) as response:
             data = response.read(1_000_001)
-        if len(data) > 1_000_000:
-            raise ValueError('Rust license text resource bound')
-        runtime_terms.append({'path': name, 'url': url, 'sha256': digest(data)})
+        if len(data) > 1_000_000 or digest(data) != license_spec['sha256']:
+            raise ValueError('Rust license text integrity/resource failure')
+        runtime_terms.append(license_spec)
         notice_sections.append('\n===== Rust runtime / ' + name + ' =====\n' + data.decode('utf-8'))
-    shutil.copyfile(source / 'LICENSE', output / 'LICENSE.snapper')
-    shutil.copyfile(executable, output / ('snapper-fmt' + suffix))
     notices_text = '\n'.join(notice_sections)
     if len(notices_text.encode()) > MAX_TEXT:
         raise ValueError('Notices resource bound')
     (output / 'THIRD-PARTY-NOTICES.txt').write_text(notices_text, encoding='utf-8')
+    # Notice/source collection is a cheap preflight; compile only after it passes.
+    run(['cargo', 'build', '--locked', '--release', '--manifest-path',
+         str(audit / 'Cargo.toml')], audit)
+    extractor = audit / ('target/release/rust-audit-info' + suffix)
+    run(['cargo', 'auditable', 'build', '--locked', '--profile', CONFIG['profile'],
+         '--bin', 'snapper-fmt', '--target', target, *features], source)
+    executable = source / 'target' / target / CONFIG['profile'] / ('snapper-fmt' + suffix)
+    binary = read(executable, 100_000_000)
+    embedded = json.loads(run([str(extractor), str(executable), '100000000', '8388608'], capture=True))
+    shutil.copyfile(source / 'LICENSE', output / 'LICENSE.snapper')
+    shutil.copyfile(executable, output / ('snapper-fmt' + suffix))
     def save(name, value):
         (output / name).write_text(json.dumps(value, indent=2) + '\n', encoding='utf-8')
     save('embedded-dependencies.json', embedded)

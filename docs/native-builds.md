@@ -15,12 +15,16 @@ The build preserves the upstream default features and `dist` profile.
 It compiles the native executable with cargo-auditable 0.7.7 and extracts the embedded dependency graph using the checksum-pinned rust-audit-info 0.5.4 crate and its packaged lock.
 The upstream audit tool Git checkout's stale standalone lock was rejected by the first build; the verified published crate preserves locked compilation.
 The source and extractor locks must remain frozen.
+The declared features are passed explicitly to metadata, compilation, and notice generation after checking the frozen source defaults.
+Rust's source revision and runtime license texts are checksum-pinned separately.
 No upstream installer script runs.
 
 The embedded stable-Cargo graph is conservative and does not prove exact linker reachability.
 The builder separately retains target-filtered Cargo component metadata, original nested license and notice files, cargo-about 0.9.2 output, and the toolchain's official `COPYRIGHT-library.html`.
 This includes native C and grammar notices found in crate source trees, and Rust standard-library material outside the application Cargo graph.
 Build-only dependencies may appear in the conservative notices.
+Registry source archives are checked against Cargo.lock in Cargo's ordinary cache.
+The collector hashes the actual source files directly; it does not assume a cargo-vendor checksum file exists.
 Runtime model acquisition and dynamically loaded external programs are not represented as shipped files.
 Their absence from package contents must be independently checked.
 The compiled `webpki-roots` 0.25.4 dependency is MPL-2.0.
@@ -37,6 +41,7 @@ New binaries must pass both platform suites, packed consumers, the bounded quote
 
 Keep the original failed build proof before a diagnosed retry.
 Do not rerun unchanged failures or start another broad review after a narrow repair.
+Notice and source collection runs before compilation so a collection failure stops the inexpensive preflight.
 Retain frozen source and dependency checksums, notices, acquisition archives, build identities, review decisions, and release evidence for the maintained release lifetime.
 The hosted artifact's 30-day expiry is transport storage; the maintainer must retain the accepted evidence and recipient source materials independently.
 

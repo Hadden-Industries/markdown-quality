@@ -49,6 +49,7 @@ def freeze(inputs, output, run_id, workflow_commit, release_url):
                 or evidence['target'] != build['tools'][key]['target']
                 or evidence['profile'] != build['profile'] or evidence['features'] != build['features']
                 or not evidence['rust'].startswith('rustc ' + build['rust'] + ' ')
+                or evidence['rustRuntimeLicenseInputs'] != build['rustRuntimeLicenseInputs']
                 or any(evidence['tools'][name]['archive'] != build['tools'][key][name]
                        for name in ('cargo-about', 'cargo-auditable'))
                 or evidence['extractorSource'] != build['auditExtractor']):

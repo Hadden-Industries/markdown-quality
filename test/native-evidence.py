@@ -7,6 +7,7 @@ import json
 import pathlib
 import sys
 import tempfile
+import tarfile
 import unittest
 from unittest.mock import patch
 import zipfile
@@ -67,6 +68,62 @@ class ToolAcquisitionTests(unittest.TestCase):
                                          'sha256': hashlib.sha256(data).hexdigest()}, pathlib.Path(directory), '.exe')
             self.assertEqual(list(pathlib.Path(directory).iterdir()), [])
 
+    def test_tar_symlink_tool_is_rejected_without_extraction(self):
+        stream = io.BytesIO()
+        with tarfile.open(fileobj=stream, mode='w:gz') as archive:
+            entry = tarfile.TarInfo('bundle/cargo-about')
+            entry.type, entry.linkname = tarfile.SYMTYPE, '../../elsewhere'
+            archive.addfile(entry)
+        data = stream.getvalue()
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(builder.urllib.request, 'urlopen', return_value=io.BytesIO(data)):
+                with self.assertRaisesRegex(ValueError, 'ambiguity/type'):
+                    builder.acquire_tool('cargo-about', {'url': 'https://fixture.invalid/tool.tar.gz',
+                                         'sha256': hashlib.sha256(data).hexdigest()}, pathlib.Path(directory), '')
+            self.assertEqual(list(pathlib.Path(directory).iterdir()), [])
+
+    def test_tar_fixed_read_ignores_unrelated_traversal(self):
+        stream = io.BytesIO()
+        with tarfile.open(fileobj=stream, mode='w:xz') as archive:
+            for name, contents in [('bundle/cargo-about', b'original tool'), ('../../outside', b'ignored')]:
+                entry = tarfile.TarInfo(name)
+                entry.size = len(contents)
+                archive.addfile(entry, io.BytesIO(contents))
+        data = stream.getvalue()
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(builder.urllib.request, 'urlopen', return_value=io.BytesIO(data)):
+                builder.acquire_tool('cargo-about', {'url': 'https://fixture.invalid/tool.tar.xz',
+                                     'sha256': hashlib.sha256(data).hexdigest()}, pathlib.Path(directory), '')
+            self.assertEqual([p.name for p in pathlib.Path(directory).iterdir()], ['cargo-about'])
+
+
+class RegistryCacheTests(unittest.TestCase):
+    def fixture(self, base):
+        package = base / 'registry/src/index-fixture/demo-1.0.0'
+        package.mkdir(parents=True)
+        (package / 'Cargo.toml').write_text('fixture manifest')
+        cache = base / 'registry/cache/index-fixture/demo-1.0.0.crate'
+        cache.parent.mkdir(parents=True)
+        cache.write_bytes(b'fixture immutable crate archive')
+        metadata = {'name': 'demo', 'version': '1.0.0', 'source': 'registry+fixture',
+                    'manifest_path': str(package / 'Cargo.toml')}
+        locked = {('demo', '1.0.0', 'registry+fixture'): {'checksum': builder.digest(cache.read_bytes())}}
+        return metadata, locked, cache
+
+    def test_normal_registry_cache_needs_no_vendor_checksum_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            metadata, locked, cache = self.fixture(pathlib.Path(directory))
+            result = builder.registry_source(metadata, locked)
+            self.assertEqual(result['sourceArchiveSha256'], builder.digest(cache.read_bytes()))
+            self.assertEqual(result['sourceFileSha256']['Cargo.toml'], builder.digest(b'fixture manifest'))
+
+    def test_changed_cache_archive_is_rejected_against_frozen_lock(self):
+        with tempfile.TemporaryDirectory() as directory:
+            metadata, locked, cache = self.fixture(pathlib.Path(directory))
+            cache.write_bytes(b'changed cached source')
+            with self.assertRaisesRegex(ValueError, 'frozen lock'):
+                builder.registry_source(metadata, locked)
+
 
 class ArtifactBindingTests(unittest.TestCase):
     def inputs(self, directory):
@@ -84,6 +141,7 @@ class ArtifactBindingTests(unittest.TestCase):
                         'profile': builder.CONFIG['profile'], 'features': builder.CONFIG['features'],
                         'extractorSource': builder.CONFIG['auditExtractor'],
                         'rust': 'rustc ' + builder.CONFIG['rust'] + ' fixture',
+                        'rustRuntimeLicenseInputs': builder.CONFIG['rustRuntimeLicenseInputs'],
                         'tools': {name: {'archive': config[name]} for name in ('cargo-about', 'cargo-auditable')},
                         'binarySha256': binary_hash, 'files': {name: freezer.sha(value) for name, value in data.items()}}
             data['build-evidence.json'] = json.dumps(evidence).encode()
