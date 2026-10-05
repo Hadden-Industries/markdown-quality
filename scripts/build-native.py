@@ -99,20 +99,44 @@ def notice_files(base):
     return result
 
 
+def acquire_extractor(directory):
+    spec = CONFIG['auditExtractor']
+    with urllib.request.urlopen(spec['url'], timeout=60) as response:
+        data = response.read(2_000_001)
+    if len(data) > 2_000_000 or digest(data) != spec['sha256']:
+        raise ValueError('Audit extractor source integrity failure')
+    with tarfile.open(fileobj=io.BytesIO(data), mode='r:gz') as archive:
+        members = archive.getmembers()
+        if len(members) > 32 or sum(x.size for x in members) > 2_000_000:
+            raise ValueError('Audit extractor source resource bound')
+        seen = set()
+        for member in members:
+            parts = pathlib.PurePosixPath(member.name).parts
+            if (not member.isfile() or not parts or parts[0] != 'rust-audit-info-0.5.4'
+                    or any(p in ('..', '.', '') or ':' in p or '\\' in p for p in parts)
+                    or member.name in seen):
+                raise ValueError('Unexpected extractor source member')
+            seen.add(member.name)
+            path = directory.joinpath(*parts[1:])
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(archive.extractfile(member).read())
+    vcs = json.loads(read(directory / '.cargo_vcs_info.json'))
+    if vcs['git']['sha1'] != spec['sourceCommit']:
+        raise ValueError('Extractor source revision mismatch')
+    return spec
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--platform', choices=CONFIG['tools'], required=True)
     parser.add_argument('--source', type=pathlib.Path, required=True)
-    parser.add_argument('--audit-source', type=pathlib.Path, required=True)
     parser.add_argument('--output', type=pathlib.Path, required=True)
     args = parser.parse_args()
     if os.environ.get('GITHUB_ACTIONS') != 'true':
         raise ValueError('This procedure is restricted to hosted CI')
-    source, audit, output = args.source.resolve(), args.audit_source.resolve(), args.output.resolve()
+    source, output = args.source.resolve(), args.output.resolve()
     if run(['git', 'rev-parse', 'HEAD'], source, True).decode().strip() != CONFIG['sourceCommit']:
         raise ValueError('Unexpected native source revision')
-    if run(['git', 'rev-parse', 'HEAD'], audit, True).decode().strip() != CONFIG['auditSourceCommit']:
-        raise ValueError('Unexpected audit extractor source revision')
     for filename, field in [('Cargo.lock', 'lockSha256'), ('Cargo.toml', 'manifestSha256')]:
         # Git checkout on Windows must preserve the committed LF bytes.
         if digest(read(source / filename)) != CONFIG[field]:
@@ -120,6 +144,9 @@ def main():
     output.mkdir(parents=True, exist_ok=False)
     tools = output.parent / ('native-tools-' + args.platform)
     tools.mkdir(exist_ok=False)
+    audit = tools / 'extractor-source'
+    audit.mkdir()
+    extractor_provenance = acquire_extractor(audit)
     suffix = '.exe' if args.platform.startswith('win') else ''
     spec = CONFIG['tools'][args.platform]
     provenance = {name: acquire_tool(name, spec[name], tools, suffix)
@@ -136,8 +163,8 @@ def main():
                               '--filter-platform', target], source, True))
     # Build the official bounded native extractor from its independent frozen lock.
     run(['cargo', 'build', '--locked', '--release', '--manifest-path',
-         str(audit / 'rust-audit-info/Cargo.toml')], audit)
-    extractor = audit / ('rust-audit-info/target/release/rust-audit-info' + suffix)
+         str(audit / 'Cargo.toml')], audit)
+    extractor = audit / ('target/release/rust-audit-info' + suffix)
     run(['cargo', 'auditable', 'build', '--locked', '--profile', CONFIG['profile'],
          '--bin', 'snapper-fmt', '--target', target], source)
     executable = source / 'target' / target / CONFIG['profile'] / ('snapper-fmt' + suffix)
@@ -190,7 +217,7 @@ def main():
          'source': CONFIG['sourceCommit'], 'lockSha256': CONFIG['lockSha256'],
          'manifestSha256': CONFIG['manifestSha256'], 'rust': toolchain,
          'target': target, 'profile': CONFIG['profile'], 'features': CONFIG['features'],
-         'tools': provenance, 'extractorSource': CONFIG['auditSourceCommit'],
+         'tools': provenance, 'extractorSource': extractor_provenance,
          'githubRun': os.environ['GITHUB_RUN_ID'], 'workflowCommit': os.environ['GITHUB_SHA'],
          'binarySha256': digest(binary),
          'files': {p.name: digest(read(p, 100_000_000)) for p in sorted(output.iterdir())}})

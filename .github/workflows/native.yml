@@ -33,17 +33,11 @@ jobs:
           ref: 407c2beb04607f6ccb421e6f6418dcc00e4c1e94
           path: native-source
           persist-credentials: false
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          repository: rust-secure-code/cargo-auditable
-          ref: 3d3bb574f97dc09a264cfc666ec5d40790f6b3ba
-          path: audit-source
-          persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.14'
       - name: Build frozen source and collect rights evidence
-        run: python scripts/build-native.py --platform ${{ matrix.platform }} --source native-source --audit-source audit-source --output native-output
+        run: python scripts/build-native.py --platform ${{ matrix.platform }} --source native-source --output native-output
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: native-${{ matrix.platform }}

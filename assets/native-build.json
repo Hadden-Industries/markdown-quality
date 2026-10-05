@@ -6,7 +6,11 @@
   "rust": "1.98.1",
   "profile": "dist",
   "features": ["cli", "neural", "lsp", "watch", "pandoc", "treesitter", "mcp"],
-  "auditSourceCommit": "3d3bb574f97dc09a264cfc666ec5d40790f6b3ba",
+  "auditExtractor": {
+    "url": "https://static.crates.io/crates/rust-audit-info/rust-audit-info-0.5.4.crate",
+    "sha256": "4691a1a98b31dc5c7b55a2968628c79ed035b1fad6b3b3849d872244e04bcf83",
+    "sourceCommit": "17fc93a92a952cc5e715bc51afc25e11049d7036"
+  },
   "tools": {
     "win32-x64": {
       "target": "x86_64-pc-windows-msvc",
