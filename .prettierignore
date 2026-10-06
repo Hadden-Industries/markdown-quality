@@ -3,3 +3,6 @@ packages/*/bin/
 docs/reviews/
 test/fixtures/
 
+# The source Markdown Quality CLI owns authored Markdown.
+**/*.md
+

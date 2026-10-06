@@ -49,11 +49,11 @@ node([
   "test",
   "schemas",
   "assets",
-  "package.json",
   "docs",
-  "README.md",
-  "SECURITY.md",
-  "THIRD-PARTY-NOTICES.md",
+  "package.json",
+  ".markdown-quality.json",
+  ".github/dependabot.yml",
+  ".github/ISSUE_TEMPLATE",
 ]);
 node([
   "--test",

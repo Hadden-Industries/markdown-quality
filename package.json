@@ -22,6 +22,8 @@
     "LICENSE",
     "LICENSES",
     "SECURITY.md",
+    "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md",
     "README.md",
     "THIRD-PARTY-NOTICES.md",
     "docs/consumer-guide.md",
@@ -35,13 +37,27 @@
     "type": "git",
     "url": "https://github.com/Hadden-Industries/markdown-quality.git"
   },
+  "homepage": "https://github.com/Hadden-Industries/markdown-quality#readme",
+  "bugs": {
+    "url": "https://github.com/Hadden-Industries/markdown-quality/issues"
+  },
+  "keywords": [
+    "markdown",
+    "formatter",
+    "linter",
+    "gfm",
+    "nodejs",
+    "cli"
+  ],
   "scripts": {
     "test": "node --test test/*.test.js",
     "check:focused": "node --test test/contracts.test.js",
     "check:affected": "node --test test/*.test.js",
     "check:full": "node scripts/verify.js",
-    "format": "prettier --write src scripts test schemas assets package.json docs README.md SECURITY.md THIRD-PARTY-NOTICES.md",
-    "docs:check": "node src/cli.js check"
+    "format:code": "prettier --write src scripts test schemas assets docs package.json .markdown-quality.json .github/dependabot.yml .github/ISSUE_TEMPLATE",
+    "format:markdown": "node src/cli.js format --root .",
+    "format": "npm run format:code && npm run format:markdown",
+    "check:markdown": "node src/cli.js check --root ."
   },
   "dependencies": {
     "@eslint/markdown": "8.0.3",
