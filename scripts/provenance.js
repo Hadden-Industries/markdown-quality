@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import assert from "node:assert/strict";
+import { invocation } from "./publication-origins.js";
 
 // Interpret only npm audit signatures' successful, cryptographically verified
 // output. npm/pacote owns certificate, transparency-log, signature, package PURL
@@ -10,6 +11,14 @@ export function verifyReleaseProvenance(audit, archives, expected) {
   assert.ok(Array.isArray(audit.verified));
   const records = [];
   for (const archive of archives) {
+    let origin;
+    if (expected.publicationOrigins) {
+      const entries = expected.publicationOrigins.records.filter(
+        (entry) => entry.package === archive.package,
+      );
+      assert.equal(entries.length, 1);
+      origin = entries[0];
+    }
     const matches = audit.verified.filter(
       (record) =>
         record.name === archive.package && record.version === expected.version,
@@ -49,7 +58,7 @@ export function verifyReleaseProvenance(audit, archives, expected) {
     assert.deepEqual(definition.resolvedDependencies, [
       {
         uri: "git+https://github.com/Hadden-Industries/markdown-quality@refs/heads/main",
-        digest: { gitCommit: expected.source },
+        digest: { gitCommit: origin ? origin.source : expected.source },
       },
     ]);
     assert.equal(
@@ -60,25 +69,31 @@ export function verifyReleaseProvenance(audit, archives, expected) {
       statement.predicate.runDetails.builder.id,
       "https://github.com/actions/runner/github-hosted",
     );
-    const invocation = statement.predicate.runDetails.metadata.invocationId;
+    const actualInvocation =
+      statement.predicate.runDetails.metadata.invocationId;
     assert.match(
-      invocation,
+      actualInvocation,
       /^https:\/\/github\.com\/Hadden-Industries\/markdown-quality\/actions\/runs\/[1-9]\d*\/attempts\/[1-9]\d*$/u,
     );
-    if (expected.publicationRun)
-      assert.equal(invocation.split("/")[7], String(expected.publicationRun));
+    if (origin) assert.equal(actualInvocation, invocation(origin));
+    else if (expected.publicationRun)
+      assert.equal(
+        actualInvocation.split("/")[7],
+        String(expected.publicationRun),
+      );
     records.push({
       package: archive.package,
       version: expected.version,
-      source: expected.source,
-      invocation,
+      source: origin ? origin.source : expected.source,
+      invocation: actualInvocation,
       cryptographicVerifier: "npm audit signatures",
     });
   }
-  assert.equal(
-    new Set(records.map((record) => record.invocation)).size,
-    1,
-    "The release tuple must share one publication run/attempt",
-  );
+  if (!expected.publicationOrigins)
+    assert.equal(
+      new Set(records.map((record) => record.invocation)).size,
+      1,
+      "The release tuple must share one publication run/attempt",
+    );
   return records;
 }

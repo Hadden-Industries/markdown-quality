@@ -15,6 +15,10 @@ An opt-in compatible feature may use a minor version.
 Changed defaults require a new preset major, and a package major when existing invocations change.
 Dependency upgrades are classified from observed corpus and consumer deltas.
 Never overwrite a published version.
+After npm accepts publication, allow up to five minutes for anonymous version metadata to expose the exact approved integrity.
+Only a processing 404 is retried; mismatched integrity and other failures stop delivery.
+Publication is never repeated by this availability check.
+The three bounded waits fit within the publisher's thirty-minute job limit.
 
 The current source prepares version 1.0.0 under the pilot tag; stable promotion remains gated.
 Stable promotion requires the same qualified tuple on both platforms, public registry readback and unauthenticated installation, both pilot acceptances, and a timed restoration exercise.
@@ -51,9 +55,15 @@ The unpublished private alpha.1 candidate and all rejected attempts remain histo
 Direct first publication uses explicit public access; a staged placeholder is unnecessary.
 The manual publisher uses npm 12.2.0 in hosted CI and requires all three npm trusted-publisher mappings for this repository, publish.yml and the npm-publication environment.
 That environment must permit exactly the main branch.
-It verifies a successful same-source candidate run, all three same-attempt jobs, the approved manifest digest and exact frozen archive bytes before publishing native packages and then core under pilot.
+Ordinary publication verifies a successful same-source candidate run, all three same-attempt jobs, the approved manifest digest and exact frozen archive bytes.
+Recovery preserves the original candidate's source and archives separately from the current reviewed publishing-control source.
+An admission job without OIDC binds a complete three-package origin map before effects; both platform jobs qualify previously attempted packages before the publisher may run.
+Only a prior planned effect with an explicitly skipped publication step is eligible for first publication; an attempted or unknown outcome must be verified in the registry and cannot become eligible through a 404.
+Each downstream job rehashes its downloaded archives against the admitted manifest.
+The publisher rechecks current main, all three local archive hashes and version absence immediately before each single eligible publication, verifies both native archives before core, and uses only pilot.
 Only the publication job has OIDC issuance permission; no long-lived npm token is supplied.
-Both registry jobs use native npm signature/attestation verification and bind the verified provenance to the approved source, workflow and publication run.
+Both registry jobs use native npm signature/attestation verification and bind each installed package to its admitted source, workflow, exact publication run and attempt.
+Each platform installs and cryptographically verifies its supported native package and core; opposite-platform native archives receive anonymous raw-byte verification, with the combined platform records covering the complete tuple.
 Structural provenance fixtures do not establish cryptographic acceptance.
 The workflow does not promote latest; both pilots and recovery must accept the exact tuple first.
 GitHub artifacts expire after 30 days, so export the complete frozen source, manifest, archives and verification bundles to the retained evidence store before expiry, for the security policy's maintained-lifetime-plus-three-years floor.
@@ -66,6 +76,15 @@ Read back hashes, public visibility, and fresh unauthenticated archive acquisiti
 Qualify root and isolated consumers on both supported platforms from the registry, without credentials.
 Do not perform registry publication while rights, publisher authentication, independent assurance, or platform evidence remains missing.
 A partial publication stays unpromoted and receives a new corrective version if bytes change.
+
+For unchanged-version recovery, manually dispatch `publish.yml` with the original `candidate-run` and `manifest-sha256`, plus the terminal prior `recovery-run` and exact `recovery-attempt`.
+The original legacy publication can omit `recovery-origins-sha256` only when its source is the original artifact source and its retained manifest matches exactly.
+For a later recovery, independently approve the prior admission map's SHA-256 and pass it as `recovery-origins-sha256`; never infer expected origins from the attestation being verified.
+Retain the actual dispatch inputs, original candidate/manifest, admission artifact, per-package map, provider attempts/jobs, effect outcomes and both registry reports.
+Use a new manual dispatch rather than blindly rerunning a partial publication.
+After known acceptance, availability polling retries only metadata 404 for at most five minutes with bounded requests; it never invokes publication again.
+The publication job is bounded to 30 minutes to accommodate three independent visibility waits and native verification; failed or cancelled jobs require evidence reconciliation, not automatic publication retries.
+An unavailable attempted package, mismatched bytes/origin, non-404 registry failure or unresolved live producer stops delivery until its outcome is established.
 
 For recovery, retain the exact consumer base revision, old manifest and lock, workflows, selected document preimages, and unrelated-file sentinels.
 Restore only migration-owned changes.

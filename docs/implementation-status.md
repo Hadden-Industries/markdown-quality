@@ -5,14 +5,24 @@
 The coordinated source candidate is 1.0.0; publication, anonymous registry verification and latest promotion are separate outcomes.
 The immutable alpha.4 tuple passed transported qualification in run `37313706547` and Windows/Linux anonymous root and isolated registry qualification in run `37316561023`.
 No alpha.4 attestation or SLSA level is claimed.
-The new main-only hosted publisher and native npm provenance verification still require actual environment/trust configuration, exact candidate archives and hosted registry proof.
+The main-only hosted publisher has its exact environment and three native trusted-publisher mappings configured.
+Transported 1.0.0 candidate `37391788069` passed on both platforms at source `80f58a5df39ec4f1840b46f01f83416540cee283`.
+Publisher `37393670535` accepted the Windows 1.0.0 archive and created provenance, then its immediate registry readback failed while npm reported processing; Linux and core were not published.
+The owner accepted completing the original unchanged tuple and requested durable resumable publication on 2026-10-06.
+Windows's anonymous archive, installed-file identities and native npm signature/attestation verification passed at the original source and publication run/attempt.
+The partial tuple remains unpromoted; recovery publishes only packages proven unattempted and never republishes Windows.
+The bounded availability wait and per-package publication-origin controls are being qualified; hosted recovery and complete two-platform registry verification remain due.
 Native binaries, corresponding source, notices and the original AGPL-3.0-only licence bytes remain unchanged.
 
 OwlAPI's alpha.4 cutover was accepted for exact candidate `8dc38edbff5929cf0d30b39b577838928f29d875` and trusted run `37338581639`, then normally integrated through PR #46 at `073beefb7805130bc0452472d1a9c801471fbaf1`.
 Its LF guard is included in the incumbent test route; first-party provenance inputs reject checkout drift while original upstream notices retain their bytes.
 WebVOWL's shadow bootstrap PR #53 was normally integrated at `9b5d984d68a52418b267f97f274fa4b1d196ec69` after all required checks passed.
-Its approved cutover passed the remaining local formatting, staging/probe and application tests and a 123.485-second actual bootstrap restoration.
-The retired final tooling JavaScript exposed an obsolete ESLint operand; exact approval of the two-script correction, corrected final checks, hosted windows and separate owner acceptance remain pending.
+Its corrected cutover was independently security-reviewed, passed both six-run windows in trusted run `37402366789` for candidate `f323cd387aea3dbeb8ece77f9786a307a079a4e8`, and received exact owner acceptance.
+PR #54 normally integrated it at `efd631802a5f823be63d6d53faef8a3bef02c41b`; main application run `37403665403` passed 9,371 tests and all six jobs, and CodeQL `37403665395` passed all three languages and its gate.
+Actual scoped restoration and reapplication remained below seven minutes; the initial raw-index serialization guard failure and semantic-index diagnosis remain retained, without claiming raw index preservation.
+The retired final tooling JavaScript's obsolete ESLint operand and WebVOWL's `install:markdown` naming are corrected; the approved OwlAPI rename remains due.
+Three unrelated owner files were preserved; the owner accepted closing WebVOWL's native execution as completed elsewhere after native full verification passed but its entire dirty checkout tree could not match published main for native delivery admission.
+The closure retains all proof and the rejected handoff without claiming native certified delivery; both spent local Markdown branches were archived and removed, and their remote branches are absent.
 Both pilots ultimately must qualify and accept the exact stable tuple before latest promotion.
 
 Authored evidence LF checks cover Git index and physical tracked bytes, including CRLF/mixed, Unicode and native Git fixtures.
@@ -20,7 +30,7 @@ The freezer rejects authored JSON CR bytes before hashing and emits explicit LF 
 The final source follow-up received one bounded Antigravity attempt with a 900-second response allowance; its own timeout returned an empty final response and is retained as incomplete review.
 The authorized independent Codex fallback reviewed all thirteen changed source/metadata/test files and supporting callers without an actionable finding.
 One native Codex Security diff scan completed with no reportable findings; structural fixtures and static review do not replace real cryptographic or hosted acceptance.
-The accepted revision 6 snapshot continues in execution `3532c2df-a4da-44ec-8ce5-f3bdc222dbd0`; earlier execution and review records below remain historical.
+The accepted revision 6 recovery snapshot continues in execution `a7903671-e599-4d25-b42f-d38fd7bf4485`; earlier execution and review records below remain historical.
 
 ## Retained implementation history
 

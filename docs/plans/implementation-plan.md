@@ -752,7 +752,10 @@ Before each consumer migration, isolate the authorized changes and record old co
 After an abort, restore only task-owned migration changes using scoped reverse edits or the owner's authorized recovery operation.
 Preserve unrelated working-tree edits and failed evidence.
 If document formatting occurred, restore its retained original bytes or approved prior Git inputs; a package rollback alone is insufficient.
-If release publication partially succeeded, retain registry identities, do not reuse version numbers, keep the unsupported core unpromoted, and publish an authorized coherent corrective release.
+If release publication partially succeeded, retain registry identities and never overwrite an existing package name/version.
+The owner accepted unchanged-version completion on 2026-10-06: publish only absent packages proven unattempted from the original qualified archives, with independently bound and verified per-package publication source/workflow/run/attempt identities.
+Keep the unsupported core unpromoted until the complete tuple, both pilots and recovery pass.
+Changed artifact bytes or failed original provenance require an authorized newly versioned corrective release; a processing delay or interrupted delivery alone does not require a new version.
 Revoke credentials or deprecate a compromised release only through separately authorized provider/registry actions, retaining the affected identities and incident evidence.
 
 ### Measurable acceptance and operating signals

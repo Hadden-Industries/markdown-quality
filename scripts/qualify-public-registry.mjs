@@ -8,6 +8,7 @@ import {
   writeFileSync,
   rmSync,
   statSync,
+  lstatSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -15,6 +16,8 @@ import { spawnSync } from "node:child_process";
 import { npmCommand } from "./commands.js";
 import { parseArgs } from "node:util";
 import { verifyReleaseProvenance } from "./provenance.js";
+import { validatePublicationOrigins } from "./publication-origins.js";
+import { waitForRegistryIntegrity } from "./wait-registry-integrity.js";
 
 const { values, positionals } = parseArgs({
   options: {
@@ -22,18 +25,32 @@ const { values, positionals } = parseArgs({
     archives: { type: "string" },
     provenance: { type: "boolean", default: false },
     "publication-run": { type: "string" },
+    "publication-attempt": { type: "string" },
+    "publication-source": { type: "string" },
+    "publication-origins": { type: "string" },
+    "recovery-run": { type: "string" },
+    "recovery-attempt": { type: "string" },
+    "recovery-origins-sha256": { type: "string" },
+    "retained-only": { type: "boolean", default: false },
+    "native-only": { type: "boolean", default: false },
   },
   allowPositionals: true,
 });
 assert.ok(positionals.length <= 1);
-const expected = JSON.parse(
-  readFileSync(
-    values.manifest
-      ? resolve(values.manifest)
-      : new URL("../test/registry-alpha.4.json", import.meta.url),
-    "utf8",
-  ),
+function boundedFile(path, maximum) {
+  const stat = lstatSync(path);
+  assert.ok(stat.isFile() && !stat.isSymbolicLink() && stat.size <= maximum);
+  const bytes = readFileSync(path);
+  assert.ok(bytes.length <= maximum);
+  return bytes;
+}
+const manifestBytes = boundedFile(
+  values.manifest
+    ? resolve(values.manifest)
+    : new URL("../test/registry-alpha.4.json", import.meta.url),
+  1_048_576,
 );
+const expected = JSON.parse(manifestBytes);
 const source =
   typeof expected.source === "string" ? expected.source : expected.source.head;
 assert.match(source, /^[a-f0-9]{40}$/u);
@@ -43,6 +60,64 @@ assert.match(
 );
 const archives = values.archives ? resolve(values.archives) : null;
 const digest = (data) => createHash("sha256").update(data).digest("hex");
+const publicationOrigins = values["publication-origins"]
+  ? validatePublicationOrigins(
+      JSON.parse(
+        boundedFile(resolve(values["publication-origins"]), 1_048_576),
+      ),
+      {
+        version: expected.version,
+        artifactSource: source,
+        manifestSha: digest(manifestBytes),
+        candidateRun: String(process.env.CANDIDATE_RUN),
+        controlSource: values["publication-source"],
+        run: values["publication-run"],
+        attempt: values["publication-attempt"],
+        recovery: values["recovery-run"]
+          ? {
+              run: values["recovery-run"],
+              attempt: values["recovery-attempt"],
+              originsSha256: values["recovery-origins-sha256"] ?? "",
+            }
+          : null,
+      },
+      expected.archives,
+    )
+  : null;
+assert.ok(
+  !values["retained-only"] ||
+    (values.provenance && publicationOrigins?.recovery),
+);
+assert.ok(!values["native-only"] || (values.provenance && publicationOrigins));
+assert.ok(!(values["retained-only"] && values["native-only"]));
+assert.ok(
+  values["recovery-run"] ||
+    (!values["recovery-attempt"] && !values["recovery-origins-sha256"]),
+);
+if (publicationOrigins) {
+  assert.deepEqual(
+    expected.archives.map((a) => a.name),
+    ["win32-x64", "linux-x64", "core"],
+  );
+  assert.deepEqual(
+    expected.archives.map((a) => a.package),
+    [
+      "@hadden-industries/markdown-quality-win32-x64",
+      "@hadden-industries/markdown-quality-linux-x64",
+      "@hadden-industries/markdown-quality",
+    ],
+  );
+}
+const selectedArchives = values["retained-only"]
+  ? expected.archives.filter(
+      (archive) =>
+        publicationOrigins.records.find(
+          (record) => record.package === archive.package,
+        ).state === "retained",
+    )
+  : values["native-only"]
+    ? expected.archives.filter((a) => a.name !== "core")
+    : expected.archives;
 const temporary = mkdtempSync(join(tmpdir(), "markdown-quality-registry-"));
 assert.ok(
   !values.provenance || !archives,
@@ -69,10 +144,17 @@ async function acquire(url, maximum) {
   return Buffer.concat(chunks);
 }
 try {
-  for (const archive of expected.archives) {
+  for (const archive of selectedArchives) {
     let bytes;
-    if (archives) bytes = readFileSync(join(archives, archive.filename));
+    if (archives)
+      bytes = boundedFile(join(archives, archive.filename), 20_000_000);
     else {
+      if (values["retained-only"])
+        await waitForRegistryIntegrity(
+          archive.package,
+          expected.version,
+          archive.integrity,
+        );
       const metadata = JSON.parse(
         await acquire(
           `https://registry.npmjs.org/${encodeURIComponent(archive.package)}/${expected.version}`,
@@ -101,7 +183,11 @@ try {
       bytes: bytes.length,
     });
   }
-  for (const layout of ["root", "isolated"]) {
+  const active = selectedArchives.filter(
+    (archive) => archive.name === "core" || archive.name === platform,
+  );
+  const includesCore = active.some((archive) => archive.name === "core");
+  for (const layout of active.length ? ["root", "isolated"] : []) {
     const consumer = join(temporary, layout);
     const install =
       layout === "root" ? consumer : join(consumer, "tooling", "markdown");
@@ -138,15 +224,19 @@ try {
         name: "registry-fixture",
         version: "1.0.0",
         private: true,
-        devDependencies: {
-          "@hadden-industries/markdown-quality": archives
-            ? "file:" +
-              join(
-                archives,
-                expected.archives.find((a) => a.name === "core").filename,
-              )
-            : expected.version,
-        },
+        devDependencies: !includesCore
+          ? Object.fromEntries(
+              active.map((archive) => [archive.package, expected.version]),
+            )
+          : {
+              "@hadden-industries/markdown-quality": archives
+                ? "file:" +
+                  join(
+                    archives,
+                    expected.archives.find((a) => a.name === "core").filename,
+                  )
+                : expected.version,
+            },
         ...(archives
           ? {
               optionalDependencies: Object.fromEntries(
@@ -167,9 +257,6 @@ try {
     });
     const lockBytes = readFileSync(join(install, "package-lock.json"));
     const lock = JSON.parse(lockBytes);
-    const active = expected.archives.filter(
-      (archive) => archive.name === "core" || archive.name === platform,
-    );
     const verifyFiles = () => {
       for (const archive of active) {
         const directory = join(install, "node_modules", archive.package);
@@ -212,6 +299,7 @@ try {
         version: expected.version,
         source,
         publicationRun: values["publication-run"],
+        ...(publicationOrigins ? { publicationOrigins } : {}),
       });
       provenanceRecords.push({
         layout,
@@ -220,52 +308,55 @@ try {
         nativeAudit: audit,
       });
     }
-    writeFileSync(
-      join(consumer, ".markdown-quality.json"),
-      JSON.stringify({
-        schemaVersion: 1,
-        preset: "authored-gfm@1",
-        include: ["*.md"],
-      }),
-    );
-    const document = join(consumer, "a.md");
-    const original = "# Heading\n\nAlpha.\nBeta.\n\n`literal  value`\n";
-    writeFileSync(document, original);
-    const cli = join(
-      install,
-      "node_modules/@hadden-industries/markdown-quality/src/cli.js",
-    );
-    const runtimeEnvironment = {
-      HTTP_PROXY: "http://127.0.0.1:1",
-      HTTPS_PROXY: "http://127.0.0.1:1",
-    };
-    for (const name of ["SystemRoot", "SYSTEMROOT", "WINDIR", "TEMP", "TMP"])
-      if (process.env[name]) runtimeEnvironment[name] = process.env[name];
-    const run = (mode) => {
-      const result = spawnSync(
-        process.execPath,
-        [cli, mode, "--root", consumer, "--json"],
-        {
-          cwd: temporary,
-          env: runtimeEnvironment,
-          timeout: 30000,
-          maxBuffer: 1048576,
-          encoding: "utf8",
-          windowsHide: true,
-        },
+    let run;
+    if (includesCore) {
+      writeFileSync(
+        join(consumer, ".markdown-quality.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          preset: "authored-gfm@1",
+          include: ["*.md"],
+        }),
       );
-      assert.equal(result.status, 0, result.stdout + result.stderr);
-      const report = JSON.parse(result.stdout);
-      assert.equal(report.package.version, expected.version);
-      assert.equal(report.outcome, "clean");
-      return report;
-    };
-    const checked = run("check");
-    assert.deepEqual(checked.selection.files, ["a.md"]);
-    assert.equal(readFileSync(document, "utf8"), original);
-    run("format");
-    assert.equal(readFileSync(document, "utf8"), original);
-    assert.deepEqual(run("format").written, []);
+      const document = join(consumer, "a.md");
+      const original = "# Heading\n\nAlpha.\nBeta.\n\n`literal  value`\n";
+      writeFileSync(document, original);
+      const cli = join(
+        install,
+        "node_modules/@hadden-industries/markdown-quality/src/cli.js",
+      );
+      const runtimeEnvironment = {
+        HTTP_PROXY: "http://127.0.0.1:1",
+        HTTPS_PROXY: "http://127.0.0.1:1",
+      };
+      for (const name of ["SystemRoot", "SYSTEMROOT", "WINDIR", "TEMP", "TMP"])
+        if (process.env[name]) runtimeEnvironment[name] = process.env[name];
+      run = (mode) => {
+        const result = spawnSync(
+          process.execPath,
+          [cli, mode, "--root", consumer, "--json"],
+          {
+            cwd: temporary,
+            env: runtimeEnvironment,
+            timeout: 30000,
+            maxBuffer: 1048576,
+            encoding: "utf8",
+            windowsHide: true,
+          },
+        );
+        assert.equal(result.status, 0, result.stdout + result.stderr);
+        const report = JSON.parse(result.stdout);
+        assert.equal(report.package.version, expected.version);
+        assert.equal(report.outcome, "clean");
+        return report;
+      };
+      const checked = run("check");
+      assert.deepEqual(checked.selection.files, ["a.md"]);
+      assert.equal(readFileSync(document, "utf8"), original);
+      run("format");
+      assert.equal(readFileSync(document, "utf8"), original);
+      assert.deepEqual(run("format").written, []);
+    }
     npmCommand(
       ["ci", "--ignore-scripts", "--offline", "--no-audit", "--no-fund"],
       { cwd: install, env: environment },
@@ -275,7 +366,7 @@ try {
       lockBytes,
     );
     verifyFiles();
-    run("check");
+    if (includesCore) run("check");
     records.push({
       layout,
       platform,
@@ -286,8 +377,12 @@ try {
       anonymousFreshCacheInstall: !archives,
       frozenTransportedArchiveInstall: Boolean(archives),
       offlineFrozenLockReinstall: true,
-      credentialFreeOfflineRuntime: true,
-      unchangedDocumentAndConvergentFormatting: true,
+      ...(includesCore
+        ? {
+            credentialFreeOfflineRuntime: true,
+            unchangedDocumentAndConvergentFormatting: true,
+          }
+        : { scope: "Retained native package only; no core CLI runtime claim" }),
     });
   }
   const report = {
@@ -296,6 +391,17 @@ try {
     qualification: archives
       ? "transported candidate archives"
       : "public registry",
+    ...(values["retained-only"] || values["native-only"]
+      ? {
+          scope: values["retained-only"]
+            ? "Retained packages before recovery publication"
+            : "Native packages before core publication",
+          acquiredPackages: selectedArchives.map((archive) => archive.package),
+          installedPackages: active.map((archive) => archive.package),
+          provenanceCoverage:
+            "Installed packages on this supported platform; other native archives have raw-byte verification only",
+        }
+      : {}),
     version: expected.version,
     platform,
     passed: true,

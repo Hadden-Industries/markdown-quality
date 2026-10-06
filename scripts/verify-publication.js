@@ -1,9 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { lstatSync, readFileSync, appendFileSync } from "node:fs";
+import {
+  lstatSync,
+  readFileSync,
+  appendFileSync,
+  existsSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { planPublicationOrigins } from "./publication-origins.js";
 
 const repository = "Hadden-Industries/markdown-quality";
 const digest = (bytes, algorithm = "sha256") =>
@@ -20,6 +27,29 @@ function bytes(path, maximum) {
 }
 const json = (path) => JSON.parse(bytes(path, 1_048_576).toString("utf8"));
 
+export function verifyCandidateContext(run, context) {
+  assert.equal(context.repository, repository);
+  assert.equal(context.event, "workflow_dispatch");
+  assert.equal(context.ref, "refs/heads/main");
+  assert.equal(
+    context.workflowRef,
+    `${repository}/.github/workflows/publish.yml@refs/heads/main`,
+  );
+  assert.match(context.head, /^[a-f0-9]{40}$/u);
+  assert.match(String(context.runId), /^[1-9]\d{0,15}$/u);
+  assert.equal(String(run.id), String(context.runId));
+  assert.equal(run.repository.full_name, repository);
+  assert.equal(run.event, "push");
+  assert.equal(run.path, ".github/workflows/candidate.yml");
+  assert.equal(run.head_branch, "main");
+  assert.equal(run.status, "completed");
+  assert.equal(run.conclusion, "success");
+  assert.match(run.head_sha, /^[a-f0-9]{40}$/u);
+  assert.match(String(run.run_attempt), /^[1-9]\d{0,15}$/u);
+  if (!context.recoveryRun) assert.equal(run.head_sha, context.head);
+  return { source: run.head_sha, attempt: String(run.run_attempt) };
+}
+
 export function verifyPublication({
   root,
   directory,
@@ -30,7 +60,9 @@ export function verifyPublication({
   environment,
   branches,
   context,
+  previous,
 }) {
+  const candidate = verifyCandidateContext(run, context);
   assert.equal(context.repository, repository);
   assert.equal(context.event, "workflow_dispatch");
   assert.equal(context.ref, "refs/heads/main");
@@ -61,7 +93,9 @@ export function verifyPublication({
   assert.equal(run.event, "push");
   assert.equal(run.path, ".github/workflows/candidate.yml");
   assert.equal(run.head_branch, "main");
-  assert.equal(run.head_sha, context.head);
+  const artifactSource = candidate.source;
+  assert.match(artifactSource, /^[a-f0-9]{40}$/u);
+  assert.equal(run.head_sha, artifactSource);
   assert.equal(run.status, "completed");
   assert.equal(run.conclusion, "success");
   assert.equal(jobs.total_count, 3);
@@ -74,7 +108,7 @@ export function verifyPublication({
   for (const job of jobs.jobs) {
     assert.equal(job.status, "completed");
     assert.equal(job.conclusion, "success");
-    assert.equal(job.head_sha, context.head);
+    assert.equal(job.head_sha, artifactSource);
     assert.equal(job.run_id, run.id);
     assert.equal(job.run_attempt, run.run_attempt);
   }
@@ -90,7 +124,7 @@ export function verifyPublication({
   assert.equal(metadata.license, "AGPL-3.0-only");
   assert.equal(metadata.publishConfig.access, "public");
   assert.equal(release.version, metadata.version);
-  assert.equal(release.source.head, context.head);
+  assert.equal(release.source.head, artifactSource);
   assert.equal(release.source.clean, true);
   assert.equal(
     release.source.lockSha256,
@@ -144,9 +178,16 @@ export function verifyPublication({
   }
   return {
     version: release.version,
-    source: context.head,
+    source: artifactSource,
     manifestSha,
     candidateRun: run.id,
+    publicationOrigins: planPublicationOrigins({
+      release,
+      manifestSha,
+      candidateRun: run.id,
+      context,
+      previous,
+    }),
     archives: release.archives.map(({ name, integrity }) => ({
       name,
       integrity,
@@ -162,7 +203,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   );
   const [, , directory, manifestSha, providerDirectory] = process.argv;
   const result = verifyPublication({
-    root: resolve(fileURLToPath(new URL("../", import.meta.url))),
+    root: process.env.RECOVERY_RUN
+      ? resolve("artifact-source")
+      : resolve(fileURLToPath(new URL("../", import.meta.url))),
     directory: resolve(directory),
     manifestSha,
     run: json(join(providerDirectory, "run.json")),
@@ -177,8 +220,38 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       workflowRef: process.env.GITHUB_WORKFLOW_REF,
       head: process.env.GITHUB_SHA,
       runId: process.env.CANDIDATE_RUN,
+      publicationRun: process.env.GITHUB_RUN_ID,
+      publicationAttempt: process.env.GITHUB_RUN_ATTEMPT,
+      recoveryRun: process.env.RECOVERY_RUN,
+      recoveryAttempt: process.env.RECOVERY_ATTEMPT,
+      recoveryOriginsSha: process.env.RECOVERY_ORIGINS_SHA,
     },
+    ...(process.env.RECOVERY_RUN
+      ? {
+          previous: {
+            run: json(join(providerDirectory, "previous-run.json")),
+            jobs: json(join(providerDirectory, "previous-jobs.json")),
+            manifestBytes: bytes(
+              "previous-publication/frozen-release/release-manifest.json",
+              1_048_576,
+            ),
+            originsBytes: existsSync(
+              "previous-publication/frozen-release/publication-origins.json",
+            )
+              ? bytes(
+                  "previous-publication/frozen-release/publication-origins.json",
+                  1_048_576,
+                )
+              : null,
+          },
+        }
+      : {}),
   });
+  writeFileSync(
+    join(directory, "publication-origins.json"),
+    JSON.stringify(result.publicationOrigins, null, 2) + "\n",
+    { flag: "wx" },
+  );
   assert.ok(process.env.GITHUB_ENV);
   appendFileSync(
     process.env.GITHUB_ENV,
