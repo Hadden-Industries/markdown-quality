@@ -267,6 +267,7 @@ jobs:
           retention-days: 30
   registry:
     needs: publish
+    if: ${{ !cancelled() && needs.publish.result == 'success' }}
     permissions:
       contents: read
       actions: read

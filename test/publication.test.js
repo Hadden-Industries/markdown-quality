@@ -693,4 +693,12 @@ test("only the publisher has OIDC and original effect names remain stable with c
   );
   assert.ok(!text.includes("--tag latest"));
   assert.ok(!text.includes("npm pack"));
+  const registry = text.slice(text.indexOf("  registry:\n"));
+  assert.ok(
+    registry.includes(
+      "    if: ${{ !cancelled() && needs.publish.result == 'success' }}\n",
+    ),
+    "Registry qualification must survive skipped recovery ancestors, require publication success and honor cancellation",
+  );
+  assert.ok(!registry.includes("id-token: write"));
 });
