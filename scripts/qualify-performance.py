@@ -15,6 +15,7 @@ import signal
 import subprocess
 import sys
 import time
+import traceback
 
 
 CORPORA = {
@@ -121,6 +122,21 @@ def linux_tree():
 
 
 def observe(node, cli, corpus, output):
+    if sys.platform == "linux":
+        assert os.getpgrp() == os.getpid(), "Observer requires its own process group"
+    try:
+        observe_owned(node, cli, corpus, output)
+    except BaseException:
+        if sys.platform == "linux":
+            # This dedicated group includes the driver, CLI and native grandchildren.
+            # Fail closed even if the driver is interrupted before producing JSON.
+            traceback.print_exc()
+            sys.stderr.flush()
+            os.killpg(os.getpid(), signal.SIGKILL)
+        raise
+
+
+def observe_owned(node, cli, corpus, output):
     output = Path(output)
     environment = {key: value for key, value in os.environ.items()
                    if key.upper() in ("SYSTEMROOT", "WINDIR", "TEMP", "TMP")}
@@ -216,6 +232,11 @@ def qualify(node, cli, corpus_parent, output):
 
 
 if __name__ == "__main__":
+    if sys.platform == "linux":
+        def interrupted(signum, frame):
+            # Let qualify's finally dispose its current dedicated observer group.
+            raise InterruptedError("Qualification interrupted")
+        signal.signal(signal.SIGTERM, interrupted)
     if len(sys.argv) > 1 and sys.argv[1] == "--observe":
         observe(*sys.argv[2:])
     else:

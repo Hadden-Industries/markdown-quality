@@ -4,11 +4,11 @@ Install an exact coordinated public release after registry availability is verif
 Acquisition needs no npm account or token; disable lifecycle scripts.
 
 ```sh
-npm install --save-dev --save-exact --ignore-scripts @hadden-industries/markdown-quality@1.0.0
+npm install --save-dev --save-exact --ignore-scripts @hadden-industries/markdown-quality@1.0.3
 npm ci --ignore-scripts
 ```
 
-The source candidate is `1.0.0`; confirm its registry availability and exact tuple qualification before using the command above.
+The source candidate is `1.0.3`; confirm its registry availability and exact tuple qualification before using the command above.
 Publication under `pilot` and promotion to `latest` are separate steps.
 The previously qualified alpha.4 tuple remains immutable historical evidence.
 Both consumer pilots must accept the exact stable tuple before promotion.

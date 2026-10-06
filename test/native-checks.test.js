@@ -2,12 +2,43 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { createNativeStaging } from "../src/native-staging.js";
 import { resolveTool, runNative } from "../src/native-tool.js";
 import { runNativeChecks } from "../src/native-checks.js";
 import { checkProse, checkProseGroup } from "../src/prose-diagnostics.js";
 import { consumer } from "./helpers.js";
+
+test("the original stdin path owns its EditorConfig boundary inside a consumer", async (t) => {
+  const root = consumer(t, {
+    ".editorconfig": "root = true\n[*]\nmax_line_length = 8\n",
+  });
+  const packageRoot = join(root, "installed-package");
+  for (const folder of ["src", "assets"])
+    mkdirSync(join(packageRoot, folder), { recursive: true });
+  for (const file of [
+    "package.json",
+    "src/contracts.js",
+    "src/native-tool.js",
+    "assets/tool-manifest.json",
+    "assets/snapper.toml",
+  ])
+    copyFileSync(
+      new URL("../" + file, import.meta.url),
+      join(packageRoot, file),
+    );
+  const boundary = new URL("../assets/.editorconfig", import.meta.url);
+  if (existsSync(boundary))
+    copyFileSync(boundary, join(packageRoot, "assets/.editorconfig"));
+  const { runNative: installedRunNative } = await import(
+    pathToFileURL(join(packageRoot, "src/native-tool.js")).href
+  );
+  const text =
+    "This is a sufficiently long sentence to reveal any wrapping configuration.\n";
+  assert.equal(installedRunNative(resolveTool(), text), text);
+});
 
 test("real native groups retain every input's findings and a private config boundary", (t) => {
   const root = consumer(t, {

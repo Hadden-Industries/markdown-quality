@@ -29,6 +29,7 @@ test("packed root and isolated consumers install without lifecycle scripts and e
       (f) => !f.path.includes("node_modules") && !f.path.includes(".npmrc"),
     ),
   );
+  assert.ok(core.files.some((file) => file.path === "assets/.editorconfig"));
   for (const layout of ["root", "isolated"]) {
     const consumer = join(temp, layout);
     mkdirSync(consumer);
@@ -143,6 +144,10 @@ test("packed root and isolated consumers install without lifecycle scripts and e
         preset: "authored-gfm@1",
         include: ["*.md"],
       }),
+    );
+    writeFileSync(
+      join(consumer, ".editorconfig"),
+      "root = true\n[*]\nmax_line_length = 8\n",
     );
     writeFileSync(join(consumer, "a.md"), "# Heading\n\nAlpha.\nBeta.\n");
     const cli = join(
