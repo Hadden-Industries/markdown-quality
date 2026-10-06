@@ -9,9 +9,10 @@ npm ci --ignore-scripts
 ```
 
 The source candidate is `1.0.3`; confirm its registry availability and exact tuple qualification before using the command above.
-Publication under `pilot` and promotion to `latest` are separate steps.
+General pilot availability and stable `latest` designation are separate decisions.
+The owner explicitly authorized 1.0.3 to be published as `latest`, subject to its complete archive, registry/provenance and immutable-release verification.
 The previously qualified alpha.4 tuple remains immutable historical evidence.
-Both consumer pilots must accept the exact stable tuple before promotion.
+That release decision does not accept or change either consumer's separately paused migration; both still require their exact scope and trusted-run acceptance before cutover.
 Keep the consumer lockfile.
 An isolated `tooling/markdown` npm project supports consumers that do not use Node for their application.
 Its commands must pass the actual repository root.

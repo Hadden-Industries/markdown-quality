@@ -21,12 +21,12 @@ Publication is never repeated by this availability check.
 The three bounded waits fit within the publisher's thirty-minute job limit.
 
 Version 1.0.2 is published under the pilot tag and passed complete Windows/Linux registry qualification in run `37417063198`; stable promotion remains gated.
-Stable promotion requires the same qualified tuple on both platforms, public registry readback and unauthenticated installation, both pilot acceptances, and a timed restoration exercise.
+General stable promotion requires the same qualified tuple on both platforms, public registry readback and unauthenticated installation, both pilot acceptances, and a timed restoration exercise; the explicit 1.0.3 exception below preserves qualification while separating the paused consumer migrations.
 The 1.0.1 corrective candidate restores checking and formatting of literal code lines containing trailing or whitespace-only spaces.
 The original 1.0.1 tuple is published under `pilot` and passed both-platform complete registry qualification in recovery run `37413673170`, without republishing any package.
 The 1.0.2 correction compares inline-code line endings as spaces under CommonMark, retaining meaningful interior whitespace and the strict fenced/indented-code guard.
 This repair changes shipped JavaScript and therefore requires a new coordinated patch version; the unchanged 1.0.0 tuple completed registry qualification separately in recovery run `37409484508`.
-Keep latest promotion blocked until the literal-preservation repair and exact candidate satisfy the same platform, registry and pilot gates.
+The earlier literal-preservation releases retained their exact platform, registry and pilot gates; their qualification does not establish delivery or consumer adoption of a later version.
 Changed/referrer mode and later fleet adoptions remain deferred.
 
 Prepare assets explicitly from their frozen manifest.
@@ -49,10 +49,10 @@ An upstream Cargo lock is a superset of features and development inputs and does
 The original upstream license and per-asset repack identity are retained.
 
 The owner selected public distribution after npm rejected the private publication with E402.
-All three packages declare public access and share the source candidate version 1.0.2.
-The tuple retains alpha.4's qualified native executable/source/notice bytes and avoids duplicate formatting of byte-identical documents while retaining independent prose checks and preservation/convergence checks.
+All three packages declare public access and share the source candidate version 1.0.3.
+The tuple retains alpha.4's qualified native executable/source/notice bytes and adds bounded request-local reuse, native checking batches and exact-input check-first formatting while retaining independent prose checks and preservation/convergence checks.
 The first alpha.3 hosted OWLAPI shadow checks passed correctness but exceeded the accepted 30-second budget on both platforms.
-Alpha.3 and alpha.4 remain immutable historical evidence; every new tuple requires fresh transported-archive, registry, and exact-version pilot qualification before promotion.
+Alpha.3 and alpha.4 remain immutable historical evidence; every new tuple requires fresh transported-archive and registry qualification, with exact-version pilot qualification governed by the applicable owner release decision.
 The public alpha.2 archives remain immutable historical delivery evidence and are unqualified for Linux execution.
 The packer normalizes the Linux npm member's executable mode with Python tarfile, verifies all member bytes are unchanged, and recomputes the final archive integrity.
 Qualify the exact transported release archives on both platforms, rather than each platform's independently generated package.
@@ -75,7 +75,7 @@ Successful publication alone does not establish complete registry qualification;
 Each platform installs and cryptographically verifies its supported native package and core; opposite-platform native archives receive anonymous raw-byte verification, with the combined platform records covering the complete tuple.
 Structural provenance fixtures do not establish cryptographic acceptance.
 The workflow does not move labels on existing packages or grant npm tag-management permission.
-The owner's explicit 1.0.3 stable/latest decision in [plan revision 8](plans/implementation-plan.md#1-status-authority-and-purpose) supersedes the pilot-promotion hold for that release only; consumer adoption remains separate.
+The owner's explicit 1.0.3 stable/latest decision in [plan revision 8](https://github.com/Hadden-Industries/markdown-quality/blob/v1.0.3/docs/plans/implementation-plan.md#1-status-authority-and-purpose) supersedes the pilot-promotion hold for that release only; consumer adoption remains separate.
 GitHub artifacts expire after 30 days, so export the complete frozen source, manifest, archives and verification bundles to the retained evidence store before expiry, for the security policy's maintained-lifetime-plus-three-years floor.
 Public installation needs no registry token, subscription, or OIDC authority.
 Public npm provenance is eligible only through a qualified supported publisher; do not claim it for the local bootstrap.
@@ -103,7 +103,7 @@ For recovery, retain the exact consumer base revision, old manifest and lock, wo
 Restore only migration-owned changes.
 Verify byte identities and required checks, then record elapsed restoration time.
 Downgrading a package cannot restore formatted document bytes.
-One pilot rehearsal is required before stable promotion.
+The general pilot-promotion path requires one pilot rehearsal; the owner's exact 1.0.3 release decision leaves those consumer restoration exercises with their separately gated migrations.
 
 Security reports use GitHub's private vulnerability reporting route when enabled; otherwise contact the repository owner through the project's existing private channel.
 No unattended observation service is assumed.
