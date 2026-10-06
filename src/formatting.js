@@ -3,6 +3,7 @@ import { formatLayout } from "./literal-layout.js";
 import { parse } from "./analysis.js";
 import { runNative } from "./native-tool.js";
 import { checkProse } from "./prose-diagnostics.js";
+import { normalizeTrailingWhitespace } from "./whitespace.js";
 import { fail } from "./contracts.js";
 function semantic(node) {
   const value = {};
@@ -20,6 +21,16 @@ function semantic(node) {
   return value;
 }
 export async function formatDocument(text, context, tool) {
+  const normalized = normalizeTrailingWhitespace(text);
+  // A lint violation is not authority to erase literal content (inline code or
+  // raw HTML) or accidentally create a hard break by trimming beside a slash.
+  // Return the original for reporting; batch validation will prevent all writes.
+  if (
+    normalized !== text &&
+    JSON.stringify(semantic(parse(text))) !==
+      JSON.stringify(semantic(parse(normalized)))
+  )
+    return { output: text, diagnostics: checkProse(tool, text) };
   const endOfLine =
     context.config.layout.endOfLine === "preserve"
       ? text.includes("\r\n")
@@ -34,8 +45,11 @@ export async function formatDocument(text, context, tool) {
     tabWidth: context.config.layout.tabWidth,
     plugins: [],
   };
-  const layout = await formatLayout(text, options);
-  const result = await formatLayout(runNative(tool, layout), options);
+  const layout = await formatLayout(normalized, options);
+  const result = await formatLayout(
+    normalizeTrailingWhitespace(runNative(tool, layout)),
+    options,
+  );
   // Byte identity proves preservation and an observed fixed point of the entire
   // deterministic formatter pipeline. The independent prose check still runs.
   if (result === text)
@@ -45,7 +59,10 @@ export async function formatDocument(text, context, tool) {
     JSON.stringify(semantic(parse(result)))
   )
     fail("PRESERVATION", "Formatting changed parsed meaning or a literal.");
-  const second = await formatLayout(runNative(tool, result), options);
+  const second = await formatLayout(
+    normalizeTrailingWhitespace(runNative(tool, result)),
+    options,
+  );
   if (result !== second)
     fail("CONVERGENCE", "Formatter pipeline did not converge.");
   return { output: result, diagnostics: checkProse(tool, result) };

@@ -44,6 +44,11 @@ for (const body of [
   );
 }
 cases.push(
+  "    a  \n\n    b  \n",
+  "    a  \n \n    b  \n",
+  "    a  \n     \n    b  \n",
+  ">     a  \n> \n>     b  \n",
+  "-     a  \n\n      b  \n",
   "    ```diff  \n    a\n    ```\n",
   "        ```\n        a\n",
   "\t```\n\ta\n",

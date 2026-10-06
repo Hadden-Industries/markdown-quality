@@ -4,10 +4,12 @@ import * as prettier from "prettier";
 import { parse } from "./analysis.js";
 import { fail } from "./contracts.js";
 
-// embeddedLanguageFormatting: off still allows Prettier to trim code-line
-// whitespace. Keep those lines nonempty until layout finishes, then remove the
-// absent marker before native analysis or the unchanged semantic guard runs.
-export async function formatLayout(text, options) {
+/** Return split-array code-body row indices, optionally collecting empty indented rows. */
+export function codeBodyRows(
+  text,
+  tree = parse(text),
+  emptyIndentedRows = null,
+) {
   const rows = text.split(/(\r\n|\r|\n)/u);
   const selected = new Set();
   function visit(node, quoteDepth = 0) {
@@ -45,20 +47,40 @@ export async function formatLayout(text, options) {
       const endLine =
         node.position.end.line -
         (closed || node.position.end.column === 1 ? 1 : 0);
+      const valueRows =
+        !opening && emptyIndentedRows ? node.value.split(/\r\n|\r|\n/u) : null;
       for (
         let line = node.position.start.line - (opening ? 0 : 1);
         line < endLine;
         line++
-      )
-        if (
-          rows[line * 2] !== undefined &&
-          (rows[line * 2] === "" || /\s$/u.test(rows[line * 2]))
-        )
-          selected.add(line * 2);
+      ) {
+        if (rows[line * 2] !== undefined) selected.add(line * 2);
+        if (valueRows?.[line - node.position.start.line + 1] === "")
+          emptyIndentedRows.add(line * 2);
+      }
     }
     for (const child of node.children ?? []) visit(child, quoteDepth);
   }
-  visit(parse(text));
+  visit(tree);
+  return selected;
+}
+
+// embeddedLanguageFormatting: off still allows Prettier to trim code-line
+// whitespace. Keep those lines nonempty until layout finishes, then remove the
+// absent marker before native analysis or the unchanged semantic guard runs.
+export async function formatLayout(text, options) {
+  const rows = text.split(/(\r\n|\r|\n)/u);
+  const emptyIndentedRows = new Set();
+  const codeRows = codeBodyRows(text, parse(text), emptyIndentedRows);
+  const selected = new Set(
+    [...codeRows].filter(
+      // An empty indented-code value needs no protection. A marker without its
+      // missing indentation would become prose and split the code block.
+      (line) =>
+        !emptyIndentedRows.has(line) &&
+        (rows[line] === "" || /\s$/u.test(rows[line])),
+    ),
+  );
   if (!selected.size) return prettier.format(text, options);
   let marker;
   for (let code = 0xe000; code < 0xe100; code++) {

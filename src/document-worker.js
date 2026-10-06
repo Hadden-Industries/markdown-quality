@@ -3,6 +3,7 @@ import { parentPort, workerData } from "node:worker_threads";
 import { formatDocument } from "./formatting.js";
 import { createLinter, lintDocument, checkLinks } from "./analysis.js";
 import { diagnosticBudget, OperationError } from "./contracts.js";
+import { checkTrailingWhitespace } from "./whitespace.js";
 const { context, tool } = workerData;
 const linter = createLinter(context);
 parentPort.on("message", async ({ text, file, mode }) => {
@@ -10,6 +11,7 @@ parentPort.on("message", async ({ text, file, mode }) => {
     const formatted = await formatDocument(text, context, tool);
     const proposed = mode === "format" ? formatted.output : text;
     const diagnostics = [
+      ...checkTrailingWhitespace(proposed),
       ...formatted.diagnostics,
       ...(await lintDocument(linter, proposed, file)),
       ...checkLinks(context, proposed, file),

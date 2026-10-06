@@ -138,9 +138,9 @@ test("hard links reject formatting; linked parents cannot become explicit input"
   assert.equal(link.exitCode, 2);
   assert.equal(link.errors[0].code, "UNSAFE_PATH");
 });
-test("literal code, hard breaks, HTML, tasks and nested quotes remain exact", async (t) => {
+test("literal code, explicit hard breaks, HTML, tasks and nested quotes remain exact", async (t) => {
   const text =
-    '# Heading\n\n```js\nconst text = "Alpha. Beta.";\n```\n\n`Alpha. Beta.`\n\nAlpha.  \nBeta.\n\n<div>Alpha. Beta.</div>\n\n- [x] Task.\n\n> Quote.\n>\n> > Nested.\n';
+    '# Heading\n\n```js\nconst text = "Alpha. Beta.";\n```\n\n`Alpha. Beta.`\n\nAlpha.\\\nBeta.\n\n<div>Alpha. Beta.</div>\n\n- [x] Task.\n\n> Quote.\n>\n> > Nested.\n';
   const root = consumer(t, { "a.md": text });
   const result = await runQuality({ root, mode: "format" });
   assert.equal(result.exitCode, 0, JSON.stringify(result));

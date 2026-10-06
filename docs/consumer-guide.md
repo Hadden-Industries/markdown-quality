@@ -77,11 +77,22 @@ Lint messages describe the violated rule without quoting document content.
 These are conservative operational limits; benchmark and platform acceptance remains part of candidate qualification.
 
 Formatting compares maintained parsed structure and literals before replacement and verifies convergence.
+The owner-approved stricter whitespace policy updates `authored-gfm@1` directly; no second preset is provided.
+This change is currently unreleased; existing published npm archives retain their original behavior.
+Trailing spaces and tabs are errors everywhere except inside fenced and indented code blocks.
+This includes blank lines, headings, lists, tables, and opening or closing fence lines.
+Space-based hard breaks are forbidden; formatting replaces actual parsed hard breaks with an explicit backslash followed by a newline, preserving the break.
+The whitespace policy cannot be disabled through lint overrides or editor settings.
 Fenced and indented code retain literal whitespace, including whitespace-only lines and trailing spaces; embedded code formatting remains disabled.
 Inline code compares [CommonMark code-span semantics](https://spec.commonmark.org/0.31.2/#code-spans): each line ending means one space, while interior spaces, tabs and other literal characters remain significant.
 Delimiter padding is already handled by the maintained parser; the comparison does not collapse or trim additional whitespace.
 The parsed comparison is an additional backstop, not a universal rendered-equivalence guarantee.
 It conservatively refuses unsupported semantic or literal changes.
+Inline code and raw HTML have no blanket trailing-whitespace exemption.
+When trimming would change their interpreted content, or otherwise change parsed meaning, the operation reports the whitespace findings for manual correction and leaves the whole batch untouched.
+Both checking and formatting validate the selected documents; checking never writes, and formatting writes only after every candidate passes validation.
+Use explicit selection exclusions for signed, byte-sensitive, or verbatim upstream documents that must remain unchanged.
+Git whitespace checks can supplement this policy but do not replace full-document checking.
 Ordinary file permission bits are preserved; ownership changes, alternate streams, ACL inheritance, arbitrary metadata, and adversarial filesystem races are not promised as preserved.
 Use a clean baseline or retained preimages when original uncommitted bytes must be recoverable.
 
