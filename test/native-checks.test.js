@@ -69,7 +69,9 @@ test("one admitted group performs one native check rather than per-document laun
     import * as cp from 'node:child_process';
     const native=cp.spawnSync;
     let checks=0;
-    mock.module('node:child_process',{exports:{spawnSync:(...args)=>{
+    // Use the supported native option without changing the mocked behavior.
+    const mockExports=process.versions.node.startsWith('22.')?'namedExports':'exports';
+    mock.module('node:child_process',{[mockExports]:{spawnSync:(...args)=>{
       if(args[1].includes('--check'))checks++;
       return native(...args);
     }}});
@@ -128,7 +130,8 @@ test("native protocol and process faults fail once, attribute no guessed results
     import * as cp from 'node:child_process';
     const native=cp.spawnSync;
     let change, calls=0;
-    mock.module('node:child_process',{exports:{spawnSync:(...args)=>{
+    const mockExports=process.versions.node.startsWith('22.')?'namedExports':'exports';
+    mock.module('node:child_process',{[mockExports]:{spawnSync:(...args)=>{
       if(!args[1].includes('--check'))return native(...args);
       calls++;
       const result=native(...args);

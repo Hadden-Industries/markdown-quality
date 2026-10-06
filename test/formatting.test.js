@@ -20,7 +20,9 @@ function observeFormatting(
     const calls = [];
     const behavior = ${JSON.stringify(behavior)};
     const replacement = ${JSON.stringify(replacement)};
-    mock.module(${JSON.stringify(native)}, { exports: {
+    // Node 22's native mock API predates the exports option.
+    const mockExports = process.versions.node.startsWith("22.") ? "namedExports" : "exports";
+    mock.module(${JSON.stringify(native)}, { [mockExports]: {
       runNative(_tool, text, check = false) {
         calls.push(check ? "check" : "format");
         if (check && behavior === "failed-check")
