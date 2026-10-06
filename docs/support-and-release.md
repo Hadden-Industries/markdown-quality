@@ -72,7 +72,8 @@ The unpublished private alpha.1 candidate and all rejected attempts remain histo
 Direct first publication uses explicit public access; a staged placeholder is unnecessary.
 The manual publisher uses npm 12.2.0 in hosted CI and requires all three npm trusted-publisher mappings for this repository, publish.yml and the npm-publication environment.
 That environment must permit exactly the main branch.
-Ordinary publication verifies a successful same-source candidate run, all three same-attempt jobs, the approved manifest digest and exact frozen archive bytes.
+Ordinary publication verifies a successful same-source candidate run, all same-attempt jobs bound by the candidate manifest's runtime matrix, the approved manifest digest and exact frozen archive bytes.
+Historical candidates require `pack` and their two platform consumers.
 Recovery preserves the original candidate's source and archives separately from the current reviewed publishing-control source.
 An admission job without OIDC binds a complete three-package origin map before effects; both platform jobs qualify previously attempted packages before the publisher may run.
 Only a prior planned effect with an explicitly skipped publication step is eligible for first publication; an attempted or unknown outcome must be verified in the registry and cannot become eligible through a 404.
