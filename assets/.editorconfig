@@ -1,4 +1,4 @@
 root = true
 
-[*]
+[document.md]
 max_line_length = off
