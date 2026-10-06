@@ -13,6 +13,90 @@ const available = () => ({
   metadata: { name, version, dist: { integrity } },
 });
 
+test("installer metadata must expose exact bytes before an accepted publication is ready", async () => {
+  let elapsed = 0;
+  const requests = [];
+  await waitForRegistryIntegrity(name, version, integrity, {
+    installMetadata: true,
+    now: () => elapsed,
+    sleep: async (ms) => {
+      elapsed += ms;
+    },
+    lookup: async (url, timeout, accept) => {
+      requests.push({ url, accept });
+      assert.ok(timeout <= 10_000);
+      if (url.endsWith("/1.0.0")) return available();
+      assert.equal(
+        url,
+        "https://registry.npmjs.org/@hadden-industries%2fmarkdown-quality-win32-x64",
+      );
+      assert.ok(
+        [
+          "application/json",
+          "application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*",
+        ].includes(accept),
+      );
+      return {
+        status: 200,
+        metadata: {
+          name,
+          versions: elapsed ? { [version]: available().metadata } : {},
+        },
+      };
+    },
+  });
+  assert.equal(elapsed, 10_000);
+  assert.equal(requests.length, 5);
+  assert.equal(requests.at(-1).accept, "application/json");
+});
+
+test("installer visibility never retries mismatched bytes, malformed metadata or access failures", async () => {
+  for (const result of [
+    { status: 403 },
+    { status: 503 },
+    { status: 200, metadata: { name } },
+    { status: 200, metadata: { name: "wrong", versions: {} } },
+    {
+      status: 200,
+      metadata: {
+        name,
+        versions: {
+          [version]: { ...available().metadata, dist: { integrity: "wrong" } },
+        },
+      },
+    },
+  ]) {
+    await assert.rejects(
+      waitForRegistryIntegrity(name, version, integrity, {
+        installMetadata: true,
+        lookup: async (url) => (url.endsWith("/1.0.0") ? available() : result),
+        sleep: async () =>
+          assert.fail("Terminal install metadata failure must not retry"),
+      }),
+    );
+  }
+});
+
+test("installer metadata shares the original availability deadline", async () => {
+  let elapsed = 0;
+  await assert.rejects(
+    waitForRegistryIntegrity(name, version, integrity, {
+      installMetadata: true,
+      budget: 1000,
+      now: () => elapsed,
+      lookup: async (url) => {
+        if (url.endsWith("/1.0.0")) return available();
+        elapsed = 1001;
+        return {
+          status: 200,
+          metadata: { name, versions: { [version]: available().metadata } },
+        };
+      },
+    }),
+    /within five minutes/u,
+  );
+});
+
 test("accepted asynchronous publication waits for exact visible bytes without republishing", async () => {
   let requests = 0;
   let elapsed = 0;

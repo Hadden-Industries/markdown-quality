@@ -4,11 +4,11 @@ import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
-async function registryLookup(url, timeout) {
+async function registryLookup(url, timeout, accept = "application/json") {
   const response = await fetch(url, {
     redirect: "error",
     signal: AbortSignal.timeout(timeout),
-    headers: { accept: "application/json", "cache-control": "no-cache" },
+    headers: { accept, "cache-control": "no-cache" },
   });
   if (response.status !== 200) {
     await response.body?.cancel();
@@ -43,6 +43,7 @@ export async function waitForRegistryIntegrity(
     now = () => performance.now(),
     sleep = (ms) => new Promise((done) => setTimeout(done, ms)),
     budget = 300_000,
+    installMetadata = false,
   } = {},
 ) {
   assert.match(
@@ -54,35 +55,76 @@ export async function waitForRegistryIntegrity(
   assert.ok(Number.isFinite(budget) && budget > 0 && budget <= 300_000);
   const deadline = now() + budget;
   const url = `https://registry.npmjs.org/${encodeURIComponent(name)}/${version}`;
-  for (;;) {
+  const installUrl = `https://registry.npmjs.org/${name.replace("/", "%2f")}`;
+  async function boundedLookup(target, accept) {
     const remaining = deadline - now();
     assert.ok(
       remaining > 0,
       "Published version did not become available within five minutes",
     );
     const result = await lookup(
-      url,
+      target,
       Math.max(1, Math.floor(Math.min(remaining, 10_000))),
+      accept,
     );
     assert.ok(
       now() < deadline,
       "Published version did not become available within five minutes",
     );
-    if (result.status === 200) {
-      assert.equal(result.metadata.name, name);
-      assert.equal(result.metadata.version, version);
-      assert.equal(
-        result.metadata.dist?.integrity,
-        integrity,
-        "Published archive integrity mismatch",
-      );
-      return;
-    }
+    return result;
+  }
+  function verify(metadata) {
+    assert.equal(metadata.name, name);
+    assert.equal(metadata.version, version);
     assert.equal(
-      result.status,
-      404,
-      "Registry readback failed; only processing 404 is retryable",
+      metadata.dist?.integrity,
+      integrity,
+      "Published archive integrity mismatch",
     );
+  }
+  for (;;) {
+    const result = await boundedLookup(url, "application/json");
+    if (result.status === 200) {
+      verify(result.metadata);
+      let installVisible = true;
+      if (installMetadata) {
+        for (const accept of [
+          "application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*",
+          "application/json",
+        ]) {
+          const packument = await boundedLookup(installUrl, accept);
+          if (packument.status === 404) {
+            installVisible = false;
+            break;
+          }
+          assert.equal(
+            packument.status,
+            200,
+            "Installer registry readback failed",
+          );
+          assert.equal(packument.metadata.name, name);
+          const versions = packument.metadata.versions;
+          assert.ok(
+            versions &&
+              typeof versions === "object" &&
+              !Array.isArray(versions),
+            "Malformed installer registry metadata",
+          );
+          if (!Object.hasOwn(versions, version)) {
+            installVisible = false;
+            break;
+          }
+          verify(versions[version]);
+        }
+      }
+      if (installVisible) return;
+    } else {
+      assert.equal(
+        result.status,
+        404,
+        "Registry readback failed; only processing 404 is retryable",
+      );
+    }
     const delay = Math.min(10_000, deadline - now());
     assert.ok(
       delay > 0,
@@ -117,7 +159,10 @@ if (resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
   assert.equal(process.argv.length, 5);
   if (process.argv[2] === "--absent")
     await assertRegistryVersionAbsent(...process.argv.slice(3));
-  else await waitForRegistryIntegrity(...process.argv.slice(2));
+  else
+    await waitForRegistryIntegrity(...process.argv.slice(2), {
+      installMetadata: true,
+    });
   console.log(
     process.argv[2] === "--absent"
       ? "Unattempted version is absent."

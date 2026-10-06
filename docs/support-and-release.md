@@ -15,7 +15,7 @@ An opt-in compatible feature may use a minor version.
 Changed defaults require a new preset major, and a package major when existing invocations change.
 Dependency upgrades are classified from observed corpus and consumer deltas.
 Never overwrite a published version.
-After npm accepts publication, allow up to five minutes for anonymous version metadata to expose the exact approved integrity.
+After npm accepts publication, allow up to five minutes for anonymous version metadata and both installer metadata representations to expose the exact approved integrity.
 Only a processing 404 is retried; mismatched integrity and other failures stop delivery.
 Publication is never repeated by this availability check.
 The three bounded waits fit within the publisher's thirty-minute job limit.
@@ -82,7 +82,9 @@ The original legacy publication can omit `recovery-origins-sha256` only when its
 For a later recovery, independently approve the prior admission map's SHA-256 and pass it as `recovery-origins-sha256`; never infer expected origins from the attestation being verified.
 Retain the actual dispatch inputs, original candidate/manifest, admission artifact, per-package map, provider attempts/jobs, effect outcomes and both registry reports.
 Use a new manual dispatch rather than blindly rerunning a partial publication.
-After known acceptance, availability polling retries only metadata 404 for at most five minutes with bounded requests; it never invokes publication again.
+After known acceptance, availability polling retries metadata 404 or an installer metadata document whose version map has not yet acquired the target version for at most five minutes with bounded requests; it never invokes publication again.
+The version endpoint, abbreviated installer metadata and full installer metadata share that deadline; every visible target must match the approved name, version and integrity.
+Anonymous qualification repeats this admission before installing; malformed metadata, mismatched bytes and access failures are terminal.
 The publication job is bounded to 30 minutes to accommodate three independent visibility waits and native verification; failed or cancelled jobs require evidence reconciliation, not automatic publication retries.
 An unavailable attempted package, mismatched bytes/origin, non-404 registry failure or unresolved live producer stops delivery until its outcome is established.
 

@@ -149,12 +149,12 @@ try {
     if (archives)
       bytes = boundedFile(join(archives, archive.filename), 20_000_000);
     else {
-      if (values["retained-only"])
-        await waitForRegistryIntegrity(
-          archive.package,
-          expected.version,
-          archive.integrity,
-        );
+      await waitForRegistryIntegrity(
+        archive.package,
+        expected.version,
+        archive.integrity,
+        { installMetadata: true },
+      );
       const metadata = JSON.parse(
         await acquire(
           `https://registry.npmjs.org/${encodeURIComponent(archive.package)}/${expected.version}`,
