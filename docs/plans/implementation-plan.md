@@ -1,7 +1,7 @@
 # Shared Markdown Quality Package: Implementation Plan
 
 Date: 2026-10-06, Europe/Bucharest.
-Revision: 7, owner-requested immutable release identity and promotion amendment.
+Revision: 8, owner-authorized 1.0.3 stable delivery and explicit publication label.
 Initial plan: 2026-10-03.
 Planning owner and proposed acceptance owner: Maksym Shostak.
 Task references: initial planning in Codex chat `01a1014e-c54e-7c63-8c24-6313be12493a`; review synthesis in chat `01a1090f-4eb0-7210-b541-c9b62f3984dc`.
@@ -13,12 +13,21 @@ This revision continues the already accepted R2 implementation scope and AGPL-3.
 The public alpha.3 tuple passed exact transported-archive and anonymous registry qualification on both supported platforms.
 Existing published archives remain immutable; this documentation amendment does not replace their bytes.
 The original draft-stage statements and gate table below describe the planning baseline; current execution evidence and remaining gates are recorded in [implementation status](../implementation-status.md).
-Each consumer still requires its exact migration manifest, hosted proof, owner acceptance, and recovery evidence before cutover; stable promotion remains blocked until both pilots qualify.
+Each consumer still requires its exact migration manifest, hosted proof, owner acceptance, and recovery evidence before cutover; the general stable-promotion hold below has the explicit 1.0.3 exception recorded next.
 
 On 2026-10-06, the owner requested a source-verified amendment adding versioned immutable GitHub releases and coordinated npm `latest` promotion.
 The release approach below follows current GitHub/npm guidance and SLSA artifact-verification principles, checked on that date.
 Revision 7 changes the planned release contract in REQ/AC-015, DEC-015 and SLICE-010; it preserves every existing requirement/decision ID, AGPL-3.0-only, exact pilot acceptance and unchanged-version recovery.
 The protected execution baseline and earlier receipts remain attributed to their original revision; this document edit does not recapture a baseline or claim implementation, repository-setting changes, new tags/releases, permission grants or stable promotion.
+
+Later on 2026-10-06, after the performance implementation and both-platform transported qualification, the owner requested committing the release tooling and publishing 1.0.3 as an immutable GitHub release, then explicitly directed: "1.0.3 should be the `latest` release when it is published".
+Revision 8 accepts stable/latest designation for that exact release without awaiting the separately paused consumer upgrades; it does not accept either consumer migration or waive archive, platform, provenance, rights, independent-review or immutable-asset verification.
+The manual publisher keeps `pilot` as its default and accepts only the explicitly selected `pilot` or `latest` label, using the existing narrowly scoped OIDC publication permission.
+For 1.0.3, freeze the final reviewed release-control source and its coherent transported archives, create and verify the signed exact-source tag and prepare the GitHub draft before npm publication, then complete both registry reports and the full asset inventory before publishing the immutable release.
+Release-control edits made before publication require fresh candidate archives and qualification for their final source identity; they never replace any already published version.
+Retain all three npm label preimages, actual attempted publication outcomes and final readbacks; partial publication is reconciled under the existing unchanged-version recovery contract, never replayed blindly.
+The final GitHub classification is stable/latest only after native release and every-asset verification; the temporary prerelease delivery stage is an implementation checkpoint, not the intended final classification.
+The general pilot gates and separate tag-management permission remain applicable to other release promotions; this exact owner decision introduces no unattended stable-promotion authority.
 
 The owner requested incorporation of the 6 October performance research response into the existing temporary performance plan, now elaborated in the [performance implementation plan](performance-implementation-plan.md).
 That follow-up sequences exact-input reuse and bounded native checking before conditional concurrency or compilation, and carries forward this plan's requirements and qualification budgets.

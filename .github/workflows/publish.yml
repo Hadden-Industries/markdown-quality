@@ -10,6 +10,14 @@ on:
         description: Approved original release-manifest SHA-256
         required: true
         type: string
+      distribution-tag:
+        description: Explicitly accepted availability label; latest requires owner stable-release authorization
+        required: true
+        default: pilot
+        type: choice
+        options:
+          - pilot
+          - latest
       recovery-run:
         description: Optional completed publication run to reconcile without republishing
         required: false
@@ -31,6 +39,7 @@ concurrency:
 env:
   CANDIDATE_RUN: ${{ inputs.candidate-run }}
   MANIFEST_SHA: ${{ inputs.manifest-sha256 }}
+  RELEASE_TAG: ${{ inputs.distribution-tag || 'pilot' }}
   RECOVERY_RUN: ${{ inputs.recovery-run }}
   RECOVERY_ATTEMPT: ${{ inputs.recovery-attempt }}
   RECOVERY_ORIGINS_SHA: ${{ inputs.recovery-origins-sha256 }}
@@ -60,6 +69,7 @@ jobs:
         run: |
           [[ "$CANDIDATE_RUN" =~ ^[1-9][0-9]{0,15}$ ]]
           [[ "$MANIFEST_SHA" =~ ^[a-f0-9]{64}$ ]]
+          [[ "$RELEASE_TAG" == pilot || "$RELEASE_TAG" == latest ]]
           if [[ -n "$RECOVERY_RUN" ]]; then
             [[ "$RECOVERY_RUN" =~ ^[1-9][0-9]{0,15}$ ]]
             [[ "$RECOVERY_ATTEMPT" =~ ^[1-9][0-9]{0,15}$ ]]
@@ -229,7 +239,8 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" > provider/current-ref.json
           node scripts/prepare-publication-environment.js --current-ref provider/current-ref.json
           node scripts/wait-registry-integrity.js --absent @hadden-industries/markdown-quality-win32-x64 "$RELEASE_VERSION"
-          npm publish "./frozen-release/hadden-industries-markdown-quality-win32-x64-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag pilot --provenance --registry=https://registry.npmjs.org/
+          [[ "$RELEASE_TAG" == pilot || "$RELEASE_TAG" == latest ]]
+          npm publish "./frozen-release/hadden-industries-markdown-quality-win32-x64-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag "$RELEASE_TAG" --provenance --registry=https://registry.npmjs.org/
           node scripts/wait-registry-integrity.js @hadden-industries/markdown-quality-win32-x64 "$RELEASE_VERSION" "$WIN32_X64_INTEGRITY"
       - name: Publish Linux package under pilot and verify integrity
         if: env.PUBLISH_LINUX_X64 == 'true'
@@ -239,7 +250,8 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" > provider/current-ref.json
           node scripts/prepare-publication-environment.js --current-ref provider/current-ref.json
           node scripts/wait-registry-integrity.js --absent @hadden-industries/markdown-quality-linux-x64 "$RELEASE_VERSION"
-          npm publish "./frozen-release/hadden-industries-markdown-quality-linux-x64-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag pilot --provenance --registry=https://registry.npmjs.org/
+          [[ "$RELEASE_TAG" == pilot || "$RELEASE_TAG" == latest ]]
+          npm publish "./frozen-release/hadden-industries-markdown-quality-linux-x64-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag "$RELEASE_TAG" --provenance --registry=https://registry.npmjs.org/
           node scripts/wait-registry-integrity.js @hadden-industries/markdown-quality-linux-x64 "$RELEASE_VERSION" "$LINUX_X64_INTEGRITY"
       - name: Verify both native archives before first core publication
         if: env.PUBLISH_CORE == 'true'
@@ -252,7 +264,8 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" > provider/current-ref.json
           node scripts/prepare-publication-environment.js --current-ref provider/current-ref.json
           node scripts/wait-registry-integrity.js --absent @hadden-industries/markdown-quality "$RELEASE_VERSION"
-          npm publish "./frozen-release/hadden-industries-markdown-quality-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag pilot --provenance --registry=https://registry.npmjs.org/
+          [[ "$RELEASE_TAG" == pilot || "$RELEASE_TAG" == latest ]]
+          npm publish "./frozen-release/hadden-industries-markdown-quality-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag "$RELEASE_TAG" --provenance --registry=https://registry.npmjs.org/
           node scripts/wait-registry-integrity.js @hadden-industries/markdown-quality "$RELEASE_VERSION" "$CORE_INTEGRITY"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()

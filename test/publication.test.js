@@ -692,6 +692,22 @@ test("only the publisher has OIDC and original effect names remain stable with c
       publisher.indexOf("- name: Publish coherent core under pilot"),
   );
   assert.ok(!text.includes("--tag latest"));
+  assert.match(
+    text,
+    /distribution-tag:\n\s+description: [^\n]+\n\s+required: true\n\s+default: pilot\n\s+type: choice\n\s+options:\n\s+- pilot\n\s+- latest/u,
+  );
+  assert.ok(
+    text.includes("RELEASE_TAG: ${{ inputs.distribution-tag || 'pilot' }}"),
+  );
+  assert.equal(
+    (
+      text.match(
+        /\[\[ "\$RELEASE_TAG" == pilot \|\| "\$RELEASE_TAG" == latest \]\]/gu,
+      ) || []
+    ).length,
+    4,
+  );
+  assert.equal((publisher.match(/--tag "\$RELEASE_TAG"/gu) || []).length, 3);
   assert.ok(!text.includes("npm pack"));
   const registry = text.slice(text.indexOf("  registry:\n"));
   assert.ok(

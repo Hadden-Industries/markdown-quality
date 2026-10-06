@@ -65,24 +65,28 @@ Recovery preserves the original candidate's source and archives separately from 
 An admission job without OIDC binds a complete three-package origin map before effects; both platform jobs qualify previously attempted packages before the publisher may run.
 Only a prior planned effect with an explicitly skipped publication step is eligible for first publication; an attempted or unknown outcome must be verified in the registry and cannot become eligible through a 404.
 Each downstream job rehashes its downloaded archives against the admitted manifest.
-The publisher rechecks current main, all three local archive hashes and version absence immediately before each single eligible publication, verifies both native archives before core, and uses only pilot.
+The publisher rechecks current main, all three local archive hashes and version absence immediately before each single eligible publication and verifies both native archives before core.
+Its explicit `distribution-tag` dispatch choice accepts only `pilot` or `latest` and defaults to `pilot`; select `latest` only for an owner-authorized stable release.
+Publication step names retain their historical "under pilot" wording because their exact identifiers are required to reconcile earlier interrupted runs; the selected input controls the actual npm label.
 Only the publication job has OIDC issuance permission; no long-lived npm token is supplied.
 Both registry jobs use native npm signature/attestation verification and bind each installed package to its admitted source, workflow, exact publication run and attempt.
 Their explicit non-cancellation and successful-publication condition prevents a skipped recovery ancestor from suppressing final qualification after ordinary publication.
 Successful publication alone does not establish complete registry qualification; retain both actual terminal platform reports.
 Each platform installs and cryptographically verifies its supported native package and core; opposite-platform native archives receive anonymous raw-byte verification, with the combined platform records covering the complete tuple.
 Structural provenance fixtures do not establish cryptographic acceptance.
-The workflow does not promote latest; both pilots and recovery must accept the exact tuple first.
+The workflow does not move labels on existing packages or grant npm tag-management permission.
+The owner's explicit 1.0.3 stable/latest decision in [plan revision 8](plans/implementation-plan.md#1-status-authority-and-purpose) supersedes the pilot-promotion hold for that release only; consumer adoption remains separate.
 GitHub artifacts expire after 30 days, so export the complete frozen source, manifest, archives and verification bundles to the retained evidence store before expiry, for the security policy's maintained-lifetime-plus-three-years floor.
 Public installation needs no registry token, subscription, or OIDC authority.
 Public npm provenance is eligible only through a qualified supported publisher; do not claim it for the local bootstrap.
 Retain attributable source/build/repack evidence and qualify attestations separately.
 
-Publish native packages first under a pilot tag and publish the core only when the tuple is coherent.
+Publish native packages first under the explicitly accepted availability label and publish the core only when the tuple is coherent.
 Read back hashes, public visibility, and fresh unauthenticated archive acquisition for every package.
 Qualify root and isolated consumers on both supported platforms from the registry, without credentials.
 Do not perform registry publication while rights, publisher authentication, independent assurance, or platform evidence remains missing.
-A partial publication stays unpromoted and receives a new corrective version if bytes change.
+A partial publication is not a completed coordinated release, even when individual package labels are visible; preserve its exact outcomes and use the unchanged-version recovery procedure below.
+Changed bytes require a new corrective version.
 
 For unchanged-version recovery, manually dispatch `publish.yml` with the original `candidate-run` and `manifest-sha256`, plus the terminal prior `recovery-run` and exact `recovery-attempt`.
 The original legacy publication can omit `recovery-origins-sha256` only when its source is the original artifact source and its retained manifest matches exactly.

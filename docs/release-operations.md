@@ -62,6 +62,9 @@ Do not delete, replace or republish an immutable identity to make a receipt pass
 Stop for explicit reconciliation if another actor changes the tag, inventory or classification.
 
 Publishing the immutable prerelease does not satisfy either pilot's migration or trusted-run gate.
-Stable promotion requires both exact pilot acceptances, platform windows, timed restoration and a separately admitted npm tag-management operation with its specific OIDC permission.
+General stable promotion requires both exact pilot acceptances, platform windows, timed restoration and a separately admitted npm tag-management operation with its specific OIDC permission.
+The owner-authorized 1.0.3 exception in [plan revision 8](plans/implementation-plan.md#1-status-authority-and-purpose) instead selects `latest` during the admitted original npm publication; it preserves all archive, registry/provenance and immutable-release verification requirements.
+Prepare its exact-source signed tag and GitHub draft before npm effects; add the resulting complete registry evidence before publishing the immutable release.
+After the archival tool verifies the immutable prerelease and every asset, classify that same release stable/latest through the native GitHub CLI and recheck its unchanged tag and asset inventory.
 The stale alpha.2 `latest` target remains unqualified for Linux execution and is not an accepted recovery target.
 Controlled installation guidance names the qualified exact pilot version until promotion is accepted.
