@@ -2,7 +2,27 @@
 
 ## Current completion state on 2026-10-06
 
-The coordinated corrective 1.0.2 tuple is published under `pilot` and passed complete anonymous registry qualification on Windows and Linux; latest promotion remains gated by exact pilot acceptance.
+The coherent performance 1.0.3 tuple is published as npm `latest` for the core, Windows x64 and Linux x64 packages.
+GitHub [v1.0.3](https://github.com/Hadden-Industries/markdown-quality/releases/tag/v1.0.3) is the stable/latest immutable release, with its signed exact-source tag and all twenty assets verified through the native GitHub CLI.
+The [qualification record](releases/1.0.3.json) binds the original archives, source, native materials, complete platform reports and provider identities.
+The package source is `92d6e9f61b5fffe6f33d8878ef8e2880ca187ac0`; the signed tag resolves to that source rather than a later documentation commit.
+Both-platform source qualification `37489501992`, transported candidate `37489502029`, CodeQL `37489500750`, and complete registry/provenance qualification `37490858990` passed, each attempt 1.
+All three original publication effects selected `latest` through the main-only trusted publisher; no existing version was republished or repacked.
+All twenty GitHub assets retain their admitted hashes after stable/latest classification; native release verification passed again.
+The original AGPL-3.0-only licence, native executable bytes, corresponding source and component notices are unchanged.
+
+Bounded request-local reuse, native check batching and exact-input check-first formatting are included.
+Independent prose and quoted-item/continuation rechecks, fresh local-target validation, literal preservation, convergence, limits and the strict authored whitespace policy remain active.
+All twenty-four final hosted corpus observations stayed within the accepted 30-second and platform-specific 512 MiB budgets and retained their expected findings.
+The runtime and release tooling retain their scoped independent assurance; the latest-choice delta received positive independent Antigravity static security/correctness review with no actionable findings.
+Claude's quota-blocked attempt and Antigravity's earlier denied terminal attempt supplied no review and are retained as failed attempts.
+The final source passed full local verification and both-platform hosted checks; the later editorial packaged-plan link correction was validated by actual packed installation and fresh full checks.
+The owner's plan revision 8 decision authorizes this exact stable/latest release while leaving the paused consumer migrations under their separate scope and trusted-run gates.
+Release availability does not accept or change either consumer cutover.
+
+### Earlier registry delivery
+
+The coordinated corrective 1.0.2 tuple remains published under `pilot`, with its complete Windows/Linux anonymous registry qualification retained as historical evidence.
 The immutable alpha.4 tuple passed transported qualification in run `37313706547` and Windows/Linux anonymous root and isolated registry qualification in run `37316561023`.
 No alpha.4 attestation or SLSA level is claimed.
 The main-only hosted publisher has its exact environment and three native trusted-publisher mappings configured.
@@ -189,7 +209,9 @@ Requalify or remove this exception on every native upgrade; upstream repair is t
 The unlimited-width preset separately omits validated advisory `long` findings.
 This is the selected length policy described by upstream CLI documentation, rather than a list compatibility exception.
 
-## Completion boundary
+## Historical completion boundary for revision 6
+
+This section retains the earlier revision 6 assessment; the current 1.0.3 delivery and revision 8 owner decision are recorded above.
 
 Revision 6 records the owner's accepted trusted-run boundary, pilot budgets and maintained support targets.
 Its accepted snapshot is `ea52a437-0240-423b-93de-9c1140ae7d4d`, digest `cd95ef6aa2af3c0910366a655102b8bfe3d7c0e96b30c289c5f0f59d47af8876`.

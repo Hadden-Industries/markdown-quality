@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "version": "1.0.3",
+  "source": "92d6e9f61b5fffe6f33d8878ef8e2880ca187ac0",
+  "manifestSha256": "2210119419956431a07cf90c0cebee5c90801448d23184e007f2b29d5ebf86a1",
+  "originsSha256": "511b4459fee896a4b30c94a94d5779af737db1a60b93b7aff51972ad80ae26b3",
+  "archives": [
+    {
+      "package": "@hadden-industries/markdown-quality-win32-x64",
+      "filename": "hadden-industries-markdown-quality-win32-x64-1.0.3.tgz",
+      "sha256": "bc025572c66ae57d1f05d12be43360ac4de52c7a304c581a77c1ea85e7f280bc",
+      "integrity": "sha512-DUpbrupwJGDlND60uLcxi6+koWWjdZ8T6Dog73WkuwlbBg4QQU9N3Ty17xMDjwEZguzSsOzgpZsY4WLW+cQM9w=="
+    },
+    {
+      "package": "@hadden-industries/markdown-quality-linux-x64",
+      "filename": "hadden-industries-markdown-quality-linux-x64-1.0.3.tgz",
+      "sha256": "2c76fcc1263a54ff5be8bccf27d14bc671406e5dbfbf41fff6fd92b3a2e1f893",
+      "integrity": "sha512-rTIUU3oRgNvYotIhysDoNgZ3UN7+ilBJrgBX1xxl6K/vAEKko0iePO0Hm0Il7uWN1BPU7W0lZUHTbwLkyHSUmg=="
+    },
+    {
+      "package": "@hadden-industries/markdown-quality",
+      "filename": "hadden-industries-markdown-quality-1.0.3.tgz",
+      "sha256": "6a27f4ba6964df31773875933f88daca900e6cf362e480dac5a781859b264b49",
+      "integrity": "sha512-0+quxNmE67zUkWK8IlG2C0fpKarct6ET9BHhCrS+XbsPgkHcUSjurqSnibI/q7q4D1OXYz0aP46cszceqNjxUg=="
+    }
+  ],
+  "origins": [
+    {
+      "package": "@hadden-industries/markdown-quality-win32-x64",
+      "source": "92d6e9f61b5fffe6f33d8878ef8e2880ca187ac0",
+      "run": "37490858990",
+      "attempt": "1",
+      "state": "planned"
+    },
+    {
+      "package": "@hadden-industries/markdown-quality-linux-x64",
+      "source": "92d6e9f61b5fffe6f33d8878ef8e2880ca187ac0",
+      "run": "37490858990",
+      "attempt": "1",
+      "state": "planned"
+    },
+    {
+      "package": "@hadden-industries/markdown-quality",
+      "source": "92d6e9f61b5fffe6f33d8878ef8e2880ca187ac0",
+      "run": "37490858990",
+      "attempt": "1",
+      "state": "planned"
+    }
+  ],
+  "reports": {
+    "candidate-windows.json": {
+      "platform": "win32-x64",
+      "qualification": "transported candidate archives",
+      "sha256": "d47bafd4773765e69b781a145f143aac3b18e9555c4379e68ef061ee4d3c73fc"
+    },
+    "candidate-linux.json": {
+      "platform": "linux-x64",
+      "qualification": "transported candidate archives",
+      "sha256": "196dd84238a1a94bbda11cdd6f613eefc56b7ee9f94e9418a6fef5c08634c592"
+    },
+    "registry-windows.json": {
+      "platform": "win32-x64",
+      "qualification": "public registry",
+      "sha256": "870c1d099229c10b6494e5cb604c576cb4523c0a700b255cc40bb7499a90989f"
+    },
+    "registry-linux.json": {
+      "platform": "linux-x64",
+      "qualification": "public registry",
+      "sha256": "92dddb01203c3f185a89b5d1fd1f2b7da57d0aa86a732856b7266085fa1ec2b2"
+    }
+  },
+  "materials": {
+    "snapper-0.11.9-source.tar.gz": "08cc7533ac70c36c5e32ddcb40a87ecd4ee2d8942065f5dc734f32dd8061bfc4",
+    "native-build.json": "04e03e2d5324f54ab19def9e978ee7771018c430aad352831349016bd689bacf",
+    "native-rights.json": "79810ecc3ee8f1d7f82b15fe5f1715c395a33ee4e884d1edd7e8eb6dc57bac69",
+    "tool-manifest.json": "6f067f9678f423b95a038aa10f4d2464c0c0466356bcf5d77832e94968c95d71",
+    "LICENSE": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef",
+    "THIRD-PARTY-NOTICES.md": "c429313692af04c872d9c2c1f083bc14497571ccaae4a292890f3e9cede54a89"
+  },
+  "candidate": {
+    "run": "37489502029",
+    "attempt": "1",
+    "source": "92d6e9f61b5fffe6f33d8878ef8e2880ca187ac0",
+    "workflow": ".github/workflows/candidate.yml",
+    "event": "push",
+    "jobs": ["pack", "consumer (windows-latest)", "consumer (ubuntu-24.04)"]
+  },
+  "publication": {
+    "run": "37490858990",
+    "attempt": "1",
+    "source": "92d6e9f61b5fffe6f33d8878ef8e2880ca187ac0",
+    "workflow": ".github/workflows/publish.yml",
+    "event": "workflow_dispatch",
+    "jobs": [
+      "admit",
+      "publish",
+      "registry (ubuntu-24.04)",
+      "registry (windows-latest)"
+    ]
+  },
+  "native": {
+    "source": "407c2beb04607f6ccb421e6f6418dcc00e4c1e94",
+    "buildSource": "722a0ab76bdae368b0f282f4a0e9ebee05ccdc59",
+    "buildRun": "37274204161"
+  }
+}
