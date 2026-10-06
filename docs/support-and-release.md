@@ -20,10 +20,11 @@ Only a processing 404 is retried; mismatched integrity and other failures stop d
 Publication is never repeated by this availability check.
 The three bounded waits fit within the publisher's thirty-minute job limit.
 
-The current source prepares version 1.0.1 under the pilot tag; stable promotion remains gated.
+The current source prepares version 1.0.2 under the pilot tag; stable promotion remains gated.
 Stable promotion requires the same qualified tuple on both platforms, public registry readback and unauthenticated installation, both pilot acceptances, and a timed restoration exercise.
 The 1.0.1 corrective candidate restores checking and formatting of literal code lines containing trailing or whitespace-only spaces.
 The original 1.0.1 tuple is published under `pilot` and passed both-platform complete registry qualification in recovery run `37413673170`, without republishing any package.
+The 1.0.2 correction compares inline-code line endings as spaces under CommonMark, retaining meaningful interior whitespace and the strict fenced/indented-code guard.
 This repair changes shipped JavaScript and therefore requires a new coordinated patch version; the unchanged 1.0.0 tuple completed registry qualification separately in recovery run `37409484508`.
 Keep latest promotion blocked until the literal-preservation repair and exact candidate satisfy the same platform, registry and pilot gates.
 Changed/referrer mode and later fleet adoptions remain deferred.
@@ -48,7 +49,7 @@ An upstream Cargo lock is a superset of features and development inputs and does
 The original upstream license and per-asset repack identity are retained.
 
 The owner selected public distribution after npm rejected the private publication with E402.
-All three packages declare public access and share the source candidate version 1.0.1.
+All three packages declare public access and share the source candidate version 1.0.2.
 The tuple retains alpha.4's qualified native executable/source/notice bytes and avoids duplicate formatting of byte-identical documents while retaining independent prose checks and preservation/convergence checks.
 The first alpha.3 hosted OWLAPI shadow checks passed correctness but exceeded the accepted 30-second budget on both platforms.
 Alpha.3 and alpha.4 remain immutable historical evidence; every new tuple requires fresh transported-archive, registry, and exact-version pilot qualification before promotion.

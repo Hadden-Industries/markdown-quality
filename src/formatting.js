@@ -11,6 +11,10 @@ function semantic(node) {
     if (key === "children") value.children = item.map(semantic);
     else if (key === "value" && node.type === "text")
       value.value = item.replace(/\s+/gu, " ");
+    // CommonMark code spans turn each line ending into one space. The parser
+    // already strips delimiter padding; preserve all other literal characters.
+    else if (key === "value" && node.type === "inlineCode")
+      value.value = item.replace(/\r\n|\r|\n/gu, " ");
     else value[key] = item;
   }
   return value;

@@ -44,6 +44,19 @@ Both retained and final platform reports passed original archive identities, roo
 Every package retains its original source `02d9f907eedca092c6f5db470e9f58e2613d9d41`, publication run `37412118242` and attempt 1; the complete retained origin map has SHA-256 `b7ad2b3b2758cb62260ce6ebd11e7c1cc365bec592884785513726e6406928c5`.
 Exact 1.0.1 pilot acceptance remains required before promotion.
 
+## Inline-code preservation correction on 2026-10-06
+
+The ONI read-only registry prototype confirmed 1.0.1 restores its fenced-code examples, then isolated a separate `PRESERVATION` refusal when Snapper wraps the inline span `GameplayActivationState !=
+Active`.
+Maintained mdast retains code-span line-ending characters in `inlineCode.value`; CommonMark converts those line endings to spaces, as does the maintained mdast HTML handler.
+The old guard compared raw node values and rejected this meaning-preserving wrap.
+The 1.0.2 correction normalizes only CRLF, CR and LF to one space when comparing inline-code values; parser-handled delimiter padding and all other literal whitespace remain unchanged.
+The real native regression checks read-only findings, exact formatting output and repeat-format convergence.
+Injected changes to double spaces, tabs, non-breaking spaces, code characters and fenced-code newlines still fail preservation.
+Shipped JavaScript changes require a new coordinated patch version; the published 1.0.1 tuple and its qualification remain immutable historical evidence.
+Independent assurance, complete source and transported-archive verification, registry qualification and any exact 1.0.2 pilot adoption remain separate gates.
+The ONI prototype's absence of the earlier timeout on repaired current input does not establish a general timeout repair; no timeout or link-policy waiver is included.
+
 OwlAPI's alpha.4 cutover was accepted for exact candidate `8dc38edbff5929cf0d30b39b577838928f29d875` and trusted run `37338581639`, then normally integrated through PR #46 at `073beefb7805130bc0452472d1a9c801471fbaf1`.
 Its LF guard is included in the incumbent test route; first-party provenance inputs reject checkout drift while original upstream notices retain their bytes.
 WebVOWL's shadow bootstrap PR #53 was normally integrated at `9b5d984d68a52418b267f97f274fa4b1d196ec69` after all required checks passed.

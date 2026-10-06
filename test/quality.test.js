@@ -6,6 +6,22 @@ import { join } from "node:path";
 import { runQuality } from "../src/quality.js";
 import { consumer } from "./helpers.js";
 import { limits } from "../src/contracts.js";
+test("real native wrapping preserves inline-code meaning and reaches a fixed point", async (t) => {
+  const input =
+    "> While `GameplayActivationState != Active`, every provisional or residual Temperature Limit gameplay patch is behaviorally neutral.\n";
+  const expected =
+    "> While `GameplayActivationState !=\nActive`, every provisional or residual Temperature Limit gameplay patch is behaviorally neutral.\n";
+  const root = consumer(t, { "a.md": input });
+  const checked = await runQuality({ root });
+  assert.equal(checked.exitCode, 1, JSON.stringify(checked));
+  assert.deepEqual(checked.errors, []);
+  assert.equal(readFileSync(join(root, "a.md"), "utf8"), input);
+  const formatted = await runQuality({ root, mode: "format" });
+  assert.equal(formatted.exitCode, 0, JSON.stringify(formatted));
+  assert.equal(readFileSync(join(root, "a.md"), "utf8"), expected);
+  assert.equal((await runQuality({ root })).exitCode, 0);
+  assert.deepEqual((await runQuality({ root, mode: "format" })).written, []);
+});
 test("valid fenced examples retain whitespace-only lines and trailing literal spaces through real checks and formatting", async (t) => {
   for (const text of [
     "```diff\n first\n \n second  \n```\n",

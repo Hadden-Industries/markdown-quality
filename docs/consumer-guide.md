@@ -78,6 +78,8 @@ These are conservative operational limits; benchmark and platform acceptance rem
 
 Formatting compares maintained parsed structure and literals before replacement and verifies convergence.
 Fenced and indented code retain literal whitespace, including whitespace-only lines and trailing spaces; embedded code formatting remains disabled.
+Inline code compares [CommonMark code-span semantics](https://spec.commonmark.org/0.31.2/#code-spans): each line ending means one space, while interior spaces, tabs and other literal characters remain significant.
+Delimiter padding is already handled by the maintained parser; the comparison does not collapse or trim additional whitespace.
 The parsed comparison is an additional backstop, not a universal rendered-equivalence guarantee.
 It conservatively refuses unsupported semantic or literal changes.
 Ordinary file permission bits are preserved; ownership changes, alternate streams, ACL inheritance, arbitrary metadata, and adversarial filesystem races are not promised as preserved.
