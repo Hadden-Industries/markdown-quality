@@ -22,6 +22,9 @@ The three bounded waits fit within the publisher's thirty-minute job limit.
 
 The current source prepares version 1.0.0 under the pilot tag; stable promotion remains gated.
 Stable promotion requires the same qualified tuple on both platforms, public registry readback and unauthenticated installation, both pilot acceptances, and a timed restoration exercise.
+The 1.0.1 corrective candidate restores checking and formatting of literal code lines containing trailing or whitespace-only spaces.
+This repair changes shipped JavaScript and therefore requires a new coordinated patch version; completing the unchanged 1.0.0 archives remains a separate recovery operation.
+Keep latest promotion blocked until the literal-preservation repair and exact candidate satisfy the same platform, registry and pilot gates.
 Changed/referrer mode and later fleet adoptions remain deferred.
 
 Prepare assets explicitly from their frozen manifest.

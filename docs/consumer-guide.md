@@ -77,6 +77,7 @@ Lint messages describe the violated rule without quoting document content.
 These are conservative operational limits; benchmark and platform acceptance remains part of candidate qualification.
 
 Formatting compares maintained parsed structure and literals before replacement and verifies convergence.
+Fenced and indented code retain literal whitespace, including whitespace-only lines and trailing spaces; embedded code formatting remains disabled.
 The parsed comparison is an additional backstop, not a universal rendered-equivalence guarantee.
 It conservatively refuses unsupported semantic or literal changes.
 Ordinary file permission bits are preserved; ownership changes, alternate streams, ACL inheritance, arbitrary metadata, and adversarial filesystem races are not promised as preserved.

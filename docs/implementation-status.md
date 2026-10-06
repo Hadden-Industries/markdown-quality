@@ -2,7 +2,7 @@
 
 ## Current completion state on 2026-10-06
 
-The coordinated source candidate is 1.0.0; publication, anonymous registry verification and latest promotion are separate outcomes.
+The coordinated corrective source candidate is 1.0.1; publication, anonymous registry verification and latest promotion are separate outcomes.
 The immutable alpha.4 tuple passed transported qualification in run `37313706547` and Windows/Linux anonymous root and isolated registry qualification in run `37316561023`.
 No alpha.4 attestation or SLSA level is claimed.
 The main-only hosted publisher has its exact environment and three native trusted-publisher mappings configured.
@@ -10,9 +10,28 @@ Transported 1.0.0 candidate `37391788069` passed on both platforms at source `80
 Publisher `37393670535` accepted the Windows 1.0.0 archive and created provenance, then its immediate registry readback failed while npm reported processing; Linux and core were not published.
 The owner accepted completing the original unchanged tuple and requested durable resumable publication on 2026-10-06.
 Windows's anonymous archive, installed-file identities and native npm signature/attestation verification passed at the original source and publication run/attempt.
-The partial tuple remains unpromoted; recovery publishes only packages proven unattempted and never republishes Windows.
-The bounded availability wait and per-package publication-origin controls are being qualified; hosted recovery and complete two-platform registry verification remain due.
+The original tuple remains unpromoted; recovery publishes only packages proven unattempted and never republishes either retained native package.
+Recovery run `37408154658` published the original Linux 1.0.0 archive, then stopped before core because npm installer metadata had not yet exposed the version.
+The narrowly reviewed follow-up binds version, abbreviated installer and full installer metadata to the same exact integrity and five-minute deadline.
+Core-only recovery `37409484508` is bound to the independently approved prior origin-map digest `81b2a8b896ecd9139c932ab76ba80a45c64da72ae701d52925138966910a8cc0`; all six hosted jobs passed.
+It skipped both native publication steps and first-published only the original core archive.
+Both Windows and Linux complete-tuple qualification passed anonymous archive hashes, root/isolated installed-file identities, native npm signatures/attestations at each exact recorded source/run/attempt, offline lock reinstallation and credential-free runtime.
+Windows retains source `80f58a5df39ec4f1840b46f01f83416540cee283` and run `37393670535`, Linux retains source `b63589a24c2cf3e8eb5a36878697e2897a80ba66` and run `37408154658`, and core uses source `5916e4ffedcc3f1908403f28b2a3973070563ab3` and run `37409484508`, each attempt 1.
 Native binaries, corresponding source, notices and the original AGPL-3.0-only licence bytes remain unchanged.
+
+## Literal preservation repair on 2026-10-06
+
+An ONI adoption report reproduced valid diff and Python fences failing with `PRESERVATION` when literal lines ended with spaces or contained only whitespace.
+The guard prevented replacement, but these documents could neither pass checking nor be formatted.
+Pinned Prettier 3.9.9 trims those spaces even with embedded-language formatting disabled; direct Snapper 0.11.9 leaves the same literal bodies unchanged.
+The compatible repair protects whitespace-bearing code lines during each layout pass and removes protection before native analysis, without relaxing parsed-meaning preservation, convergence or independent prose checks.
+Real native regressions cover checking without writes, exact formatting bytes and repeated-format convergence; layout cases cover quoted/list containers, indented fence-shaped literals, alternate fences, CRLF, EOF and authored marker collisions.
+An injected native literal mutation must still fail preservation.
+Paired Windows formatting checks on 63 retained OwlAPI and 66 retained WebVOWL documents matched alpha.4 output bytes and diagnostics exactly, with unchanged input hashes.
+These representative historical corpora are compatibility evidence, not current-checkout or hosted pilot acceptance.
+Under the accepted compatible-repair policy, shipped code changes require coordinated version 1.0.1; original 1.0.0 archives remain immutable and their recovery stays separate.
+Dependency versions, preset defaults, schemas, native source/binaries/notices and the original licence identity remain unchanged.
+The corrective candidate still requires narrow independent review, complete source/transported/registry qualification and exact pilot acceptance before promotion.
 
 OwlAPI's alpha.4 cutover was accepted for exact candidate `8dc38edbff5929cf0d30b39b577838928f29d875` and trusted run `37338581639`, then normally integrated through PR #46 at `073beefb7805130bc0452472d1a9c801471fbaf1`.
 Its LF guard is included in the incumbent test route; first-party provenance inputs reject checkout drift while original upstream notices retain their bytes.

@@ -6,6 +6,23 @@ import { join } from "node:path";
 import { runQuality } from "../src/quality.js";
 import { consumer } from "./helpers.js";
 import { limits } from "../src/contracts.js";
+test("valid fenced examples retain whitespace-only lines and trailing literal spaces through real checks and formatting", async (t) => {
+  for (const text of [
+    "```diff\n first\n \n second  \n```\n",
+    "```python\ndef sample():\n    pass\n    \n    return 1  \n```\n",
+    "```diff\r\n first\r\n \r\n second  \r\n```\r\n",
+    "> ```diff\n>  first\n>  \n>  second  \n> ```\n",
+  ]) {
+    const root = consumer(t, { "a.md": text });
+    const checked = await runQuality({ root });
+    assert.equal(checked.exitCode, 0, JSON.stringify(checked));
+    assert.equal(readFileSync(join(root, "a.md"), "utf8"), text);
+    const formatted = await runQuality({ root, mode: "format" });
+    assert.equal(formatted.exitCode, 0, JSON.stringify(formatted));
+    assert.equal(readFileSync(join(root, "a.md"), "utf8"), text);
+    assert.deepEqual((await runQuality({ root, mode: "format" })).written, []);
+  }
+});
 test("real native chain checks read-only, formats independently chosen bytes and converges", async (t) => {
   const root = consumer(t, { "a.md": "# Heading\n\nAlpha. Beta.\n" });
   const result = await runQuality({ root });

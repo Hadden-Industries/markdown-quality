@@ -23,6 +23,7 @@ function observeFormatting(input, behavior = "identity") {
           return [{source: "snapper", rule: "fused", line: 1, column: 1,
             severity: "error", message: "Sentence layout: fused."}];
         if (check) return [];
+        if (behavior === "literal-mutation") return text.replace("first", "changed");
         return behavior === "sentence-layout"
           ? text.replace("Alpha. Beta.", "Alpha.\\nBeta.") : text;
       }
@@ -63,4 +64,12 @@ test("changed sentence layout still requires convergence and the independent che
   const observed = observeFormatting("Alpha. Beta.\n", "sentence-layout");
   assert.equal(observed.result.output, "Alpha.\nBeta.\n");
   assert.deepEqual(observed.calls, ["format", "format", "check"]);
+});
+
+test("literal layout repair retains the independent semantic preservation guard", () => {
+  const observed = observeFormatting(
+    "```diff\n first\n \n second\n```\n",
+    "literal-mutation",
+  );
+  assert.equal(observed.error.code, "PRESERVATION");
 });

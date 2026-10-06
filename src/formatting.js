@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import * as prettier from "prettier";
+import { formatLayout } from "./literal-layout.js";
 import { parse } from "./analysis.js";
 import { runNative } from "./native-tool.js";
 import { checkProse } from "./prose-diagnostics.js";
@@ -30,8 +30,8 @@ export async function formatDocument(text, context, tool) {
     tabWidth: context.config.layout.tabWidth,
     plugins: [],
   };
-  const layout = await prettier.format(text, options);
-  const result = await prettier.format(runNative(tool, layout), options);
+  const layout = await formatLayout(text, options);
+  const result = await formatLayout(runNative(tool, layout), options);
   // Byte identity proves preservation and an observed fixed point of the entire
   // deterministic formatter pipeline. The independent prose check still runs.
   if (result === text)
@@ -41,7 +41,7 @@ export async function formatDocument(text, context, tool) {
     JSON.stringify(semantic(parse(result)))
   )
     fail("PRESERVATION", "Formatting changed parsed meaning or a literal.");
-  const second = await prettier.format(runNative(tool, result), options);
+  const second = await formatLayout(runNative(tool, result), options);
   if (result !== second)
     fail("CONVERGENCE", "Formatter pipeline did not converge.");
   return { output: result, diagnostics: checkProse(tool, result) };
