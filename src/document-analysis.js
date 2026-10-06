@@ -25,11 +25,37 @@ export function createDocumentAnalyzer(context, tool) {
     );
     return (termination ??= worker.terminate());
   }
-  worker.on("message", (value) =>
+  function deadline(milliseconds) {
+    clearTimeout(pending.timer);
+    pending.timer = setTimeout(() => {
+      settle(
+        new OperationError(
+          "ANALYSIS_TIMEOUT",
+          "Document analysis exceeded 30 seconds.",
+        ),
+      );
+      void close();
+    }, milliseconds);
+  }
+  worker.on("message", (value) => {
+    if (value.progress) {
+      if (!pending) return;
+      if (
+        !Number.isFinite(value.remainingMs) ||
+        value.remainingMs <= 0 ||
+        value.remainingMs > 30_000
+      ) {
+        settle(
+          new OperationError("ANALYSIS_FAILURE", "Invalid analysis deadline."),
+        );
+        void close();
+      } else deadline(value.remainingMs);
+      return;
+    }
     value.error
       ? settle(new OperationError(value.error.code, value.error.message))
-      : settle(null, value),
-  );
+      : settle(null, value);
+  });
   worker.on("error", () => {
     closed = true;
     settle(
@@ -48,31 +74,43 @@ export function createDocumentAnalyzer(context, tool) {
       ),
     );
   });
+  function request(data, milliseconds = 30_000) {
+    if (closed || pending)
+      return Promise.reject(
+        new OperationError(
+          "ANALYSIS_FAILURE",
+          "Document analysis is unavailable.",
+        ),
+      );
+    return new Promise((resolve, reject) => {
+      pending = {
+        resolve,
+        reject,
+      };
+      deadline(milliseconds);
+      worker.postMessage(data);
+    });
+  }
   return {
-    analyze(data) {
-      if (closed || pending)
+    prepare(data, milliseconds = 30_000) {
+      if (
+        !Number.isFinite(milliseconds) ||
+        milliseconds <= 0 ||
+        milliseconds > 30_000
+      )
         return Promise.reject(
           new OperationError(
-            "ANALYSIS_FAILURE",
-            "Document analysis is unavailable.",
+            "ANALYSIS_TIMEOUT",
+            "Document analysis exceeded 30 seconds.",
           ),
         );
-      return new Promise((resolve, reject) => {
-        pending = {
-          resolve,
-          reject,
-          timer: setTimeout(() => {
-            settle(
-              new OperationError(
-                "ANALYSIS_TIMEOUT",
-                "Document analysis exceeded 30 seconds.",
-              ),
-            );
-            void close();
-          }, 30_000),
-        };
-        worker.postMessage(data);
-      });
+      return request({ ...data, action: "prepare" }, milliseconds);
+    },
+    precheck(documents, staging) {
+      return request({ documents, staging, action: "precheck" });
+    },
+    verify(documents, staging) {
+      return request({ documents, staging, action: "verify" });
     },
     close,
   };

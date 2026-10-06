@@ -4,6 +4,7 @@
 // 58a306013d3701f59dfe34341e96fac5a011e3ed. Copyright 2026 Hadden Industries Ltd.
 // Original MIT terms retained in LICENSES/MIT-universal-ontology.txt.
 import { runNative } from "./native-tool.js";
+import { runNativeChecks } from "./native-checks.js";
 // Requalified against 0.11.9. Owner approval: this chat, 2026-10-05.
 // Mirrors OwlAPI's narrow container boundary and continuation recheck approach.
 function listItem(line = "") {
@@ -55,4 +56,122 @@ export function checkProse(tool, text) {
     // Malformed output, unknown findings, crashes, and timeouts still fail closed.
     return runNative(tool, prose.join("\n") + "\n", true).length !== 0;
   });
+}
+
+/** Recheck complete independent list items in bounded groups, retaining finding order. */
+export function checkProseGroup(
+  tool,
+  texts,
+  staging,
+  observer,
+  admittedChecks,
+) {
+  let checkMilliseconds = 0;
+  function check(inputs) {
+    const owners = inputs.map((input) => input.owner);
+    const uniqueOwners = [...new Set(owners)];
+    observer?.start(uniqueOwners);
+    const started = performance.now();
+    let nativeMilliseconds = 0;
+    try {
+      return runNativeChecks(
+        tool,
+        inputs.map((input) => input.text),
+        staging,
+        observer && {
+          start: (indices) =>
+            observer.start([...new Set(indices.map((index) => owners[index]))]),
+          finish: (indices, elapsed) => {
+            nativeMilliseconds += elapsed;
+            observer.finish(
+              [...new Set(indices.map((index) => owners[index]))],
+              elapsed,
+            );
+          },
+        },
+      );
+    } finally {
+      const elapsed = performance.now() - started;
+      checkMilliseconds += elapsed;
+      observer?.finish(uniqueOwners, Math.max(0, elapsed - nativeMilliseconds));
+    }
+  }
+  const checked = new Array(texts.length);
+  const unchecked = [];
+  for (const [owner, text] of texts.entries()) {
+    const admitted = admittedChecks?.[owner];
+    if (admitted) checked[owner] = admitted;
+    else unchecked.push({ text, owner });
+  }
+  if (unchecked.length) {
+    const results = check(unchecked);
+    for (const [index, input] of unchecked.entries())
+      checked[input.owner] = results[index];
+  }
+  const keep = checked.map((entry) => entry.diagnostics.map(() => true));
+  let pending = [],
+    pendingBytes = 0;
+  function flush() {
+    if (!pending.length) return;
+    const items = pending;
+    pending = [];
+    pendingBytes = 0;
+    const results = check(items);
+    for (const [index, result] of results.entries())
+      keep[items[index].owner][items[index].finding] =
+        result.diagnostics.length !== 0;
+  }
+  for (const [owner, text] of texts.entries()) {
+    observer?.start([owner]);
+    const started = performance.now(),
+      previousChecks = checkMilliseconds;
+    try {
+      const lines = text.split(/\r?\n/u);
+      for (const [finding, diagnostic] of checked[
+        owner
+      ].diagnostics.entries()) {
+        const index = diagnostic.line - 1,
+          item = listItem(lines[index]);
+        if (!item) continue;
+        const previous = listItem(lines[index - 1]);
+        const quotedNumber =
+          diagnostic.rule === "fused" && item.quotes > 0 && item.ordered;
+        const adjacent =
+          diagnostic.rule === "wrap" &&
+          previous &&
+          previous.prefix === item.prefix &&
+          previous.indent === item.indent &&
+          previous.ordered === item.ordered;
+        if (!quotedNumber && !adjacent) continue;
+        const prose = [item.prose];
+        for (let next = index + 1; next < lines.length; next++) {
+          const line = lines[next];
+          if (!line.startsWith(item.prefix) || listItem(line)) break;
+          const content = line.slice(item.prefix.length),
+            indent = item.contentOffset - item.prefix.length;
+          if (!content.startsWith(" ".repeat(indent))) break;
+          prose.push(content.slice(indent));
+        }
+        const snippet = prose.join("\n") + "\n",
+          bytes = Buffer.byteLength(snippet);
+        if (pending.length === 32 || pendingBytes + bytes > 4_194_304) flush();
+        pending.push({ text: snippet, owner, finding });
+        pendingBytes += bytes;
+      }
+    } finally {
+      // Native groups already charge their participants. Attribute owned snippet
+      // extraction separately, including time between successive rechecks.
+      observer?.finish(
+        [owner],
+        Math.max(
+          0,
+          performance.now() - started - (checkMilliseconds - previousChecks),
+        ),
+      );
+    }
+  }
+  flush();
+  return checked.map((entry, owner) =>
+    entry.diagnostics.filter((_, index) => keep[owner][index]),
+  );
 }

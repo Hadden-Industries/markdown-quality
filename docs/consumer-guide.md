@@ -90,7 +90,15 @@ The parsed comparison is an additional backstop, not a universal rendered-equiva
 It conservatively refuses unsupported semantic or literal changes.
 Inline code and raw HTML have no blanket trailing-whitespace exemption.
 When trimming would change their interpreted content, or otherwise change parsed meaning, the operation reports the whitespace findings for manual correction and leaves the whole batch untouched.
-Both checking and formatting validate the selected documents; checking never writes, and formatting writes only after every candidate passes validation.
+Both checking and formatting validate the selected documents; checking never changes checkout files, and formatting writes only after every candidate passes validation.
+Native checks may group exact document snapshots and complete list-item continuations in a private temporary directory outside the checkout.
+Groups have at most 32 independent files and 4 MiB of input, with the existing native deadline and output cap.
+The package supplies its own immutable native configuration and EditorConfig boundary; consumer settings do not control these checks.
+If private staging cannot be established, checking uses the original standard-input path.
+Payloads are removed after each native invocation, and the owned directory is removed after the analysis worker stops, before any formatting replacement.
+Changed staging identities or incomplete cleanup cause an operational failure and block formatting writes.
+Abrupt process or host termination can leave private temporary files for operating-system or owner cleanup; deletion does not promise secure erasure.
+No persistent syntax, formatting or filesystem-validity cache is created.
 Use explicit selection exclusions for signed, byte-sensitive, or verbatim upstream documents that must remain unchanged.
 Git whitespace checks can supplement this policy but do not replace full-document checking.
 Ordinary file permission bits are preserved; ownership changes, alternate streams, ACL inheritance, arbitrary metadata, and adversarial filesystem races are not promised as preserved.

@@ -5,7 +5,12 @@ import { execFileSync } from "node:child_process";
 
 // The module mock controls only native I/O. Real Prettier and the formatting
 // decision remain under test; the existing integration suite uses real Snapper.
-function observeFormatting(input, behavior = "identity", replacement = null) {
+function observeFormatting(
+  input,
+  behavior = "identity",
+  replacement = null,
+  precheck = null,
+) {
   const native = new URL("../src/native-tool.js", import.meta.url).href;
   const formatting = new URL("../src/formatting.js", import.meta.url).href;
   const contracts = new URL("../src/contracts.js", import.meta.url).href;
@@ -30,11 +35,12 @@ function observeFormatting(input, behavior = "identity", replacement = null) {
           ? text.replace("Alpha. Beta.", "Alpha.\\nBeta.") : text;
       }
     }});
-    const { formatDocument } = await import(${JSON.stringify(formatting)});
+    const { formatDocument, prepareFormattedDocument } = await import(${JSON.stringify(formatting)});
     let result, error;
     try {
-      result = await formatDocument(${JSON.stringify(input)},
-        {config: {layout: {endOfLine: "lf", tabWidth: 2}}}, {});
+      const check = ${JSON.stringify(precheck)};
+      result = await (check ? prepareFormattedDocument : formatDocument)(${JSON.stringify(input)},
+        {config: {layout: {endOfLine: "lf", tabWidth: 2}}}, {sha256:"qualified-test-tool"}, undefined, check);
     } catch (failure) { error = {code: failure.code, message: failure.message}; }
     console.log(JSON.stringify({calls, result, error}));
   `;
@@ -46,6 +52,38 @@ function observeFormatting(input, behavior = "identity", replacement = null) {
     ),
   );
 }
+
+test("check-first byte identity avoids formatting only for the exact admitted native snapshot", () => {
+  const input = "# Stable\n\nAlpha.\n";
+  const precheck = {
+    input,
+    toolSha256: "qualified-test-tool",
+    configuration:
+      'format = "markdown"\nmax_width = 0\nclause_breaks = false\nlong_threshold = 2097153\n',
+    report: { wouldReformat: false, diagnostics: [] },
+  };
+  const stable = observeFormatting(input, "identity", null, precheck);
+  assert.equal(stable.result.output, input);
+  assert.equal(stable.result.prechecked, true);
+  assert.deepEqual(stable.calls, []);
+  for (const changed of [
+    { ...precheck, input: "Earlier.\n" },
+    { ...precheck, toolSha256: "other-tool" },
+    { ...precheck, configuration: "consumer config" },
+    { ...precheck, report: { wouldReformat: true, diagnostics: [] } },
+    { ...precheck, report: { wouldReformat: null, diagnostics: [] } },
+  ]) {
+    const fallback = observeFormatting(input, "identity", null, changed);
+    assert.equal(fallback.result.prechecked, undefined);
+    assert.deepEqual(fallback.calls, ["format"]);
+  }
+  const layoutChanged = observeFormatting("#   Stable\n", "identity", null, {
+    ...precheck,
+    input: "#   Stable\n",
+  });
+  assert.equal(layoutChanged.result.prechecked, undefined);
+  assert.ok(layoutChanged.calls.includes("format"));
+});
 
 test("an already stable document needs one native formatting pass and its independent check", () => {
   const input = "# Stable\n\nAlpha.\n";

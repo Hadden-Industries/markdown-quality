@@ -61,7 +61,7 @@ export async function lintDocument(linter, text, file) {
     severity: d.severity === 2 ? "error" : "warning",
   }));
 }
-export function checkLinks(context, text, file) {
+export function checkLinks(context, text, file, memo) {
   if (!context.config.links.localFiles) return [];
   const diagnostics = [];
   function walk(node) {
@@ -114,6 +114,6 @@ export function checkLinks(context, text, file) {
     }
     for (const child of node.children ?? []) walk(child);
   }
-  walk(parse(text));
+  walk(memo ? memo.parse(text) : parse(text));
   return diagnostics;
 }

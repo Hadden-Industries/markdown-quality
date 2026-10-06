@@ -5,10 +5,10 @@ import { codeBodyRows } from "./literal-layout.js";
 import { fail, limits } from "./contracts.js";
 
 /** Find every non-code trailing space/tab, or fail at the document diagnostic bound. */
-export function checkTrailingWhitespace(text) {
+export function checkTrailingWhitespace(text, memo) {
   if (!/[ \t](?:\r\n|\r|\n|$)/u.test(text)) return [];
   const rows = text.split(/(\r\n|\r|\n)/u);
-  const codeRows = codeBodyRows(text);
+  const codeRows = codeBodyRows(text, memo ? memo.parse(text) : parse(text));
   const diagnostics = [];
   for (let row = 0; row < rows.length; row += 2) {
     if (codeRows.has(row)) continue;
@@ -33,10 +33,10 @@ export function checkTrailingWhitespace(text) {
 }
 
 /** Propose trimming with parsed hard breaks made explicit; caller must verify semantics. */
-export function normalizeTrailingWhitespace(text) {
+export function normalizeTrailingWhitespace(text, memo) {
   // Most documents need no policy repair. Avoid another Markdown parse there.
   if (!/[ \t](?:\r\n|\r|\n|$)/u.test(text)) return text;
-  const tree = parse(text);
+  const tree = memo ? memo.parse(text) : parse(text);
   const rows = text.split(/(\r\n|\r|\n)/u);
   const codeRows = codeBodyRows(text, tree);
   const hardBreakRows = new Set();

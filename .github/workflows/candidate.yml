@@ -30,6 +30,10 @@ jobs:
           retention-days: 30
   consumer:
     needs: pack
+    env:
+      GIT_CONFIG_COUNT: "1"
+      GIT_CONFIG_KEY_0: core.longpaths
+      GIT_CONFIG_VALUE_0: "true"
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -43,16 +47,40 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "24.21.0"
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.14"
+      - name: Acquire complete public OwlAPI corpus as data
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: Hadden-Industries/owlapi
+          ref: 073beefb7805130bc0452472d1a9c801471fbaf1
+          path: performance-corpora/owlapi
+          persist-credentials: false
+      - name: Acquire complete public WebVOWL corpus as data
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: Hadden-Industries/webvowl
+          ref: b0fe00404eedf12a59084871863500869474bd3a
+          path: performance-corpora/webvowl
+          persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: candidate-release
           path: transported-release
           digest-mismatch: error
       - name: Qualify the same transported archives in both layouts
-        run: node scripts/qualify-public-registry.mjs --manifest transported-release/release-manifest.json --archives transported-release candidate-qualification.json
+        run: node scripts/qualify-public-registry.mjs --manifest transported-release/release-manifest.json --archives transported-release --performance-corpora performance-corpora --performance-output performance-observations candidate-qualification.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: candidate-${{ matrix.os }}
           path: candidate-qualification.json
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: performance-${{ matrix.os }}
+          path: performance-observations/
           if-no-files-found: error
           retention-days: 30

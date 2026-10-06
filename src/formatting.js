@@ -5,6 +5,7 @@ import { runNative } from "./native-tool.js";
 import { checkProse } from "./prose-diagnostics.js";
 import { normalizeTrailingWhitespace } from "./whitespace.js";
 import { fail } from "./contracts.js";
+import { matchesNativeCheck } from "./native-checks.js";
 function semantic(node) {
   const value = {};
   for (const [key, item] of Object.entries(node)) {
@@ -20,17 +21,25 @@ function semantic(node) {
   }
   return value;
 }
-export async function formatDocument(text, context, tool) {
-  const normalized = normalizeTrailingWhitespace(text);
+/** Prepare guarded candidate bytes; callers must independently verify prose before admission. */
+export async function prepareFormattedDocument(
+  text,
+  context,
+  tool,
+  memo,
+  precheck,
+) {
+  const tree = (source) => (memo ? memo.parse(source) : parse(source));
+  const normalized = normalizeTrailingWhitespace(text, memo);
   // A lint violation is not authority to erase literal content (inline code or
   // raw HTML) or accidentally create a hard break by trimming beside a slash.
   // Return the original for reporting; batch validation will prevent all writes.
   if (
     normalized !== text &&
-    JSON.stringify(semantic(parse(text))) !==
-      JSON.stringify(semantic(parse(normalized)))
+    JSON.stringify(semantic(tree(text))) !==
+      JSON.stringify(semantic(tree(normalized)))
   )
-    return { output: text, diagnostics: checkProse(tool, text) };
+    return { output: text };
   const endOfLine =
     context.config.layout.endOfLine === "preserve"
       ? text.includes("\r\n")
@@ -45,25 +54,40 @@ export async function formatDocument(text, context, tool) {
     tabWidth: context.config.layout.tabWidth,
     plugins: [],
   };
-  const layout = await formatLayout(normalized, options);
+  const layout = await formatLayout(normalized, options, memo);
+  if (
+    layout === text &&
+    matchesNativeCheck(tool, text, precheck) &&
+    precheck.report.wouldReformat === false
+  )
+    // Layout byte identity and the admitted native identity prove a composed
+    // fixed point. The exact check still supplies prose findings and rechecks.
+    return { output: text, prechecked: true };
   const result = await formatLayout(
-    normalizeTrailingWhitespace(runNative(tool, layout)),
+    normalizeTrailingWhitespace(runNative(tool, layout), memo),
     options,
+    memo,
   );
   // Byte identity proves preservation and an observed fixed point of the entire
   // deterministic formatter pipeline. The independent prose check still runs.
-  if (result === text)
-    return { output: result, diagnostics: checkProse(tool, result) };
+  if (result === text) return { output: result };
   if (
-    JSON.stringify(semantic(parse(text))) !==
-    JSON.stringify(semantic(parse(result)))
+    JSON.stringify(semantic(tree(text))) !==
+    JSON.stringify(semantic(tree(result)))
   )
     fail("PRESERVATION", "Formatting changed parsed meaning or a literal.");
   const second = await formatLayout(
-    normalizeTrailingWhitespace(runNative(tool, result)),
+    normalizeTrailingWhitespace(runNative(tool, result), memo),
     options,
+    memo,
   );
   if (result !== second)
     fail("CONVERGENCE", "Formatter pipeline did not converge.");
-  return { output: result, diagnostics: checkProse(tool, result) };
+  return { output: result };
+}
+
+/** Format one document with its independent prose check, for ungrouped callers. */
+export async function formatDocument(text, context, tool, memo) {
+  const formatted = await prepareFormattedDocument(text, context, tool, memo);
+  return { ...formatted, diagnostics: checkProse(tool, formatted.output) };
 }

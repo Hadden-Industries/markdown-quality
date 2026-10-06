@@ -68,10 +68,22 @@ export function codeBodyRows(
 // embeddedLanguageFormatting: off still allows Prettier to trim code-line
 // whitespace. Keep those lines nonempty until layout finishes, then remove the
 // absent marker before native analysis or the unchanged semantic guard runs.
-export async function formatLayout(text, options) {
+export async function formatLayout(text, options, memo) {
+  return memo
+    ? memo.layout(text, options, () =>
+        protectLiteralLayout(text, options, memo),
+      )
+    : protectLiteralLayout(text, options);
+}
+
+async function protectLiteralLayout(text, options, memo) {
   const rows = text.split(/(\r\n|\r|\n)/u);
   const emptyIndentedRows = new Set();
-  const codeRows = codeBodyRows(text, parse(text), emptyIndentedRows);
+  const codeRows = codeBodyRows(
+    text,
+    memo ? memo.parse(text) : parse(text),
+    emptyIndentedRows,
+  );
   const selected = new Set(
     [...codeRows].filter(
       // An empty indented-code value needs no protection. A marker without its

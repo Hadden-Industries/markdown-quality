@@ -15,6 +15,7 @@ import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { npmCommand } from "./commands.js";
 import { parseArgs } from "node:util";
+import { fileURLToPath } from "node:url";
 import { verifyReleaseProvenance } from "./provenance.js";
 import { validatePublicationOrigins } from "./publication-origins.js";
 import { waitForRegistryIntegrity } from "./wait-registry-integrity.js";
@@ -33,10 +34,20 @@ const { values, positionals } = parseArgs({
     "recovery-origins-sha256": { type: "string" },
     "retained-only": { type: "boolean", default: false },
     "native-only": { type: "boolean", default: false },
+    "performance-corpora": { type: "string" },
+    "performance-output": { type: "string" },
   },
   allowPositionals: true,
 });
 assert.ok(positionals.length <= 1);
+assert.equal(
+  Boolean(values["performance-corpora"]),
+  Boolean(values["performance-output"]),
+);
+assert.ok(
+  !values["performance-corpora"] || values.archives,
+  "Performance qualification requires frozen transported candidate archives",
+);
 function boundedFile(path, maximum) {
   const stat = lstatSync(path);
   assert.ok(stat.isFile() && !stat.isSymbolicLink() && stat.size <= maximum);
@@ -90,6 +101,10 @@ assert.ok(
 );
 assert.ok(!values["native-only"] || (values.provenance && publicationOrigins));
 assert.ok(!(values["retained-only"] && values["native-only"]));
+assert.ok(
+  !values["performance-corpora"] ||
+    (!values["retained-only"] && !values["native-only"]),
+);
 assert.ok(
   values["recovery-run"] ||
     (!values["recovery-attempt"] && !values["recovery-origins-sha256"]),
@@ -367,6 +382,31 @@ try {
     );
     verifyFiles();
     if (includesCore) run("check");
+    if (includesCore && layout === "root" && values["performance-corpora"]) {
+      const observed = spawnSync(
+        "python",
+        [
+          fileURLToPath(new URL("./qualify-performance.py", import.meta.url)),
+          "--node",
+          process.execPath,
+          "--cli",
+          join(
+            install,
+            "node_modules/@hadden-industries/markdown-quality/src/cli.js",
+          ),
+          "--corpora",
+          resolve(values["performance-corpora"]),
+          "--output",
+          resolve(values["performance-output"]),
+        ],
+        { stdio: "inherit", timeout: 600000, windowsHide: true },
+      );
+      assert.equal(
+        observed.status,
+        0,
+        "Packed performance qualification failed",
+      );
+    }
     records.push({
       layout,
       platform,
