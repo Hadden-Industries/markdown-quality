@@ -80,15 +80,15 @@ jobs:
           node --input-type=module -e 'import {npmCommand} from "./scripts/commands.js"; if(npmCommand(["--version"]).trim()!=="12.2.0") throw new Error("Selected Node publisher version mismatch")'
       - name: Publish Windows package under pilot and verify integrity
         run: |
-          npm publish "frozen-release/hadden-industries-markdown-quality-win32-x64-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag pilot --provenance --registry=https://registry.npmjs.org/
+          npm publish "./frozen-release/hadden-industries-markdown-quality-win32-x64-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag pilot --provenance --registry=https://registry.npmjs.org/
           test "$(npm view "@hadden-industries/markdown-quality-win32-x64@$RELEASE_VERSION" dist.integrity --registry=https://registry.npmjs.org/)" = "$WIN32_X64_INTEGRITY"
       - name: Publish Linux package under pilot and verify integrity
         run: |
-          npm publish "frozen-release/hadden-industries-markdown-quality-linux-x64-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag pilot --provenance --registry=https://registry.npmjs.org/
+          npm publish "./frozen-release/hadden-industries-markdown-quality-linux-x64-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag pilot --provenance --registry=https://registry.npmjs.org/
           test "$(npm view "@hadden-industries/markdown-quality-linux-x64@$RELEASE_VERSION" dist.integrity --registry=https://registry.npmjs.org/)" = "$LINUX_X64_INTEGRITY"
       - name: Publish coherent core under pilot and verify integrity
         run: |
-          npm publish "frozen-release/hadden-industries-markdown-quality-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag pilot --provenance --registry=https://registry.npmjs.org/
+          npm publish "./frozen-release/hadden-industries-markdown-quality-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag pilot --provenance --registry=https://registry.npmjs.org/
           test "$(npm view "@hadden-industries/markdown-quality@$RELEASE_VERSION" dist.integrity --registry=https://registry.npmjs.org/)" = "$CORE_INTEGRITY"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
