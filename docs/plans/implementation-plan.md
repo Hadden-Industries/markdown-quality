@@ -20,6 +20,11 @@ The release approach below follows current GitHub/npm guidance and SLSA artifact
 Revision 7 changes the planned release contract in REQ/AC-015, DEC-015 and SLICE-010; it preserves every existing requirement/decision ID, AGPL-3.0-only, exact pilot acceptance and unchanged-version recovery.
 The protected execution baseline and earlier receipts remain attributed to their original revision; this document edit does not recapture a baseline or claim implementation, repository-setting changes, new tags/releases, permission grants or stable promotion.
 
+The owner requested incorporation of the 6 October performance research response into the existing temporary performance plan, now elaborated in the [performance implementation plan](performance-implementation-plan.md).
+That follow-up sequences exact-input reuse and bounded native checking before conditional concurrency or compilation, and carries forward this plan's requirements and qualification budgets.
+It accounts for the subsequently committed strict `authored-gfm@1` whitespace policy and requires a new comparable baseline; historical timings remain historical evidence.
+The follow-up is a planning revision, not performance implementation, automatic consumer migration, release promotion, or an amendment to the protected execution baseline.
+
 This is a reviewable draft requirement dossier, design, and implementation plan.
 The companion [software-selection record](software-selection.md) holds the comparative research and dated source evidence.
 Draft 4 incorporates the substantive recommendations in the [validation and revision review](../reviews/implementation-plan-validation-and-revision.md).
