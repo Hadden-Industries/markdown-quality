@@ -20,10 +20,11 @@ Only a processing 404 is retried; mismatched integrity and other failures stop d
 Publication is never repeated by this availability check.
 The three bounded waits fit within the publisher's thirty-minute job limit.
 
-The current source prepares version 1.0.0 under the pilot tag; stable promotion remains gated.
+The current source prepares version 1.0.1 under the pilot tag; stable promotion remains gated.
 Stable promotion requires the same qualified tuple on both platforms, public registry readback and unauthenticated installation, both pilot acceptances, and a timed restoration exercise.
 The 1.0.1 corrective candidate restores checking and formatting of literal code lines containing trailing or whitespace-only spaces.
-This repair changes shipped JavaScript and therefore requires a new coordinated patch version; completing the unchanged 1.0.0 archives remains a separate recovery operation.
+The original 1.0.1 tuple is published under `pilot` and passed both-platform complete registry qualification in recovery run `37413673170`, without republishing any package.
+This repair changes shipped JavaScript and therefore requires a new coordinated patch version; the unchanged 1.0.0 tuple completed registry qualification separately in recovery run `37409484508`.
 Keep latest promotion blocked until the literal-preservation repair and exact candidate satisfy the same platform, registry and pilot gates.
 Changed/referrer mode and later fleet adoptions remain deferred.
 
@@ -47,8 +48,8 @@ An upstream Cargo lock is a superset of features and development inputs and does
 The original upstream license and per-asset repack identity are retained.
 
 The owner selected public distribution after npm rejected the private publication with E402.
-All three packages declare public access and share the source candidate version 1.0.0.
-It retains alpha.4's qualified native executable/source/notice bytes and avoids duplicate formatting of byte-identical documents while retaining independent prose checks and preservation/convergence checks.
+All three packages declare public access and share the source candidate version 1.0.1.
+The tuple retains alpha.4's qualified native executable/source/notice bytes and avoids duplicate formatting of byte-identical documents while retaining independent prose checks and preservation/convergence checks.
 The first alpha.3 hosted OWLAPI shadow checks passed correctness but exceeded the accepted 30-second budget on both platforms.
 Alpha.3 and alpha.4 remain immutable historical evidence; every new tuple requires fresh transported-archive, registry, and exact-version pilot qualification before promotion.
 The public alpha.2 archives remain immutable historical delivery evidence and are unqualified for Linux execution.
@@ -66,6 +67,8 @@ Each downstream job rehashes its downloaded archives against the admitted manife
 The publisher rechecks current main, all three local archive hashes and version absence immediately before each single eligible publication, verifies both native archives before core, and uses only pilot.
 Only the publication job has OIDC issuance permission; no long-lived npm token is supplied.
 Both registry jobs use native npm signature/attestation verification and bind each installed package to its admitted source, workflow, exact publication run and attempt.
+Their explicit non-cancellation and successful-publication condition prevents a skipped recovery ancestor from suppressing final qualification after ordinary publication.
+Successful publication alone does not establish complete registry qualification; retain both actual terminal platform reports.
 Each platform installs and cryptographically verifies its supported native package and core; opposite-platform native archives receive anonymous raw-byte verification, with the combined platform records covering the complete tuple.
 Structural provenance fixtures do not establish cryptographic acceptance.
 The workflow does not promote latest; both pilots and recovery must accept the exact tuple first.
@@ -115,7 +118,8 @@ The memory budgets are 512 MiB Windows Job Object committed memory and 512 MiB L
 These budgets do not impose OS runtime limits or raise existing package limits.
 Require zero unexpected errors or adjudicated false positives in the window and accepted fixture/probe corpus, retaining expected negative probes separately.
 Rehearse one task-owned pilot restoration within 60 minutes through byte/sentinel readback and incumbent local checks; hosted required-status recovery remains separate acceptance evidence.
-Accepted budgets do not establish that the pending Linux corpus, hosted pilots, or restoration have passed.
+The alpha.4 pilot cutovers passed both hosted platform windows and scoped restoration; those records do not establish acceptance of a later exact tuple.
+Version 1.0.1 requires fresh per-consumer scope, hosted platform windows, restoration and exact trusted-run acceptance before promotion.
 
 Provide AGPL corresponding source and build materials alongside object-code delivery to actual recipients.
 Preserve third-party license texts and attribution.

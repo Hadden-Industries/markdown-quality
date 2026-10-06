@@ -2,7 +2,7 @@
 
 ## Current completion state on 2026-10-06
 
-The coordinated corrective source candidate is 1.0.1; publication, anonymous registry verification and latest promotion are separate outcomes.
+The coordinated corrective 1.0.1 tuple is published under `pilot` and passed complete anonymous registry qualification on Windows and Linux; latest promotion remains gated by exact pilot acceptance.
 The immutable alpha.4 tuple passed transported qualification in run `37313706547` and Windows/Linux anonymous root and isolated registry qualification in run `37316561023`.
 No alpha.4 attestation or SLSA level is claimed.
 The main-only hosted publisher has its exact environment and three native trusted-publisher mappings configured.
@@ -31,7 +31,18 @@ Paired Windows formatting checks on 63 retained OwlAPI and 66 retained WebVOWL d
 These representative historical corpora are compatibility evidence, not current-checkout or hosted pilot acceptance.
 Under the accepted compatible-repair policy, shipped code changes require coordinated version 1.0.1; original 1.0.0 archives remain immutable and their recovery stays separate.
 Dependency versions, preset defaults, schemas, native source/binaries/notices and the original licence identity remain unchanged.
-The corrective candidate still requires narrow independent review, complete source/transported/registry qualification and exact pilot acceptance before promotion.
+The corrective source at `02d9f907eedca092c6f5db470e9f58e2613d9d41` passed complete source verification, consolidated and narrow EOF independent Antigravity reviews, 37 layout cases, 2,016 deterministic closure cases and the 129-document paired compatibility corpus.
+Transported candidate `37411752643` passed both platforms using the same frozen manifest, SHA-256 `6864470caafeced9b5c0309c567735d8dbb9c3f37d135b88bae77a1f4e3e1123`.
+All three 1.0.1 publication effects succeeded in run `37412118242`, attempt 1; its final registry jobs were skipped because GitHub propagated a skipped recovery ancestor through the successful publisher.
+The narrow status-condition correction at `9d891b57c5007952dc43685f70d2947c65afd7a8` received positive independent Codex review after Antigravity's headless permission admission returned no review.
+The failed Antigravity attempt remains retained and is not counted as positive evidence.
+Exact source verification, hosted package qualification, transported qualification and CodeQL passed for the corrected publishing controls.
+Fresh recovery `37413673170` uses the original 1.0.1 archives and independently admitted prior origin-map digest `c8d91d5c1f30c66a4331331c1fb3b50f5e1b1c0ccc83372fa0afdbb5f2854d57`.
+No new package bytes, version or republication are part of that qualification recovery.
+All six recovery jobs passed and all three publication steps were skipped.
+Both retained and final platform reports passed original archive identities, root/isolated installed-file identities, native npm signature/attestation verification, offline lock reinstallation and credential-free runtime.
+Every package retains its original source `02d9f907eedca092c6f5db470e9f58e2613d9d41`, publication run `37412118242` and attempt 1; the complete retained origin map has SHA-256 `b7ad2b3b2758cb62260ce6ebd11e7c1cc365bec592884785513726e6406928c5`.
+Exact 1.0.1 pilot acceptance remains required before promotion.
 
 OwlAPI's alpha.4 cutover was accepted for exact candidate `8dc38edbff5929cf0d30b39b577838928f29d875` and trusted run `37338581639`, then normally integrated through PR #46 at `073beefb7805130bc0452472d1a9c801471fbaf1`.
 Its LF guard is included in the incumbent test route; first-party provenance inputs reject checkout drift while original upstream notices retain their bytes.
@@ -43,6 +54,9 @@ The retired final tooling JavaScript's obsolete ESLint operand and WebVOWL's `in
 Three unrelated owner files were preserved; the owner accepted closing WebVOWL's native execution as completed elsewhere after native full verification passed but its entire dirty checkout tree could not match published main for native delivery admission.
 The closure retains all proof and the rejected handoff without claiming native certified delivery; both spent local Markdown branches were archived and removed, and their remote branches are absent.
 Both pilots ultimately must qualify and accept the exact stable tuple before latest promotion.
+The prepared corrective scopes add only each consumer's isolated manifest and lock, composing OwlAPI's already approved rename; their independent Antigravity security review was positive.
+Read-only Windows samples passed on 63 proposed OwlAPI documents and 67 proposed WebVOWL documents without writes or live checkout/environment changes.
+Owner acceptance of the concrete scopes and recovery plans, actual six-run hosted qualification, scoped restoration and separate exact trusted-run acceptance remain due for 1.0.1.
 
 Authored evidence LF checks cover Git index and physical tracked bytes, including CRLF/mixed, Unicode and native Git fixtures.
 The freezer rejects authored JSON CR bytes before hashing and emits explicit LF while preserving original hosted/upstream binary and notice bytes.
