@@ -2,7 +2,7 @@
 
 ## Current completion state on 2026-10-06
 
-The coordinated corrective 1.0.1 tuple is published under `pilot` and passed complete anonymous registry qualification on Windows and Linux; latest promotion remains gated by exact pilot acceptance.
+The coordinated corrective 1.0.2 tuple is published under `pilot` and passed complete anonymous registry qualification on Windows and Linux; latest promotion remains gated by exact pilot acceptance.
 The immutable alpha.4 tuple passed transported qualification in run `37313706547` and Windows/Linux anonymous root and isolated registry qualification in run `37316561023`.
 No alpha.4 attestation or SLSA level is claimed.
 The main-only hosted publisher has its exact environment and three native trusted-publisher mappings configured.
@@ -42,7 +42,7 @@ No new package bytes, version or republication are part of that qualification re
 All six recovery jobs passed and all three publication steps were skipped.
 Both retained and final platform reports passed original archive identities, root/isolated installed-file identities, native npm signature/attestation verification, offline lock reinstallation and credential-free runtime.
 Every package retains its original source `02d9f907eedca092c6f5db470e9f58e2613d9d41`, publication run `37412118242` and attempt 1; the complete retained origin map has SHA-256 `b7ad2b3b2758cb62260ce6ebd11e7c1cc365bec592884785513726e6406928c5`.
-Exact 1.0.1 pilot acceptance remains required before promotion.
+The original 1.0.1 archives and qualification remain immutable; promotion now requires exact 1.0.2 pilot acceptance.
 
 ## Inline-code preservation correction on 2026-10-06
 
@@ -55,6 +55,14 @@ The real native regression checks read-only findings, exact formatting output an
 Injected changes to double spaces, tabs, non-breaking spaces, code characters and fenced-code newlines still fail preservation.
 Shipped JavaScript changes require a new coordinated patch version; the published 1.0.1 tuple and its qualification remain immutable historical evidence.
 Independent assurance, complete source and transported-archive verification, registry qualification and any exact 1.0.2 pilot adoption remain separate gates.
+The narrow source correction received a positive independent Antigravity review with a 900-second response allowance and no actionable findings.
+Canonical full source verification passed at signed source `183fd4ee75cdf5a7f053e00c1032e5d7891d075d`, alongside 28 independent CommonMark rendering cases and byte-identical results on the 129 retained pilot documents.
+Transported candidate `37416589614` passed on both platforms with frozen manifest SHA-256 `650f9e13d80c762d8224bbdc67416f8f068eaa282387eba5d7b87b7e0ca42288`.
+Publication `37417063198`, attempt 1, published all three original 1.0.2 archives and passed complete Windows/Linux registry qualification.
+Each package retains the same source and publication run/attempt; the complete origin map has SHA-256 `f7e7407c3967f91957945bbf0e7fef92b9cb2e09712ebe67ce19515b153f2dc8`.
+Both platform records passed anonymous raw archive identities, supported-package npm signatures/attestations, root/isolated installed-file identities, offline lock reinstallation and credential-free runtime.
+No original archive was repacked or republished, and latest was not promoted.
+The ONI chat received the exact npm version and verification record; its own adoption remains separately governed.
 The ONI prototype's absence of the earlier timeout on repaired current input does not establish a general timeout repair; no timeout or link-policy waiver is included.
 
 OwlAPI's alpha.4 cutover was accepted for exact candidate `8dc38edbff5929cf0d30b39b577838928f29d875` and trusted run `37338581639`, then normally integrated through PR #46 at `073beefb7805130bc0452472d1a9c801471fbaf1`.
@@ -67,9 +75,10 @@ The retired final tooling JavaScript's obsolete ESLint operand and WebVOWL's `in
 Three unrelated owner files were preserved; the owner accepted closing WebVOWL's native execution as completed elsewhere after native full verification passed but its entire dirty checkout tree could not match published main for native delivery admission.
 The closure retains all proof and the rejected handoff without claiming native certified delivery; both spent local Markdown branches were archived and removed, and their remote branches are absent.
 Both pilots ultimately must qualify and accept the exact stable tuple before latest promotion.
-The prepared corrective scopes add only each consumer's isolated manifest and lock, composing OwlAPI's already approved rename; their independent Antigravity security review was positive.
+The prepared 1.0.2 corrective scopes supersede the unaccepted 1.0.1 proposals and add only each consumer's isolated manifest and lock, composing OwlAPI's already approved rename.
 Read-only Windows samples passed on 63 proposed OwlAPI documents and 67 proposed WebVOWL documents without writes or live checkout/environment changes.
-Owner acceptance of the concrete scopes and recovery plans, actual six-run hosted qualification, scoped restoration and separate exact trusted-run acceptance remain due for 1.0.1.
+All 154 third-party records in each 158-record isolated lock remain identical; the new pins and frozen core/platform archive integrities are independently reviewed before scope acceptance.
+Owner acceptance of the concrete scopes and recovery plans, actual six-run hosted qualification, scoped restoration and separate exact trusted-run acceptance remain due for 1.0.2.
 
 Authored evidence LF checks cover Git index and physical tracked bytes, including CRLF/mixed, Unicode and native Git fixtures.
 The freezer rejects authored JSON CR bytes before hashing and emits explicit LF while preserving original hosted/upstream binary and notice bytes.

@@ -12,13 +12,15 @@ The owner subsequently selected public packages after npm rejected private publi
 Native rights, transported archives and anonymous registry qualification passed for alpha.4.
 OwlAPI's owner-accepted cutover integrated through PR #46 at `073beefb7805130bc0452472d1a9c801471fbaf1`, after trusted run `37338581639` qualified candidate `8dc38edbff5929cf0d30b39b577838928f29d875`.
 WebVOWL's owner-accepted cutover integrated through PR #54 at `efd631802a5f823be63d6d53faef8a3bef02c41b`, after trusted run `37402366789` qualified candidate `f323cd387aea3dbeb8ece77f9786a307a079a4e8`.
-Both cutovers passed six-run Linux/Windows windows, incumbent CI and scoped restoration; their exact acceptance does not extend to 1.0.1.
+Both cutovers passed six-run Linux/Windows windows, incumbent CI and scoped restoration; their exact acceptance does not extend to a later tuple.
 WebVOWL's subsequent loading repair integrated separately through PR #55 at `b0fe00404eedf12a59084871863500869474bd3a`.
 Its unrelated `skills-lock.json` edit remains a preserved sentinel.
 
-The corrective 1.0.1 scopes are prepared for OwlAPI base `073beefb7805130bc0452472d1a9c801471fbaf1` and WebVOWL base `b0fe00404eedf12a59084871863500869474bd3a`.
+The corrective 1.0.2 scopes are prepared for OwlAPI base `073beefb7805130bc0452472d1a9c801471fbaf1` and WebVOWL base `b0fe00404eedf12a59084871863500869474bd3a`, superseding the unaccepted 1.0.1 proposals.
 Only each isolated tooling manifest and lock are newly proposed; OwlAPI's composed nine-path scope also includes its already approved seven-path `install:markdown` rename.
-Independent security review and one read-only Windows sample per proposed corpus passed without changing either live checkout or environment.
+The published 1.0.2 tuple passed complete Windows/Linux registry qualification in run `37417063198`; its literal-code and inline-code corrections have positive independent source reviews.
+Each prepared lock changes only its root pin and the coordinated core/platform records, retaining all 154 third-party records exactly.
+One read-only Windows sample per proposed corpus passed without changing either live checkout or environment; independent security review binds the exact new manifest/lock pairs before scope acceptance.
 These samples do not establish six-run hosted budgets, actual consumer recovery or exact trusted-run acceptance.
 Implementation-plan GATE-06 still requires owner acceptance of each concrete upgrade scope and recovery before consumer mutation.
 Preserve every retained unrelated-file sentinel and abort on baseline or preimage drift.

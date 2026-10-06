@@ -20,7 +20,7 @@ Only a processing 404 is retried; mismatched integrity and other failures stop d
 Publication is never repeated by this availability check.
 The three bounded waits fit within the publisher's thirty-minute job limit.
 
-The current source prepares version 1.0.2 under the pilot tag; stable promotion remains gated.
+Version 1.0.2 is published under the pilot tag and passed complete Windows/Linux registry qualification in run `37417063198`; stable promotion remains gated.
 Stable promotion requires the same qualified tuple on both platforms, public registry readback and unauthenticated installation, both pilot acceptances, and a timed restoration exercise.
 The 1.0.1 corrective candidate restores checking and formatting of literal code lines containing trailing or whitespace-only spaces.
 The original 1.0.1 tuple is published under `pilot` and passed both-platform complete registry qualification in recovery run `37413673170`, without republishing any package.
@@ -120,7 +120,7 @@ These budgets do not impose OS runtime limits or raise existing package limits.
 Require zero unexpected errors or adjudicated false positives in the window and accepted fixture/probe corpus, retaining expected negative probes separately.
 Rehearse one task-owned pilot restoration within 60 minutes through byte/sentinel readback and incumbent local checks; hosted required-status recovery remains separate acceptance evidence.
 The alpha.4 pilot cutovers passed both hosted platform windows and scoped restoration; those records do not establish acceptance of a later exact tuple.
-Version 1.0.1 requires fresh per-consumer scope, hosted platform windows, restoration and exact trusted-run acceptance before promotion.
+Version 1.0.2 requires fresh per-consumer scope, hosted platform windows, restoration and exact trusted-run acceptance before promotion.
 
 Provide AGPL corresponding source and build materials alongside object-code delivery to actual recipients.
 Preserve third-party license texts and attribution.
