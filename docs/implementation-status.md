@@ -20,6 +20,25 @@ The final source passed full local verification and both-platform hosted checks;
 The owner's plan revision 8 decision authorizes this exact stable/latest release while leaving the paused consumer migrations under their separate scope and trusted-run gates.
 Release availability does not accept or change either consumer cutover.
 
+### Integrated 1.0.3 pilots
+
+The owner requested closure of the pilot records after both independently managed consumer upgrades reached `main` on 2026-10-06.
+OwlAPI [PR #49](https://github.com/Hadden-Industries/owlapi/pull/49) integrated candidate `d63f00ce61816b9e6614c53d627041b7598c35f9` as `4f6adbd3a925ad2e0ccfc98550f216642957f870`.
+All twenty PR checks passed, including `CI / required` in [CI run 37504430078](https://github.com/Hadden-Industries/owlapi/actions/runs/37504430078), attempt 1, with CodeQL separately passing in run `37504425065`.
+Its isolated tooling manifest pins exact `1.0.3`; the coordinated native packages are locked to the same version.
+The approved `install:markdown` rename is integrated across its script, instructions, workflow callers and governance tests.
+
+WebVOWL [PR #57](https://github.com/Hadden-Industries/webvowl/pull/57) integrated candidate `d99dfadf1db38be340cd8b13c80a23248864310a` as `693e5aa22269aec4d5860e38c03abf559ccb32a4`.
+All thirteen hosted checks passed; [application/Markdown run 37501151711](https://github.com/Hadden-Industries/webvowl/actions/runs/37501151711), attempt 1, and separate CodeQL/dependency-review runs qualified that candidate.
+Its manifest deliberately declares `>=1.0.3`; the committed lock fixes core, Windows x64 and Linux x64 to exact `1.0.3` and the original qualified archive integrities.
+The updated candidate verifier checks the exact locked release against the installed package while retaining manifest/lock agreement and native identity checks.
+The hosted Linux Markdown check reports all 67 documents clean with zero writes.
+
+The [pilot record](pilot-migrations.md) now closes upgrade tracking for these actual integrations and supersedes the paused 1.0.2 proposals.
+This documentation closure does not change WebVOWL's manifest range, amend the plan's exact-pin rule, or retroactively certify separate exact trusted-run owner acceptance, fresh six-run resource windows or a new recovery rehearsal for either upgrade.
+The retained alpha.4 cutover/recovery evidence and the 1.0.3 producer qualification keep their original scopes.
+Future consumer lock changes still need their own qualified upgrade; a satisfying manifest range does not accept a different tuple.
+
 ### Earlier registry delivery
 
 The coordinated corrective 1.0.2 tuple remains published under `pilot`, with its complete Windows/Linux anonymous registry qualification retained as historical evidence.
