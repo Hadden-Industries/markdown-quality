@@ -15,8 +15,10 @@ import { createHash } from "node:crypto";
 import { npmCommand } from "./commands.js";
 import { digest, metadata } from "../src/contracts.js";
 import { manifest } from "../src/native-tool.js";
+import { nodeSupport, candidateJobNames } from "./node-matrix.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
-export function packRelease(output) {
+export function packRelease(output, qualificationMatrix) {
+  if (qualificationMatrix) candidateJobNames(qualificationMatrix);
   if (
     digest(readFileSync(join(root, "LICENSE"))) !==
     "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
@@ -174,6 +176,9 @@ export function packRelease(output) {
     const inventory = {
       schemaVersion: 1,
       version: metadata.version,
+      ...(qualificationMatrix
+        ? { runtimePolicy: nodeSupport, qualificationMatrix }
+        : {}),
       sourcePackageDigest: digest(readFileSync(join(root, "package.json"))),
       source: {
         head: head.status === 0 ? head.stdout.trim() : null,

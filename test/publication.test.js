@@ -156,6 +156,39 @@ test("exact qualified opaque tuple is admitted without extraction or execution",
   const { input } = fixture(t);
   assert.equal(verifyPublication(input).version, "1.0.0");
 });
+test("matrix candidates require every manifest-bound runtime job and retain legacy admission", (t) => {
+  const { input, manifest, serialize } = fixture(t);
+  writeFileSync(
+    join(input.root, "assets/node-support.json"),
+    readFileSync(new URL("../assets/node-support.json", import.meta.url)),
+  );
+  assert.throws(
+    () => verifyPublication(input),
+    "New source cannot omit matrix evidence",
+  );
+  manifest.qualificationMatrix = {
+    os: ["windows-latest", "ubuntu-24.04"],
+    node: ["22.23.3", "24.21.0", "26.10.0"],
+  };
+  manifest.runtimePolicy = JSON.parse(
+    readFileSync(new URL("../assets/node-support.json", import.meta.url)),
+  );
+  for (const os of manifest.qualificationMatrix.os)
+    for (const node of ["22.23.3", "26.10.0"])
+      input.jobs.jobs.push({
+        ...input.jobs.jobs[0],
+        name: `consumer (${os}, ${node})`,
+      });
+  input.jobs.total_count = input.jobs.jobs.length;
+  serialize();
+  assert.equal(verifyPublication(input).version, "1.0.0");
+  const omitted = input.jobs.jobs.pop();
+  input.jobs.total_count--;
+  assert.throws(() => verifyPublication(input));
+  input.jobs.jobs.push({ ...omitted, conclusion: "skipped" });
+  input.jobs.total_count++;
+  assert.throws(() => verifyPublication(input));
+});
 const mutations = {
   "different repository": ({ input }) => {
     input.run.repository.full_name = "other/project";

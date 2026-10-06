@@ -26,7 +26,9 @@ Read the [consumer guide](docs/consumer-guide.md) for configuration and installa
 The [support and release guide](docs/support-and-release.md) describes compatibility and release gates.
 The [third-party notices](THIRD-PARTY-NOTICES.md) distinguish package code from upstream assets.
 
-Development uses Node 24.21.0 and an existing Python 3.14 interpreter for asset preparation.
+Reference builds use Node 24.21.0 and an existing Python 3.14 interpreter for asset preparation.
+Source and transported-package CI qualify Node 22/24/26 at each declared minimum and latest patch on Windows x64 and Ubuntu 24.04 x64.
+See the [support policy](docs/support-and-release.md) for exact minima and the distinction between development compatibility and published releases.
 Consumers need no Python interpreter.
 
 ```sh

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { candidateJobNames } from "./node-matrix.js";
 
 export const repository = "Hadden-Industries/markdown-quality";
 export const hash = (bytes, algorithm = "sha256") =>
@@ -63,7 +64,10 @@ export function verifyQualification(qualified) {
   for (const [kind, requiredJobs] of [
     [
       "candidate",
-      ["pack", "consumer (windows-latest)", "consumer (ubuntu-24.04)"],
+      candidateJobNames(
+        qualified.candidate.matrix,
+        qualified.candidate.runtimePolicy,
+      ),
     ],
     [
       "publication",
@@ -156,6 +160,8 @@ export function verifyPayloads(qualified, directory, sourceArchive) {
   assert.equal(manifest.version, qualified.version);
   assert.equal(manifest.source.head, qualified.source);
   assert.equal(manifest.source.clean, true);
+  assert.deepEqual(qualified.candidate.matrix, manifest.qualificationMatrix);
+  assert.deepEqual(qualified.candidate.runtimePolicy, manifest.runtimePolicy);
   assert.deepEqual(qualified.native, {
     source: manifest.native.source.commit,
     buildSource: manifest.native.build.workflowCommit,

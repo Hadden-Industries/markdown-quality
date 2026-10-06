@@ -15,6 +15,7 @@ import { packRelease } from "../scripts/pack.js";
 import { npmCommand } from "../scripts/commands.js";
 import { checkLinks } from "../src/analysis.js";
 import { digest } from "../src/contracts.js";
+import { qualifyRuntime } from "../scripts/qualify-runtime.js";
 test("packed root and isolated consumers install without lifecycle scripts and execute offline", (t) => {
   const temp = mkdtempSync(join(tmpdir(), "markdown-quality-install-"));
   t.after(() => rmSync(temp, { recursive: true, force: true }));
@@ -169,6 +170,7 @@ test("packed root and isolated consumers install without lifecycle scripts and e
     );
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.equal(JSON.parse(result.stdout).outcome, "clean");
+    qualifyRuntime(cli, consumer, process.env);
     assert.deepEqual(
       readFileSync(join(install, "package-lock.json")),
       lockBefore,

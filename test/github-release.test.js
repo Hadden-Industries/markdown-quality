@@ -198,6 +198,36 @@ function fixture(t) {
   };
 }
 
+test("matrix release evidence requires all runtime jobs and cannot silently downgrade a bound bundle", (t) => {
+  const f = fixture(t);
+  f.qualified.candidate.runtimePolicy = JSON.parse(
+    readFileSync(new URL("../assets/node-support.json", import.meta.url)),
+  );
+  f.qualified.candidate.matrix = {
+    os: ["windows-latest", "ubuntu-24.04"],
+    node: ["22.23.3", "24.21.0", "26.10.0"],
+  };
+  f.qualified.candidate.jobs = [
+    "pack",
+    "consumer (windows-latest)",
+    "consumer (ubuntu-24.04)",
+    "consumer (windows-latest, 22.23.3)",
+    "consumer (windows-latest, 26.10.0)",
+    "consumer (ubuntu-24.04, 22.23.3)",
+    "consumer (ubuntu-24.04, 26.10.0)",
+  ];
+  verifyQualification(f.qualified);
+  assert.throws(
+    () => verifyBundle(f.qualified, f.directory, gitSource(f.qualified, f.cwd)),
+    "Qualification snapshot must match original manifest",
+  );
+  f.qualified.candidate.jobs.pop();
+  assert.throws(
+    () => verifyQualification(f.qualified),
+    "Omitted runtime evidence cannot be accepted",
+  );
+});
+
 function providerAdapter(f, options = {}) {
   const calls = [];
   let release = options.existing ?? null;

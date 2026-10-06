@@ -4,7 +4,9 @@ Before stable promotion, security support covers only the single candidate desig
 After stable promotion, it covers only the latest stable release designated by `latest`, unless an explicit policy accepts another line.
 Consumers should pin exact versions and qualify upgrades.
 Older releases remaining downloadable does not imply maintenance or backport support.
-The supported runtime is Node 24.21.0 on Windows x64 and Ubuntu 24.04 x64 with glibc 2.39, with the qualified core/native tuple and explicit preset.
+For published 1.0.3, the supported runtime remains Node 24.21.0 on Windows x64 and Ubuntu 24.04 x64 with glibc 2.39, with the qualified core/native tuple and explicit preset.
+Development CI additionally qualifies Node 22/24/26 at the patched minima and latest versions described in the [support policy](docs/support-and-release.md).
+That source qualification does not change an existing release's immutable metadata or establish support for an unpublished release.
 
 Report suspected vulnerabilities privately through [GitHub private vulnerability reporting](https://github.com/Hadden-Industries/markdown-quality/security/advisories/new).
 If unavailable or unsuitable, use `security@haddenindustries.com`.

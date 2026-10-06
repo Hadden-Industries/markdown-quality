@@ -11,6 +11,7 @@ import {
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { planPublicationOrigins } from "./publication-origins.js";
+import { candidateJobNames } from "./node-matrix.js";
 
 const repository = "Hadden-Industries/markdown-quality";
 const digest = (bytes, algorithm = "sha256") =>
@@ -98,13 +99,6 @@ export function verifyPublication({
   assert.equal(run.head_sha, artifactSource);
   assert.equal(run.status, "completed");
   assert.equal(run.conclusion, "success");
-  assert.equal(jobs.total_count, 3);
-  assert.equal(jobs.jobs.length, 3);
-  assert.deepEqual(jobs.jobs.map((job) => job.name).sort(), [
-    "consumer (ubuntu-24.04)",
-    "consumer (windows-latest)",
-    "pack",
-  ]);
   for (const job of jobs.jobs) {
     assert.equal(job.status, "completed");
     assert.equal(job.conclusion, "success");
@@ -118,6 +112,24 @@ export function verifyPublication({
   );
   assert.equal(digest(manifestBytes), manifestSha);
   const release = JSON.parse(manifestBytes);
+  const runtimePolicyPath = join(root, "assets/node-support.json");
+  if (existsSync(runtimePolicyPath)) {
+    assert.ok(
+      release.qualificationMatrix,
+      "Source requires matrix qualification",
+    );
+    assert.deepEqual(release.runtimePolicy, json(runtimePolicyPath));
+  }
+  const expectedJobs = candidateJobNames(
+    release.qualificationMatrix,
+    release.runtimePolicy,
+  );
+  assert.equal(jobs.total_count, expectedJobs.length);
+  assert.equal(jobs.jobs.length, expectedJobs.length);
+  assert.deepEqual(
+    jobs.jobs.map((job) => job.name).sort(),
+    expectedJobs.sort(),
+  );
   const metadata = json(join(root, "package.json"));
   assert.match(metadata.version, /^[1-9]\d*\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u);
   assert.equal(metadata.name, "@hadden-industries/markdown-quality");

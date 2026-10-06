@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 import { verifyReleaseProvenance } from "./provenance.js";
 import { validatePublicationOrigins } from "./publication-origins.js";
 import { waitForRegistryIntegrity } from "./wait-registry-integrity.js";
+import { qualifyRuntime } from "./qualify-runtime.js";
 
 const { values, positionals } = parseArgs({
   options: {
@@ -323,7 +324,7 @@ try {
         nativeAudit: audit,
       });
     }
-    let run;
+    let run, runtimeQualification;
     if (includesCore) {
       writeFileSync(
         join(consumer, ".markdown-quality.json"),
@@ -371,6 +372,7 @@ try {
       run("format");
       assert.equal(readFileSync(document, "utf8"), original);
       assert.deepEqual(run("format").written, []);
+      runtimeQualification = qualifyRuntime(cli, consumer, runtimeEnvironment);
     }
     npmCommand(
       ["ci", "--ignore-scripts", "--offline", "--no-audit", "--no-fund"],
@@ -421,6 +423,7 @@ try {
         ? {
             credentialFreeOfflineRuntime: true,
             unchangedDocumentAndConvergentFormatting: true,
+            runtimeQualification,
           }
         : { scope: "Retained native package only; no core CLI runtime claim" }),
     });
@@ -443,6 +446,7 @@ try {
         }
       : {}),
     version: expected.version,
+    node: process.version,
     platform,
     passed: true,
     observedAt: new Date().toISOString(),

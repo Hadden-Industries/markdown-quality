@@ -1,9 +1,19 @@
 # Support and release
 
-The package requires Node 24.21.0 or newer, with no upper major-version bound.
-The initial qualification uses Node 24.21.0, Windows x64, and Ubuntu 24.04 x64 with glibc.
+Development source admits Node 22.23.3+, Node 24.21.0+, and Node 26.10.0 or newer, excluding the unsupported Node 23/25 lines and with no upper major-version bound.
+The qualification matrix covers Node 22/24/26 on Windows x64 and Ubuntu 24.04 x64 with glibc.
+Each workflow resolves the declared minimum and latest stable patch of each line from official Node release metadata, collapsing equal versions.
+It fails rather than silently dropping a missing minimum.
+All lanes run source checks and real CLI/native consumer probes in root and isolated layouts, with exact formatting bytes, fenced literal preservation, convergence, local-link failure and operational-error contracts.
+The transported lanes install the same frozen archives produced once on reference Node 24.21.0; unchanged native executables are not rebuilt for each Node version.
+Performance measurements remain on the reference runtime.
+The candidate manifest freezes the runtime policy and resolved matrix alongside archive hashes.
+Publication admission requires every matching provider job to succeed for that exact source and run attempt; release evidence retains the snapshot as `candidate.runtimePolicy` and `candidate.matrix`.
+Historical candidates without a matrix retain their original two-platform admission contract.
 Only observed passing platform evidence can establish support.
 Newer Node majors are permitted by the package metadata; they remain unqualified until tested.
+Published 1.0.3 retains its immutable `>=24.21.0 <25` engine declaration and Node 24.21.0 qualification.
+This source compatibility change does not republish 1.0.3 or authorize a new release; Node 22/26 consumer support requires a subsequent qualified release.
 macOS, ARM, and musl are unqualified.
 Controlled Linux builds require glibc 2.39, as supplied by Ubuntu 24.04.
 Windows requires the installed x64 Microsoft Visual C++ runtime (`VCRUNTIME140.dll` and UCRT).
