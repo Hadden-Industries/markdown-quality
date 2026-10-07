@@ -4,31 +4,37 @@ Date: 2026-10-07, Europe/Bucharest.
 Revision: 1, expanding the existing temporary performance plan with the owner's supplied research response.
 Completion annotation: 2026-10-07; accepted requirements and revision identity unchanged.
 Planning and acceptance owner: Maksym Shostak.
-Status: primary implementation and 1.0.3 delivery complete; the original plan body is retained below the current disposition.
+Status: implementation complete by owner decision, including the opt-in concurrency source follow-up; 1.0.3 delivery complete and later source publication held.
+The original plan body is retained below the current disposition.
 
 ## Current completion and disposition
 
 The accepted primary performance implementation is delivered in the coherent immutable `1.0.3` release, source `92d6e9f61b5fffe6f33d8878ef8e2880ca187ac0`.
 The [release record](../releases/1.0.3.json) and [implementation status](../implementation-status.md) bind shipped archives, qualification and the completed consumer rollout.
 The earlier implementation handoff at source `165ed1c8ed97b20934917bce2103dbc2ec556409` retains its own transported-candidate identity; it is not relabelled as the final released source.
+The owner considers implementation complete notwithstanding optional deferred enhancements, now tracked through [the main plan's issue lineage](implementation-plan.md#deferred-enhancement-lineage).
+The separately authorized opt-in `concurrency` follow-up is complete on remote `main` at signed source [603a2b3](https://github.com/Hadden-Industries/markdown-quality/commit/603a2b34268a6447e01e8dce6678ffca92ff3b81).
+Its [package](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37603471445), [transported candidate](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37603471451) and [CodeQL](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37603471096) checks all passed; it remains unreleased under the existing hold.
+No parallel-count performance or capacity acceptance is inferred from that correctness/delivery evidence.
 
-| Slice          | Final disposition                                                                                                                                                          |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PERF-SLICE-001 | Complete: frozen current-policy baseline, actual worker/native profiling and full-result/formatted-byte oracles retained.                                                  |
-| PERF-SLICE-002 | Delivered: exact request-local parse/layout reuse, retaining independent diagnostics and fresh filesystem observations.                                                    |
-| PERF-SLICE-003 | Delivered: bounded whole-document native checks with complete attribution, owned policy and fail-closed isolation/protocol/resource checks.                                |
-| PERF-SLICE-004 | Delivered: eligible independent list/item and continuation rechecks use the qualified batching adapter; the narrow Snapper exception remains qualified.                    |
-| PERF-SLICE-005 | Delivered: check-first formatting for an unchanged guarded layout and exact native-stable snapshot; changing or unproven inputs retain the guarded fallback.               |
-| PERF-SLICE-006 | Deferred: marker/literal-layout rewrites were not justified by the remaining measured cost. Existing preservation guards remain.                                           |
-| PERF-SLICE-007 | Deferred: a second worker was not justified by remaining cost and memory headroom; shipped analysis remains serial.                                                        |
-| PERF-SLICE-008 | Deferred: lower-order comparator/read/bookkeeping rewrites were not needed for the consolidated candidate.                                                                 |
-| PERF-SLICE-009 | Complete: independent assurance, full source and transported qualification, immutable GitHub/npm `latest` delivery, followed by separately governed consumer integrations. |
+| Slice          | Final disposition                                                                                                                                                                                                                                                                                                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PERF-SLICE-001 | Complete: frozen current-policy baseline, actual worker/native profiling and full-result/formatted-byte oracles retained.                                                                                                                                                                                                                                                             |
+| PERF-SLICE-002 | Delivered: exact request-local parse/layout reuse, retaining independent diagnostics and fresh filesystem observations.                                                                                                                                                                                                                                                               |
+| PERF-SLICE-003 | Delivered: bounded whole-document native checks with complete attribution, owned policy and fail-closed isolation/protocol/resource checks.                                                                                                                                                                                                                                           |
+| PERF-SLICE-004 | Delivered: eligible independent list/item and continuation rechecks use the qualified batching adapter; the narrow Snapper exception remains qualified.                                                                                                                                                                                                                               |
+| PERF-SLICE-005 | Delivered: check-first formatting for an unchanged guarded layout and exact native-stable snapshot; changing or unproven inputs retain the guarded fallback.                                                                                                                                                                                                                          |
+| PERF-SLICE-006 | Deferred enhancement: literal-layout marker/allocation work is tracked in [#4](https://github.com/Hadden-Industries/markdown-quality/issues/4); existing preservation guards remain.                                                                                                                                                                                                  |
+| PERF-SLICE-007 | Original 1.0.3 remains serial. The separately owner-accepted CLI/library opt-in concurrency follow-up is complete in current source; default remains 1 and publication is held.                                                                                                                                                                                                       |
+| PERF-SLICE-008 | Deferred enhancements: semantic comparison [#5](https://github.com/Hadden-Industries/markdown-quality/issues/5), residual reads [#6](https://github.com/Hadden-Industries/markdown-quality/issues/6), bookkeeping [#7](https://github.com/Hadden-Industries/markdown-quality/issues/7) and selection scheduling [#8](https://github.com/Hadden-Industries/markdown-quality/issues/8). |
+| PERF-SLICE-009 | Complete: independent assurance, full source and transported qualification, immutable GitHub/npm `latest` delivery, followed by separately governed consumer integrations.                                                                                                                                                                                                            |
 
 Conditional slices are dispositioned, not incomplete prerequisites for this release.
 Retained paired experiments measured separate memo/batch and check-first improvements; their percentages are not added across different host conditions or represented as an SLA.
 Both-platform six-run corpus windows met the accepted 30-second and platform-specific 512 MiB producer budgets; consumer-specific later budgets retain their own authority.
-Compilation and an alternative runtime remain lower-priority research options, not accepted implementation follow-ups.
-Node-matrix and community/dogfooding source changes made after `1.0.3` remain unreleased under the owner's publication hold.
+Further asynchronous native execution is tracked in [#9](https://github.com/Hadden-Industries/markdown-quality/issues/9), and supported ESLint caching in [#10](https://github.com/Hadden-Industries/markdown-quality/issues/10).
+Compilation and an alternative runtime remain lower-priority research options in [#11](https://github.com/Hadden-Industries/markdown-quality/issues/11), not accepted implementation follow-ups.
+Node-matrix, community/dogfooding and opt-in concurrency source changes made after `1.0.3` remain unreleased under the owner's publication hold.
 
 The sections below preserve the original accepted plan, research inputs and proof obligations.
 Their earlier baseline, staged-file preservation and paused-delivery statements describe that execution stage; they do not reopen superseded proposals or authorize another release.

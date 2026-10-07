@@ -3,6 +3,7 @@
 ## Current completion state on 2026-10-07
 
 The original v1 implementation, performance delivery and five-repository rollout are complete.
+The owner considers implementation complete, including the subsequent source follow-ups, notwithstanding the separately tracked deferred enhancements.
 The released core and both native packages remain the coherent `1.0.3` tuple under npm `latest`, with the immutable GitHub release and exact evidence in [the release record](releases/1.0.3.json).
 The two original pilots are closed in [pilot migrations](pilot-migrations.md); the three post-v1 adoptions are integrated as recorded below.
 This consolidation records completed outcomes without changing accepted requirements, licensing, consumer decisions or release authority.
@@ -32,6 +33,9 @@ The owner-authorized `concurrency` follow-up adds CLI/library opt-in document pr
 Its [accepted follow-up](plans/performance-implementation-plan.md#owner-accepted-opt-in-concurrency-follow-up) retains ordered validation, cleanup and guarded serial writes; the [consumer guide](consumer-guide.md#opt-in-concurrency-in-current-source) explains the unreleased interface.
 This source addition does not change immutable `1.0.3`, its fixed serial behavior or the publication hold.
 Consumers own resource/performance choices; the original serial qualification budgets do not certify parallel counts.
+Signed source [603a2b3](https://github.com/Hadden-Industries/markdown-quality/commit/603a2b34268a6447e01e8dce6678ffca92ff3b81) is on remote `main`, with [package qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37603471445), [transported candidate qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37603471451) and [CodeQL](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37603471096) all passed.
+Independent Claude correctness/security review, the scoped native security scan and the completed HISEW handoff retain their existing task evidence.
+The owner's repository-only `docs/research/**` and `docs/reviews/**` exclusions are included; other authored docs stay selected, and unrelated research bytes remain unchanged and uncommitted.
 
 Signed source `7994fdb08efa4fc391f6e035c9fff17820635b58` qualifies the Node 22/24/26 matrix against one frozen candidate tuple on Windows and Linux.
 Source engines are `^22.23.3 || ^24.21.0 || >=26.10.0`; Node 26.10.0 is the qualified Current floor, not a claim about the first LTS version.
@@ -43,9 +47,12 @@ Its independent Claude Opus 5.5 medium review and narrow finding closure are ret
 
 On 2026-10-07, npm readback still reports `latest: 1.0.3`, `pilot: 1.0.2` and published engines `>=24.21.0 <25`.
 GitHub reports `v1.0.3` immutable and stable.
-Neither later source commit is shipped by that immutable release, regardless of the unchanged version field in the development checkout.
+None of the later Node-matrix, community/dogfooding or opt-in concurrency source changes is shipped by that immutable release, regardless of the unchanged version field in the development checkout.
 
 ### Remaining work and explicit deferrals
+
+No required implementation slice remains open.
+The following are post-completion delivery/maintenance obligations or optional enhancements; they do not reopen the owner's completion decision.
 
 - Keep the owner's publication hold.
   A future authorized release must use a new version, qualify its final source/archives, and follow the established signed-tag, GitHub draft, npm publication/readback and immutable-release completion process.
@@ -54,8 +61,10 @@ Neither later source commit is shipped by that immutable release, regardless of 
   Its integration is complete; cleanup remains consumer-owned until that chat records its outcome.
 - Continue the accepted monthly dependency review, security/support targets and evidence retention.
   These are maintained obligations rather than unfinished implementation slices.
-- Changed/referrer-aware checking and an optional GitHub Action remain conditional future capabilities.
-  Literal-layout rewrites, two workers and lower-order performance changes were not justified for the shipped candidate; compilation remains a lower-priority research option.
+- Ten optional enhancements are visible as individual GitHub issues in [the main plan's deferred lineage](plans/implementation-plan.md#deferred-enhancement-lineage).
+  They cover changed/referrer checking, the composite Action, literal-layout and four lower-order optimizations, async native execution, ESLint caching and low-priority compilation/runtime research.
+  Creating the issues does not authorize implementation, performance experiments or a release.
+  The old two-worker deferral is superseded by the completed opt-in concurrency source follow-up; immutable `1.0.3` remains serial.
 
 The original five-repository adoption list has no remaining integration.
 Additional repositories need their own accepted migration scope and evidence.

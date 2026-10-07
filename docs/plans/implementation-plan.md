@@ -3,6 +3,7 @@
 Date: 2026-10-07, Europe/Bucharest.
 Revision: 8, owner-authorized 1.0.3 stable delivery and explicit publication label.
 Completion annotation: 2026-10-07; accepted requirements and revision identity unchanged.
+Current disposition: implementation complete by owner decision; deferred enhancements tracked separately below.
 Initial plan: 2026-10-03.
 Planning owner and proposed acceptance owner: Maksym Shostak.
 Task references: initial planning in Codex chat `01a1014e-c54e-7c63-8c24-6313be12493a`; review synthesis in chat `01a1090f-4eb0-7210-b541-c9b62f3984dc`.
@@ -10,9 +11,15 @@ Task references: initial planning in Codex chat `01a1014e-c54e-7c63-8c24-6313be1
 ## 1. Status, authority, and purpose
 
 The original v1 implementation and coherent immutable `1.0.3` delivery are complete, and OwlAPI, WebVOWL, Universal Ontology, Software Engineering Workflow and Steam Community BBCode have integrated the package.
+The owner now considers the implementation complete, notwithstanding the explicitly deferred enhancements.
+No deferred issue below is a completion blocker, an accepted implementation schedule or authority to change features, consumers, controls or release policy.
 The [current implementation status](../implementation-status.md#current-completion-state-on-2026-10-07) is the consolidated outcome/evidence index; [pilot migrations](../pilot-migrations.md) retains the original pilots' precise acceptance boundaries.
 The performance release adopted exact-input reuse, native batching and check-first formatting; its conditional experiments are dispositioned in the [performance plan](performance-implementation-plan.md#current-completion-and-disposition).
-Post-release Node 22/24/26 support and community/source-dogfooding improvements are committed and qualified in source, with publication still held by the owner.
+Post-release Node 22/24/26 support, community/source-dogfooding improvements and opt-in document preparation `concurrency` are complete in source, with publication still held by the owner.
+The latest source is signed [603a2b3](https://github.com/Hadden-Industries/markdown-quality/commit/603a2b34268a6447e01e8dce6678ffca92ff3b81), delivered to remote `main`.
+[Package qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37603471445), [transported candidate qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37603471451) and [CodeQL](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37603471096) all passed for that exact source.
+Serial execution remains the default; positive-integer concurrency has no numeric maximum, and consumers own performance/capacity choices.
+This repository's research and review documents are excluded from dogfood checks by owner direction; other authored documentation remains checked and the unrelated research bytes are preserved.
 Future release preparation, consumer-owned residual cleanup and ongoing support/retention are distinguished from completed implementation in that current index.
 
 This annotation consolidates evidence, not requirements or acceptance authority.
@@ -21,6 +28,29 @@ Present-tense draft/pending statements below describe those earlier stages rathe
 The original three post-v1 migrations in SLICE-009 are now integrated; their accepted consumer scopes supersede the proposed scope/exclusion rows in section 10.
 GATE-06/10/11 remain requirements for any future consumer change, not outstanding blanket gates for these completed integrations.
 REQ-009/QA-006/SLICE-005 and the optional Action remain deferred; no new feature, release or branch/ruleset control is authorized here.
+
+### Deferred enhancement lineage
+
+Each distinct remaining enhancement has an open GitHub issue with its originating plan identifiers, a permalink to the retained source baseline and follow-up acceptance boundaries.
+The issues record optional work beyond this completed implementation; opening them does not resume their implementation or authorize new performance experiments.
+The now-complete opt-in `concurrency` follow-up supersedes the older research-only two-worker deferral for current source, so there is no duplicate worker-pool issue.
+Immutable `1.0.3` remains serial and retains its own measurements and evidence.
+
+| Origin                        | Deferred enhancement                                        | Tracking issue                                                         |
+| ----------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------- |
+| REQ-009 / QA-006 / SLICE-005  | Changed-document checking with unchanged-referrer coverage  | [#2](https://github.com/Hadden-Industries/markdown-quality/issues/2)   |
+| SLICE-006                     | Optional composite GitHub Action wrapping the canonical CLI | [#3](https://github.com/Hadden-Industries/markdown-quality/issues/3)   |
+| PERF-SLICE-006 / PERF-DEC-006 | Literal-layout marker and allocation improvements           | [#4](https://github.com/Hadden-Industries/markdown-quality/issues/4)   |
+| PERF-SLICE-008 / PERF-DEC-008 | Direct semantic-tree comparison                             | [#5](https://github.com/Hadden-Industries/markdown-quality/issues/5)   |
+| PERF-SLICE-008 / PERF-DEC-008 | Residual bounded document-read allocation improvements      | [#6](https://github.com/Hadden-Industries/markdown-quality/issues/6)   |
+| PERF-SLICE-008 / PERF-DEC-008 | Cursor-based partial-outcome bookkeeping                    | [#7](https://github.com/Hadden-Industries/markdown-quality/issues/7)   |
+| PERF-SLICE-008 / PERF-DEC-008 | Bounded document-selection scheduling                       | [#8](https://github.com/Hadden-Industries/markdown-quality/issues/8)   |
+| PERF-DEC-009                  | Asynchronous native subprocess execution                    | [#9](https://github.com/Hadden-Industries/markdown-quality/issues/9)   |
+| PERF-DEC-009                  | Supported ESLint caching for Markdown analysis              | [#10](https://github.com/Hadden-Industries/markdown-quality/issues/10) |
+| PERF-DEC-009                  | Low-priority compilation or alternative-runtime research    | [#11](https://github.com/Hadden-Industries/markdown-quality/issues/11) |
+
+The release hold, future version/registry delivery, consumer-owned cleanup and ongoing security/support/evidence retention are separate operational obligations, not deferred feature issues in this producer backlog.
+The sections below retain the accepted planning baseline and its original observations; current completion and the linked issue dispositions take precedence over their historical pending wording.
 
 On 2026-10-05, the owner accepted revision 6's bounded amendments in the current implementation chat: keep platform-specific packages; require owner acceptance of attributable trusted hosted runs before each pilot merge; adopt the measured qualification budgets and maintained support targets below.
 This revision continues the already accepted R2 implementation scope and AGPL-3.0-only license.
