@@ -2,6 +2,10 @@
 
 This package supplies one CLI and library for Markdown layout, sentence lines, GFM linting, and contained local links.
 Consumers declare their authored-document scope in `.markdown-quality.json`.
+Development source replaces `authored-gfm@1` in place with the agreed opinionated defaults and result schema 2.
+Code-block languages remain required.
+Native options and lint settings are explicitly package-owned; upstream recommended configurations do not select policy.
+This is a breaking change for the next major release; published 1.0.3 archives retain their previous behavior.
 The package preserves the existing AGPL-3.0-only license.
 
 Core and platform packages share one exact release version.
@@ -10,6 +14,7 @@ Registry publication and promotion to `latest` are separate outcomes.
 
 ```sh
 markdown-quality check --root /path/to/repository
+markdown-quality check --root /path/to/repository --strict
 markdown-quality format --root /path/to/repository
 markdown-quality inspect --root /path/to/repository --json
 markdown-quality check --root /path/to/repository -- "docs/literal [1].md"
@@ -18,6 +23,11 @@ markdown-quality check --root /path/to/repository --files-json '[]'
 
 Checks never install tools or write documents.
 Formatting validates the complete selected batch before any replacement.
+Errors block; warnings block only under `--strict`; information never blocks.
+Read-only checks also fail on formatting drift.
+Reports retain advisory findings even when exit is zero.
+Operational resource limits are defaults the consumer can raise or bypass through configuration, library options, or CLI `--no-limits`.
+Overrides preserve quality rules and guarded formatting; the consumer owns capacity choices.
 It checks each file's original identity and bytes immediately before replacing it.
 A failure after earlier replacements reports the completed and unprocessed paths.
 Formatting is not a whole-batch transaction.

@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { lstatSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { decode, fail, limits } from "./contracts.js";
+import { decode, fail, limits, exceeds } from "./contracts.js";
 import {
   removeStagedFile,
   nativeCheckConfig,
@@ -40,16 +40,22 @@ function reportBound(text, staging) {
   );
 }
 /** Avoid speculative checking where the qualified file protocol cannot apply. */
-export function nativeFileCheckEligible(text, staging) {
+export function nativeFileCheckEligible(text, staging, budgets = limits) {
   return (
     Boolean(staging) &&
-    Buffer.byteLength(text) <= limits.fileBytes &&
-    reportBound(text, staging) + 2 <= limits.nativeOutputBytes
+    !exceeds(Buffer.byteLength(text), budgets.fileBytes) &&
+    !exceeds(reportBound(text, staging) + 2, budgets.nativeOutputBytes)
   );
 }
 
 /** Check bounded exact snapshots; partition before invocation, never retry failed groups. */
-export function runNativeChecks(tool, texts, staging, observer) {
+export function runNativeChecks(
+  tool,
+  texts,
+  staging,
+  observer,
+  budgets = limits,
+) {
   const results = [];
   let pending = [],
     bound = 2,
@@ -77,23 +83,24 @@ export function runNativeChecks(tool, texts, staging, observer) {
             tool,
             group.map((item) => item.text),
             staging,
+            budgets,
           ),
       ),
     );
   }
   for (const [index, text] of texts.entries()) {
     const inputBytes = Buffer.byteLength(text);
-    if (inputBytes > limits.fileBytes)
+    if (exceeds(inputBytes, budgets.fileBytes))
       fail("DOCUMENT_LIMIT", "Native input exceeds the size limit.");
     // Pinned check.rs emits at most two retained findings per source line and
     // at most 203 excerpt characters. Include worst JSON escaping, pretty-print
     // overhead and the complete staged pathname; keep large cases on stdin.
     const outputBound = reportBound(text, staging);
-    if (!staging || outputBound + 2 > limits.nativeOutputBytes) {
+    if (!staging || exceeds(outputBound + 2, budgets.nativeOutputBytes)) {
       flush();
       results.push(
         observe([index], () => ({
-          diagnostics: runNative(tool, text, true),
+          diagnostics: runNative(tool, text, true, budgets),
           wouldReformat: null,
         })),
       );
@@ -102,7 +109,7 @@ export function runNativeChecks(tool, texts, staging, observer) {
     if (
       pending.length === 32 ||
       bytes + inputBytes > 4_194_304 ||
-      bound + outputBound > limits.nativeOutputBytes
+      exceeds(bound + outputBound, budgets.nativeOutputBytes)
     )
       flush();
     pending.push({ index, text });
@@ -113,7 +120,7 @@ export function runNativeChecks(tool, texts, staging, observer) {
   return results;
 }
 
-function checkFiles(tool, texts, staging) {
+function checkFiles(tool, texts, staging, budgets) {
   verifyNativeStaging(staging);
   const files = [];
   try {
@@ -162,8 +169,8 @@ function checkFiles(tool, texts, staging) {
           RAYON_NUM_THREADS: "1",
         },
         shell: false,
-        timeout: limits.nativeMs,
-        maxBuffer: limits.nativeOutputBytes,
+        timeout: budgets.nativeMs ?? 0,
+        maxBuffer: budgets.nativeOutputBytes ?? Infinity,
         windowsHide: true,
       },
     );
@@ -207,7 +214,6 @@ function readReports(result, files, texts) {
       report.original_lines !== sourceLines ||
       !Number.isSafeInteger(report.formatted_lines) ||
       report.formatted_lines < 0 ||
-      report.formatted_lines > limits.nativeOutputBytes ||
       typeof report.would_reformat !== "boolean" ||
       !Array.isArray(report.diagnostics) ||
       (!report.would_reformat && !report.diagnostics.length)

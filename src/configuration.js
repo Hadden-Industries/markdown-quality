@@ -3,7 +3,8 @@ import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import { resolve, dirname, join, relative, isAbsolute, sep } from "node:path";
 import Ajv from "ajv";
 import markdown from "@eslint/markdown";
-import { decode, digest, fail, limits } from "./contracts.js";
+import { decode, digest, fail, limits, exceeds } from "./contracts.js";
+import { lintDefaults, advisoryDefaults } from "./preset.js";
 const schema = JSON.parse(
   readFileSync(
     new URL("../schemas/configuration.schema.json", import.meta.url),
@@ -11,6 +12,20 @@ const schema = JSON.parse(
   ),
 );
 const validate = new Ajv({ allErrors: true, strict: true }).compile(schema);
+const validateLimits = new Ajv({ allErrors: true, strict: true }).compile(
+  schema.properties.limits,
+);
+function resolveLimits(base, override) {
+  if (override === undefined) return { ...base };
+  if (!validateLimits(override))
+    fail(
+      "INVALID_CONFIG",
+      "Limits must be false or known positive safe integers/null.",
+    );
+  return override === false
+    ? Object.fromEntries(Object.keys(limits).map((key) => [key, null]))
+    : { ...base, ...override };
+}
 export function contained(root, path) {
   const rel = relative(root, path);
   return (
@@ -52,7 +67,7 @@ export function safePath(root, input, { missing = false, file = false } = {}) {
   }
   return path;
 }
-export function loadConfiguration({ root, config } = {}) {
+export function loadConfiguration({ root, config, limits: overrides } = {}) {
   if (!root) {
     root = resolve(process.cwd());
     while (!existsSync(join(root, ".markdown-quality.json"))) {
@@ -76,8 +91,9 @@ export function loadConfiguration({ root, config } = {}) {
   const path = safePath(root, config ?? ".markdown-quality.json", {
     file: true,
   });
-  if (lstatSync(path).size > limits.configBytes)
-    fail("CONFIG_LIMIT", "Configuration exceeds the size limit.");
+  // Validate invocation overrides before acquisition. Read the configuration
+  // before enforcing its resolved ceiling so it can declare its own bypass.
+  resolveLimits(limits, overrides);
   const bytes = readFileSync(path);
   let value;
   try {
@@ -92,10 +108,31 @@ export function loadConfiguration({ root, config } = {}) {
       "Configuration does not match schema version 1: " +
         JSON.stringify(validate.errors),
     );
+  const budgets = resolveLimits(resolveLimits(limits, value.limits), overrides);
+  if (exceeds(bytes.length, budgets.configBytes))
+    fail("CONFIG_LIMIT", "Configuration exceeds the size limit.");
+  if (
+    exceeds(value.include.length, budgets.patterns) ||
+    exceeds((value.exclude ?? []).length, budgets.patterns) ||
+    exceeds((value.ignoreFiles ?? []).length, budgets.ignoreFiles) ||
+    exceeds(Object.keys(value.lint ?? {}).length, budgets.lintRules) ||
+    [
+      ...value.include,
+      ...(value.exclude ?? []),
+      ...(value.ignoreFiles ?? []),
+    ].some((pattern) => exceeds([...pattern].length, budgets.patternLength))
+  )
+    fail(
+      "CONFIG_LIMIT",
+      "Configuration entries exceed the selected resource limits.",
+    );
   for (const rule of Object.keys(value.lint ?? {})) {
     if (
-      !rule.startsWith("markdown/") ||
-      !Object.hasOwn(markdown.rules, rule.slice(9))
+      !(
+        rule.startsWith("markdown/") &&
+        Object.hasOwn(markdown.rules, rule.slice(9))
+      ) &&
+      !Object.hasOwn(advisoryDefaults, rule)
     )
       fail("INVALID_RULE", "Unknown Markdown rule: " + rule);
   }
@@ -115,9 +152,20 @@ export function loadConfiguration({ root, config } = {}) {
     ...value,
     exclude: value.exclude ?? [],
     ignoreFiles: value.ignoreFiles ?? [".gitignore", ".prettierignore"],
-    lint: value.lint ?? {},
+    lint: {
+      ...Object.fromEntries(
+        Object.entries(lintDefaults).map(([rule, setting]) => [
+          rule,
+          Array.isArray(setting) ? setting[0] : setting,
+        ]),
+      ),
+      ...advisoryDefaults,
+      ...value.lint,
+    },
     links: { localFiles: true, rootRelative: "reject", ...value.links },
-    layout: { endOfLine: "preserve", tabWidth: 2, ...value.layout },
+    layout: { endOfLine: "lf", tabWidth: 2, ...value.layout },
+    syntax: { frontmatter: "yaml", ...value.syntax },
+    limits: budgets,
   };
   return { root, config: effective, configDigest: digest(bytes) };
 }

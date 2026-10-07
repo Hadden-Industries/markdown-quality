@@ -3,7 +3,7 @@ import { parse } from "./analysis.js";
 import { fail, limits } from "./contracts.js";
 
 /** Reuse pure owned results for one document; never retain filesystem validity. */
-export function createDocumentMemo() {
+export function createDocumentMemo(syntax = { frontmatter: "yaml" }) {
   const trees = new Map();
   const layouts = new Map();
   let retainedBytes = 0,
@@ -26,7 +26,7 @@ export function createDocumentMemo() {
         return trees.get(text);
       }
       counts.parses++;
-      const tree = parse(text);
+      const tree = parse(text, syntax);
       if (reserve(Buffer.byteLength(text), trees.size)) trees.set(text, tree);
       return tree;
     },

@@ -15,13 +15,14 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 import tarfile
 import tomllib
 import urllib.request
 import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-CONFIG = json.loads((ROOT / 'assets/native-build.json').read_text())
+CONFIG = json.loads((ROOT / 'assets/native-build.json').read_text(encoding='utf-8'))
 MAX_TEXT = 32_000_000
 
 
@@ -150,6 +151,8 @@ def registry_source(package, locked):
 
 
 def main():
+    """Produce a controlled build with LF authored text and original-byte inventories."""
+    sys.stdout.reconfigure(encoding='utf-8', newline='\n')
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--platform', choices=CONFIG['tools'], required=True)
     parser.add_argument('--source', type=pathlib.Path, required=True)
@@ -197,12 +200,15 @@ def main():
                           '"Unicode-3.0", "Unicode-DFS-2016", "Zlib", "BSL-1.0", "CC0-1.0", "Unlicense"]\n'
                           'ignore-dev-dependencies = true\nignore-build-dependencies = false\n'
                           'ignore-transitive-dependencies = false\ntargets = ["' + target + '"]\n'
-                          '[webpki-roots]\naccepted = ["MPL-2.0"]\n', encoding='utf-8')
+                          '[webpki-roots]\naccepted = ["MPL-2.0"]\n', encoding='utf-8', newline='\n')
     run([str(tools / ('cargo-about' + suffix)), 'generate', '--locked', '--fail', '--format', 'json',
          '--config', str(config_path), '--manifest-path', str(source / 'Cargo.toml'),
          '--output-file', str(output / 'cargo-notices.json'), '--no-default-features',
          '--features', ' '.join(CONFIG['features'])], source)
     cargo_notices = json.loads(read(output / 'cargo-notices.json'))
+    # Own the report's physical serialization rather than cargo-about's default.
+    (output / 'cargo-notices.json').write_text(json.dumps(cargo_notices, indent=2) + '\n',
+                                             encoding='utf-8', newline='\n')
     packages = []
     mpl_source = output / 'MPL-SOURCE.tar.xz'
     mpl_packages = [p for p in metadata['packages'] if 'MPL-2.0' in (p.get('license') or '')]
@@ -263,10 +269,11 @@ def main():
             raise ValueError('Rust license text integrity/resource failure')
         runtime_terms.append(license_spec)
         notice_sections.append('\n===== Rust runtime / ' + name + ' =====\n' + data.decode('utf-8'))
-    notices_text = '\n'.join(notice_sections)
+    # This readable rendering uses LF; inventory text and source hashes retain originals.
+    notices_text = ('\n'.join(notice_sections) + '\n').replace('\r\n', '\n').replace('\r', '\n')
     if len(notices_text.encode()) > MAX_TEXT:
         raise ValueError('Notices resource bound')
-    (output / 'THIRD-PARTY-NOTICES.txt').write_text(notices_text, encoding='utf-8')
+    (output / 'THIRD-PARTY-NOTICES.txt').write_text(notices_text, encoding='utf-8', newline='\n')
     # Notice/source collection is a cheap preflight; compile only after it passes.
     run(['cargo', 'build', '--locked', '--release', '--manifest-path',
          str(audit / 'Cargo.toml')], audit)
@@ -279,7 +286,8 @@ def main():
     shutil.copyfile(source / 'LICENSE', output / 'LICENSE.snapper')
     shutil.copyfile(executable, output / ('snapper-fmt' + suffix))
     def save(name, value):
-        (output / name).write_text(json.dumps(value, indent=2) + '\n', encoding='utf-8')
+        """Emit LF JSON before build-evidence hashes the retained file bytes."""
+        (output / name).write_text(json.dumps(value, indent=2) + '\n', encoding='utf-8', newline='\n')
     save('embedded-dependencies.json', embedded)
     save('component-inventory.json', {'schemaVersion': 1, 'binarySha256': digest(binary),
          'coverage': 'Conservative target-filtered Cargo graph, original nested notices, embedded auditable graph, official Rust runtime notices. Native and system linkage requires independent reconciliation.',

@@ -81,11 +81,18 @@ test("valid fenced examples retain whitespace-only lines and trailing literal sp
   ]) {
     const root = consumer(t, { "a.md": text });
     const checked = await runQuality({ root });
-    assert.equal(checked.exitCode, 0, JSON.stringify(checked));
+    assert.equal(
+      checked.exitCode,
+      text.includes("\r") ? 1 : 0,
+      JSON.stringify(checked),
+    );
     assert.equal(readFileSync(join(root, "a.md"), "utf8"), text);
     const formatted = await runQuality({ root, mode: "format" });
     assert.equal(formatted.exitCode, 0, JSON.stringify(formatted));
-    assert.equal(readFileSync(join(root, "a.md"), "utf8"), text);
+    assert.equal(
+      readFileSync(join(root, "a.md"), "utf8"),
+      text.replaceAll("\r\n", "\n"),
+    );
     assert.deepEqual((await runQuality({ root, mode: "format" })).written, []);
   }
 });
@@ -140,7 +147,8 @@ test("structure, fragments, labels, tables and local links use maintained analys
     "a.md":
       "# Heading\n\n### Jump\n\n[Missing](absent.md)\n\n[Bad](#absent)\n\n[Label][undefined]\n\n| A | B |\n| - | - |\n| 1 | 2 | 3 |\n",
   });
-  const result = await runQuality({ root });
+  // Drifting check inputs defer lint; format validates the canonical table.
+  const result = await runQuality({ root, mode: "format" });
   assert.equal(result.exitCode, 1, JSON.stringify(result));
   for (const rule of [
     "markdown/heading-increment",

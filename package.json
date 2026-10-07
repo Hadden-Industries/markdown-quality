@@ -13,7 +13,8 @@
   "exports": {
     ".": "./src/quality.js",
     "./configuration-schema": "./schemas/configuration.schema.json",
-    "./result-schema": "./schemas/result.schema.json"
+    "./result-schema": "./schemas/result.schema.json",
+    "./migration-schema": "./schemas/migration.schema.json"
   },
   "files": [
     "src",
@@ -64,13 +65,15 @@
     "ajv": "8.20.0",
     "eslint": "10.12.0",
     "mdast-util-from-markdown": "2.1.0",
+    "mdast-util-frontmatter": "2.0.1",
     "mdast-util-gfm": "3.1.0",
+    "micromark-extension-frontmatter": "2.0.0",
     "micromark-extension-gfm": "3.0.0",
     "picomatch": "4.0.7",
     "prettier": "3.9.9"
   },
   "optionalDependencies": {
-    "@hadden-industries/markdown-quality-win32-x64": "file:packages/win32-x64",
-    "@hadden-industries/markdown-quality-linux-x64": "file:packages/linux-x64"
+    "@hadden-industries/markdown-quality-linux-x64": "file:packages/linux-x64",
+    "@hadden-industries/markdown-quality-win32-x64": "file:packages/win32-x64"
   }
 }

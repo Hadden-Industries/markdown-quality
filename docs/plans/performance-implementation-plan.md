@@ -82,7 +82,7 @@ The initial investigation and the owner's subsequent batching/compilation questi
 The response extends that order with document-scoped memo design, independent list batching, conditional check-first formatting/layout work, and explicit benchmark/protocol proof.
 It does not replace the earlier plan with a compilation project or turn observed stage opportunities into achieved savings.
 
-The owner supplied `markdown-quality-performance-research-brief-2026-10-06-response.md`, titled _Performance Research Report: markdown-quality_.
+The owner supplied `markdown-quality-performance-research-brief-2026-10-06-response.md`, titled *Performance Research Report: markdown-quality*.
 Its exact supplied bytes have SHA-256 `58fe1ecac7461292dd30b5bead889e8cc6fa658ab53ee11657b17e2dd37169e2`.
 The original compact handoff is `markdown-quality-performance-research-brief-2026-10-06.zip`, with `research-brief.md`, `evidence/current/findings.md`, `baseline.json`, `profile-summary.json`, `repeated-work/summary.json`, `native-control.json`, and `batch-check-control.json`.
 Those native artifacts, source manifests, full result JSON, and preservation records remain retained in the existing external task-evidence store.

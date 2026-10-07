@@ -227,6 +227,24 @@ class ArtifactBindingTests(unittest.TestCase):
                 self.assertEqual(archive.read('build-evidence.json'),
                                  (base / 'native-win32-x64/build-evidence.json').read_bytes())
 
+    def test_supplement_notice_rendering_is_lf_and_original_text_identity_is_retained(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = pathlib.Path(temporary)
+            self.inputs(base)
+            path, value = self.supplement(base)
+            text = 'Original ©\r\nTabs\t and  spaces\rLone CR\nEscaped \\r\\n\u2028separator\n'
+            notice = value['components'][0]['notices'][0]
+            notice.update(text=text, sha256=freezer.sha(text.encode('utf-8')))
+            path.write_bytes(json.dumps(value).encode('utf-8'))
+            freezer.freeze(base, base / 'output', '123', 'f' * 40,
+                           'https://fixture.invalid/release', path)
+            with zipfile.ZipFile(base / 'output/snapper-windows.zip') as archive:
+                rendered = archive.read('SUPPLEMENTAL-NOTICES.txt')
+                self.assertNotIn(b'\r', rendered)
+                self.assertIn('Original ©\nTabs\t and  spaces\nLone CR\nEscaped \\r\\n\u2028separator\n'.encode('utf-8'), rendered)
+                retained = json.loads(archive.read('rights-evidence.json'))['components'][0]['notices'][0]
+                self.assertEqual(retained, notice)
+
     def test_supplement_rejects_changed_notice_or_binary_identity(self):
         for field in ('notice', 'binary', 'original-file'):
             with self.subTest(field=field), tempfile.TemporaryDirectory() as temporary:

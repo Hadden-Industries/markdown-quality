@@ -4,8 +4,8 @@ import * as prettier from "prettier";
 import { parse } from "./analysis.js";
 import { fail } from "./contracts.js";
 
-/** Return split-array code-body row indices, optionally collecting empty indented rows. */
-export function codeBodyRows(
+/** Return split-array literal row indices, optionally collecting empty indented code rows. */
+export function protectedLiteralRows(
   text,
   tree = parse(text),
   emptyIndentedRows = null,
@@ -59,6 +59,21 @@ export function codeBodyRows(
           emptyIndentedRows.add(line * 2);
       }
     }
+    if (["html", "yaml", "toml", "json", "inlineCode"].includes(node.type)) {
+      for (
+        let line = node.position.start.line;
+        line <= node.position.end.line;
+        line++
+      ) {
+        // Only an actual payload ending on this row exempts its trailing bytes.
+        // Inline literals followed by prose do not exempt that prose's suffix.
+        if (
+          line < node.position.end.line ||
+          rows[(line - 1) * 2]?.length < node.position.end.column
+        )
+          selected.add((line - 1) * 2);
+      }
+    }
     for (const child of node.children ?? []) visit(child, quoteDepth);
   }
   visit(tree);
@@ -79,7 +94,7 @@ export async function formatLayout(text, options, memo) {
 async function protectLiteralLayout(text, options, memo) {
   const rows = text.split(/(\r\n|\r|\n)/u);
   const emptyIndentedRows = new Set();
-  const codeRows = codeBodyRows(
+  const codeRows = protectedLiteralRows(
     text,
     memo ? memo.parse(text) : parse(text),
     emptyIndentedRows,

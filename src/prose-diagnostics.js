@@ -5,6 +5,36 @@
 // Original MIT terms retained in LICENSES/MIT-universal-ontology.txt.
 import { runNative } from "./native-tool.js";
 import { runNativeChecks } from "./native-checks.js";
+import { parse } from "./analysis.js";
+/** Native prose policy does not own lines consisting entirely of literal content. */
+function literalOnlyLines(text, syntax) {
+  const literal = new Set(),
+    prose = new Set();
+  function visit(node) {
+    if (
+      ["code", "inlineCode", "html", "yaml", "toml", "json"].includes(node.type)
+    ) {
+      for (
+        let line = node.position.start.line;
+        line <= node.position.end.line;
+        line++
+      )
+        literal.add(line);
+      return;
+    }
+    if (node.type === "text" && node.value.trim()) {
+      for (
+        let line = node.position.start.line;
+        line <= node.position.end.line;
+        line++
+      )
+        prose.add(line);
+    }
+    for (const child of node.children ?? []) visit(child);
+  }
+  visit(parse(text, syntax));
+  return new Set([...literal].filter((line) => !prose.has(line)));
+}
 // Requalified against 0.11.9. Owner approval: this chat, 2026-10-05.
 // Mirrors OwlAPI's narrow container boundary and continuation recheck approach.
 function listItem(line = "") {
@@ -29,9 +59,11 @@ function listItem(line = "") {
     prose: match[3],
   };
 }
-export function checkProse(tool, text) {
+export function checkProse(tool, text, syntax, budgets) {
   const lines = text.split(/\r?\n/u);
-  return runNative(tool, text, true).filter((d) => {
+  const literals = literalOnlyLines(text, syntax);
+  return runNative(tool, text, true, budgets).filter((d) => {
+    if (literals.has(d.line)) return false;
     const index = d.line - 1,
       item = listItem(lines[index]);
     if (!item) return true;
@@ -54,7 +86,7 @@ export function checkProse(tool, text) {
       prose.push(content.slice(indent));
     }
     // Malformed output, unknown findings, crashes, and timeouts still fail closed.
-    return runNative(tool, prose.join("\n") + "\n", true).length !== 0;
+    return runNative(tool, prose.join("\n") + "\n", true, budgets).length !== 0;
   });
 }
 
@@ -65,6 +97,8 @@ export function checkProseGroup(
   staging,
   observer,
   admittedChecks,
+  syntax,
+  budgets,
 ) {
   let checkMilliseconds = 0;
   function check(inputs) {
@@ -89,6 +123,7 @@ export function checkProseGroup(
             );
           },
         },
+        budgets,
       );
     } finally {
       const elapsed = performance.now() - started;
@@ -108,7 +143,12 @@ export function checkProseGroup(
     for (const [index, input] of unchecked.entries())
       checked[input.owner] = results[index];
   }
-  const keep = checked.map((entry) => entry.diagnostics.map(() => true));
+  const keep = checked.map((entry, index) => {
+    const literals = entry.diagnostics.length
+      ? literalOnlyLines(texts[index], syntax)
+      : new Set();
+    return entry.diagnostics.map((d) => !literals.has(d.line));
+  });
   let pending = [],
     pendingBytes = 0;
   function flush() {
@@ -130,6 +170,7 @@ export function checkProseGroup(
       for (const [finding, diagnostic] of checked[
         owner
       ].diagnostics.entries()) {
+        if (!keep[owner][finding]) continue;
         const index = diagnostic.line - 1,
           item = listItem(lines[index]);
         if (!item) continue;

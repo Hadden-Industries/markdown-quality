@@ -76,7 +76,7 @@ test("oversized files, outside paths and alternate streams fail before analysis 
   assert.throws(() => safePath(root, join(root, "a.md") + ":stream"));
   const inspect = await runQuality({ root, mode: "inspect", files: ["a.md"] });
   assert.ok(validate(inspect), JSON.stringify(validate.errors));
-  assert.equal(inspect.configuration.layout.endOfLine, "preserve");
+  assert.equal(inspect.configuration.layout.endOfLine, "lf");
   assert.deepEqual(inspect.unprocessed, []);
 });
 test(

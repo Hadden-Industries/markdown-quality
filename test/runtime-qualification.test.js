@@ -12,6 +12,10 @@ test("real runtime proves exact formatting, literal preservation, convergence an
     process.env,
   );
   assert.equal(report.node, process.version);
-  assert.equal(report.formatted.length, 3);
-  assert.deepEqual(report.failures, ["missing-local-link", "invalid-utf8"]);
+  assert.equal(report.formatted.length, 5);
+  assert.deepEqual(report.failures, [
+    "missing-local-link",
+    "invalid-utf8",
+    "missing-language",
+  ]);
 });

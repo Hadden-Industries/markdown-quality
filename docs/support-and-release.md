@@ -24,7 +24,10 @@ Consumers pin the package, preset, and lockfile.
 The public contract includes CLI, library API, schemas, exit meanings, formatter output, and default diagnostics.
 A compatible repair may use a patch version.
 An opt-in compatible feature may use a minor version.
-Changed defaults require a new preset major, and a package major when existing invocations change.
+The owner-approved opinionated-defaults change replaces `authored-gfm@1` in place and requires a new package major because existing invocations change.
+Configuration schema 1 remains loadable; result schema 2 distinguishes advisory severities, strict admission and effective native policy.
+Do not republish existing archives or describe this development source as the published 1.0.3 behavior.
+Exact coordinated package version selection and publication remain release decisions.
 Dependency upgrades are classified from observed corpus and consumer deltas.
 Never overwrite a published version.
 After npm accepts publication, allow up to five minutes for anonymous version metadata and both installer metadata representations to expose the exact approved integrity.
@@ -133,7 +136,8 @@ Consumers remain exactly pinned and upgrades individually qualified; older downl
 Pilot qualification uses six consecutive valid full checks per frozen corpus/platform, excluding installation, with observed nearest-rank sample p95 at most 30 seconds.
 With six samples, that is the observed maximum; it is not a statistical tail or arbitrary-repository guarantee.
 The memory budgets are 512 MiB Windows Job Object committed memory and 512 MiB Linux whole-process-tree resident memory, reported separately as different metrics.
-These budgets do not impose OS runtime limits or raise existing package limits.
+These qualification budgets do not impose OS runtime limits or select consumer resource ceilings.
+Consumers can raise or bypass package resource defaults as documented in the consumer guide; qualification records must identify any selected override.
 Require zero unexpected errors or adjudicated false positives in the window and accepted fixture/probe corpus, retaining expected negative probes separately.
 Rehearse one task-owned pilot restoration within 60 minutes through byte/sentinel readback and incumbent local checks; hosted required-status recovery remains separate acceptance evidence.
 The alpha.4 pilot cutovers passed both hosted platform windows and scoped restoration; those records do not establish acceptance of a later exact tuple.

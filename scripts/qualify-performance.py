@@ -175,7 +175,7 @@ def observe_owned(node, cli, corpus, output):
               "outcome": result["outcome"], "selected": len(result["selection"]["files"]),
               "resultSha256": digest(raw), "diagnostics": result["diagnostics"], "errors": result["errors"],
               "version": result["package"]["version"], "tools": result["tools"]}
-    output.with_suffix(".resources.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    output.with_suffix(".resources.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8", newline="\n")
     assert child.returncode in (0, 1) and not result["errors"], report
     assert resources["activeDescendants"] == 0, report
     print(json.dumps(report))
@@ -227,11 +227,13 @@ def qualify(node, cli, corpus_parent, output):
                                   "completeBaselineResultParityExceptVersion": True,
                                   "observedP95Ms": max(item["elapsedMs"] for item in observations),
                                   "peakTreeBytes": max(item["peakTreeBytes"] for item in observations)}
-    (output / "qualification.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    (output / "qualification.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8", newline="\n")
     print(json.dumps({"passed": True, "output": str(output)}))
 
 
 if __name__ == "__main__":
+    # Driver status is authored evidence captured as bytes by the parent observer.
+    sys.stdout.reconfigure(encoding="utf-8", newline="\n")
     if sys.platform == "linux":
         def interrupted(signum, frame):
             # Let qualify's finally dispose its current dedicated observer group.

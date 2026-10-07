@@ -11,7 +11,7 @@ import { join, relative, sep } from "node:path";
 import picomatch from "picomatch";
 import * as prettier from "prettier";
 import { safePath } from "./configuration.js";
-import { fail, limits } from "./contracts.js";
+import { fail, limits, exceeds } from "./contracts.js";
 const blocked = new Set([
   ".git",
   "node_modules",
@@ -22,11 +22,12 @@ const blocked = new Set([
 ]);
 export async function selectDocuments(context, files) {
   const { root, config } = context;
+  const budgets = config.limits ?? limits;
   if (
     files !== undefined &&
     (!Array.isArray(files) ||
       files.some((p) => typeof p !== "string") ||
-      files.length > limits.files)
+      exceeds(files.length, budgets.files))
   )
     fail(
       "INVALID_SELECTION",
@@ -37,7 +38,7 @@ export async function selectDocuments(context, files) {
   const ignores = config.ignoreFiles.map((p) => {
     const path = safePath(root, p, { missing: true, file: true });
     try {
-      if (lstatSync(path).size > limits.configBytes)
+      if (exceeds(lstatSync(path).size, budgets.configBytes))
         fail("IGNORE_LIMIT", "Ignore file exceeds the size limit.");
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
@@ -49,7 +50,7 @@ export async function selectDocuments(context, files) {
   let candidateBytes = 0;
   function addCandidate(path) {
     candidateBytes += Buffer.byteLength(path);
-    if (candidateBytes > limits.selectionBytes)
+    if (exceeds(candidateBytes, budgets.selectionBytes))
       fail("SELECTION_LIMIT", "Discovered path bytes exceed the limit.");
     candidates.push(path);
   }
@@ -57,7 +58,7 @@ export async function selectDocuments(context, files) {
     const directory = opendirSync(dir);
     try {
       for (let entry; (entry = directory.readSync()) !== null;) {
-        if (++visited > limits.entries)
+        if (exceeds(++visited, budgets.entries))
           fail("SELECTION_LIMIT", "Directory entry limit exceeded.");
         if (blocked.has(entry.name)) continue;
         const path = join(dir, entry.name);
@@ -100,7 +101,7 @@ export async function selectDocuments(context, files) {
       selected.push(rel);
     }
   }
-  if (selected.length > limits.files)
+  if (exceeds(selected.length, budgets.files))
     fail("SELECTION_LIMIT", "Document count limit exceeded.");
   return {
     files: selected,
@@ -108,27 +109,35 @@ export async function selectDocuments(context, files) {
     mode: files === undefined ? "full" : "explicit",
   };
 }
-export function readDocument(root, file) {
+export function readDocument(root, file, budgets = limits) {
   const path = safePath(root, file, { file: true });
   const fd = openSync(path, "r");
   try {
     const stat = fstatSync(fd, { bigint: true });
     if (!stat.isFile()) fail("INVALID_FILE", "Expected a regular file.");
-    if (stat.size > BigInt(limits.fileBytes))
+    if (budgets.fileBytes !== null && stat.size > BigInt(budgets.fileBytes))
       fail("DOCUMENT_LIMIT", "Document exceeds the size limit.");
-    const buffer = Buffer.alloc(limits.fileBytes + 1);
+    // Read chunks through EOF even with no ceiling; never allocate the configured
+    // maximum up front, and still detect growth after the initial stat.
+    const chunks = [];
     let size = 0,
       count;
-    while (
-      size < buffer.length &&
-      (count = readSync(fd, buffer, size, buffer.length - size, null)) !== 0
-    )
+    while (true) {
+      const buffer = Buffer.alloc(65_536);
+      count = readSync(fd, buffer, 0, buffer.length, null);
+      if (count === 0) break;
       size += count;
-    if (size > limits.fileBytes)
-      fail("DOCUMENT_LIMIT", "Document exceeds the size limit.");
-    // Own only the observed bytes, rather than retaining the bounded scratch buffer.
+      if (exceeds(size, budgets.fileBytes))
+        fail("DOCUMENT_LIMIT", "Document exceeds the size limit.");
+      chunks.push(buffer.subarray(0, count));
+    }
+    // Preserve exact preimage ownership rather than retaining a pooled backing store.
     const bytes = Buffer.alloc(size);
-    buffer.copy(bytes, 0, 0, size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      chunk.copy(bytes, offset);
+      offset += chunk.length;
+    }
     return { path, bytes, stat };
   } finally {
     closeSync(fd);

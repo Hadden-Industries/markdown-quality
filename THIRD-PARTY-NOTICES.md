@@ -9,19 +9,23 @@ The qualification tests are authored here.
 The repository's [Code of Conduct](CODE_OF_CONDUCT.md) adapts the [Steam Community BBCode policy](https://github.com/MaksymShostak/steam-community-bbcode/blob/9db3103d71a4b3a608b9609dba10280890d873d7/CODE_OF_CONDUCT.md), derived from OwlAPI and Contributor Covenant 3.0.
 That policy text retains CC BY-SA 4.0, its attribution and the indicated changes; it does not change the code's AGPL-3.0-only license.
 
-| Direct runtime dependency   | Version | Declared license                  |
-| --------------------------- | ------- | --------------------------------- |
-| Prettier                    | 3.9.9   | MIT                               |
-| ESLint                      | 10.12.0 | MIT                               |
-| ESLint Markdown             | 8.0.3   | MIT                               |
-| Ajv                         | 8.20.0  | MIT                               |
-| mdast-util-from-markdown    | 2.1.0   | MIT                               |
-| mdast-util-gfm              | 3.1.0   | MIT                               |
-| micromark-extension-gfm     | 3.0.0   | MIT                               |
-| picomatch                   | 4.0.7   | MIT                               |
-| Snapper upstream executable | 0.11.9  | MIT, Copyright 2026 Rohit Goswami |
+| Direct runtime dependency       | Version | Declared license                  |
+| ------------------------------- | ------- | --------------------------------- |
+| Prettier                        | 3.9.9   | MIT                               |
+| ESLint                          | 10.12.0 | MIT                               |
+| ESLint Markdown                 | 8.0.3   | MIT                               |
+| Ajv                             | 8.20.0  | MIT                               |
+| mdast-util-from-markdown        | 2.1.0   | MIT                               |
+| mdast-util-gfm                  | 3.1.0   | MIT                               |
+| mdast-util-frontmatter          | 2.0.1   | MIT, Titus Wormer                 |
+| micromark-extension-frontmatter | 2.0.0   | MIT, Titus Wormer                 |
+| micromark-extension-gfm         | 3.0.0   | MIT                               |
+| picomatch                       | 4.0.7   | MIT                               |
+| Snapper upstream executable     | 0.11.9  | MIT, Copyright 2026 Rohit Goswami |
 
 Installed npm packages retain their upstream license files.
+The directly adopted front-matter extensions retain their original MIT copyright and permission notices in their installed `license` files.
+Their terms permit use, modification and distribution subject to retaining those notices; this implementation imports them without vendoring or changing their source.
 The lockfile freezes their exact integrity identities.
 Native packages retain `LICENSE.snapper` and a fixed executable/repack component record.
 The AGPL declaration applies to the packaging implementation and does not relabel upstream executable bytes.

@@ -44,6 +44,13 @@ The supplement is bound to source archive checksums and both binary hashes, and 
 Both acquisition archives and native packages also deliver `rights-evidence.json` and readable original notices in `SUPPLEMENTAL-NOTICES.txt`.
 Original hosted files and build evidence remain unchanged; this supplement records a separate repack step.
 The freeze command's `--rights` input includes the supplement without issuing rights approval.
+Authored build configuration, JSON reports, package metadata and command status use explicit UTF-8 and LF on both platforms.
+The builder serializes the cargo-about JSON report itself so dependency defaults cannot select its physical line endings.
+Readable `THIRD-PARTY-NOTICES.txt` and `SUPPLEMENTAL-NOTICES.txt` render physical CRLF and lone CR as LF.
+Original notice text and original-file hashes remain in the inventories and rights supplement; acquired licenses, runtime copyright files and source archives retain their original bytes.
+The producer regression suite checks physical output bytes, including generated files outside Git tracking, before their hashes are bound into evidence.
+These producer changes apply to newly generated artifacts.
+Existing frozen hosted files, manifests and acquisition archives retain their established identities; applying the new build serialization requires a fresh build, freeze and qualification rather than editing retained evidence.
 New binaries must pass both platform suites, packed consumers, the bounded quoted-list exception regressions, and semantic and literal preservation checks.
 
 Keep the original failed build proof before a diagnosed retry.

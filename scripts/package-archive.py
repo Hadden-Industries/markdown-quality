@@ -57,6 +57,7 @@ def normalize_executable(archive_path: Path, member_name: str, binary_sha256: st
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8", newline="\n")
     if len(sys.argv) != 4:
         raise ValueError("Usage: package-archive.py ARCHIVE MEMBER BINARY_SHA256")
     print(json.dumps(normalize_executable(Path(sys.argv[1]), sys.argv[2], sys.argv[3])))

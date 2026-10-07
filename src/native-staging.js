@@ -43,7 +43,7 @@ function contains(root, path) {
 }
 
 /** Establish a private external capability, or preserve the stdin path if unavailable. */
-export function createNativeStaging(consumerRoot) {
+export function createNativeStaging(consumerRoot, budgets = limits) {
   let token;
   try {
     const parent = realpathSync(tmpdir());
@@ -62,7 +62,7 @@ export function createNativeStaging(consumerRoot) {
       return null;
     const path = mkdtempSync(join(parent, "markdown-quality-native-"));
     token = { path, identity: identity(lstatSync(path, { bigint: true })) };
-    if (process.platform === "win32") restrictWindowsAccess(path);
+    if (process.platform === "win32") restrictWindowsAccess(path, budgets);
     else chmodSync(path, 0o700);
     verifyNativeStaging(token, false);
     for (const [name, text] of configFiles) writeStagedFile(token, name, text);
@@ -83,8 +83,11 @@ export function createNativeStaging(consumerRoot) {
   }
 }
 
-function restrictWindowsAccess(path) {
-  const deadline = performance.now() + 1000;
+function restrictWindowsAccess(path, budgets) {
+  const deadline =
+    budgets.stagingMs === null
+      ? Infinity
+      : performance.now() + budgets.stagingMs;
   const systemRoot = process.env.SystemRoot ?? process.env.WINDIR;
   if (!systemRoot || !isAbsolute(systemRoot))
     throw Error("No system directory.");
@@ -94,11 +97,13 @@ function restrictWindowsAccess(path) {
     env: { SystemRoot: systemRoot, WINDIR: systemRoot },
     shell: false,
     windowsHide: true,
-    maxBuffer: 65536,
+    maxBuffer: budgets.stagingOutputBytes ?? Infinity,
   };
   function run(command, args) {
-    const remaining = Math.floor(deadline - performance.now());
-    if (remaining <= 0) throw Error("Private access deadline exceeded.");
+    const remaining =
+      deadline === Infinity ? 0 : Math.floor(deadline - performance.now());
+    if (deadline !== Infinity && remaining <= 0)
+      throw Error("Private access deadline exceeded.");
     return spawnSync(command, args, { ...options, timeout: remaining });
   }
   const user = run(join(system, "whoami.exe"), ["/user", "/fo", "csv", "/nh"]);

@@ -2,6 +2,8 @@
 """Repack frozen native assets; no upstream installer is executed."""
 import argparse, hashlib, io, json, pathlib, stat, sys, tarfile, zipfile
 
+# Status records and authored metadata must not inherit Windows text translation.
+sys.stdout.reconfigure(encoding='utf-8', newline='\n')
 root = pathlib.Path(__file__).resolve().parent.parent
 manifest = json.loads((root / 'assets/tool-manifest.json').read_text(encoding='utf-8'))
 parser = argparse.ArgumentParser(description=__doc__)
@@ -63,7 +65,7 @@ for key, spec in manifest['platforms'].items():
         component = {'schemaVersion': 2, 'upstream': manifest['source'], 'asset': spec,
                      'build': manifest['build'], 'repackedFiles': {spec['executable']: spec['sha256'], **spec['files']},
                      'nativeTransitiveRights': manifest['build']['rights']}
-        (package / 'component.json').write_text(json.dumps(component, indent=2) + '\n', encoding='utf-8')
+        (package / 'component.json').write_text(json.dumps(component, indent=2) + '\n', encoding='utf-8', newline='\n')
         print(json.dumps({'platform': key, 'sha256': spec['sha256']}))
         continue
     if key.startswith('win'):
@@ -98,5 +100,5 @@ for key, spec in manifest['platforms'].items():
     (package / 'LICENSE.snapper').write_bytes(notice)
     (package / 'LICENSE').write_bytes((root / 'LICENSE').read_bytes())
     component = {'schemaVersion': 1, 'upstream': manifest['source'], 'asset': spec, 'repackedFiles': {spec['executable']: spec['sha256']}, 'extractor': 'Python ' + sys.version.split()[0] + ' zipfile/tarfile; fixed member reads', 'nativeTransitiveRights': 'pending complete upstream compiled-component inventory before registry release'}
-    (package / 'component.json').write_text(json.dumps(component, indent=2) + '\n', encoding='utf-8')
+    (package / 'component.json').write_text(json.dumps(component, indent=2) + '\n', encoding='utf-8', newline='\n')
     print(json.dumps({'platform': key, 'sha256': spec['sha256']}))

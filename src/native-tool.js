@@ -95,7 +95,7 @@ export function validateDiagnostics(result, text) {
       severity: "error",
     }));
 }
-export function runNative(tool, text, check = false) {
+export function runNative(tool, text, check = false, budgets = limits) {
   const args = [
     "--native",
     "--config",
@@ -121,8 +121,8 @@ export function runNative(tool, text, check = false) {
     cwd: fileURLToPath(new URL("../assets/", import.meta.url)),
     env,
     shell: false,
-    timeout: limits.nativeMs,
-    maxBuffer: limits.nativeOutputBytes,
+    timeout: budgets.nativeMs ?? 0,
+    maxBuffer: budgets.nativeOutputBytes ?? Infinity,
     windowsHide: true,
   });
   if (check) return validateDiagnostics(result, text);

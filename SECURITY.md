@@ -44,13 +44,14 @@ Preserve AGPL-3.0-only and provide corresponding source/build materials and thir
 ## Trust boundaries and required properties
 
 Treat Markdown, linked paths and candidate repository content as untrusted data.
-The operator selects the repository and bounded declarative configuration; document content does not grant executable configuration, plugin or shell authority.
+The operator selects the repository, declarative configuration and resource budgets; document content does not grant executable configuration, plugin or shell authority.
 Consumer JavaScript, inline lint-disable comments and candidate workflow changes cannot substitute for trusted checking policy.
 See the [consumer contract](docs/consumer-guide.md) and [CI trust decision](docs/ci-trust.md).
 
 - Checking and link validation must not acquire tools, make network requests or modify documents.
   Local paths must remain contained within the selected root under the documented symlink, junction and hard-link restrictions.
-- Native execution uses the owned configuration and verified executable identity, with bounded input, output, diagnostics, time and worker resources.
+- Native execution uses the owned configuration and verified executable identity, with consumer-selected input, output, diagnostic, time and worker resource ceilings.
+  Consumers may raise or bypass package ceilings and own capacity consequences; explicit choices do not bypass quality, path or replacement checks.
   Untrusted text must not become executable arguments or process configuration.
 - Formatting must preserve literal content, validate convergence and preservation before replacement, and recheck each original file's identity and bytes before writing.
   Replacement is guarded per file, not a whole-batch transaction; a later failure must report completed and unprocessed paths truthfully.
@@ -59,6 +60,6 @@ See the [consumer contract](docs/consumer-guide.md) and [CI trust decision](docs
 - Candidate-as-data qualification must not execute candidate scripts or inherit registry, repository-write or OIDC credentials into checking.
   Package acquisition, native builds and publication are separate explicit operations.
 
-Path escape, unintended writes, source-triggered execution, literal corruption, resource-bound bypass and compromised package/evidence admission are reportable security concerns when reachable.
+Path escape, unintended writes, source-triggered execution, literal corruption, bypass of a consumer-selected finite resource ceiling and compromised package/evidence admission are reportable security concerns when reachable.
 Passing documentation checks, hashes or local tests alone does not establish independent security approval or safe concurrent use of the library in a hostile service.
 Community conduct reports use the separate [Code of Conduct](CODE_OF_CONDUCT.md) process.

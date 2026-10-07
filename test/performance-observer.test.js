@@ -52,6 +52,13 @@ test("maintainer observer measures real native descendants and retains genuine f
     }
   }
   assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.ok(!result.stdout.includes("\r"), "Observer status must use LF bytes");
+  const resourceBytes = readFileSync(prefix + ".resources.json");
+  assert.ok(
+    !resourceBytes.includes(13),
+    "Generated resource evidence must use LF",
+  );
+  assert.equal(resourceBytes.at(-1), 10);
   const report = JSON.parse(result.stdout);
   assert.equal(report.exitCode, 1);
   assert.equal(report.activeDescendants, 0);

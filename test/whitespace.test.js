@@ -19,7 +19,7 @@ const validateResult = new Ajv({ strict: true }).compile(resultSchema);
 test("space-based hard breaks are findings and format to explicit preserved breaks", async (t) => {
   for (const [input, expected] of [
     ["Alpha.  \nBeta.\n", "Alpha.\\\nBeta.\n"],
-    ["Alpha.   \r\nBeta.\r\n", "Alpha.\\\r\nBeta.\r\n"],
+    ["Alpha.   \r\nBeta.\r\n", "Alpha.\\\nBeta.\n"],
     ["> Alpha.  \n> Beta.\n", "> Alpha.\\\n> Beta.\n"],
     ["- Alpha.  \n  Beta.\n", "- Alpha.\\\n  Beta.\n"],
   ]) {
@@ -93,7 +93,7 @@ test("all selected non-code trailing whitespace receives exact locations", async
   );
 });
 
-test("literal-sensitive inline code and HTML remain findings without destructive writes", async (t) => {
+test("inline code and HTML payload whitespace is protected while prose is formatted", async (t) => {
   for (const input of [
     "`first \nsecond`\n",
     "<pre>\nfirst  \nsecond\n</pre>\n",
@@ -102,14 +102,21 @@ test("literal-sensitive inline code and HTML remain findings without destructive
     const root = consumer(t, { "a.md": input, "b.md": "Alpha. Beta.\n" });
     for (const mode of ["check", "format"]) {
       const result = await runQuality({ root, mode });
-      assert.equal(result.exitCode, 1, JSON.stringify(result));
+      assert.equal(
+        result.exitCode,
+        mode === "check" ? 1 : 0,
+        JSON.stringify(result),
+      );
       assert.deepEqual(result.errors, []);
       assert.ok(
-        result.diagnostics.some((d) => d.rule === "trailing-whitespace"),
+        !result.diagnostics.some((d) => d.rule === "trailing-whitespace"),
       );
-      assert.deepEqual(result.written, []);
+      assert.deepEqual(result.written, mode === "check" ? [] : ["b.md"]);
       assert.equal(readFileSync(join(root, "a.md"), "utf8"), input);
-      assert.equal(readFileSync(join(root, "b.md"), "utf8"), "Alpha. Beta.\n");
+      assert.equal(
+        readFileSync(join(root, "b.md"), "utf8"),
+        mode === "check" ? "Alpha. Beta.\n" : "Alpha.\nBeta.\n",
+      );
     }
   }
 });
@@ -128,7 +135,14 @@ test("literal code bodies and explicit file exclusions remain supported", async 
     );
     for (const mode of ["check", "format"]) {
       const result = await runQuality({ root, mode });
-      assert.equal(result.exitCode, 0, JSON.stringify(result));
+      const indented = input.startsWith("    ");
+      assert.equal(result.exitCode, indented ? 1 : 0, JSON.stringify(result));
+      if (indented && mode === "format")
+        assert.ok(
+          result.diagnostics.some(
+            (d) => d.rule === "markdown/fenced-code-language",
+          ),
+        );
       assert.equal(readFileSync(join(root, "a.md"), "utf8"), input);
       assert.equal(
         readFileSync(join(root, "upstream.md"), "utf8"),

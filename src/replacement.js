@@ -13,9 +13,9 @@ import { randomUUID } from "node:crypto";
 import { safePath } from "./configuration.js";
 import { fail } from "./contracts.js";
 import { readDocument } from "./documents.js";
-function unchanged(root, item) {
+function unchanged(root, item, budgets) {
   safePath(root, item.path, { file: true });
-  const { stat, bytes } = readDocument(root, item.path);
+  const { stat, bytes } = readDocument(root, item.path, budgets);
   if (
     stat.dev !== item.stat.dev ||
     stat.ino !== item.stat.ino ||
@@ -28,8 +28,9 @@ function unchanged(root, item) {
       "File identity, permissions, or bytes changed before replacement.",
     );
 }
-export function replaceDocument(root, item, output) {
-  unchanged(root, item);
+/** Replace only an unchanged single-link preimage, using the operation's resolved read budget. */
+export function replaceDocument(root, item, output, budgets) {
+  unchanged(root, item, budgets);
   if (
     typeof process.getuid === "function" &&
     item.stat.uid !== BigInt(process.getuid())
@@ -52,7 +53,7 @@ export function replaceDocument(root, item, output) {
     fsyncSync(fd);
     closeSync(fd);
     fd = undefined;
-    unchanged(root, item);
+    unchanged(root, item, budgets);
     renameSync(temp, item.path);
     created = false;
   } finally {

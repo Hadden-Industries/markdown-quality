@@ -6,17 +6,22 @@ import { createDocumentAnalyzer } from "./document-analysis.js";
 import { createDocumentAnalyzerPool } from "./document-analysis-pool.js";
 import { replaceDocument } from "./replacement.js";
 import { createNativeStaging } from "./native-staging.js";
+import { effectivePolicy } from "./preset.js";
+import { createLinter } from "./analysis.js";
+import { join } from "node:path";
+export { compareQualityReports } from "./migration.js";
 import {
   decode,
   fail,
-  limits,
   metadata,
   OperationError,
   diagnosticBudget,
+  diagnosticCollector,
+  exceeds,
 } from "./contracts.js";
 export function createResult(mode = "check", explicit = false) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     package: { name: metadata.name, version: metadata.version },
     preset: "authored-gfm@1",
     tools: {
@@ -28,6 +33,8 @@ export function createResult(mode = "check", explicit = false) {
     operation: ["check", "format", "inspect"].includes(mode) ? mode : "unknown",
     configDigest: null,
     configuration: null,
+    policy: null,
+    strict: false,
     selection: {
       mode: explicit ? "explicit" : "full",
       files: [],
@@ -42,7 +49,9 @@ export function createResult(mode = "check", explicit = false) {
     errors: [],
   };
 }
-/** Run full or explicit read-only checking, inspection, or guarded formatting. */
+/** Run checking, inspection, or guarded formatting. Invocation limits override configuration;
+ * false removes package resource ceilings, and individual null values bypass that ceiling.
+ */
 export async function runQuality(options = {}) {
   const mode = options.mode ?? "check";
   const concurrency =
@@ -64,6 +73,9 @@ export async function runQuality(options = {}) {
     }
   }
   try {
+    if (options.strict !== undefined && typeof options.strict !== "boolean")
+      fail("INVALID_STRICT", "Strict must be a boolean.");
+    result.strict = options.strict ?? false;
     if (!["check", "format", "inspect"].includes(mode))
       fail("INVALID_OPERATION", "Unknown operation.");
     if (!Number.isInteger(concurrency) || concurrency < 1)
@@ -72,6 +84,10 @@ export async function runQuality(options = {}) {
         "Concurrency must be an integer of at least 1.",
       );
     const context = loadConfiguration(options);
+    result.policy = effectivePolicy(context.config);
+    await createLinter(context).calculateConfigForFile(
+      join(context.root, "document.md"),
+    );
     result.configDigest = context.configDigest;
     result.configuration = context.config;
     result.selection = await selectDocuments(context, options.files);
@@ -97,9 +113,11 @@ export async function runQuality(options = {}) {
             concurrency,
           );
     const candidates = [];
+    const budgets = context.config.limits;
+    const collector = diagnosticCollector(budgets, true);
+    result.diagnostics = collector.diagnostics;
     let total = 0,
-      outputTotal = 0,
-      diagnosticBytes = 0;
+      outputTotal = 0;
     let prepared = [],
       preparedBytes = 0;
     let inputs = [],
@@ -112,7 +130,7 @@ export async function runQuality(options = {}) {
       if (group.length > 1 && !stagingAttempted) {
         stagingAttempted = true;
         const started = performance.now();
-        staging = createNativeStaging(context.root);
+        staging = createNativeStaging(context.root, budgets);
         const elapsed = performance.now() - started;
         for (const record of group) record.elapsedMs += elapsed;
       }
@@ -128,10 +146,10 @@ export async function runQuality(options = {}) {
         if (formatted.deferredError)
           fail(formatted.deferredError.code, formatted.deferredError.message);
         const outputBytes = Buffer.byteLength(formatted.output);
-        if (outputBytes > limits.fileBytes)
+        if (exceeds(outputBytes, budgets.fileBytes))
           fail("DOCUMENT_LIMIT", "Formatted document exceeds the size limit.");
         outputTotal += outputBytes;
-        if (outputTotal > limits.totalBytes)
+        if (exceeds(outputTotal, budgets.totalBytes))
           fail(
             "BATCH_LIMIT",
             "Total formatted document bytes exceed the limit.",
@@ -153,19 +171,10 @@ export async function runQuality(options = {}) {
             severity: "error",
             message: "Document requires formatting.",
           });
-        diagnosticBudget(diagnostics);
+        diagnosticBudget(diagnostics, budgets);
         for (const d of diagnostics) {
           const diagnostic = { path: file, ...d };
-          diagnosticBytes += Buffer.byteLength(JSON.stringify(diagnostic)) + 1;
-          if (
-            result.diagnostics.length >= limits.diagnostics ||
-            diagnosticBytes > limits.diagnosticBytes
-          )
-            fail(
-              "DIAGNOSTIC_LIMIT",
-              "Diagnostic count or output bytes exceed the limit.",
-            );
-          result.diagnostics.push(diagnostic);
+          collector.push(diagnostic);
         }
         if (mode === "format")
           candidates.push({ file, item, output: formatted.output });
@@ -180,7 +189,7 @@ export async function runQuality(options = {}) {
       if (group.length > 1 && !stagingAttempted) {
         stagingAttempted = true;
         const started = performance.now();
-        staging = createNativeStaging(context.root);
+        staging = createNativeStaging(context.root, budgets);
         setupMs = performance.now() - started;
       }
       let checks;
@@ -207,7 +216,11 @@ export async function runQuality(options = {}) {
                   precheck: checks?.checks[index],
                 },
                 milliseconds:
-                  30_000 - overheadMs - (checks?.elapsedMs[index] ?? 0),
+                  budgets.analysisMs === null
+                    ? null
+                    : budgets.analysisMs -
+                      overheadMs -
+                      (checks?.elapsedMs[index] ?? 0),
               })),
             )
           : undefined;
@@ -224,7 +237,9 @@ export async function runQuality(options = {}) {
             const started = performance.now();
             formatted = await analyzer.prepare(
               { text: original, file, mode, precheck },
-              30_000 - elapsedMs,
+              budgets.analysisMs === null
+                ? null
+                : budgets.analysisMs - elapsedMs,
             );
             elapsedMs += performance.now() - started;
           }
@@ -249,11 +264,11 @@ export async function runQuality(options = {}) {
     for (const file of result.selection.files) {
       let item, original;
       try {
-        item = readDocument(context.root, file);
+        item = readDocument(context.root, file, budgets);
         if (mode === "format" && item.stat.nlink !== 1n)
           fail("HARD_LINK", "Hard-linked documents cannot be formatted.");
         total += item.bytes.length;
-        if (total > limits.totalBytes)
+        if (exceeds(total, budgets.totalBytes))
           fail("BATCH_LIMIT", "Total document bytes exceed the limit.");
         original = decode(item.bytes);
       } catch (error) {
@@ -281,7 +296,13 @@ export async function runQuality(options = {}) {
             a.column - b.column ||
             a.rule.localeCompare(b.rule, "en"),
     );
-    if (result.diagnostics.length) {
+    if (
+      result.diagnostics.some(
+        (d) =>
+          d.severity === "error" ||
+          (options.strict && d.severity === "warning"),
+      )
+    ) {
       result.outcome = "findings";
       result.exitCode = 1;
       return result;
@@ -291,7 +312,12 @@ export async function runQuality(options = {}) {
         if (candidate.item.bytes.equals(Buffer.from(candidate.output)))
           result.unchanged.push(candidate.file);
         else {
-          replaceDocument(context.root, candidate.item, candidate.output);
+          replaceDocument(
+            context.root,
+            candidate.item,
+            candidate.output,
+            budgets,
+          );
           result.written.push(candidate.file);
         }
         result.unprocessed.shift();
@@ -300,7 +326,7 @@ export async function runQuality(options = {}) {
       result.unchanged = [...result.selection.files];
       result.unprocessed = [];
     }
-    result.outcome = "clean";
+    result.outcome = result.diagnostics.length ? "findings" : "clean";
     result.exitCode = 0;
   } catch (error) {
     result.errors.push({

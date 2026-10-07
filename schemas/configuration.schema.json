@@ -4,45 +4,188 @@
   "additionalProperties": false,
   "required": ["schemaVersion", "preset", "include"],
   "properties": {
-    "schemaVersion": { "const": 1 },
-    "preset": { "const": "authored-gfm@1" },
+    "schemaVersion": {
+      "const": 1
+    },
+    "preset": {
+      "const": "authored-gfm@1"
+    },
     "include": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 100,
-      "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "exclude": {
       "type": "array",
-      "maxItems": 100,
-      "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "ignoreFiles": {
       "type": "array",
-      "maxItems": 10,
       "uniqueItems": true,
-      "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "lint": {
       "type": "object",
-      "maxProperties": 30,
-      "additionalProperties": { "enum": ["off", "warn", "error"] }
+      "additionalProperties": {
+        "enum": ["off", "info", "warn", "error"]
+      }
+    },
+    "syntax": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "frontmatter": {
+          "enum": [false, "yaml", "toml", "json"]
+        }
+      }
     },
     "links": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "localFiles": { "type": "boolean" },
-        "rootRelative": { "enum": ["reject", "root"] }
+        "localFiles": {
+          "type": "boolean"
+        },
+        "rootRelative": {
+          "enum": ["reject", "root"]
+        }
       }
     },
     "layout": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "endOfLine": { "enum": ["lf", "crlf", "preserve"] },
-        "tabWidth": { "type": "integer", "minimum": 1, "maximum": 8 }
+        "endOfLine": {
+          "enum": ["lf", "crlf", "preserve"]
+        },
+        "tabWidth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        }
       }
+    },
+    "limits": {
+      "anyOf": [
+        {
+          "const": false
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "fileBytes": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "totalBytes": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "files": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "entries": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "configBytes": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "nativeMs": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "nativeOutputBytes": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "diagnostics": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "documentDiagnostics": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "diagnosticBytes": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "selectionBytes": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "analysisMs": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "workerHeapMb": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "workerStackMb": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "stagingMs": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "stagingOutputBytes": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "patterns": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "patternLength": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "ignoreFiles": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "lintRules": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      ]
     }
   }
 }

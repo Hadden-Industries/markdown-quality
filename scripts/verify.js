@@ -36,6 +36,14 @@ const packageEvidence = spawnSync("python", ["test/package-archive.py"], {
 });
 if (packageEvidence.error || packageEvidence.status !== 0)
   process.exit(packageEvidence.status ?? 2);
+const textEvidence = spawnSync("python", ["-B", "test/text-output.py"], {
+  cwd: root,
+  stdio: "inherit",
+  timeout: 30000,
+  windowsHide: true,
+});
+if (textEvidence.error || textEvidence.status !== 0)
+  process.exit(textEvidence.status ?? 2);
 for (const folder of ["src", "scripts", "test"])
   for (const path of readdirSync(
     new URL("../" + folder + "/", import.meta.url),

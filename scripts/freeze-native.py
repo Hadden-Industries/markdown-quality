@@ -8,6 +8,7 @@ import hashlib
 import io
 import json
 import pathlib
+import sys
 import tarfile
 import zipfile
 
@@ -105,7 +106,8 @@ def freeze(inputs, output, run_id, workflow_commit, release_url, rights_path=Non
             for item in supplement['components']:
                 for notice in item['notices']:
                     sections.append(f"\n===== {item['name']} {item['version']} / {notice.get('path', 'source notice')} =====\n{notice['text']}")
-            evidence_bytes['SUPPLEMENTAL-NOTICES.txt'] = ('\n'.join(sections) + '\n').encode('utf-8')
+            # Render with LF; rights-evidence retains original text and its byte hash.
+            evidence_bytes['SUPPLEMENTAL-NOTICES.txt'] = ('\n'.join(sections) + '\n').replace('\r\n', '\n').replace('\r', '\n').encode('utf-8')
             expected.update({name: sha(evidence_bytes[name]) for name in ('rights-evidence.json', 'SUPPLEMENTAL-NOTICES.txt')})
         archive_name = 'snapper-windows.zip' if key.startswith('win') else 'snapper-linux.tar.xz'
         stream = io.BytesIO()
@@ -137,6 +139,7 @@ def freeze(inputs, output, run_id, workflow_commit, release_url, rights_path=Non
 
 
 if __name__ == '__main__':
+    sys.stdout.reconfigure(encoding='utf-8', newline='\n')
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--inputs', type=pathlib.Path, required=True)
     parser.add_argument('--output', type=pathlib.Path, required=True)

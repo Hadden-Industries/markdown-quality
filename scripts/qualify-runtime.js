@@ -57,6 +57,20 @@ export function qualifyRuntime(cli, consumer, environment) {
         expected: "```bbcode\n[b]Literal.[/b] Next.  \n   \n```\n",
         status: 0,
       },
+      {
+        name: "defaults.md",
+        source: "Title\r\n=====\r\n\r\n_text_\r\n\r\n7. Seven\r\n7. Eight\r\n",
+        expected: "# Title\n\n*text*\n\n7. Seven\n8. Eight\n",
+        status: 1,
+      },
+      {
+        name: "yaml.md",
+        source:
+          "---\r\ntitle: A\r\nscalar: |\r\n  e\u0301  \r\n\r\n  \\r\\n\r\n---\r\n\r\n# A\r\n",
+        expected:
+          "---\ntitle: A\nscalar: |\n  e\u0301  \n\n  \\r\\n\n---\n\n# A\n",
+        status: 1,
+      },
     ];
     for (const fixture of cases) {
       const path = join(root, fixture.name);
@@ -92,6 +106,11 @@ export function qualifyRuntime(cli, consumer, environment) {
         status: 1,
       },
       { name: "invalid-utf8", source: Buffer.from([255]), status: 2 },
+      {
+        name: "missing-language",
+        source: Buffer.from("```\nvalue\n```\n"),
+        status: 1,
+      },
     ]) {
       const name = fixture.name + ".md";
       const path = join(root, name);

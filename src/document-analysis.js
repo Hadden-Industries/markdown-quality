@@ -1,10 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { Worker } from "node:worker_threads";
-import { OperationError } from "./contracts.js";
+import { OperationError, limits } from "./contracts.js";
 export function createDocumentAnalyzer(context, tool) {
+  const budgets = context.config.limits ?? limits;
   const worker = new Worker(new URL("./document-worker.js", import.meta.url), {
     workerData: { context, tool },
-    resourceLimits: { maxOldGenerationSizeMb: 128, stackSizeMb: 4 },
+    // Omission removes the package request. An explicit negative old-generation
+    // value is clamped by Node to a tiny finite heap, not treated as unlimited.
+    resourceLimits: {
+      ...(budgets.workerHeapMb === null
+        ? {}
+        : { maxOldGenerationSizeMb: budgets.workerHeapMb }),
+      ...(budgets.workerStackMb === null
+        ? {}
+        : { stackSizeMb: budgets.workerStackMb }),
+    },
     env: {},
   });
   let pending,
@@ -27,23 +37,33 @@ export function createDocumentAnalyzer(context, tool) {
   }
   function deadline(milliseconds) {
     clearTimeout(pending.timer);
-    pending.timer = setTimeout(() => {
+    if (milliseconds === null) return;
+    const end = performance.now() + milliseconds;
+    function expire() {
+      const remaining = end - performance.now();
+      if (remaining > 0) {
+        pending.timer = setTimeout(expire, Math.min(remaining, 2_147_483_647));
+        return;
+      }
       settle(
         new OperationError(
           "ANALYSIS_TIMEOUT",
-          "Document analysis exceeded 30 seconds.",
+          "Document analysis exceeded the selected time limit.",
         ),
       );
       void close();
-    }, milliseconds);
+    }
+    pending.timer = setTimeout(expire, Math.min(milliseconds, 2_147_483_647));
   }
   worker.on("message", (value) => {
     if (value.progress) {
       if (!pending) return;
       if (
-        !Number.isFinite(value.remainingMs) ||
-        value.remainingMs <= 0 ||
-        value.remainingMs > 30_000
+        !(budgets.analysisMs === null && value.remainingMs === null) &&
+        (!Number.isFinite(value.remainingMs) ||
+          value.remainingMs <= 0 ||
+          (budgets.analysisMs !== null &&
+            value.remainingMs > budgets.analysisMs))
       ) {
         settle(
           new OperationError("ANALYSIS_FAILURE", "Invalid analysis deadline."),
@@ -74,7 +94,7 @@ export function createDocumentAnalyzer(context, tool) {
       ),
     );
   });
-  function request(data, milliseconds = 30_000) {
+  function request(data, milliseconds = budgets.analysisMs) {
     if (closed || pending)
       return Promise.reject(
         new OperationError(
@@ -92,16 +112,17 @@ export function createDocumentAnalyzer(context, tool) {
     });
   }
   return {
-    prepare(data, milliseconds = 30_000) {
+    prepare(data, milliseconds = budgets.analysisMs) {
       if (
-        !Number.isFinite(milliseconds) ||
-        milliseconds <= 0 ||
-        milliseconds > 30_000
+        !(budgets.analysisMs === null && milliseconds === null) &&
+        (!Number.isFinite(milliseconds) ||
+          milliseconds <= 0 ||
+          (budgets.analysisMs !== null && milliseconds > budgets.analysisMs))
       )
         return Promise.reject(
           new OperationError(
             "ANALYSIS_TIMEOUT",
-            "Document analysis exceeded 30 seconds.",
+            "Document analysis exceeded the selected time limit.",
           ),
         );
       return request({ ...data, action: "prepare" }, milliseconds);

@@ -4,29 +4,34 @@ import markdown from "@eslint/markdown";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfm } from "micromark-extension-gfm";
 import { gfmFromMarkdown } from "mdast-util-gfm";
+import { frontmatter } from "micromark-extension-frontmatter";
+import { frontmatterFromMarkdown } from "mdast-util-frontmatter";
 import { lstatSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { safePath } from "./configuration.js";
-import { fail, limits } from "./contracts.js";
-export const parse = (text) =>
-  fromMarkdown(text, {
-    extensions: [gfm()],
-    mdastExtensions: [gfmFromMarkdown()],
+import { diagnosticBudget, diagnosticCollector } from "./contracts.js";
+import { nativeLintRules } from "./preset.js";
+/** Parse selected front matter as opaque metadata, with original source positions. */
+export function parse(text, syntax = { frontmatter: "yaml" }) {
+  const matters =
+    syntax.frontmatter === false
+      ? []
+      : syntax.frontmatter === "json"
+        ? [{ type: "json", marker: "-", anywhere: false }]
+        : [
+            {
+              type: syntax.frontmatter,
+              marker: syntax.frontmatter === "toml" ? "+" : "-",
+              anywhere: false,
+            },
+          ];
+  return fromMarkdown(text, {
+    extensions: [gfm({ singleTilde: true }), frontmatter(matters)],
+    mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown(matters)],
   });
+}
 export function createLinter(context) {
-  const defaults = {
-    ...markdown.configs.recommended[0].rules,
-    "markdown/table-column-count": "error",
-    "markdown/no-missing-label-refs": [
-      "error",
-      { allowLabels: ["!NOTE", "!TIP", "!IMPORTANT", "!WARNING", "!CAUTION"] },
-    ],
-  };
-  const rules = { ...defaults };
-  for (const [rule, severity] of Object.entries(context.config.lint))
-    rules[rule] = Array.isArray(defaults[rule])
-      ? [severity, ...defaults[rule].slice(1)]
-      : severity;
+  const rules = nativeLintRules(context.config);
   return new ESLint({
     cwd: context.root,
     overrideConfigFile: true,
@@ -36,20 +41,18 @@ export function createLinter(context) {
         files: ["**/*.md"],
         plugins: { markdown },
         language: "markdown/gfm",
+        languageOptions: {
+          frontmatter: context.config.syntax?.frontmatter ?? "yaml",
+        },
         linterOptions: { noInlineConfig: true },
         rules,
       },
     ],
   });
 }
-export async function lintDocument(linter, text, file) {
+export async function lintDocument(linter, text, file, config) {
   const [result] = await linter.lintText(text, { filePath: file });
-  if (result.messages.length > limits.documentDiagnostics)
-    fail(
-      "DIAGNOSTIC_LIMIT",
-      "Diagnostic count or output bytes exceed the limit.",
-    );
-  return result.messages.map((d) => ({
+  const diagnostics = result.messages.map((d) => ({
     source: "eslint",
     rule: d.ruleId ?? "parse",
     line: d.line ?? 1,
@@ -58,12 +61,19 @@ export async function lintDocument(linter, text, file) {
       ? (markdown.rules[d.ruleId.slice(9)]?.meta.docs.description ??
         "Markdown rule violation.")
       : "Markdown parsing failed.",
-    severity: d.severity === 2 ? "error" : "warning",
+    severity:
+      config?.lint[d.ruleId] === "info"
+        ? "info"
+        : d.severity === 2
+          ? "error"
+          : "warning",
   }));
+  diagnosticBudget(diagnostics, config?.limits);
+  return diagnostics;
 }
 export function checkLinks(context, text, file, memo) {
   if (!context.config.links.localFiles) return [];
-  const diagnostics = [];
+  const collector = diagnosticCollector(context.config.limits);
   function walk(node) {
     if (["link", "image", "definition"].includes(node.type)) {
       const target = node.url;
@@ -95,12 +105,7 @@ export function checkLinks(context, text, file, memo) {
           if (!stat.isFile() && !stat.isDirectory())
             throw new Error("Target is not a file or directory.");
         } catch (error) {
-          if (diagnostics.length >= limits.documentDiagnostics)
-            fail(
-              "DIAGNOSTIC_LIMIT",
-              "Diagnostic count or output bytes exceed the limit.",
-            );
-          diagnostics.push({
+          collector.push({
             source: "links",
             rule: "local-target",
             line: node.position.start.line,
@@ -115,5 +120,5 @@ export function checkLinks(context, text, file, memo) {
     for (const child of node.children ?? []) walk(child);
   }
   walk(memo ? memo.parse(text) : parse(text));
-  return diagnostics;
+  return collector.diagnostics;
 }

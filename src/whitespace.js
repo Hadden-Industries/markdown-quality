@@ -1,35 +1,33 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Authored Markdown whitespace policy; literal code bodies are the only exemption.
+// Authored Markdown whitespace policy; parsed literal payloads are exempt.
 import { parse } from "./analysis.js";
-import { codeBodyRows } from "./literal-layout.js";
-import { fail, limits } from "./contracts.js";
+import { protectedLiteralRows } from "./literal-layout.js";
+import { diagnosticCollector } from "./contracts.js";
 
-/** Find every non-code trailing space/tab, or fail at the document diagnostic bound. */
-export function checkTrailingWhitespace(text, memo) {
+/** Find trailing spaces/tabs outside literal payloads, respecting consumer diagnostic budgets. */
+export function checkTrailingWhitespace(text, memo, budgets) {
   if (!/[ \t](?:\r\n|\r|\n|$)/u.test(text)) return [];
   const rows = text.split(/(\r\n|\r|\n)/u);
-  const codeRows = codeBodyRows(text, memo ? memo.parse(text) : parse(text));
-  const diagnostics = [];
+  const codeRows = protectedLiteralRows(
+    text,
+    memo ? memo.parse(text) : parse(text),
+  );
+  const collector = diagnosticCollector(budgets);
   for (let row = 0; row < rows.length; row += 2) {
     if (codeRows.has(row)) continue;
     const trailing = /[ \t]+$/u.exec(rows[row]);
     if (!trailing) continue;
-    if (diagnostics.length >= limits.documentDiagnostics)
-      fail(
-        "DIAGNOSTIC_LIMIT",
-        "Diagnostic count or output bytes exceed the limit.",
-      );
-    diagnostics.push({
+    collector.push({
       source: "formatter",
       rule: "trailing-whitespace",
       line: row / 2 + 1,
       column: trailing.index + 1,
       severity: "error",
       message:
-        "Trailing spaces and tabs are forbidden outside code-block contents; literal-sensitive fixes require manual editing.",
+        "Trailing spaces and tabs are forbidden outside literal payloads; literal-sensitive fixes require manual editing.",
     });
   }
-  return diagnostics;
+  return collector.diagnostics;
 }
 
 /** Propose trimming with parsed hard breaks made explicit; caller must verify semantics. */
@@ -38,7 +36,7 @@ export function normalizeTrailingWhitespace(text, memo) {
   if (!/[ \t](?:\r\n|\r|\n|$)/u.test(text)) return text;
   const tree = memo ? memo.parse(text) : parse(text);
   const rows = text.split(/(\r\n|\r|\n)/u);
-  const codeRows = codeBodyRows(text, tree);
+  const codeRows = protectedLiteralRows(text, tree);
   const hardBreakRows = new Set();
   function visit(node) {
     // Only the parser can distinguish an actual hard break from spaces at a

@@ -4,6 +4,7 @@ import { prepareFormattedDocument } from "./formatting.js";
 import { createLinter, lintDocument, checkLinks } from "./analysis.js";
 import { diagnosticBudget, OperationError } from "./contracts.js";
 import { checkTrailingWhitespace } from "./whitespace.js";
+import { checkAdvisories } from "./advisory-diagnostics.js";
 import { createDocumentMemo } from "./document-memo.js";
 import { checkProseGroup } from "./prose-diagnostics.js";
 import {
@@ -26,13 +27,18 @@ function reported(error) {
 function budgetObserver(elapsed) {
   return {
     start(indices) {
-      const remainingMs = Math.min(
-        ...indices.map((index) => 30_000 - elapsed[index]),
-      );
-      if (remainingMs <= 0)
+      const remainingMs =
+        context.config.limits.analysisMs === null
+          ? null
+          : Math.min(
+              ...indices.map(
+                (index) => context.config.limits.analysisMs - elapsed[index],
+              ),
+            );
+      if (remainingMs !== null && remainingMs <= 0)
         throw new OperationError(
           "ANALYSIS_TIMEOUT",
-          "Document analysis exceeded 30 seconds.",
+          "Document analysis exceeded the selected time limit.",
         );
       parentPort.postMessage({ progress: true, remainingMs });
     },
@@ -54,7 +60,9 @@ parentPort.on(
         let nativeMs = 0;
         const eligible = documents
           .map((text, index) => ({ text, index }))
-          .filter(({ text }) => nativeFileCheckEligible(text, staging));
+          .filter(({ text }) =>
+            nativeFileCheckEligible(text, staging, context.config.limits),
+          );
         const reports = runNativeChecks(
           tool,
           eligible.map(({ text }) => text),
@@ -70,6 +78,7 @@ parentPort.on(
               );
             },
           },
+          context.config.limits,
         );
         const workerMs = performance.now() - started;
         observer.finish(
@@ -113,11 +122,13 @@ parentPort.on(
               ? document.precheck.report
               : undefined,
           ),
+          context.config.syntax,
+          context.config.limits,
         );
         parentPort.postMessage({ diagnostics });
         return;
       }
-      memo = createDocumentMemo();
+      memo = createDocumentMemo(context.config.syntax);
       const formatted = await prepareFormattedDocument(
         text,
         context,
@@ -126,14 +137,22 @@ parentPort.on(
         precheck,
       );
       const proposed = mode === "format" ? formatted.output : text;
+      const canonical = mode === "format" || formatted.output === text;
       try {
-        const whitespace = checkTrailingWhitespace(proposed, memo);
+        const whitespace = checkTrailingWhitespace(
+          proposed,
+          memo,
+          context.config.limits,
+        );
         const diagnostics = [
           ...whitespace,
-          ...(await lintDocument(linter, proposed, file)),
+          ...(canonical
+            ? await lintDocument(linter, proposed, file, context.config)
+            : []),
           ...checkLinks(context, proposed, file, memo),
+          ...checkAdvisories(proposed, context.config, memo),
         ];
-        diagnosticBudget(diagnostics);
+        diagnosticBudget(diagnostics, context.config.limits);
         parentPort.postMessage({
           output: formatted.output,
           diagnostics,

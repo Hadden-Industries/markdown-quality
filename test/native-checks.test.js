@@ -151,6 +151,8 @@ test("native protocol and process faults fail once, attribute no guessed results
       ['NATIVE_REPORT',rewrite(reports=>reports.push(reports[0]))],
       ['NATIVE_REPORT',rewrite(reports=>reports[0].file+='-unknown')],
       ['NATIVE_REPORT',rewrite(reports=>reports[0].original_lines++)],
+      ['NATIVE_REPORT',rewrite(reports=>reports[0].formatted_lines=-1)],
+      ['NATIVE_REPORT',rewrite(reports=>reports[0].formatted_lines=Number.MAX_SAFE_INTEGER+1)],
       ['NATIVE_REPORT',rewrite(reports=>reports[0].diagnostics[0].kind='unknown')],
       ['NATIVE_REPORT',rewrite(reports=>reports[0].diagnostics[0].line=0)],
       ['NATIVE_REPORT',rewrite(reports=>reports[0].diagnostics.push(reports[0].diagnostics[0]))],
@@ -192,7 +194,7 @@ test("native protocol and process faults fail once, attribute no guessed results
       },
     ),
   );
-  assert.equal(observed.faults, 14);
+  assert.equal(observed.faults, 16);
 });
 
 test("a reused stable native report cannot suppress independent prose findings", () => {

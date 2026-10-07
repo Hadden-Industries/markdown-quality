@@ -57,6 +57,8 @@ No consumer code, configuration JavaScript, lifecycle scripts or private pilot o
 Those public corpora differ from the separately frozen pilot proposals in nine/two metadata paths and one selected OwlAPI Markdown file; the Windows paired evidence above remains a separate workload.
 
 The maintainer observer records six full runs per corpus/platform, every raw result, source revision and physical tracked-file manifest, before/after corpus identity, descendant quiescence, CPU and platform-specific memory measurements.
+Authored resource reports, qualification summaries and driver JSON status explicitly use UTF-8 with LF on every platform.
+Raw child stdout and stderr retain the actual captured bytes; result identities hash those retained bytes.
 Each result must match the independently frozen current-policy baseline oracle, allowing only the package version to differ.
 It enforces the existing accepted timing and memory budgets and retains observations on failure without automatic retries.
 Windows uses Job Object peak committed bytes; Linux samples summed process-group RSS every 10 ms, which may miss brief peaks and count shared pages more than once.
