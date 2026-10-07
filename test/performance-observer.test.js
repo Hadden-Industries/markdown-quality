@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawn, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import { consumer } from "./helpers.js";
@@ -20,6 +20,12 @@ test("maintainer observer measures real native descendants and retains genuine f
   const root = consumer(t, {
     "a.md": ("x".repeat(121) + "\n\n").repeat(1001).trimEnd() + "\n",
     "b.md": "#   Heading\n\nBeta.\n",
+  });
+  // Frozen hosted corpora are Git checkouts. Inventory still needs host Git
+  // when the observer removes PATH before launching the installed analyzer.
+  execFileSync("git", ["-C", root, "init"], { windowsHide: true });
+  execFileSync("git", ["-C", root, "add", "--", "a.md", "b.md"], {
+    windowsHide: true,
   });
   const output = mkdtempSync(join(tmpdir(), "markdown-quality-observer-test-"));
   t.after(() => rmSync(output, { recursive: true, force: true }));
