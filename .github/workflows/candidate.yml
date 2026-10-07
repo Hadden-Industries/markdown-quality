@@ -2,10 +2,21 @@ name: Transported candidate qualification
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      trusted-sha:
+        description: Full commit SHA of the reviewed archive/profile fixture
+        type: string
+        required: true
+      candidate-sha:
+        description: Full commit SHA of the candidate data fixture
+        type: string
+        required: true
 permissions:
   contents: read
 jobs:
   pack:
+    if: github.event_name == 'push'
     runs-on: windows-latest
     timeout-minutes: 15
     outputs:
@@ -115,3 +126,13 @@ jobs:
           path: performance-observations/
           if-no-files-found: error
           retention-days: 30
+  shared:
+    if: github.event_name == 'workflow_dispatch'
+    # The local reference binds the reusable workflow to this exact caller commit.
+    # Fixture commits carry reviewed archives/profile; candidate bytes remain data.
+    uses: ./.github/workflows/markdown-quality.yml
+    with:
+      trusted-repository: Hadden-Industries/markdown-quality
+      trusted-sha: ${{ inputs.trusted-sha }}
+      candidate-repository: Hadden-Industries/markdown-quality
+      candidate-sha: ${{ inputs.candidate-sha }}
