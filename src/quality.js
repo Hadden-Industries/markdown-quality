@@ -3,6 +3,7 @@ import { loadConfiguration } from "./configuration.js";
 import { selectDocuments, readDocument } from "./documents.js";
 import { resolveTool, manifest } from "./native-tool.js";
 import { createDocumentAnalyzer } from "./document-analysis.js";
+import { createDocumentAnalyzerPool } from "./document-analysis-pool.js";
 import { replaceDocument } from "./replacement.js";
 import { createNativeStaging } from "./native-staging.js";
 import {
@@ -44,6 +45,8 @@ export function createResult(mode = "check", explicit = false) {
 /** Run full or explicit read-only checking, inspection, or guarded formatting. */
 export async function runQuality(options = {}) {
   const mode = options.mode ?? "check";
+  const concurrency =
+    options.concurrency === undefined ? 1 : options.concurrency;
   const result = createResult(mode, options.files !== undefined);
   let analyzer,
     staging,
@@ -63,6 +66,11 @@ export async function runQuality(options = {}) {
   try {
     if (!["check", "format", "inspect"].includes(mode))
       fail("INVALID_OPERATION", "Unknown operation.");
+    if (!Number.isInteger(concurrency) || concurrency < 1)
+      fail(
+        "INVALID_CONCURRENCY",
+        "Concurrency must be an integer of at least 1.",
+      );
     const context = loadConfiguration(options);
     result.configDigest = context.configDigest;
     result.configuration = context.config;
@@ -81,7 +89,13 @@ export async function runQuality(options = {}) {
       result.exitCode = 0;
       return result;
     }
-    analyzer = createDocumentAnalyzer(context, tool);
+    analyzer =
+      concurrency === 1
+        ? createDocumentAnalyzer(context, tool)
+        : createDocumentAnalyzerPool(
+            () => createDocumentAnalyzer(context, tool),
+            concurrency,
+          );
     const candidates = [];
     let total = 0,
       outputTotal = 0,
@@ -182,17 +196,38 @@ export async function runQuality(options = {}) {
           performance.now() - started - checks.workerMs,
         );
       }
+      const parallel =
+        concurrency > 1
+          ? await analyzer.prepareGroup(
+              group.map(({ original, file }, index) => ({
+                data: {
+                  text: original,
+                  file,
+                  mode,
+                  precheck: checks?.checks[index],
+                },
+                milliseconds:
+                  30_000 - overheadMs - (checks?.elapsedMs[index] ?? 0),
+              })),
+            )
+          : undefined;
       for (const [index, { file, item, original }] of group.entries()) {
         const precheck = checks?.checks[index];
         let elapsedMs = overheadMs + (checks?.elapsedMs[index] ?? 0);
         let formatted;
         try {
-          const started = performance.now();
-          formatted = await analyzer.prepare(
-            { text: original, file, mode, precheck },
-            30_000 - elapsedMs,
-          );
-          elapsedMs += performance.now() - started;
+          if (parallel) {
+            if (parallel[index].error) throw parallel[index].error;
+            formatted = parallel[index].formatted;
+            elapsedMs += parallel[index].elapsedMs;
+          } else {
+            const started = performance.now();
+            formatted = await analyzer.prepare(
+              { text: original, file, mode, precheck },
+              30_000 - elapsedMs,
+            );
+            elapsedMs += performance.now() - started;
+          }
         } catch (error) {
           await flushPrepared();
           throw error;

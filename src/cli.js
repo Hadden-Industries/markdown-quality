@@ -6,7 +6,7 @@ import { terminalText } from "./contracts.js";
 const args = process.argv.slice(2);
 if (args.length === 0 || ["--help", "-h"].includes(args[0])) {
   process.stdout.write(
-    "Usage: markdown-quality <check|format|inspect> [--root PATH] [--config PATH] [--json] [--files-json JSON] [-- literal.md ...]\nFull selection is the default. Comparison options are deferred. Exit: 0 clean, 1 findings, 2 operation failure.\n",
+    "Usage: markdown-quality <check|format|inspect> [--root PATH] [--config PATH] [--concurrency N] [--json] [--files-json JSON] [-- literal.md ...]\nFull selection is the default. Concurrency defaults to 1; use an integer of at least 1. Comparison options are deferred. Exit: 0 clean, 1 findings, 2 operation failure.\n",
   );
 } else {
   const terminator = args.indexOf("--");
@@ -21,6 +21,7 @@ if (args.length === 0 || ["--help", "-h"].includes(args[0])) {
       options: {
         root: { type: "string" },
         config: { type: "string" },
+        concurrency: { type: "string" },
         json: { type: "boolean" },
         "files-json": { type: "string" },
       },
@@ -43,6 +44,10 @@ if (args.length === 0 || ["--help", "-h"].includes(args[0])) {
       mode: args[0],
       root: values.root,
       config: values.config,
+      concurrency:
+        values.concurrency === undefined
+          ? undefined
+          : Number(values.concurrency),
       files,
     });
     if (json) process.stdout.write(JSON.stringify(result) + "\n");

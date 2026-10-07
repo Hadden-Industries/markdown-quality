@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "preset": "authored-gfm@1",
   "include": ["*.md", "docs/**/*.md", ".github/**/*.md"],
-  "exclude": ["docs/reviews/**"],
+  "exclude": ["docs/research/**", "docs/reviews/**"],
   "ignoreFiles": [".gitignore"],
   "lint": {},
   "links": {

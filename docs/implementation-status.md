@@ -28,6 +28,11 @@ The later consumer scopes supersede the original migration table's proposed excl
 
 ### Completed source work held from publication
 
+The owner-authorized `concurrency` follow-up adds CLI/library opt-in document preparation concurrency, default `1`, without an upper numeric bound or performance-gain qualification.
+Its [accepted follow-up](plans/performance-implementation-plan.md#owner-accepted-opt-in-concurrency-follow-up) retains ordered validation, cleanup and guarded serial writes; the [consumer guide](consumer-guide.md#opt-in-concurrency-in-current-source) explains the unreleased interface.
+This source addition does not change immutable `1.0.3`, its fixed serial behavior or the publication hold.
+Consumers own resource/performance choices; the original serial qualification budgets do not certify parallel counts.
+
 Signed source `7994fdb08efa4fc391f6e035c9fff17820635b58` qualifies the Node 22/24/26 matrix against one frozen candidate tuple on Windows and Linux.
 Source engines are `^22.23.3 || ^24.21.0 || >=26.10.0`; Node 26.10.0 is the qualified Current floor, not a claim about the first LTS version.
 [Package qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37539180714), [transported qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37539180707) and [CodeQL](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37539179834) passed for that source.

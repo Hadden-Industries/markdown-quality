@@ -19,6 +19,26 @@ const validate = new Ajv({ strict: true }).compile(
   ),
 );
 const cli = fileURLToPath(new URL("../src/cli.js", import.meta.url));
+test("CLI concurrency reaches real analysis and rejects counts below one before writes", (t) => {
+  const root = consumer(t, { "a.md": "Alpha.\n", "b.md": "Beta.\n" });
+  const result = spawnSync(
+    process.execPath,
+    [cli, "check", "--root", root, "--concurrency", "2", "--json"],
+    { encoding: "utf8", timeout: 30_000 },
+  );
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout).unchanged, ["a.md", "b.md"]);
+  const invalid = spawnSync(
+    process.execPath,
+    [cli, "format", "--root", root, "--concurrency", "0", "--json"],
+    { encoding: "utf8", timeout: 30_000 },
+  );
+  assert.equal(invalid.status, 2, invalid.stdout + invalid.stderr);
+  const rejected = JSON.parse(invalid.stdout);
+  assert.ok(validate(rejected), JSON.stringify(validate.errors));
+  assert.equal(rejected.errors[0].code, "INVALID_CONCURRENCY");
+  assert.deepEqual(rejected.written, []);
+});
 test("CLI literal and JSON selections preserve boundaries and schema on every exit", (t) => {
   const root = consumer(t, {
     "space [é].md": "Alpha.\n",

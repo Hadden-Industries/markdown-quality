@@ -6,6 +6,56 @@ import { join } from "node:path";
 import { runQuality } from "../src/quality.js";
 import { consumer } from "./helpers.js";
 import { limits } from "../src/contracts.js";
+test("opt-in concurrency preserves real native findings, exact formatted bytes and convergence", async (t) => {
+  const files = {
+    "a.md": "# Heading\n\nAlpha. Beta.\n",
+    "b.md": "> 1. First.\n>    Continuation.\n> 2. Second.\n",
+    "c.md": "```diff\n first  \n \n```\n",
+    "d.md": "[Local](a.md)\n",
+  };
+  const serialRoot = consumer(t, files),
+    parallelRoot = consumer(t, files);
+  const serial = await runQuality({ root: serialRoot });
+  const parallel = await runQuality({ root: parallelRoot, concurrency: 2 });
+  assert.deepEqual(parallel, serial);
+  for (const [file, bytes] of Object.entries(files))
+    assert.equal(readFileSync(join(parallelRoot, file), "utf8"), bytes);
+  const serialFormat = await runQuality({ root: serialRoot, mode: "format" });
+  const parallelFormat = await runQuality({
+    root: parallelRoot,
+    mode: "format",
+    concurrency: 2,
+  });
+  assert.equal(serialFormat.exitCode, 0, JSON.stringify(serialFormat));
+  assert.deepEqual(parallelFormat, serialFormat);
+  for (const file of Object.keys(files))
+    assert.deepEqual(
+      readFileSync(join(parallelRoot, file)),
+      readFileSync(join(serialRoot, file)),
+    );
+  assert.deepEqual(
+    (await runQuality({ root: parallelRoot, mode: "format", concurrency: 2 }))
+      .written,
+    [],
+  );
+});
+
+test("concurrent validation still blocks all writes on a real missing local target", async (t) => {
+  const files = {
+    "a.md": "Alpha. Beta.\n",
+    "b.md": "[Missing](missing.md)\n",
+    "c.md": "Gamma.\n",
+  };
+  const root = consumer(t, files);
+  const result = await runQuality({ root, mode: "format", concurrency: 2 });
+  assert.equal(result.exitCode, 1, JSON.stringify(result));
+  assert.ok(
+    result.diagnostics.some((diagnostic) => diagnostic.path === "b.md"),
+  );
+  assert.deepEqual(result.written, []);
+  for (const [file, bytes] of Object.entries(files))
+    assert.equal(readFileSync(join(root, file), "utf8"), bytes);
+});
 test("real native wrapping preserves inline-code meaning and reaches a fixed point", async (t) => {
   const input =
     "> While `GameplayActivationState != Active`, every provisional or residual Temperature Limit gameplay patch is behaviorally neutral.\n";

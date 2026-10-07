@@ -54,12 +54,34 @@ External schemes are classified without network access.
 Same-document fragments use the native ESLint Markdown rule.
 Cross-document heading fragments and remote availability are outside this version's contract.
 
-The library exports `runQuality({ root, config, mode, files })`.
+The library exports `runQuality({ root, config, mode, files, concurrency })`.
 Omit `files` for full discovery.
 An explicit empty array selects nothing.
 CLI literal filenames follow `--`; `--files-json` accepts the JSON array directly.
 Results identify the package, preset, tools, config digest, selection, diagnostics, written paths, unchanged paths, unprocessed paths, and operational errors.
 Text and JSON share the same result.
+
+## Opt-in concurrency in current source
+
+The `concurrency` option is implemented in development source and is not available in published `1.0.3`.
+Its default is `1`, retaining serial analysis.
+Use a positive integer to request a maximum number of simultaneous document preparations; there is no configured upper bound or automatic CPU/memory tuning.
+The same setting is available as CLI `--concurrency N` and library `runQuality({ concurrency: N })`.
+It is an execution option, not a field in `.markdown-quality.json` or a different Markdown preset.
+For example, against current source:
+
+```sh
+node src/cli.js check --root . --concurrency 2
+node src/cli.js format --root . --concurrency 2
+```
+
+Workers are reused and created only for available work in the existing bounded batches.
+Grouped native prechecks and final independent prose verification remain coordinated; native formatting within concurrent preparations can overlap, and Snapper can also use its own internal threads.
+The count therefore controls JavaScript preparation concurrency rather than the total number of operating-system threads or native processes.
+Diagnostics and failure selection retain document order, all analysis workers stop before private staging is removed, and formatting replacement remains serial after successful validation of the complete batch.
+Consumer-selected concurrency may increase memory use or reduce throughput; the consumer owns performance and capacity choices.
+The serial producer qualification budgets do not certify any selected parallel count.
+Per-document, native, selection and aggregate output limits remain active.
 
 Exit `0` means clean or completed.
 Exit `1` means content findings.
@@ -69,7 +91,8 @@ No excerpts, document bodies, or absolute root paths are emitted by default.
 
 Limits are 2 MiB per document, 32 MiB per batch, 10,000 selected documents, 100,000 enumerated entries, and 256 KiB per configuration or ignore file.
 Native invocations have a 15-second deadline and an 8 MiB output cap.
-Document analysis runs in a 128 MiB worker with a 30-second deadline.
+Each analysis worker has a 128 MiB old-generation JavaScript heap limit and 4 MiB stack limit; document analysis retains its 30-second deadline.
+These heap limits do not bound native processes, external buffers or total process memory.
 Discovered path bytes are capped at 4 MiB.
 Diagnostics are capped at 1,000 records per document, 10,000 records across the batch, and 4 MiB per document and batch.
 Exceeding a limit returns exit `2` before any formatting writes.
@@ -96,7 +119,7 @@ Native checks may group exact document snapshots and complete list-item continua
 Groups have at most 32 independent files and 4 MiB of input, with the existing native deadline and output cap.
 The package supplies its own immutable native configuration and EditorConfig boundary; consumer settings do not control these checks.
 If private staging cannot be established, checking uses the original standard-input path.
-Payloads are removed after each native invocation, and the owned directory is removed after the analysis worker stops, before any formatting replacement.
+Payloads are removed after each native invocation, and the owned directory is removed after all analysis workers stop, before any formatting replacement.
 Changed staging identities or incomplete cleanup cause an operational failure and block formatting writes.
 Abrupt process or host termination can leave private temporary files for operating-system or owner cleanup; deletion does not promise secure erasure.
 No persistent syntax, formatting or filesystem-validity cache is created.

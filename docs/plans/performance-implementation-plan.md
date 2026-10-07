@@ -35,6 +35,20 @@ Their earlier baseline, staged-file preservation and paused-delivery statements 
 
 ## 1. Purpose, baseline, and authority
 
+### Owner-accepted opt-in concurrency follow-up
+
+On 2026-10-07, the owner requested implementation and ordinary main delivery of `concurrency`, retaining serial execution as default and excluding performance-gain testing or worker-count range qualification.
+This supersedes the earlier research-only restriction in PERF-DEC-007 and PERF-SLICE-007 for this specific unreleased follow-up; it does not retroactively change the serial `1.0.3` release or its measurements.
+CLI `--concurrency N` and library `runQuality({ concurrency: N })` accept positive integer counts without a maximum or automatic resource selection.
+There is no new profile, declarative policy field, dependency, runtime, native rebuild or package publication.
+Existing bounded work groups determine how many requested workers have available work; the parameter is not capped by a numeric admission range.
+Reuse persistent preparation workers, retain ordered outcomes and the batch coordinator, stop queued work after the earliest known preparation failure, and terminate every worker before staging cleanup or guarded serial writes.
+Correctness and failure/cleanup verification remain required, with real serial/parallel findings and byte/convergence parity plus injected scheduling/cancellation boundaries.
+Consumers own performance and capacity assessment; no parallel-count timing or memory acceptance is inferred from the original 30-second/512 MiB serial qualification.
+The existing hold on a new release remains in force, so this setting requires a future authorized version before npm consumers can use it.
+
+### Retained original performance purpose
+
 Reduce the work needed for a complete Markdown check while preserving its formatting, prose, GFM, whitespace, local-link, filesystem, and failure contracts.
 Start with measured repeated work and supported native batching.
 This is the durable elaboration of the temporary plan in the 6 October performance investigation, `performance-diagnosis-20261006/findings.md`, retained in the external task-evidence store.
