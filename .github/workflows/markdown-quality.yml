@@ -36,14 +36,20 @@ jobs:
       MQ_TRUSTED_SHA: ${{ inputs.trusted-sha }}
       MQ_CANDIDATE_SHA: ${{ inputs.candidate-sha }}
       MQ_PROFILE: ${{ inputs.profile }}
-      MQ_WORKFLOW_SHA: ${{ job.workflow_sha }}
-      MQ_WORKFLOW_REF: ${{ job.workflow_ref }}
-      MQ_WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
-      MQ_CHECK_RUN_ID: ${{ job.check_run_id }}
     steps:
       - name: Validate exact checkout identities
+        # Job context is available at step scope, not in jobs.<job_id>.env.
+        env:
+          MQ_WORKFLOW_SHA: ${{ job.workflow_sha }}
+          MQ_WORKFLOW_REF: ${{ job.workflow_ref }}
+          MQ_WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
+          MQ_CHECK_RUN_ID: ${{ job.check_run_id }}
         run: |
           if ($env:MQ_TRUSTED_SHA -notmatch '^[a-f0-9]{40}$' -or $env:MQ_CANDIDATE_SHA -notmatch '^[a-f0-9]{40}$' -or $env:MQ_WORKFLOW_SHA -notmatch '^[a-f0-9]{40}$') { throw 'Full immutable checkout and workflow identities are required' }
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "MQ_WORKFLOW_SHA=$env:MQ_WORKFLOW_SHA"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "MQ_WORKFLOW_REF=$env:MQ_WORKFLOW_REF"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "MQ_WORKFLOW_REPOSITORY=$env:MQ_WORKFLOW_REPOSITORY"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "MQ_CHECK_RUN_ID=$env:MQ_CHECK_RUN_ID"
           git config --global core.autocrlf false
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
