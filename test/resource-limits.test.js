@@ -296,14 +296,13 @@ test("configuration can bypass its own byte and entry defaults", async (t) => {
   assert.equal(capped.errors[0]?.code, "CONFIG_LIMIT");
 });
 
-test("configuration entry counts and ignore-file bytes honour individual overrides", async (t) => {
-  for (const field of ["patterns", "ignoreFiles", "lintRules"]) {
+test("configuration entry counts honour individual overrides; ignore files are not policy inputs", async (t) => {
+  for (const field of ["patterns", "lintRules"]) {
     const root = consumer(
       t,
       { "a.md": "Alpha.\n" },
       {
         include: ["*.md", "docs/*.md"],
-        ignoreFiles: [".gitignore", ".prettierignore"],
         lint: { "markdown/no-html": "off", "markdown/no-empty-links": "error" },
         limits: { [field]: 1 },
       },
@@ -326,7 +325,7 @@ test("configuration entry counts and ignore-file bytes honour individual overrid
     "a.md": "Alpha.\n",
     ".gitignore": "#" + "x".repeat(defaults.configBytes),
   });
-  assert.equal((await runQuality({ root })).errors[0]?.code, "IGNORE_LIMIT");
+  assert.equal((await runQuality({ root })).exitCode, 0);
   assert.equal(
     (await runQuality({ root, limits: { configBytes: null } })).exitCode,
     0,

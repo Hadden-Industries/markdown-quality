@@ -1,0 +1,95 @@
+name: Shared trusted Markdown qualification
+on:
+  workflow_call:
+    inputs:
+      trusted-repository:
+        type: string
+        required: true
+      trusted-sha:
+        type: string
+        required: true
+      candidate-repository:
+        type: string
+        required: true
+      candidate-sha:
+        type: string
+        required: true
+      profile:
+        type: string
+        default: .markdown-quality-execution.json
+permissions:
+  contents: read
+jobs:
+  qualify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      MQ_TRUSTED_ROOT: ${{ github.workspace }}/trusted
+      MQ_CANDIDATE_ROOT: ${{ github.workspace }}/candidate
+      MQ_TRUSTED_SHA: ${{ inputs.trusted-sha }}
+      MQ_CANDIDATE_SHA: ${{ inputs.candidate-sha }}
+      MQ_PROFILE: ${{ inputs.profile }}
+    steps:
+      - name: Validate exact checkout identities
+        # Job context is available at step scope, not in jobs.<job_id>.env.
+        env:
+          MQ_WORKFLOW_SHA: ${{ job.workflow_sha }}
+          MQ_WORKFLOW_REF: ${{ job.workflow_ref }}
+          MQ_WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
+          MQ_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: |
+          if ($env:MQ_TRUSTED_SHA -notmatch '^[a-f0-9]{40}$' -or $env:MQ_CANDIDATE_SHA -notmatch '^[a-f0-9]{40}$' -or $env:MQ_WORKFLOW_SHA -notmatch '^[a-f0-9]{40}$') { throw 'Full immutable checkout and workflow identities are required' }
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "MQ_WORKFLOW_SHA=$env:MQ_WORKFLOW_SHA"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "MQ_WORKFLOW_REF=$env:MQ_WORKFLOW_REF"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "MQ_WORKFLOW_REPOSITORY=$env:MQ_WORKFLOW_REPOSITORY"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "MQ_CHECK_RUN_ID=$env:MQ_CHECK_RUN_ID"
+          git config --global core.autocrlf false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: producer
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: ${{ inputs.trusted-repository }}
+          ref: ${{ inputs.trusted-sha }}
+          path: trusted
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24.21.0"
+      - name: Acquire immutable producer bootstrap graph
+        working-directory: producer
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - id: profile
+        name: Read shared trusted runtime/profile declarations
+        run: node producer/scripts/shared-qualification.mjs bootstrap
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ steps.profile.outputs.node }}
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ steps.profile.outputs.python }}
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: ${{ inputs.candidate-repository }}
+          ref: ${{ inputs.candidate-sha }}
+          path: candidate
+          persist-credentials: false
+      - name: Acquire trusted graph and qualify candidate data
+        run: node producer/scripts/shared-qualification.mjs run
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: shared-markdown-${{ matrix.os }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/shared-markdown-evidence/
+          if-no-files-found: error
+          retention-days: 30

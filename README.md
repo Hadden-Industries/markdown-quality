@@ -2,14 +2,16 @@
 
 This package supplies one CLI and library for Markdown layout, sentence lines, GFM linting, and contained local links.
 Consumers declare their authored-document scope in `.markdown-quality.json`.
-Development source replaces `authored-gfm@1` in place with the agreed opinionated defaults and result schema 2.
+Development source uses configuration schema 2 and result schema 3 with the agreed opinionated `authored-gfm@1` defaults.
 Code-block languages remain required.
 Native options and lint settings are explicitly package-owned; upstream recommended configurations do not select policy.
 This is a breaking change for the next major release; published 1.0.3 archives retain their previous behavior.
 The package preserves the existing AGPL-3.0-only license.
 
 Core and platform packages share one exact release version.
-Install a release after its coordinated tuple passes registry and consumer qualification.
+Adopt the latest producer commit after its exact core/native/archive/workflow tuple passes qualification, regardless of release status.
+Keep its full source SHA, archive hashes and frozen lock; the reused package version alone cannot identify development source.
+Public npm release adoption retains its separate coordinated registry qualification.
 Registry publication and promotion to `latest` are separate outcomes.
 
 ```sh
@@ -43,7 +45,8 @@ Report vulnerabilities through the private channel in the [security policy](SECU
 Reference builds use Node 24.21.0 and an existing Python 3.14 interpreter for asset preparation.
 Source and transported-package CI qualify Node 22/24/26 at each declared minimum and latest patch on Windows x64 and Ubuntu 24.04 x64.
 See the [support policy](docs/support-and-release.md) for exact minima and the distinction between development compatibility and published releases.
-Consumers need no Python interpreter.
+Ordinary checks and logical-document operations need no Python interpreter.
+Trusted candidate qualification additionally needs the Python version declared in its accepted execution profile.
 
 ```sh
 npm ci --ignore-scripts
@@ -63,5 +66,9 @@ This repository dogfoods its current source directly: `format:markdown` performs
 `format` combines non-Markdown Prettier formatting with that native Markdown pipeline; `check:full` retains both checks and the independent regression suite.
 It does not install a dependency on itself or use documentation success as the sole correctness oracle.
 
-Changed-document checking and a shared GitHub Action are deferred.
-Required v1.0 checks always inspect the full authored scope.
+Full, explicit and logical-document selection share the root policy, including ancestor exclusions.
+Ignore files have no Markdown policy authority.
+Use `--inventory git` to explain every tracked Markdown path under a full check.
+The public `processDocument` and `executeQuality` APIs support generated content without checkout writes.
+The package ships trusted staging, a Windows/Linux observer, and a reusable workflow; see the [CI trust guide](docs/ci-trust.md).
+Source tests and workflow definitions alone do not establish hosted or consumer adoption acceptance.

@@ -62,6 +62,8 @@ node([
   ".markdown-quality.json",
   ".github/dependabot.yml",
   ".github/ISSUE_TEMPLATE",
+  ".github/workflows/markdown-quality.yml",
+  ".github/workflows/candidate.yml",
 ]);
 node([
   "--test",
@@ -69,4 +71,4 @@ node([
     .filter((p) => p.endsWith(".test.js"))
     .map((p) => "test/" + p),
 ]);
-node(["src/cli.js", "check"]);
+node(["src/cli.js", "check", "--inventory", "git"]);

@@ -9,7 +9,9 @@ npm ci --ignore-scripts
 ```
 
 The installation command selects the existing published `1.0.3` release.
-Development source replaces its `authored-gfm@1` defaults in place; adoption requires a subsequently qualified major release.
+Development source replaces its `authored-gfm@1` defaults in place; adopt the latest commit through an independently qualified source/core/native/archive/workflow tuple, regardless of npm release status.
+Freeze the full source SHA and archive integrities in the consumer graph; package version `1.0.3` alone does not distinguish development bytes.
+The install command above selects the immutable published package and does not acquire these development contracts.
 No `authored-gfm@2` or selectable legacy policy is introduced.
 General pilot availability and stable `latest` designation are separate decisions.
 The owner explicitly authorized 1.0.3 to be published as `latest`, subject to its complete archive, registry/provenance and immutable-release verification.
@@ -23,11 +25,10 @@ Place this bounded JSON policy at the repository root.
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "preset": "authored-gfm@1",
   "include": ["*.md", "docs/**/*.md"],
   "exclude": ["docs/reviews/**", "docs/generated/**"],
-  "ignoreFiles": [".gitignore", ".prettierignore"],
   "lint": {},
   "links": { "localFiles": true, "rootRelative": "reject" },
   "layout": { "endOfLine": "preserve", "tabWidth": 2 }
@@ -36,8 +37,11 @@ Place this bounded JSON policy at the repository root.
 
 Include and exclude entries are relative slash-separated globs supplied to picomatch.
 Explicit exclusions win.
-Prettier owns the configured ignore files' native semantics.
-Missing optional default ignore files are allowed.
+Only `.markdown-quality.json` owns Markdown scope.
+`.gitignore`, `.prettierignore`, EditorConfig and JavaScript configuration cannot exclude Markdown.
+Configuration schema 1 and `ignoreFiles` are rejected; translate intended ignore exclusions into reviewed root policy before adoption.
+Exclusions are tested against a path and every ancestor directory, identically for full, explicit and logical requests.
+For example, `docs/reviews/*` excludes `docs/reviews/nested/README.md` in every request mode.
 Dependency, Git, and tooling directories cannot become document inputs.
 Directory traversal never follows symbolic links or Windows junctions.
 Explicit linked paths fail.
@@ -56,7 +60,7 @@ External schemes are classified without network access.
 Same-document fragments use the native ESLint Markdown rule.
 Cross-document heading fragments and remote availability are outside this version's contract.
 
-The library exports `runQuality({ root, config, mode, files, concurrency })`.
+The library exports `runQuality({ root, config, mode, files, concurrency, inventory })` and `inspectSelection(options)`.
 Omit `files` for full discovery.
 An explicit empty array selects nothing.
 CLI literal filenames follow `--`; `--files-json` accepts the JSON array directly.
@@ -91,7 +95,12 @@ Information never affects exit or write admission.
 The library accepts `strict: true` with the same behavior.
 Exit `2` means configuration, tool, input, or operation failure.
 Machine output follows the shipped result schema even for CLI input failures.
-Development source emits result `schemaVersion: 2`; configuration remains `schemaVersion: 1`.
+Development source emits result `schemaVersion: 3`; configuration uses `schemaVersion: 2`.
+Tracked inventory decisions and exclusion provenance identify the matching policy pattern and path/ancestor.
+Use `inventory: "git"` or CLI `--inventory git` for full Git reconciliation, or supply a bounded canonical path array from independently bound metadata.
+Selected tracked files must be regular present inputs; selected operational metadata paths fail instead of disappearing.
+`.sdlc` has no implicit exclusion.
+Installed Prettier, ESLint and Markdown plugin versions come from their actual runtime metadata.
 `outcome: findings` can coexist with exit `0`; machine callers use `exitCode` and retain diagnostics.
 Inspection includes effective configuration, native formatter/lint options and sentence-layout policy, including empty selections.
 No excerpts, document bodies, or absolute root paths are emitted by default.
@@ -115,6 +124,7 @@ Invalid levels fail before analysis or writes.
 This option changes presentation only: rules still run, diagnostic budgets still count every finding, and exit codes and guarded formatting decisions are unchanged.
 With `--json`, the complete structured result is retained at every valid display level.
 The library returns the same complete result; it does not log findings or accept a display-level option.
+The [centralized contracts guide](centralized-contracts.md) describes logical-document transport, supported validation, finite execution profiles and trusted qualification.
 
 Rule disabling is an explicit checking choice through existing `lint` settings.
 To disable the three default information advisories:
@@ -134,7 +144,7 @@ No global rule-execution suppression option is introduced.
 
 ## Operational resource budgets
 
-Default limits are 2 MiB per document, 32 MiB per batch, 10,000 selected documents, 100,000 enumerated entries, and 256 KiB per configuration or ignore file.
+Default limits are 2 MiB per document, 32 MiB per batch, 10,000 selected documents, 100,000 enumerated entries, and 256 KiB per configuration.
 Native invocations have a 15-second deadline and an 8 MiB output cap.
 Each analysis worker has a 128 MiB old-generation JavaScript heap limit and 4 MiB stack limit; document analysis retains its 30-second deadline.
 These heap limits do not bound native processes, external buffers or total process memory.
@@ -146,7 +156,8 @@ Lint messages describe the violated rule without quoting document content.
 These are conservative operational limits; benchmark and platform acceptance remains part of candidate qualification.
 
 Every package operational resource ceiling is consumer-controlled.
-Set `"limits": false` in configuration, pass `limits: false` to `runQuality`, or use `--no-limits` to bypass all ceilings.
+Set `"limits": false` in configuration, pass `limits: false` to `runQuality`, or use `--no-limits` to bypass analyzer ceilings.
+External transport still has finite framing, process and report bounds; trusted qualification requires finite profile limits.
 Set an individual field to `null` to bypass only that ceiling, or to a positive safe integer to raise or lower it without a package policy maximum.
 For example, `"limits": { "documentDiagnostics": null, "diagnostics": 50000 }` permits unlimited findings per document while retaining a batch count ceiling.
 Invocation fields override configuration fields; omitted fields retain the configuration choice or explicit package default.
@@ -169,10 +180,9 @@ Supported fields and default values are:
 | `files`               |    10000 | Explicit selection and selected documents              |
 | `entries`             |   100000 | Enumerated directory entries                           |
 | `selectionBytes`      |  4194304 | Discovered path bytes                                  |
-| `configBytes`         |   262144 | Configuration and each ignore file                     |
+| `configBytes`         |   262144 | Configuration                                          |
 | `patterns`            |      100 | Each include/exclude array                             |
-| `patternLength`       |      512 | Characters per glob or ignore filename                 |
-| `ignoreFiles`         |       10 | Configured ignore files                                |
+| `patternLength`       |      512 | Characters per glob                                    |
 | `lintRules`           |       60 | Configured rule overrides                              |
 | `documentDiagnostics` |     1000 | Findings per document                                  |
 | `diagnostics`         |    10000 | Findings per operation                                 |
@@ -241,7 +251,8 @@ Use a clean baseline or retained preimages when original uncommitted bytes must 
 Capture incumbent package/lock/configuration/workflow identities, the authored selection and exact document preimages before upgrading.
 Keep consumer scopes and exclusions, especially generated, vendor, signed, verbatim or byte-sensitive documents; upgrading the producer does not expand them.
 On the same original files, capture read-only incumbent and candidate JSON reports with their shipped schemas and path/byte-count/SHA-256 manifests.
-The library's `compareQualityReports` and maintainer `scripts/compare-quality-reports.js` validate those supplied reports and require identical source identities and selections.
+The library's `compareQualityReports` and maintainer `scripts/compare-quality-reports.js` validate supplied report schemas 1/2/3 and require identical source identities, selection mode and selected paths.
+Comparison schema 2 retains each complete selection digest, so changed provenance remains visible across report schema transitions.
 The harness never acquires or executes a package from report data and never changes documents.
 It identifies added/resolved/retained findings, reworded messages, explicit would-format paths and both effective report/configuration/policy identities.
 Incumbent reports that predate policy inspection retain a `null` policy identity; the harness does not reconstruct dependency defaults.

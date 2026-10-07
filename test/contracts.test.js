@@ -28,7 +28,7 @@ test("explicit empty selection is clean, bounded and schema-valid", async (t) =>
 test("configuration rejects executable extensions, unknown versions and rules", (t) => {
   for (const extra of [
     { plugins: ["evil"] },
-    { schemaVersion: 2 },
+    { schemaVersion: 1 },
     { lint: { "markdown/unknown": "off" } },
     { include: ["../**"] },
   ]) {

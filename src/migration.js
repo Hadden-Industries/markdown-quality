@@ -28,9 +28,9 @@ export function compareQualityReports({
 }) {
   const ajv = new Ajv({ strict: true, allErrors: true });
   function identity(report, schema, inputs) {
-    if (!ajv.compile(schema)(report))
+    if (!new Ajv({ strict: true, allErrors: true }).compile(schema)(report))
       fail("INVALID_REPORT", "Report does not match its supplied schema.");
-    if (![1, 2].includes(report.schemaVersion))
+    if (![1, 2, 3].includes(report.schemaVersion))
       fail(
         "INVALID_REPORT",
         "Comparison cannot interpret an unsupported report schema.",
@@ -104,6 +104,7 @@ export function compareQualityReports({
     );
     return {
       reportSchemaVersion: report.schemaVersion,
+      selectionDigest: digest(Buffer.from(JSON.stringify(report.selection))),
       package: report.package,
       tools: report.tools,
       configDigest: report.configDigest,
@@ -118,11 +119,13 @@ export function compareQualityReports({
     after = identity(candidate, candidateSchema, candidateInputs);
   if (
     before.inputDigest !== after.inputDigest ||
-    JSON.stringify(incumbent.selection) !== JSON.stringify(candidate.selection)
+    incumbent.selection.mode !== candidate.selection.mode ||
+    JSON.stringify([...incumbent.selection.files].sort()) !==
+      JSON.stringify([...candidate.selection.files].sort())
   )
     fail(
       "COMPARISON_SCOPE",
-      "Reports must describe identical source identities and selection.",
+      "Reports must describe identical source identities and selected scope.",
     );
   const key = (d) =>
     JSON.stringify([d.path, d.source, d.rule, d.severity, d.line, d.column]);
@@ -175,7 +178,7 @@ export function compareQualityReports({
       ),
     ].sort();
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     incumbent: before,
     candidate: after,
     added,

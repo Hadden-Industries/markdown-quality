@@ -2,10 +2,21 @@ name: Transported candidate qualification
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      trusted-sha:
+        description: Full commit SHA of the reviewed archive/profile fixture
+        type: string
+        required: true
+      candidate-sha:
+        description: Full commit SHA of the candidate data fixture
+        type: string
+        required: true
 permissions:
   contents: read
 jobs:
   pack:
+    if: github.event_name == 'push'
     runs-on: windows-latest
     timeout-minutes: 15
     outputs:
@@ -68,6 +79,21 @@ jobs:
           ref: 073beefb7805130bc0452472d1a9c801471fbaf1
           path: performance-corpora/owlapi
           persist-credentials: false
+      - name: Acquire frozen producer oracle source
+        if: matrix.node == '24.21.0'
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: 763984e94f2122a949d2ad6f9bce5da9791015e8
+          path: performance-incumbent
+          persist-credentials: false
+      - name: Prepare the independently frozen producer oracle
+        if: matrix.node == '24.21.0'
+        working-directory: performance-incumbent
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Prepare frozen native oracle assets
+        if: matrix.node == '24.21.0'
+        working-directory: performance-incumbent
+        run: python scripts/acquire-native.py
       - name: Acquire complete public WebVOWL corpus as data
         if: matrix.node == '24.21.0'
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -86,7 +112,7 @@ jobs:
         run: node scripts/qualify-public-registry.mjs --manifest transported-release/release-manifest.json --archives transported-release candidate-qualification.json
       - name: Qualify transported archives and measure reference-runtime performance
         if: matrix.node == '24.21.0'
-        run: node scripts/qualify-public-registry.mjs --manifest transported-release/release-manifest.json --archives transported-release --performance-corpora performance-corpora --performance-output performance-observations candidate-qualification.json
+        run: node scripts/qualify-public-registry.mjs --manifest transported-release/release-manifest.json --archives transported-release --performance-corpora performance-corpora --performance-output performance-observations --incumbent-cli performance-incumbent/src/cli.js candidate-qualification.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.node == '24.21.0' && format('candidate-{0}', matrix.os) || format('candidate-{0}-{1}', matrix.os, matrix.node) }}
@@ -100,3 +126,13 @@ jobs:
           path: performance-observations/
           if-no-files-found: error
           retention-days: 30
+  shared:
+    if: github.event_name == 'workflow_dispatch'
+    # The local reference binds the reusable workflow to this exact caller commit.
+    # Fixture commits carry reviewed archives/profile; candidate bytes remain data.
+    uses: ./.github/workflows/markdown-quality.yml
+    with:
+      trusted-repository: Hadden-Industries/markdown-quality
+      trusted-sha: ${{ inputs.trusted-sha }}
+      candidate-repository: Hadden-Industries/markdown-quality
+      candidate-sha: ${{ inputs.candidate-sha }}

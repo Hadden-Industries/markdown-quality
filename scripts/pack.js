@@ -63,6 +63,35 @@ export function packRelease(output, qualificationMatrix) {
     mkdirSync(core);
     for (const path of metadata.files)
       cpSync(join(root, path), join(core, path), { recursive: true });
+    // Source adoption binds a commit/artifact tuple even when the version is reused.
+    const identityHead = spawnSync("git", ["rev-parse", "HEAD"], {
+      cwd: root,
+      encoding: "utf8",
+      timeout: 10000,
+      windowsHide: true,
+    });
+    const identityTree = spawnSync("git", ["rev-parse", "HEAD^{tree}"], {
+      cwd: root,
+      encoding: "utf8",
+      timeout: 10000,
+      windowsHide: true,
+    });
+    const identityStatus = spawnSync(
+      "git",
+      ["status", "--porcelain=v1", "--untracked-files=all"],
+      { cwd: root, encoding: "utf8", timeout: 10000, windowsHide: true },
+    );
+    const sourceIdentity = {
+      head: identityHead.status === 0 ? identityHead.stdout.trim() : null,
+      tree: identityTree.status === 0 ? identityTree.stdout.trim() : null,
+      clean:
+        identityStatus.status === 0 ? identityStatus.stdout.length === 0 : null,
+      lockSha256: digest(readFileSync(join(root, "package-lock.json"))),
+    };
+    writeFileSync(
+      join(core, "assets/source-identity.json"),
+      JSON.stringify(sourceIdentity, null, 2) + "\n",
+    );
     const publishable = { ...metadata };
     delete publishable.scripts;
     publishable.optionalDependencies = Object.fromEntries(
@@ -162,17 +191,6 @@ export function packRelease(output, qualificationMatrix) {
     );
     const sbomBytes = JSON.stringify(sbom, null, 2) + "\n";
     writeFileSync(join(output, "source-sbom.cdx.json"), sbomBytes);
-    const head = spawnSync("git", ["rev-parse", "HEAD"], {
-      cwd: root,
-      encoding: "utf8",
-      timeout: 10_000,
-      windowsHide: true,
-    });
-    const status = spawnSync(
-      "git",
-      ["status", "--porcelain=v1", "--untracked-files=all"],
-      { cwd: root, encoding: "utf8", timeout: 10_000, windowsHide: true },
-    );
     const inventory = {
       schemaVersion: 1,
       version: metadata.version,
@@ -181,9 +199,7 @@ export function packRelease(output, qualificationMatrix) {
         : {}),
       sourcePackageDigest: digest(readFileSync(join(root, "package.json"))),
       source: {
-        head: head.status === 0 ? head.stdout.trim() : null,
-        clean: status.status === 0 ? status.stdout.length === 0 : null,
-        lockSha256: digest(readFileSync(join(root, "package-lock.json"))),
+        ...sourceIdentity,
       },
       build: {
         node: process.version,

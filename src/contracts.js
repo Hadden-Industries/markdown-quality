@@ -25,7 +25,6 @@ export const limits = Object.freeze({
   stagingOutputBytes: 65_536,
   patterns: 100,
   patternLength: 512,
-  ignoreFiles: 10,
   lintRules: 60,
 });
 /** Null is an explicit bypass, never a request to restore defaults. */
