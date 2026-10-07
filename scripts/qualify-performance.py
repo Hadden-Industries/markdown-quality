@@ -142,6 +142,13 @@ def observe(node, cli, corpus, output, *configuration):
 
 def observe_owned(node, cli, corpus, output, *configuration):
     output = Path(output)
+    # Resolve reviewed host tooling before stripping PATH from the checker.
+    # Corpus checkouts remain data and cannot supply the executable.
+    git_path = shutil.which("git")
+    assert git_path, "Host Git is required for corpus inventory"
+    host_git = Path(git_path).resolve()
+    assert host_git.is_file() and not host_git.is_relative_to(Path(corpus).resolve()), "Git must be a host executable outside the corpus"
+    assert sys.platform != "win32" or host_git.suffix.lower() == ".exe", "Windows Git must be a native executable"
     environment = {key: value for key, value in os.environ.items()
                    if key.upper() in ("SYSTEMROOT", "WINDIR", "TEMP", "TMP")}
     environment.update(HTTP_PROXY="http://127.0.0.1:9", HTTPS_PROXY="http://127.0.0.1:9",
@@ -152,7 +159,7 @@ def observe_owned(node, cli, corpus, output, *configuration):
     with output.with_suffix(".stdout.json").open("xb") as stdout, output.with_suffix(".stderr.txt").open("xb") as stderr:
         started = time.perf_counter()
         child = subprocess.Popen([node, str(Path(__file__).with_name("performance-check.mjs")),
-                                  cli, corpus, json.dumps(ORACLES["invocationLimits"]), *configuration],
+                                  cli, corpus, json.dumps(ORACLES["invocationLimits"]), str(host_git), *configuration],
                                  cwd=str(Path(cli).parent), env=environment, stdout=stdout, stderr=stderr)
         while child.poll() is None:
             if job is None:
