@@ -3,9 +3,11 @@
 
 Corpora are complete, immutable public Git checkouts, used only as data. Downloads
 and installation precede this command and are excluded from measured operation.
-Each observation gets a fresh driver and process tree; no runtime limits change.
+Each observation gets a fresh driver and process tree. The reviewed corpus
+profile overrides only its diagnostic count; timing/memory gates remain fixed.
 """
 import argparse
+from collections import Counter
 import ctypes
 import hashlib
 import json
@@ -147,7 +149,8 @@ def observe_owned(node, cli, corpus, output):
     peak, seen, samples = 0, set(), 0
     with output.with_suffix(".stdout.json").open("xb") as stdout, output.with_suffix(".stderr.txt").open("xb") as stderr:
         started = time.perf_counter()
-        child = subprocess.Popen([node, cli, "check", "--root", corpus, "--json"],
+        child = subprocess.Popen([node, str(Path(__file__).with_name("performance-check.mjs")),
+                                  cli, corpus, json.dumps(ORACLES["invocationLimits"])],
                                  cwd=str(Path(cli).parent), env=environment, stdout=stdout, stderr=stderr)
         while child.poll() is None:
             if job is None:
@@ -209,22 +212,26 @@ def qualify(node, cli, corpus_parent, output):
             (output / f"{name}-{index}.driver.stdout.txt").write_bytes(stdout)
             (output / f"{name}-{index}.driver.stderr.txt").write_bytes(stderr)
             assert child.returncode == 0, stderr.decode(errors="replace")
-            observations.append(json.loads(stdout))
-        assert manifest(corpus, revision) == before, "Checking changed corpus bytes"
-        assert len({item["resultSha256"] for item in observations}) == 1
-        for index, observation in enumerate(observations, 1):
+            observation = json.loads(stdout)
+            # Reject a policy mismatch before spending five further observations
+            # on the same invalid candidate. Retain the complete actual result.
             assert observation["version"] == version
             result = json.loads((output / f"{name}-{index}.stdout.json").read_bytes())
             result["package"]["version"] = "<candidate>"
             canonical = json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
             assert digest(canonical) == ORACLES["corpora"][name]["resultSha256WithoutVersion"], "Candidate differs from the current-policy baseline oracle"
             assert observation["selected"] == ORACLES["corpora"][name]["selected"]
-            assert observation["diagnostics"] == ORACLES["corpora"][name]["diagnostics"]
+            assert len(observation["diagnostics"]) == ORACLES["corpora"][name]["diagnosticCount"]
+            assert dict(Counter(d["rule"] for d in observation["diagnostics"])) == ORACLES["corpora"][name]["diagnosticsByRule"]
+            observations.append(observation)
+        assert manifest(corpus, revision) == before, "Checking changed corpus bytes"
+        assert len({item["resultSha256"] for item in observations}) == 1
         assert max(item["elapsedMs"] for item in observations) <= 30000
         assert max(item["peakTreeBytes"] for item in observations) <= 536870912
         report["corpora"][name] = {"manifest": before, "observations": observations,
-                                  "baselineSource": ORACLES["baselineSource"],
-                                  "completeBaselineResultParityExceptVersion": True,
+                                  "policySource": ORACLES["policySource"],
+                                  "invocationLimits": ORACLES["invocationLimits"],
+                                  "completePolicyResultParityExceptVersion": True,
                                   "observedP95Ms": max(item["elapsedMs"] for item in observations),
                                   "peakTreeBytes": max(item["peakTreeBytes"] for item in observations)}
     (output / "qualification.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8", newline="\n")

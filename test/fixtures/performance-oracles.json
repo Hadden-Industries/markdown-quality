@@ -1,81 +1,32 @@
 {
-  "baselineSource": "df9f6650011fda4f66c1ce15ef3c118c2f34208f",
-  "policy": "authored-gfm@1 with strict trailing whitespace",
+  "schemaVersion": 2,
+  "policySource": "763984e94f2122a949d2ad6f9bce5da9791015e8",
+  "policy": "Revision 5 opinionated authored-gfm@1 defaults; report schema 2",
+  "invocationLimits": {
+    "documentDiagnostics": null
+  },
   "corpora": {
     "owlapi": {
       "selected": 63,
-      "diagnostics": [
-        {
-          "path": "docs/reviews/Targeted Rights Review for the Pinned Java CI Reference.md",
-          "source": "formatter",
-          "rule": "layout",
-          "line": 1,
-          "column": 1,
-          "severity": "error",
-          "message": "Document requires formatting."
-        },
-        {
-          "path": "docs/reviews/Targeted Rights Review for the Pinned Java CI Reference.md",
-          "source": "formatter",
-          "rule": "trailing-whitespace",
-          "line": 350,
-          "column": 46,
-          "severity": "error",
-          "message": "Trailing spaces and tabs are forbidden outside code-block contents; literal-sensitive fixes require manual editing."
-        },
-        {
-          "path": "docs/reviews/Targeted Rights Review for the Pinned Java CI Reference.md",
-          "source": "formatter",
-          "rule": "trailing-whitespace",
-          "line": 357,
-          "column": 62,
-          "severity": "error",
-          "message": "Trailing spaces and tabs are forbidden outside code-block contents; literal-sensitive fixes require manual editing."
-        }
-      ],
-      "resultSha256WithoutVersion": "c551cdcdf8be7da50b6af0bde7fd97588a8647767149fa4d45dbd4865f78e92d"
+      "diagnosticCount": 5829,
+      "diagnosticsByRule": {
+        "layout": 4,
+        "quality/heading-trailing-punctuation": 24,
+        "quality/long-prose-line": 5799,
+        "trailing-whitespace": 2
+      },
+      "resultSha256WithoutVersion": "16d6af65a7279e9b94df6e2e4efd9a389744369065f9436e91bbf10a3d2c3855"
     },
     "webvowl": {
       "selected": 67,
-      "diagnostics": [
-        {
-          "path": "docs/specs/2026-08-31-pre-registry-owlapi-webvowl-decoupling-design.md",
-          "source": "formatter",
-          "rule": "layout",
-          "line": 1,
-          "column": 1,
-          "severity": "error",
-          "message": "Document requires formatting."
-        },
-        {
-          "path": "docs/specs/2026-08-31-pre-registry-owlapi-webvowl-decoupling-design.md",
-          "source": "formatter",
-          "rule": "trailing-whitespace",
-          "line": 3,
-          "column": 39,
-          "severity": "error",
-          "message": "Trailing spaces and tabs are forbidden outside code-block contents; literal-sensitive fixes require manual editing."
-        },
-        {
-          "path": "docs/specs/2026-08-31-pre-registry-owlapi-webvowl-decoupling-design.md",
-          "source": "formatter",
-          "rule": "trailing-whitespace",
-          "line": 4,
-          "column": 36,
-          "severity": "error",
-          "message": "Trailing spaces and tabs are forbidden outside code-block contents; literal-sensitive fixes require manual editing."
-        },
-        {
-          "path": "docs/specs/2026-08-31-pre-registry-owlapi-webvowl-decoupling-design.md",
-          "source": "formatter",
-          "rule": "trailing-whitespace",
-          "line": 5,
-          "column": 79,
-          "severity": "error",
-          "message": "Trailing spaces and tabs are forbidden outside code-block contents; literal-sensitive fixes require manual editing."
-        }
-      ],
-      "resultSha256WithoutVersion": "97b5082c388de1d7ddd7ac44dfec8f7790885d3b5d8788ad6b0ce4679d2d7c71"
+      "diagnosticCount": 3625,
+      "diagnosticsByRule": {
+        "layout": 10,
+        "quality/heading-trailing-punctuation": 24,
+        "quality/long-prose-line": 3588,
+        "trailing-whitespace": 3
+      },
+      "resultSha256WithoutVersion": "e9d9ebc242ae15b8d3720a97cf2e97370b561634cad5e4927738d89cc12c48eb"
     }
   }
 }

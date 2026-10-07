@@ -18,7 +18,7 @@ import { consumer } from "./helpers.js";
 
 test("maintainer observer measures real native descendants and retains genuine findings without modifying inputs", (t) => {
   const root = consumer(t, {
-    "a.md": "Alpha.\n",
+    "a.md": ("x".repeat(121) + "\n\n").repeat(1001).trimEnd() + "\n",
     "b.md": "#   Heading\n\nBeta.\n",
   });
   const output = mkdtempSync(join(tmpdir(), "markdown-quality-observer-test-"));
@@ -67,8 +67,18 @@ test("maintainer observer measures real native descendants and retains genuine f
   assert.ok(report.elapsedMs > 0);
   assert.ok(report.userCpuMsIncludingDriver > 0);
   assert.deepEqual(report.errors, []);
+  const quality = JSON.parse(readFileSync(prefix + ".stdout.json", "utf8"));
+  assert.equal(quality.configuration.limits.documentDiagnostics, null);
+  assert.equal(quality.configuration.limits.analysisMs, 30000);
+  assert.equal(quality.configuration.limits.diagnostics, 10000);
+  assert.equal(
+    report.diagnostics.filter((d) => d.severity === "info").length,
+    1001,
+  );
   assert.deepEqual(
-    report.diagnostics.map(({ path, rule }) => [path, rule]),
+    report.diagnostics
+      .filter((d) => d.severity !== "info")
+      .map(({ path, rule }) => [path, rule]),
     [["b.md", "layout"]],
   );
   assert.equal(
@@ -82,20 +92,20 @@ test("maintainer observer measures real native descendants and retains genuine f
 });
 
 test(
-  "interrupted Linux observers dispose the CLI and its grandchildren",
+  "interrupted Linux observers dispose the package driver and its grandchildren",
   { skip: process.platform !== "linux", timeout: 15000 },
   async (t) => {
     const root = consumer(t);
     const pids = join(root, "pids.json");
     const cli = join(root, "hanging-cli.mjs");
     writeFileSync(
-      cli,
+      join(root, "quality.js"),
       `import {spawn} from 'node:child_process';
        import {renameSync,writeFileSync} from 'node:fs';
        const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});
        writeFileSync(${JSON.stringify(pids + ".tmp")},JSON.stringify([process.pid,child.pid]));
        renameSync(${JSON.stringify(pids + ".tmp")},${JSON.stringify(pids)});
-       setInterval(()=>{},1000);`,
+       export async function runQuality(){await new Promise(()=>{});}`,
     );
     const observer = spawn(
       "python",
@@ -117,7 +127,10 @@ test(
     try {
       const deadline = Date.now() + 5000;
       while (!existsSync(pids) && Date.now() < deadline) await delay(20);
-      assert.ok(existsSync(pids), "The real CLI and grandchild must start.");
+      assert.ok(
+        existsSync(pids),
+        "The package driver and grandchild must start.",
+      );
       const children = JSON.parse(readFileSync(pids, "utf8"));
       assert.equal(children.length, 2);
       assert.ok(children.every((pid) => Number.isInteger(pid) && pid > 0));

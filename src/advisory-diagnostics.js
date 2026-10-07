@@ -3,13 +3,24 @@ import { parse } from "./analysis.js";
 import { advisoryDefaults } from "./preset.js";
 import { diagnosticCollector } from "./contracts.js";
 
-/** Advisory editorial observations, never fixes or accessibility certification. */
+/** Advisory editorial observations, never fixes or accessibility certification.
+ * Disabled rules skip their own work; a fully disabled advisory set does not parse.
+ */
 export function checkAdvisories(text, config, memo) {
+  const enabled = (rule) =>
+    (config.lint[rule] ?? advisoryDefaults[rule]) !== "off";
+  const duplicateHeadingsEnabled = enabled("quality/duplicate-sibling-heading"),
+    headingPunctuationEnabled = enabled("quality/heading-trailing-punctuation"),
+    genericLinksEnabled = enabled("quality/generic-link-text"),
+    nfcEnabled = enabled("quality/non-nfc-prose"),
+    longLinesEnabled = enabled("quality/long-prose-line");
+  if (!Object.keys(advisoryDefaults).some(enabled)) return [];
   const collector = diagnosticCollector(config.limits);
-  const lines = text.split(/\r\n|\r|\n/u);
-  const lineOffsets = [0];
-  for (const match of text.matchAll(/\r\n|\r|\n/gu))
-    lineOffsets.push(match.index + match[0].length);
+  const lines = longLinesEnabled ? text.split(/\r\n|\r|\n/u) : undefined;
+  const lineOffsets = longLinesEnabled ? [0] : undefined;
+  if (longLinesEnabled)
+    for (const match of text.matchAll(/\r\n|\r|\n/gu))
+      lineOffsets.push(match.index + match[0].length);
   function report(rule, node, message, position = node.position.start) {
     const selected = config.lint[rule] ?? advisoryDefaults[rule];
     if (selected === "off") return;
@@ -34,10 +45,10 @@ export function checkAdvisories(text, config, memo) {
       return;
     if (node.children) {
       // Lesser-depth headings own sections; containers have independent scopes.
-      const ancestors = [],
-        scopes = new Map();
+      const ancestors = duplicateHeadingsEnabled ? [] : undefined,
+        scopes = duplicateHeadingsEnabled ? new Map() : undefined;
       for (const child of node.children) {
-        if (child.type === "heading") {
+        if (duplicateHeadingsEnabled && child.type === "heading") {
           while (ancestors.length && ancestors.at(-1).depth >= child.depth)
             ancestors.pop();
           const owner = ancestors.at(-1) ?? node;
@@ -56,13 +67,18 @@ export function checkAdvisories(text, config, memo) {
         visit(child);
       }
     }
-    if (node.type === "heading" && /[.!,:;]$/u.test(label(node).trim()))
+    if (
+      headingPunctuationEnabled &&
+      node.type === "heading" &&
+      /[.!,:;]$/u.test(label(node).trim())
+    )
       report(
         "quality/heading-trailing-punctuation",
         node,
         "Consider omitting trailing heading punctuation; questions are allowed.",
       );
     if (
+      genericLinksEnabled &&
       ["link", "linkReference"].includes(node.type) &&
       /^(?:click here|here|read more|more|link)$/iu.test(label(node).trim())
     )
@@ -71,13 +87,17 @@ export function checkAdvisories(text, config, memo) {
         node,
         "Consider descriptive link text instead of a generic label.",
       );
-    if (node.type === "text" && node.value !== node.value.normalize("NFC"))
+    if (
+      nfcEnabled &&
+      node.type === "text" &&
+      node.value !== node.value.normalize("NFC")
+    )
       report(
         "quality/non-nfc-prose",
         node,
         "Prose contains non-NFC Unicode; no normalization is performed.",
       );
-    if (node.type === "paragraph") {
+    if (longLinesEnabled && node.type === "paragraph") {
       const exempt = [];
       function exclusions(child) {
         if (

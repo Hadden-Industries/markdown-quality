@@ -57,9 +57,18 @@ No consumer code, configuration JavaScript, lifecycle scripts or private pilot o
 Those public corpora differ from the separately frozen pilot proposals in nine/two metadata paths and one selected OwlAPI Markdown file; the Windows paired evidence above remains a separate workload.
 
 The maintainer observer records six full runs per corpus/platform, every raw result, source revision and physical tracked-file manifest, before/after corpus identity, descendant quiescence, CPU and platform-specific memory measurements.
+Each fresh Node process calls the installed package's public `runQuality` API through `scripts/performance-check.mjs`, selecting only `limits: { documentDiagnostics: null }`.
+This maintainer-owned override retains every advisory on the complete public corpora without adding or editing their configuration files.
+All other resolved consumer budgets remain active; consumer defaults and the 30-second/512 MiB qualification gates are unchanged.
 Authored resource reports, qualification summaries and driver JSON status explicitly use UTF-8 with LF on every platform.
 Raw child stdout and stderr retain the actual captured bytes; result identities hash those retained bytes.
 Each result must match the independently frozen current-policy baseline oracle, allowing only the package version to differ.
+The revision-5 oracle in `test/fixtures/performance-oracles.json` replaces the earlier strict-whitespace report-schema-1 oracle.
+It was frozen from source `763984e94f2122a949d2ad6f9bce5da9791015e8` with the explicit maintainer override, before the literal-protection optimization.
+The agreed policy fixtures establish the intentional new advisory and style behavior; the corpus baseline detects any further result change from optimization.
+OwlAPI selects 63 documents with 5,829 findings (5,799 line-length information, 24 heading-punctuation information, four layout errors and two whitespace errors); WebVOWL selects 67 with 3,625 findings (3,588 line-length information, 24 heading-punctuation information, ten layout errors and three whitespace errors).
+The complete canonical result hash covers all fields and findings, alongside explicit selected/count/rule checks; the compact counts do not replace full-result identity.
+Policy identity is checked immediately after each observation so a mismatch stops before the remaining runs.
 It enforces the existing accepted timing and memory budgets and retains observations on failure without automatic retries.
 Windows uses Job Object peak committed bytes; Linux samples summed process-group RSS every 10 ms, which may miss brief peaks and count shared pages more than once.
 These metrics are declared independently and must not be compared as identical measures.
@@ -72,7 +81,9 @@ Changing or unproven inputs retain the existing guarded formatting, semantic pre
 Private staging is cleaned and the worker stopped before document replacement; inability to establish private staging retains the stdin path.
 Abrupt host termination can leave private temporary files, as described in the [consumer guide](consumer-guide.md).
 
-Further marker/layout allocation work is deferred because the remaining measured cost includes maintained formatter/linter parsing; no new marker algorithm is justified here.
+Commit `763984e` exposed whole-document copying for every opaque literal on the complete OwlAPI corpus, as well as an obsolete qualification oracle and an insufficient maintainer diagnostic allowance.
+Opaque span protection and restoration now assemble each document in source order with a single marker scan, preserving literal payloads and rejecting missing, duplicate, malformed or unowned markers.
+Further formatter/linter parsing work remains a separate measured follow-up.
 A second analysis worker is not included: the largest observed Windows tree leaves only about 64 MiB under the accepted memory budget, less than one additional worker's configured heap allowance before its other allocations.
 Lower-order selection/semantic/bookkeeping changes and compilation remain separate evidence-led follow-ups.
 Recovery is the retained serial/per-document source baseline and each consumer's accepted preimage, rather than rewriting existing published archives or changing a pinned consumer via `latest`.

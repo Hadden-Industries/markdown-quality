@@ -44,8 +44,8 @@ Explicit linked paths fail.
 Formatting hard-linked files is unsupported.
 
 Unknown fields, versions, and lint rules fail.
-Lint overrides accept only `off`, `warn`, or `error` for installed `markdown/` rules.
-Warnings are unresolved findings and block formatting.
+Lint overrides accept `off`, `info`, `warn`, or `error` for installed `markdown/` rules and package `quality/` advisories.
+Warnings are unresolved findings and block formatting under `--strict`.
 GitHub alert labels are allowed.
 Consumer JavaScript configs, arbitrary plugins, inline ESLint disable comments, and native executable overrides are not execution authority.
 
@@ -95,6 +95,44 @@ Development source emits result `schemaVersion: 2`; configuration remains `schem
 `outcome: findings` can coexist with exit `0`; machine callers use `exitCode` and retain diagnostics.
 Inspection includes effective configuration, native formatter/lint options and sentence-layout policy, including empty selections.
 No excerpts, document bodies, or absolute root paths are emitted by default.
+
+## Diagnostic display in current source
+
+`--diagnostic-level info|warning|error` selects the minimum severity displayed in human-readable output.
+The default is `info`, which retains the existing complete text output.
+For example, against current source:
+
+```sh
+node src/cli.js check --root . --diagnostic-level warning
+node src/cli.js format --root . --strict --diagnostic-level error
+```
+
+The summary reports hidden information and warning counts.
+Under `--strict`, hidden warnings still block and the summary explicitly explains that decision.
+Errors and operational failures are always reported.
+Invalid levels fail before analysis or writes.
+
+This option changes presentation only: rules still run, diagnostic budgets still count every finding, and exit codes and guarded formatting decisions are unchanged.
+With `--json`, the complete structured result is retained at every valid display level.
+The library returns the same complete result; it does not log findings or accept a display-level option.
+
+Rule disabling is an explicit checking choice through existing `lint` settings.
+To disable the three default information advisories:
+
+```json
+{
+  "quality/heading-trailing-punctuation": "off",
+  "quality/long-prose-line": "off",
+  "quality/non-nfc-prose": "off"
+}
+```
+
+Place these entries in the configuration's `lint` object.
+Disabled advisories skip their rule-specific work; when every advisory is disabled, the advisory checker skips syntax parsing and traversal entirely.
+Formatting, native linting, local-link checks and preservation guards continue according to their own configured contracts.
+No global rule-execution suppression option is introduced.
+
+## Operational resource budgets
 
 Default limits are 2 MiB per document, 32 MiB per batch, 10,000 selected documents, 100,000 enumerated entries, and 256 KiB per configuration or ignore file.
 Native invocations have a 15-second deadline and an 8 MiB output cap.

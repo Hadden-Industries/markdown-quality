@@ -26,6 +26,8 @@ Formatting validates the complete selected batch before any replacement.
 Errors block; warnings block only under `--strict`; information never blocks.
 Read-only checks also fail on formatting drift.
 Reports retain advisory findings even when exit is zero.
+Current source supports `--diagnostic-level info|warning|error` for human-readable findings, defaulting to `info`.
+Filtered output reports hidden counts; complete JSON results, exit decisions and formatting admission are unaffected.
 Operational resource limits are defaults the consumer can raise or bypass through configuration, library options, or CLI `--no-limits`.
 Overrides preserve quality rules and guarded formatting; the consumer owns capacity choices.
 It checks each file's original identity and bytes immediately before replacing it.
