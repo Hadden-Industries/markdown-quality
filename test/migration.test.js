@@ -215,12 +215,12 @@ test("comparison preserves policy and distinguishes rewording from changed findi
     /selected scope/u,
   );
   const futureSchema = structuredClone(schema);
-  futureSchema.properties.schemaVersion.const = 3;
+  futureSchema.properties.schemaVersion.const = 4;
   assert.throws(
     () =>
       compareQualityReports({
         incumbent: original,
-        candidate: { ...candidate, schemaVersion: 3 },
+        candidate: { ...candidate, schemaVersion: 4 },
         incumbentSchema: schema,
         candidateSchema: futureSchema,
         incumbentInputs: inputs,

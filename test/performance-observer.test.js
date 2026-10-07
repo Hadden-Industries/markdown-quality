@@ -99,6 +99,14 @@ test(
     const pids = join(root, "pids.json");
     const cli = join(root, "hanging-cli.mjs");
     writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({
+        name: "@hadden-industries/markdown-quality",
+        type: "module",
+        exports: "./quality.js",
+      }),
+    );
+    writeFileSync(
       join(root, "quality.js"),
       `import {spawn} from 'node:child_process';
        import {renameSync,writeFileSync} from 'node:fs';

@@ -115,7 +115,7 @@ test("real native chain checks read-only, formats independently chosen bytes and
   assert.deepEqual(second.written, []);
   assert.equal((await runQuality({ root })).exitCode, 0);
 });
-test("selection honors native ignore negation, exclusions, Unicode and literal brackets", async (t) => {
+test("selection uses root-policy exclusions while preserving Unicode and literal brackets", async (t) => {
   const root = consumer(
     t,
     {
@@ -126,7 +126,7 @@ test("selection honors native ignore negation, exclusions, Unicode and literal b
       "retained/a.md": "Alpha.\n",
       ".gitignore": "ignored/*.md\n!ignored/yes.md\n",
     },
-    { exclude: ["retained/**"] },
+    { exclude: ["retained/**", "ignored/no.md"] },
   );
   const result = await runQuality({ root, mode: "inspect" });
   assert.equal(result.exitCode, 0, JSON.stringify(result));

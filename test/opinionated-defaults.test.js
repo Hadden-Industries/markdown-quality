@@ -23,11 +23,11 @@ import { checkAdvisories } from "../src/advisory-diagnostics.js";
 import { formatDocument } from "../src/formatting.js";
 import { resolveTool } from "../src/native-tool.js";
 
-test("existing configurations inspect explicit replacement defaults and report schema 2", async (t) => {
+test("current configurations inspect explicit replacement defaults and report schema 3", async (t) => {
   const root = consumer(t);
   const result = await runQuality({ root, mode: "inspect", files: [] });
   assert.equal(result.exitCode, 0);
-  assert.equal(result.schemaVersion, 2);
+  assert.equal(result.schemaVersion, 3);
   assert.equal(result.preset, "authored-gfm@1");
   assert.equal(result.configuration.layout.endOfLine, "lf");
   assert.equal(result.configuration.syntax.frontmatter, "yaml");

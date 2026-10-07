@@ -1,5 +1,12 @@
 # Support and release
 
+Latest-commit adoption does not require a new npm release.
+Qualify and freeze the full producer commit, exact transported core/native archives, installed JavaScript graph, shared assets and paired reusable workflow revision.
+Packing includes a clean/dirty source identity; trusted qualification refuses a dirty or mismatched source tuple.
+Public release, semver selection, registry qualification and `latest` promotion remain separate effects.
+The [centralized contracts guide](centralized-contracts.md) describes configuration schema 2, result schema 3 and the shared trusted qualification/profile contract.
+Local source tests do not establish hosted Windows/Linux qualification or downstream acceptance of a new tuple.
+
 Development source admits Node 22.23.3+, Node 24.21.0+, and Node 26.10.0 or newer, excluding the unsupported Node 23/25 lines and with no upper major-version bound.
 The qualification matrix covers Node 22/24/26 on Windows x64 and Ubuntu 24.04 x64 with glibc.
 Each workflow resolves the declared minimum and latest stable patch of each line from official Node release metadata, collapsing equal versions.
@@ -13,7 +20,7 @@ Historical candidates without a matrix retain their original two-platform admiss
 Only observed passing platform evidence can establish support.
 Newer Node majors are permitted by the package metadata; they remain unqualified until tested.
 Published 1.0.3 retains its immutable `>=24.21.0 <25` engine declaration and Node 24.21.0 qualification.
-This source compatibility change does not republish 1.0.3 or authorize a new release; Node 22/26 consumer support requires a subsequent qualified release.
+This source compatibility change does not republish 1.0.3 or authorize a new release; Node 22/26 consumer support requires qualification of the adopted source/archive tuple or a subsequent release.
 macOS, ARM, and musl are unqualified.
 Controlled Linux builds require glibc 2.39, as supplied by Ubuntu 24.04.
 Windows requires the installed x64 Microsoft Visual C++ runtime (`VCRUNTIME140.dll` and UCRT).
@@ -67,7 +74,9 @@ The owner selected public distribution after npm rejected the private publicatio
 All three packages declare public access and share the source candidate version 1.0.3.
 The tuple retains alpha.4's qualified native executable/source/notice bytes and adds bounded request-local reuse, native checking batches and exact-input check-first formatting while retaining independent prose checks and preservation/convergence checks.
 The first alpha.3 hosted OWLAPI shadow checks passed correctness but exceeded the accepted 30-second budget on both platforms.
-Alpha.3 and alpha.4 remain immutable historical evidence; every new tuple requires fresh transported-archive and registry qualification, with exact-version pilot qualification governed by the applicable owner release decision.
+Alpha.3 and alpha.4 remain immutable historical evidence.
+Every new source tuple requires transported-archive qualification; registry qualification applies when that tuple is publicly published.
+Exact-version public pilot qualification remains governed by the applicable owner release decision.
 The public alpha.2 archives remain immutable historical delivery evidence and are unqualified for Linux execution.
 The packer normalizes the Linux npm member's executable mode with Python tarfile, verifies all member bytes are unchanged, and recomputes the final archive integrity.
 Qualify the exact transported release archives on both platforms, rather than each platform's independently generated package.

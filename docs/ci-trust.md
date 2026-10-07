@@ -4,8 +4,10 @@ The package repository, OwlAPI, and WebVOWL are public, as inspected through Git
 The owner selected public npm distribution after the private upload was rejected with E402.
 Core and both native packages declare public access; anonymous installation is a required registry qualification.
 Ordinary fork pull requests need no registry credential or paid npm subscription.
-The direct CLI is the canonical integration.
-A private shared Action is optional and does not solve public caller access.
+The direct CLI and public APIs are canonical integrations.
+Current source adds the public SHA-pinned reusable workflow described in the [centralized contracts guide](centralized-contracts.md).
+Adoption uses the latest qualified producer commit and locked archive/workflow tuple regardless of npm release status.
+The historical pilot/publication evidence below does not establish qualification of these new source contracts.
 
 | Event                    | Trusted graph and policy                              | Acquisition                                     | Candidate processing                                 | Current status                               |
 | ------------------------ | ----------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------- | -------------------------------------------- |
@@ -24,7 +26,8 @@ The source lock acquisition alone does not populate metadata for a fresh consume
 It cannot serve as evidence that a pilot's private access works.
 
 A pilot integration must acquire the exact public tool graph from a trusted source without registry credentials and process a separately fetched candidate data tree.
-Use reviewed base policy and ignore files at their original relative paths so candidate exclusions cannot silently weaken the required check.
+Use the reviewed schema 2 root policy; translate intended ignore-file exclusions into that policy before adoption.
+Ignore files have no authority over the current Markdown selector.
 Candidate checkout must not execute application tooling, Git hooks, package lifecycle scripts, JavaScript configuration, or a candidate CLI.
 The checking process must not inherit checkout write credentials, npm configuration, or OIDC issuance authority.
 Trusted policy review is required for any change to required scope or exclusions.
@@ -38,7 +41,7 @@ Any changed candidate, base policy/workflow or tool identity invalidates that ac
 A same-name candidate job or green PR summary cannot substitute for this record.
 This route provides manual owner enforcement; it does not claim automatic workflow-specific enforcement.
 The pilot trusted-run boundary creates no separate App, paid entitlement, write-capable status reporter, OIDC authority or new secret.
-Negative hosted probes must still show malformed-link failure, candidate policy/ignore non-authority, candidate marker non-execution and credential absence.
+Negative hosted probes must show malformed-link failure, candidate policy and ignore-file non-authority, candidate marker non-execution and credential absence.
 The single owner's own PR does not constitute independent human approval; any necessary integration route must be explicit and recorded.
 
 Do not give publication or repository-write credentials to a PR-controlled dependency graph.

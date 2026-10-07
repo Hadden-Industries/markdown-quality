@@ -12,7 +12,7 @@ export function qualifyRuntime(cli, consumer, environment) {
   writeFileSync(
     join(root, ".markdown-quality.json"),
     JSON.stringify({
-      schemaVersion: 1,
+      schemaVersion: 2,
       preset: "authored-gfm@1",
       include: ["*.md"],
     }),
@@ -37,6 +37,34 @@ export function qualifyRuntime(cli, consumer, environment) {
     return report;
   }
   try {
+    const publicProbe = join(root, "public-contracts.mjs");
+    writeFileSync(
+      publicProbe,
+      `import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {pathToFileURL} from 'node:url';
+import {readFileSync} from 'node:fs';
+const require=createRequire(process.argv[2]);
+const api=await import(pathToFileURL(require.resolve('@hadden-industries/markdown-quality')));
+for(const name of ['runQuality','inspectSelection','processDocument','executeQuality','validateQualityResult','readExecutionProfile','stageCandidate','qualifyCandidate']) assert.equal(typeof api[name],'function',name);
+for(const name of ['configuration-schema','result-schema','execution-schema']) assert.ok(JSON.parse(readFileSync(require.resolve('@hadden-industries/markdown-quality/'+name),'utf8')));
+assert.ok(readFileSync(require.resolve('@hadden-industries/markdown-quality/qualification-observer')).length);
+const result=await api.executeQuality({root:process.argv[3],mode:'format',document:{path:'logical.md',requestId:'packed',contentBase64:Buffer.from('Alpha. Beta.\\n').toString('base64')}});
+api.validateQualityResult(result,{requestId:'packed',exitCode:0});
+assert.equal(Buffer.from(result.document.contentBase64,'base64').toString(),'Alpha.\\nBeta.\\n');
+assert.deepEqual(result.written,[]);
+`,
+    );
+    const publicExecution = spawnSync(
+      process.execPath,
+      [publicProbe, cli, root],
+      { env: environment, timeout: 30000, encoding: "utf8", windowsHide: true },
+    );
+    assert.equal(
+      publicExecution.status,
+      0,
+      publicExecution.stdout + publicExecution.stderr,
+    );
     // Authored expected bytes are independent of the formatter's returned output.
     const cases = [
       {
@@ -127,7 +155,13 @@ export function qualifyRuntime(cli, consumer, environment) {
       );
       failures.push(fixture.name);
     }
-    return { node: process.version, formatted, failures };
+    return {
+      node: process.version,
+      formatted,
+      failures,
+      publicContracts:
+        "Installed supported exports/schema/observer and bounded logical transport qualified",
+    };
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

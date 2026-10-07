@@ -5,7 +5,7 @@
   "required": ["schemaVersion", "preset", "include"],
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "const": 2
     },
     "preset": {
       "const": "authored-gfm@1"
@@ -20,14 +20,6 @@
     },
     "exclude": {
       "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1
-      }
-    },
-    "ignoreFiles": {
-      "type": "array",
-      "uniqueItems": true,
       "items": {
         "type": "string",
         "minLength": 1
@@ -173,11 +165,6 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "ignoreFiles": {
-              "type": ["integer", "null"],
-              "minimum": 1,
-              "maximum": 9007199254740991
-            },
             "lintRules": {
               "type": ["integer", "null"],
               "minimum": 1,
@@ -187,5 +174,6 @@
         }
       ]
     }
-  }
+  },
+  "$id": "urn:hadden-industries:markdown-quality:configuration:2"
 }

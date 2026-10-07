@@ -143,7 +143,7 @@ test("packed root and isolated consumers install without lifecycle scripts and e
     writeFileSync(
       join(consumer, ".markdown-quality.json"),
       JSON.stringify({
-        schemaVersion: 1,
+        schemaVersion: 2,
         preset: "authored-gfm@1",
         include: ["*.md"],
       }),

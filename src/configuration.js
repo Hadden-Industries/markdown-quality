@@ -67,7 +67,8 @@ export function safePath(root, input, { missing = false, file = false } = {}) {
   }
   return path;
 }
-export function loadConfiguration({ root, config, limits: overrides } = {}) {
+/** Resolve the same consumer identity before any subprocess executable binding. */
+export function resolveConsumerRoot(root) {
   if (!root) {
     root = resolve(process.cwd());
     while (!existsSync(join(root, ".markdown-quality.json"))) {
@@ -88,6 +89,10 @@ export function loadConfiguration({ root, config, limits: overrides } = {}) {
       "UNSAFE_ROOT",
       "Consumer root must be a real directory without linked parents.",
     );
+  return root;
+}
+export function loadConfiguration({ root, config, limits: overrides } = {}) {
+  root = resolveConsumerRoot(root);
   const path = safePath(root, config ?? ".markdown-quality.json", {
     file: true,
   });
@@ -105,7 +110,7 @@ export function loadConfiguration({ root, config, limits: overrides } = {}) {
   if (!validate(value))
     fail(
       "INVALID_CONFIG",
-      "Configuration does not match schema version 1: " +
+      "Configuration does not match schema version 2: " +
         JSON.stringify(validate.errors),
     );
   const budgets = resolveLimits(resolveLimits(limits, value.limits), overrides);
@@ -114,13 +119,10 @@ export function loadConfiguration({ root, config, limits: overrides } = {}) {
   if (
     exceeds(value.include.length, budgets.patterns) ||
     exceeds((value.exclude ?? []).length, budgets.patterns) ||
-    exceeds((value.ignoreFiles ?? []).length, budgets.ignoreFiles) ||
     exceeds(Object.keys(value.lint ?? {}).length, budgets.lintRules) ||
-    [
-      ...value.include,
-      ...(value.exclude ?? []),
-      ...(value.ignoreFiles ?? []),
-    ].some((pattern) => exceeds([...pattern].length, budgets.patternLength))
+    [...value.include, ...(value.exclude ?? [])].some((pattern) =>
+      exceeds([...pattern].length, budgets.patternLength),
+    )
   )
     fail(
       "CONFIG_LIMIT",
@@ -151,7 +153,6 @@ export function loadConfiguration({ root, config, limits: overrides } = {}) {
   const effective = {
     ...value,
     exclude: value.exclude ?? [],
-    ignoreFiles: value.ignoreFiles ?? [".gitignore", ".prettierignore"],
     lint: {
       ...Object.fromEntries(
         Object.entries(lintDefaults).map(([rule, setting]) => [

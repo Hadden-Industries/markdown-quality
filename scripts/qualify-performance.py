@@ -12,6 +12,7 @@ import ctypes
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 import signal
 import subprocess
@@ -25,6 +26,7 @@ CORPORA = {
     "webvowl": "b0fe00404eedf12a59084871863500869474bd3a",
 }
 ORACLES = json.loads((Path(__file__).resolve().parent.parent / "test/fixtures/performance-oracles.json").read_text(encoding="utf-8"))
+POLICIES = json.loads((Path(__file__).resolve().parent.parent / "test/fixtures/performance-policies.json").read_text(encoding="utf-8"))
 
 
 def digest(data):
@@ -123,11 +125,11 @@ def linux_tree():
     return members, rss
 
 
-def observe(node, cli, corpus, output):
+def observe(node, cli, corpus, output, *configuration):
     if sys.platform == "linux":
         assert os.getpgrp() == os.getpid(), "Observer requires its own process group"
     try:
-        observe_owned(node, cli, corpus, output)
+        observe_owned(node, cli, corpus, output, *configuration)
     except BaseException:
         if sys.platform == "linux":
             # This dedicated group includes the driver, CLI and native grandchildren.
@@ -138,7 +140,7 @@ def observe(node, cli, corpus, output):
         raise
 
 
-def observe_owned(node, cli, corpus, output):
+def observe_owned(node, cli, corpus, output, *configuration):
     output = Path(output)
     environment = {key: value for key, value in os.environ.items()
                    if key.upper() in ("SYSTEMROOT", "WINDIR", "TEMP", "TMP")}
@@ -150,7 +152,7 @@ def observe_owned(node, cli, corpus, output):
     with output.with_suffix(".stdout.json").open("xb") as stdout, output.with_suffix(".stderr.txt").open("xb") as stderr:
         started = time.perf_counter()
         child = subprocess.Popen([node, str(Path(__file__).with_name("performance-check.mjs")),
-                                  cli, corpus, json.dumps(ORACLES["invocationLimits"])],
+                                  cli, corpus, json.dumps(ORACLES["invocationLimits"]), *configuration],
                                  cwd=str(Path(cli).parent), env=environment, stdout=stdout, stderr=stderr)
         while child.poll() is None:
             if job is None:
@@ -184,7 +186,7 @@ def observe_owned(node, cli, corpus, output):
     print(json.dumps(report))
 
 
-def qualify(node, cli, corpus_parent, output):
+def qualify(node, cli, corpus_parent, output, incumbent_cli):
     output.mkdir(parents=True, exist_ok=False)
     version = json.loads((Path(cli).resolve().parent.parent / "package.json").read_text(encoding="utf-8"))["version"]
     report = {"schemaVersion": 1, "platform": sys.platform, "node": subprocess.check_output([node, "--version"]).decode().strip(),
@@ -193,9 +195,26 @@ def qualify(node, cli, corpus_parent, output):
     for name, revision in CORPORA.items():
         corpus = corpus_parent / name
         before = manifest(corpus, revision)
+        # Preserve the old full-result oracle, then compare every actual finding
+        # and selected path across the schema transition. No snapshot regeneration.
+        baseline_output = output / f"{name}-incumbent"
+        command = [sys.executable, str(Path(__file__).resolve()), "--observe", node, str(incumbent_cli), str(corpus), str(baseline_output)]
+        baseline_driver = subprocess.run(command, capture_output=True, timeout=150, start_new_session=sys.platform == "linux")
+        assert baseline_driver.returncode == 0, baseline_driver.stderr.decode(errors="replace")
+        incumbent = json.loads(baseline_output.with_suffix(".stdout.json").read_bytes())
+        normalized = json.loads(json.dumps(incumbent))
+        normalized["package"]["version"] = "<candidate>"
+        canonical = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        assert digest(canonical) == ORACLES["corpora"][name]["resultSha256WithoutVersion"], "Incumbent does not reproduce the retained full oracle"
+        staged = output / f"{name}-data"
+        shutil.copytree(corpus, staged, ignore=shutil.ignore_patterns(".git", "node_modules", ".venv"))
+        controls = staged / ".markdown-quality-trusted-inputs"
+        controls.mkdir(exist_ok=False)
+        policy_bytes = (json.dumps(POLICIES[name], indent=2) + "\n").encode("utf-8")
+        (controls / "policy.json").write_bytes(policy_bytes)
         observations = []
         for index in range(1, 7):
-            command = [sys.executable, str(Path(__file__).resolve()), "--observe", node, cli, str(corpus), str(output / f"{name}-{index}")]
+            command = [sys.executable, str(Path(__file__).resolve()), "--observe", node, cli, str(staged), str(output / f"{name}-{index}"), ".markdown-quality-trusted-inputs/policy.json"]
             child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                      start_new_session=sys.platform == "linux")
             try:
@@ -219,7 +238,9 @@ def qualify(node, cli, corpus_parent, output):
             result = json.loads((output / f"{name}-{index}.stdout.json").read_bytes())
             result["package"]["version"] = "<candidate>"
             canonical = json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-            assert digest(canonical) == ORACLES["corpora"][name]["resultSha256WithoutVersion"], "Candidate differs from the current-policy baseline oracle"
+            assert result["diagnostics"] == incumbent["diagnostics"], "Candidate findings differ from the independently reproduced incumbent oracle"
+            assert result["selection"]["files"] == incumbent["selection"]["files"], "Translated fixture changes the frozen corpus scope"
+            assert result["exitCode"] == incumbent["exitCode"] and result["outcome"] == incumbent["outcome"]
             assert observation["selected"] == ORACLES["corpora"][name]["selected"]
             assert len(observation["diagnostics"]) == ORACLES["corpora"][name]["diagnosticCount"]
             assert dict(Counter(d["rule"] for d in observation["diagnostics"])) == ORACLES["corpora"][name]["diagnosticsByRule"]
@@ -231,7 +252,9 @@ def qualify(node, cli, corpus_parent, output):
         report["corpora"][name] = {"manifest": before, "observations": observations,
                                   "policySource": ORACLES["policySource"],
                                   "invocationLimits": ORACLES["invocationLimits"],
-                                  "completePolicyResultParityExceptVersion": True,
+                                  "incumbentFullResultOracleReproduced": True,
+                                  "completeDiagnosticAndSelectedSourceParity": True,
+                                  "trustedFixturePolicySha256": digest(policy_bytes),
                                   "observedP95Ms": max(item["elapsedMs"] for item in observations),
                                   "peakTreeBytes": max(item["peakTreeBytes"] for item in observations)}
     (output / "qualification.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8", newline="\n")
@@ -254,5 +277,6 @@ if __name__ == "__main__":
         parser.add_argument("--cli", required=True)
         parser.add_argument("--corpora", required=True, type=Path)
         parser.add_argument("--output", required=True, type=Path)
+        parser.add_argument("--incumbent-cli", required=True, type=Path)
         arguments = parser.parse_args()
-        qualify(arguments.node, arguments.cli, arguments.corpora, arguments.output)
+        qualify(arguments.node, arguments.cli, arguments.corpora, arguments.output, arguments.incumbent_cli)

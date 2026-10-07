@@ -19,7 +19,8 @@
     "errors",
     "configuration",
     "policy",
-    "strict"
+    "strict",
+    "document"
   ],
   "properties": {
     "strict": {
@@ -157,11 +158,6 @@
                   "minimum": 1,
                   "maximum": 9007199254740991
                 },
-                "ignoreFiles": {
-                  "type": ["integer", "null"],
-                  "minimum": 1,
-                  "maximum": 9007199254740991
-                },
                 "lintRules": {
                   "type": ["integer", "null"],
                   "minimum": 1,
@@ -174,7 +170,7 @@
       }
     },
     "schemaVersion": {
-      "const": 2
+      "const": 3
     },
     "package": {
       "type": "object",
@@ -194,8 +190,13 @@
     },
     "tools": {
       "type": "object",
-      "additionalProperties": {
-        "type": "string"
+      "additionalProperties": false,
+      "required": ["prettier", "eslint", "markdown", "snapper"],
+      "properties": {
+        "prettier": { "type": "string", "minLength": 1 },
+        "eslint": { "type": "string", "minLength": 1 },
+        "markdown": { "type": "string", "minLength": 1 },
+        "snapper": { "type": "string", "minLength": 1 }
       }
     },
     "operation": {
@@ -207,7 +208,7 @@
     "selection": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["mode", "files", "exclusions"],
+      "required": ["mode", "files", "exclusions", "inventory"],
       "properties": {
         "mode": {
           "enum": ["full", "explicit"]
@@ -219,14 +220,42 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["path", "reason"],
+            "required": ["path", "reason", "pattern", "matchedPath"],
             "additionalProperties": false,
             "properties": {
               "path": {
                 "type": "string"
               },
               "reason": {
-                "enum": ["mandatory", "not-included", "excluded", "ignored"]
+                "enum": ["excluded", "not-included"]
+              },
+              "pattern": {
+                "type": ["string", "null"]
+              },
+              "matchedPath": {
+                "type": ["string", "null"]
+              }
+            }
+          }
+        },
+        "inventory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "decision", "pattern", "matchedPath"],
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "decision": {
+                "enum": ["selected", "excluded", "not-included"]
+              },
+              "pattern": {
+                "type": ["string", "null"]
+              },
+              "matchedPath": {
+                "type": ["string", "null"]
               }
             }
           }
@@ -311,12 +340,13 @@
           "type": "null"
         },
         {
+          "$schema": "http://json-schema.org/draft-07/schema#",
           "type": "object",
           "additionalProperties": false,
           "required": ["schemaVersion", "preset", "include"],
           "properties": {
             "schemaVersion": {
-              "const": 1
+              "const": 2
             },
             "preset": {
               "const": "authored-gfm@1"
@@ -331,14 +361,6 @@
             },
             "exclude": {
               "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1
-              }
-            },
-            "ignoreFiles": {
-              "type": "array",
-              "uniqueItems": true,
               "items": {
                 "type": "string",
                 "minLength": 1
@@ -484,11 +506,6 @@
                       "minimum": 1,
                       "maximum": 9007199254740991
                     },
-                    "ignoreFiles": {
-                      "type": ["integer", "null"],
-                      "minimum": 1,
-                      "maximum": 9007199254740991
-                    },
                     "lintRules": {
                       "type": ["integer", "null"],
                       "minimum": 1,
@@ -497,6 +514,34 @@
                   }
                 }
               ]
+            }
+          },
+          "$id": "urn:hadden-industries:markdown-quality:configuration:2"
+        }
+      ]
+    },
+    "document": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "requestId", "decision", "contentBase64"],
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": ["string", "null"]
+            },
+            "decision": {
+              "enum": ["selected", "excluded", "not-included"]
+            },
+            "contentBase64": {
+              "type": "string",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
             }
           }
         }
@@ -511,5 +556,6 @@
         "type": "string"
       }
     }
-  }
+  },
+  "$id": "urn:hadden-industries:markdown-quality:result:3"
 }

@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { loadConfiguration } from "./configuration.js";
-import { selectDocuments, readDocument } from "./documents.js";
+import { loadConfiguration, safePath } from "./configuration.js";
+import {
+  selectDocuments,
+  readDocument,
+  createPathDecision,
+} from "./documents.js";
+import { installedToolVersions } from "./tool-versions.js";
 import { resolveTool, manifest } from "./native-tool.js";
 import { createDocumentAnalyzer } from "./document-analysis.js";
 import { createDocumentAnalyzerPool } from "./document-analysis-pool.js";
@@ -10,6 +15,11 @@ import { effectivePolicy } from "./preset.js";
 import { createLinter } from "./analysis.js";
 import { join } from "node:path";
 export { compareQualityReports } from "./migration.js";
+export { validateQualityResult } from "./result-validation.js";
+export { executeQuality } from "./execution.js";
+export { readExecutionProfile } from "./execution-profile.js";
+export { stageCandidate } from "./candidate-staging.js";
+export { qualifyCandidate } from "./qualification.js";
 import {
   decode,
   fail,
@@ -21,24 +31,21 @@ import {
 } from "./contracts.js";
 export function createResult(mode = "check", explicit = false) {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     package: { name: metadata.name, version: metadata.version },
     preset: "authored-gfm@1",
-    tools: {
-      prettier: "3.9.9",
-      eslint: "10.12.0",
-      markdown: "8.0.3",
-      snapper: manifest.snapperVersion,
-    },
+    tools: installedToolVersions(manifest.snapperVersion),
     operation: ["check", "format", "inspect"].includes(mode) ? mode : "unknown",
     configDigest: null,
     configuration: null,
     policy: null,
     strict: false,
+    document: null,
     selection: {
       mode: explicit ? "explicit" : "full",
       files: [],
       exclusions: [],
+      inventory: [],
     },
     diagnostics: [],
     outcome: "error",
@@ -52,7 +59,31 @@ export function createResult(mode = "check", explicit = false) {
 /** Run checking, inspection, or guarded formatting. Invocation limits override configuration;
  * false removes package resource ceilings, and individual null values bypass that ceiling.
  */
-export async function runQuality(options = {}) {
+export function runQuality(options = {}) {
+  return analyzeQuality(options);
+}
+
+/** Inspect selection through the same validated operation as the public CLI. */
+export function inspectSelection(options = {}) {
+  return analyzeQuality({ ...options, mode: "inspect" });
+}
+
+/** Process bounded supplied bytes at their final logical path without checkout writes.
+ * Excluded bytes are returned exactly; relative links use the real consumer root.
+ */
+export function processDocument({
+  content,
+  path,
+  requestId = null,
+  ...options
+}) {
+  return analyzeQuality(
+    { ...options, mode: options.mode ?? "format" },
+    { content, path, requestId },
+  );
+}
+
+async function analyzeQuality(options = {}, document = null) {
   const mode = options.mode ?? "check";
   const concurrency =
     options.concurrency === undefined ? 1 : options.concurrency;
@@ -90,7 +121,44 @@ export async function runQuality(options = {}) {
     );
     result.configDigest = context.configDigest;
     result.configuration = context.config;
-    result.selection = await selectDocuments(context, options.files);
+    if (document) {
+      if (
+        !Buffer.isBuffer(document.content) ||
+        (document.requestId !== null &&
+          typeof document.requestId !== "string") ||
+        options.files !== undefined ||
+        options.inventory !== undefined
+      )
+        fail(
+          "INVALID_DOCUMENT",
+          "Logical requests require bytes, a path and an optional string request identity.",
+        );
+      if (
+        exceeds(document.content.length, context.config.limits.fileBytes) ||
+        exceeds(document.content.length, context.config.limits.totalBytes)
+      )
+        fail(
+          "DOCUMENT_LIMIT",
+          "Logical content exceeds the selected input bound.",
+        );
+      const decision = createPathDecision(context.config)(document.path);
+      result.document = {
+        path: document.path,
+        requestId: document.requestId,
+        decision: decision.decision,
+        contentBase64: document.content.toString("base64"),
+      };
+      const { decision: reason, ...details } = decision;
+      result.selection = {
+        mode: "explicit",
+        files: reason === "selected" ? [document.path] : [],
+        exclusions: reason === "selected" ? [] : [{ ...details, reason }],
+        inventory: [],
+      };
+      if (reason === "selected")
+        safePath(context.root, document.path, { missing: true, file: true });
+    } else
+      result.selection = await selectDocuments(context, options.files, options);
     result.unprocessed = [...result.selection.files];
     // No native process or tool resolution is necessary for a zero selection.
     if (result.selection.files.length === 0) {
@@ -101,6 +169,7 @@ export async function runQuality(options = {}) {
     const tool = resolveTool();
     if (mode === "inspect") {
       result.unprocessed = [];
+      result.unchanged = [...result.selection.files];
       result.outcome = "clean";
       result.exitCode = 0;
       return result;
@@ -264,8 +333,10 @@ export async function runQuality(options = {}) {
     for (const file of result.selection.files) {
       let item, original;
       try {
-        item = readDocument(context.root, file, budgets);
-        if (mode === "format" && item.stat.nlink !== 1n)
+        item = document
+          ? { bytes: document.content }
+          : readDocument(context.root, file, budgets);
+        if (!document && mode === "format" && item.stat.nlink !== 1n)
           fail("HARD_LINK", "Hard-linked documents cannot be formatted.");
         total += item.bytes.length;
         if (exceeds(total, budgets.totalBytes))
@@ -307,7 +378,14 @@ export async function runQuality(options = {}) {
       result.exitCode = 1;
       return result;
     }
-    if (mode === "format")
+    if (document) {
+      if (mode === "format")
+        result.document.contentBase64 = Buffer.from(
+          candidates[0].output,
+        ).toString("base64");
+      result.unchanged = [...result.selection.files];
+      result.unprocessed = [];
+    } else if (mode === "format")
       for (const candidate of candidates) {
         if (candidate.item.bytes.equals(Buffer.from(candidate.output)))
           result.unchanged.push(candidate.file);

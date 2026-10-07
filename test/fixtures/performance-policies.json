@@ -1,0 +1,25 @@
+{
+  "owlapi": {
+    "schemaVersion": 2,
+    "preset": "authored-gfm@1",
+    "include": ["**/*.md"],
+    "exclude": [
+      ".development-tools/**", ".release/**", "coverage/**", "playwright-report/**", "test-results/**",
+      "docs/conformance/generated/**", "docs/conformance/upstream/**", "docs/provenance/history-reconstruction/**",
+      "API.md", "docs/compatibility/java-api-surface.md", "util/owlapi-reference/fixtures/**",
+      "docs/Deep Review of Phase 19 and Phase 20 of the owlapi Implementation Plan *.md"
+    ],
+    "lint": {},
+    "links": { "localFiles": true, "rootRelative": "reject" },
+    "layout": { "endOfLine": "lf", "tabWidth": 2 }
+  },
+  "webvowl": {
+    "schemaVersion": 2,
+    "preset": "authored-gfm@1",
+    "include": ["*.md", "docs/**/*.md", "packages/vowl/**/*.md"],
+    "exclude": ["AGENTS.md", "docs/owlapi-js/**", "docs/sdlc/**", "docs/reviews/**", "docs/evaluations/**"],
+    "lint": {},
+    "links": { "localFiles": true, "rootRelative": "reject" },
+    "layout": { "endOfLine": "lf", "tabWidth": 2 }
+  }
+}
