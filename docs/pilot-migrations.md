@@ -5,7 +5,16 @@ They preserve the incumbent authored selection and native ignore files.
 Existing ignore policy is retained from each frozen consumer; it is not copied into the shared preset.
 The shared GFM, prose, and link checks still require reviewed diagnostic and output deltas before cutover.
 
-## Current 1.0.3 integration closure
+## Current rollout completion on 2026-10-07
+
+Both original pilots and all three planned post-v1 consumers have integrated `1.0.3`.
+The [consolidated implementation status](implementation-status.md#completed-consumer-rollout) records Software Engineering Workflow, Steam Community BBCode and Universal Ontology with their delivery identities, hosted evidence and consumer-owned acceptance boundaries.
+Those later adoptions do not require reopening the original pilot upgrades.
+Universal Ontology's remaining cleanup stays in its originating chat; it does not leave the package integration pending.
+Later Node-support and community/dogfooding source changes remain unreleased under the owner's publication hold.
+The original pilot evidence below retains its exact scope and does not acquire the later consumers' observations or approvals.
+
+## Original pilots: 1.0.3 integration closure
 
 On 2026-10-06, the owner requested closure of these records after both consumer upgrades had integrated through their own chats and normal pull requests.
 The observed integrations are:

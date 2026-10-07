@@ -1,12 +1,26 @@
 # Shared Markdown Quality Package: Implementation Plan
 
-Date: 2026-10-06, Europe/Bucharest.
+Date: 2026-10-07, Europe/Bucharest.
 Revision: 8, owner-authorized 1.0.3 stable delivery and explicit publication label.
+Completion annotation: 2026-10-07; accepted requirements and revision identity unchanged.
 Initial plan: 2026-10-03.
 Planning owner and proposed acceptance owner: Maksym Shostak.
 Task references: initial planning in Codex chat `01a1014e-c54e-7c63-8c24-6313be12493a`; review synthesis in chat `01a1090f-4eb0-7210-b541-c9b62f3984dc`.
 
 ## 1. Status, authority, and purpose
+
+The original v1 implementation and coherent immutable `1.0.3` delivery are complete, and OwlAPI, WebVOWL, Universal Ontology, Software Engineering Workflow and Steam Community BBCode have integrated the package.
+The [current implementation status](../implementation-status.md#current-completion-state-on-2026-10-07) is the consolidated outcome/evidence index; [pilot migrations](../pilot-migrations.md) retains the original pilots' precise acceptance boundaries.
+The performance release adopted exact-input reuse, native batching and check-first formatting; its conditional experiments are dispositioned in the [performance plan](performance-implementation-plan.md#current-completion-and-disposition).
+Post-release Node 22/24/26 support and community/source-dogfooding improvements are committed and qualified in source, with publication still held by the owner.
+Future release preparation, consumer-owned residual cleanup and ongoing support/retention are distinguished from completed implementation in that current index.
+
+This annotation consolidates evidence, not requirements or acceptance authority.
+The remaining text preserves the accepted planning baseline and historical amendments, including then-open gates and proposed consumer scopes.
+Present-tense draft/pending statements below describe those earlier stages rather than reopening completed work.
+The original three post-v1 migrations in SLICE-009 are now integrated; their accepted consumer scopes supersede the proposed scope/exclusion rows in section 10.
+GATE-06/10/11 remain requirements for any future consumer change, not outstanding blanket gates for these completed integrations.
+REQ-009/QA-006/SLICE-005 and the optional Action remain deferred; no new feature, release or branch/ruleset control is authorized here.
 
 On 2026-10-05, the owner accepted revision 6's bounded amendments in the current implementation chat: keep platform-specific packages; require owner acceptance of attributable trusted hosted runs before each pilot merge; adopt the measured qualification budgets and maintained support targets below.
 This revision continues the already accepted R2 implementation scope and AGPL-3.0-only license.
@@ -898,7 +912,10 @@ The executing app records any surviving temporary item, its responsible authorit
 
 ## 12. Gates, unknowns, and replanning
 
-### Gate overview
+### Retained planning gate overview
+
+The following gate table preserves the original planning-stage status and required proof.
+It is not a current blocker list; completed delivery and remaining obligations are recorded in [implementation status](../implementation-status.md#remaining-work-and-explicit-deferrals).
 
 | Decision group                     | Detailed gates  | Evidence-based exit                                                                                                   |
 | ---------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------- |

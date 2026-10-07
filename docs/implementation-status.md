@@ -1,6 +1,65 @@
 # Implementation decisions and evidence
 
-## Current completion state on 2026-10-06
+## Current completion state on 2026-10-07
+
+The original v1 implementation, performance delivery and five-repository rollout are complete.
+The released core and both native packages remain the coherent `1.0.3` tuple under npm `latest`, with the immutable GitHub release and exact evidence in [the release record](releases/1.0.3.json).
+The two original pilots are closed in [pilot migrations](pilot-migrations.md); the three post-v1 adoptions are integrated as recorded below.
+This consolidation records completed outcomes without changing accepted requirements, licensing, consumer decisions or release authority.
+Earlier sections retain their original candidates and observation dates; pending statements there are historical unless repeated in the remaining-work list here.
+
+### Completed consumer rollout
+
+| Consumer                      | Integrated revision and delivery                                                                                                                                 | Completion evidence                                                                                                                                                                                                                                                                                                   |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OwlAPI                        | `4f6adbd3a925ad2e0ccfc98550f216642957f870`, [PR #49](https://github.com/Hadden-Industries/owlapi/pull/49)                                                        | Exact `1.0.3` lock, incumbent CI and approved script rename; original pilot and subsequent upgrade boundaries retained below.                                                                                                                                                                                         |
+| WebVOWL                       | `693e5aa22269aec4d5860e38c03abf559ccb32a4`, [PR #57](https://github.com/Hadden-Industries/webvowl/pull/57)                                                       | Manifest `>=1.0.3`, exact `1.0.3` lock and incumbent CI; its range is preserved, not rewritten as an exact manifest pin.                                                                                                                                                                                              |
+| Software Engineering Workflow | [`41ae8b5f30a0566ff67042a8ebde174b0bdfe5ef`](https://github.com/Hadden-Industries/software-engineering-workflow/commit/41ae8b5f30a0566ff67042a8ebde174b0bdfe5ef) | Remote main and manifest readback confirm exact `1.0.3` and direct `format:markdown` / `check:markdown` integration; consumer verification remains owned there.                                                                                                                                                       |
+| Steam Community BBCode        | `cc531317b03d272cec68c4f23d53b44edfb38a46`, [PR #15](https://github.com/MaksymShostak/steam-community-bbcode/pull/15), after bootstrap PR #13                    | [Integrated-main checks](https://github.com/MaksymShostak/steam-community-bbcode/actions/runs/37560321470) passed; the consumer reports 53 Markdown documents without exemptions, accepted platform windows, recovery and completed HISEW handoff.                                                                    |
+| Universal Ontology            | `45fce47ce0b226cf4fd25b152f482758eeb268b8`, [PR #131](https://github.com/Hadden-Industries/universal-ontology/pull/131)                                          | [Integrated-main qualification](https://github.com/Hadden-Industries/universal-ontology/actions/runs/37594676432) and [CodeQL](https://github.com/Hadden-Industries/universal-ontology/actions/runs/37594675981) passed; the consumer reports 112 Markdown documents without exceptions and completed HISEW delivery. |
+
+GitHub merge and run metadata were read back on 2026-10-07; the Steam and Universal Ontology main runs above succeeded on the stated integration commits, attempt 1.
+Steam's accepted trusted window is [run 37558831490](https://github.com/MaksymShostak/steam-community-bbcode/actions/runs/37558831490), at candidate `7021703045f7ef4ef566d45d9543202ed715bdef`.
+Universal Ontology's is [run 37590260350](https://github.com/Hadden-Industries/universal-ontology/actions/runs/37590260350), at candidate `e921e1ea26f1ab6b3287f41cb8c4ae071512ad79`.
+Successful run identities do not themselves prove owner acceptance or every resource/recovery claim.
+Those claims retain the originating Steam chat `01a1131f-0362-7f41-bcd9-f788e4d960cf` and Universal Ontology chat `01a113d0-8617-7c32-9234-e2ad4e5e024c` as their provenance.
+Universal Ontology's accepted budget is 30 seconds and 1024 MiB; that consumer decision does not revise the producer's or original pilots' 512 MiB budget.
+The later consumer scopes supersede the original migration table's proposed exclusions; preserve Steam's generated-reference tests and Universal Ontology's product checks without reinstating obsolete Markdown exclusions.
+
+### Completed source work held from publication
+
+Signed source `7994fdb08efa4fc391f6e035c9fff17820635b58` qualifies the Node 22/24/26 matrix against one frozen candidate tuple on Windows and Linux.
+Source engines are `^22.23.3 || ^24.21.0 || >=26.10.0`; Node 26.10.0 is the qualified Current floor, not a claim about the first LTS version.
+[Package qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37539180714), [transported qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37539180707) and [CodeQL](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37539179834) passed for that source.
+
+Signed source `a692068a1e5c60c38d9cc17d11511c0eea0c990a` adds contribution/conduct/security guidance, issue/PR templates, Dependabot proposals, GitHub metadata and direct-source Markdown dogfooding, without a self-dependency or branch/ruleset controls.
+[Package qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37547798813), [transported qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37547798838) and [CodeQL](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37547798382) passed for that source.
+Its independent Claude Opus 5.5 medium review and narrow finding closure are retained in existing task evidence; source qualification does not publish npm metadata or upgrade consumers.
+
+On 2026-10-07, npm readback still reports `latest: 1.0.3`, `pilot: 1.0.2` and published engines `>=24.21.0 <25`.
+GitHub reports `v1.0.3` immutable and stable.
+Neither later source commit is shipped by that immutable release, regardless of the unchanged version field in the development checkout.
+
+### Remaining work and explicit deferrals
+
+- Keep the owner's publication hold.
+  A future authorized release must use a new version, qualify its final source/archives, and follow the established signed-tag, GitHub draft, npm publication/readback and immutable-release completion process.
+  No new release is authorized by this record.
+- Universal Ontology's originating chat reported spent-branch and scratch cleanup still finishing.
+  Its integration is complete; cleanup remains consumer-owned until that chat records its outcome.
+- Continue the accepted monthly dependency review, security/support targets and evidence retention.
+  These are maintained obligations rather than unfinished implementation slices.
+- Changed/referrer-aware checking and an optional GitHub Action remain conditional future capabilities.
+  Literal-layout rewrites, two workers and lower-order performance changes were not justified for the shipped candidate; compilation remains a lower-priority research option.
+
+The original five-repository adoption list has no remaining integration.
+Additional repositories need their own accepted migration scope and evidence.
+This producer-side consolidation does not recertify consumer HISEW executions or manufacture fresh trusted-run acceptance, recovery or performance evidence.
+
+## Retained release and original-pilot evidence on 2026-10-06
+
+The following section retains its 6 October observation boundary.
+Its separately paused upgrade proposals were subsequently superseded by the integrated 1.0.3 pilot closure, not reopened by this consolidation.
 
 The coherent performance 1.0.3 tuple is published as npm `latest` for the core, Windows x64 and Linux x64 packages.
 GitHub [v1.0.3](https://github.com/Hadden-Industries/markdown-quality/releases/tag/v1.0.3) is the stable/latest immutable release, with its signed exact-source tag and all twenty assets verified through the native GitHub CLI.

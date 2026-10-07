@@ -1,9 +1,37 @@
 # Markdown Quality performance implementation plan
 
-Date: 2026-10-06, Europe/Bucharest.
+Date: 2026-10-07, Europe/Bucharest.
 Revision: 1, expanding the existing temporary performance plan with the owner's supplied research response.
+Completion annotation: 2026-10-07; accepted requirements and revision identity unchanged.
 Planning and acceptance owner: Maksym Shostak.
-Status: accepted for implementation by the owner on 6 October 2026 under the existing R2 task; this document records the plan rather than implementation results.
+Status: primary implementation and 1.0.3 delivery complete; the original plan body is retained below the current disposition.
+
+## Current completion and disposition
+
+The accepted primary performance implementation is delivered in the coherent immutable `1.0.3` release, source `92d6e9f61b5fffe6f33d8878ef8e2880ca187ac0`.
+The [release record](../releases/1.0.3.json) and [implementation status](../implementation-status.md) bind shipped archives, qualification and the completed consumer rollout.
+The earlier implementation handoff at source `165ed1c8ed97b20934917bce2103dbc2ec556409` retains its own transported-candidate identity; it is not relabelled as the final released source.
+
+| Slice          | Final disposition                                                                                                                                                          |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PERF-SLICE-001 | Complete: frozen current-policy baseline, actual worker/native profiling and full-result/formatted-byte oracles retained.                                                  |
+| PERF-SLICE-002 | Delivered: exact request-local parse/layout reuse, retaining independent diagnostics and fresh filesystem observations.                                                    |
+| PERF-SLICE-003 | Delivered: bounded whole-document native checks with complete attribution, owned policy and fail-closed isolation/protocol/resource checks.                                |
+| PERF-SLICE-004 | Delivered: eligible independent list/item and continuation rechecks use the qualified batching adapter; the narrow Snapper exception remains qualified.                    |
+| PERF-SLICE-005 | Delivered: check-first formatting for an unchanged guarded layout and exact native-stable snapshot; changing or unproven inputs retain the guarded fallback.               |
+| PERF-SLICE-006 | Deferred: marker/literal-layout rewrites were not justified by the remaining measured cost. Existing preservation guards remain.                                           |
+| PERF-SLICE-007 | Deferred: a second worker was not justified by remaining cost and memory headroom; shipped analysis remains serial.                                                        |
+| PERF-SLICE-008 | Deferred: lower-order comparator/read/bookkeeping rewrites were not needed for the consolidated candidate.                                                                 |
+| PERF-SLICE-009 | Complete: independent assurance, full source and transported qualification, immutable GitHub/npm `latest` delivery, followed by separately governed consumer integrations. |
+
+Conditional slices are dispositioned, not incomplete prerequisites for this release.
+Retained paired experiments measured separate memo/batch and check-first improvements; their percentages are not added across different host conditions or represented as an SLA.
+Both-platform six-run corpus windows met the accepted 30-second and platform-specific 512 MiB producer budgets; consumer-specific later budgets retain their own authority.
+Compilation and an alternative runtime remain lower-priority research options, not accepted implementation follow-ups.
+Node-matrix and community/dogfooding source changes made after `1.0.3` remain unreleased under the owner's publication hold.
+
+The sections below preserve the original accepted plan, research inputs and proof obligations.
+Their earlier baseline, staged-file preservation and paused-delivery statements describe that execution stage; they do not reopen superseded proposals or authorize another release.
 
 ## 1. Purpose, baseline, and authority
 
@@ -323,4 +351,4 @@ These references were checked on 6 October 2026; exact source/lock/native identi
 - [CommonMark 0.31.2 hard breaks and literal semantics](https://spec.commonmark.org/0.31.2/): preserve meaning while enforcing the owner's explicit whitespace policy.
 
 Platform WPR/WPA or Linux perf observations are optional corroboration where already permitted; profiler unavailability is not authority to install tools or weaken host security settings.
-The immediate implementation entry is PERF-SLICE-001, followed by exact-input reuse and independently proved native batching.
+The original implementation entry was PERF-SLICE-001, followed by exact-input reuse and independently proved native batching; current outcomes and conditional deferrals are recorded above.
