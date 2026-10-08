@@ -2,32 +2,65 @@
 import { parse } from "./analysis.js";
 import { fail, limits } from "./contracts.js";
 
+// Independent stage budgets avoid starving layout reuse behind a retained AST.
+// These account for source/result bytes, not total JavaScript heap allocation.
+export const documentMemoLimits = Object.freeze({
+  parseBytes: limits.fileBytes,
+  layoutBytes: limits.fileBytes * 2,
+  entriesPerStage: 4,
+});
+
 /** Reuse pure owned results for one document; never retain filesystem validity. */
 export function createDocumentMemo(syntax = { frontmatter: "yaml" }) {
   const trees = new Map();
   const layouts = new Map();
-  let retainedBytes = 0,
-    disposed = false,
-    layoutEntries = 0;
+  const stages = {
+    parse: { order: new Map(), bytes: 0, limit: documentMemoLimits.parseBytes },
+    layout: {
+      order: new Map(),
+      bytes: 0,
+      limit: documentMemoLimits.layoutBytes,
+    },
+  };
+  let disposed = false;
   const counts = { parses: 0, parseHits: 0, layouts: 0, layoutHits: 0 };
   function active() {
     if (disposed) fail("ANALYSIS_FAILURE", "Document analysis is unavailable.");
   }
-  function reserve(bytes, entries) {
-    if (entries >= 4 || retainedBytes + bytes > limits.fileBytes) return false;
-    retainedBytes += bytes;
-    return true;
+  function touch(stage, entry) {
+    stage.order.delete(entry);
+    stage.order.set(entry, true);
+    return entry.value;
+  }
+  function admit(stage, bytes, value, remove) {
+    if (bytes > stage.limit) return null;
+    while (
+      stage.order.size >= documentMemoLimits.entriesPerStage ||
+      stage.bytes + bytes > stage.limit
+    ) {
+      const oldest = stage.order.keys().next().value;
+      stage.order.delete(oldest);
+      stage.bytes -= oldest.bytes;
+      oldest.remove();
+    }
+    const entry = { bytes, value, remove };
+    stage.bytes += bytes;
+    stage.order.set(entry, true);
+    return entry;
   }
   return {
     parse(text) {
       active();
       if (trees.has(text)) {
         counts.parseHits++;
-        return trees.get(text);
+        return touch(stages.parse, trees.get(text));
       }
       counts.parses++;
       const tree = parse(text, syntax);
-      if (reserve(Buffer.byteLength(text), trees.size)) trees.set(text, tree);
+      const entry = admit(stages.parse, Buffer.byteLength(text), tree, () =>
+        trees.delete(text),
+      );
+      if (entry) trees.set(text, entry);
       return tree;
     },
     async layout(text, options, compute) {
@@ -36,33 +69,46 @@ export function createDocumentMemo(syntax = { frontmatter: "yaml" }) {
       const variants = layouts.get(text);
       if (identity !== null && variants?.has(identity)) {
         counts.layoutHits++;
-        return variants.get(identity);
+        return touch(stages.layout, variants.get(identity));
       }
       counts.layouts++;
       const result = await compute();
       // Retain only completed values: failed or pending work is never admission.
-      if (
-        identity !== null &&
-        reserve(
+      if (identity !== null && !disposed && !layouts.get(text)?.has(identity)) {
+        const entry = admit(
+          stages.layout,
           Buffer.byteLength(text) + Buffer.byteLength(result),
-          layoutEntries,
-        )
-      ) {
-        const entries = variants ?? new Map();
-        entries.set(identity, result);
-        layouts.set(text, entries);
-        layoutEntries++;
+          result,
+          () => {
+            const entries = layouts.get(text);
+            entries?.delete(identity);
+            if (entries?.size === 0) layouts.delete(text);
+          },
+        );
+        if (entry) {
+          const entries = layouts.get(text) ?? new Map();
+          entries.set(identity, entry);
+          layouts.set(text, entries);
+        }
       }
       return result;
     },
     get statistics() {
-      return { ...counts, retainedBytes, disposed };
+      return {
+        ...counts,
+        retainedBytes: stages.parse.bytes + stages.layout.bytes,
+        parseBytes: stages.parse.bytes,
+        layoutBytes: stages.layout.bytes,
+        disposed,
+      };
     },
     dispose() {
       trees.clear();
       layouts.clear();
-      retainedBytes = 0;
-      layoutEntries = 0;
+      for (const stage of Object.values(stages)) {
+        stage.order.clear();
+        stage.bytes = 0;
+      }
       disposed = true;
     },
   };
