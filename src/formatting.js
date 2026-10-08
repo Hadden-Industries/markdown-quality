@@ -7,7 +7,7 @@ import { normalizeTrailingWhitespace } from "./whitespace.js";
 import { fail } from "./contracts.js";
 import { matchesNativeCheck } from "./native-checks.js";
 import { formatterDefaults } from "./preset.js";
-import { canonicalizePolicy } from "./policy-formatting.js";
+import { canonicalizeEmphasis, canonicalizePolicy } from "./policy-formatting.js";
 import { protectOpaqueLiterals } from "./literal-protection.js";
 import { createDocumentMemo } from "./document-memo.js";
 function semantic(node) {
@@ -78,7 +78,17 @@ export async function prepareFormattedDocument(
       runNative(tool, protectedLiterals.text, false, context.config.limits),
     );
   }
-  const layout = await layoutPolicy(normalized);
+  // Equal-width emphasis repairs can avoid a second full printer pass. Admit
+  // them only when parsed meaning agrees; list/fence/heading edits stay after
+  // printing because their source spans can change container indentation.
+  let layoutInput = canonicalizeEmphasis(normalized, memo);
+  if (
+    layoutInput !== normalized &&
+    JSON.stringify(semantic(tree(normalized))) !==
+      JSON.stringify(semantic(tree(layoutInput)))
+  )
+    layoutInput = normalized;
+  const layout = await layoutPolicy(layoutInput);
   if (
     layout === text &&
     matchesNativeCheck(tool, text, precheck) &&
