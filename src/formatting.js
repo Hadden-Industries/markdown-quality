@@ -7,7 +7,10 @@ import { normalizeTrailingWhitespace } from "./whitespace.js";
 import { fail } from "./contracts.js";
 import { matchesNativeCheck } from "./native-checks.js";
 import { formatterDefaults } from "./preset.js";
-import { canonicalizeEmphasis, canonicalizePolicy } from "./policy-formatting.js";
+import {
+  canonicalizeEmphasis,
+  canonicalizePolicy,
+} from "./policy-formatting.js";
 import { protectOpaqueLiterals } from "./literal-protection.js";
 import { createDocumentMemo } from "./document-memo.js";
 function semantic(node) {
