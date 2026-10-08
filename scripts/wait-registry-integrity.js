@@ -55,7 +55,7 @@ export async function waitForRegistryIntegrity(
   assert.ok(Number.isFinite(budget) && budget > 0 && budget <= 300_000);
   const deadline = now() + budget;
   const url = `https://registry.npmjs.org/${encodeURIComponent(name)}/${version}`;
-  const installUrl = `https://registry.npmjs.org/${name.replace("/", "%2f")}`;
+  const installUrl = `https://registry.npmjs.org/${encodeURIComponent(name)}`;
   async function boundedLookup(target, accept) {
     const remaining = deadline - now();
     assert.ok(

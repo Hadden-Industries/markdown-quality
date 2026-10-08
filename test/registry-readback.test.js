@@ -28,7 +28,7 @@ test("installer metadata must expose exact bytes before an accepted publication 
       if (url.endsWith("/1.0.0")) return available();
       assert.equal(
         url,
-        "https://registry.npmjs.org/@hadden-industries%2fmarkdown-quality-win32-x64",
+        "https://registry.npmjs.org/%40hadden-industries%2Fmarkdown-quality-win32-x64",
       );
       assert.ok(
         [
@@ -55,6 +55,7 @@ test("installer visibility never retries mismatched bytes, malformed metadata or
     { status: 403 },
     { status: 503 },
     { status: 200, metadata: { name } },
+    { status: 200, metadata: { name, versions: [] } },
     { status: 200, metadata: { name: "wrong", versions: {} } },
     {
       status: 200,
@@ -63,6 +64,13 @@ test("installer visibility never retries mismatched bytes, malformed metadata or
         versions: {
           [version]: { ...available().metadata, dist: { integrity: "wrong" } },
         },
+      },
+    },
+    {
+      status: 200,
+      metadata: {
+        name,
+        versions: { [version]: { ...available().metadata, version: "9.9.9" } },
       },
     },
   ]) {
@@ -74,6 +82,132 @@ test("installer visibility never retries mismatched bytes, malformed metadata or
           assert.fail("Terminal install metadata failure must not retry"),
       }),
     );
+  }
+});
+
+test("every allowed package uses complete component encoding for all registry paths", async () => {
+  for (const [packageName, encoded] of [
+    [
+      "@hadden-industries/markdown-quality",
+      "%40hadden-industries%2Fmarkdown-quality",
+    ],
+    [
+      "@hadden-industries/markdown-quality-win32-x64",
+      "%40hadden-industries%2Fmarkdown-quality-win32-x64",
+    ],
+    [
+      "@hadden-industries/markdown-quality-linux-x64",
+      "%40hadden-industries%2Fmarkdown-quality-linux-x64",
+    ],
+  ]) {
+    const metadata = { name: packageName, version, dist: { integrity } };
+    const requests = [];
+    await waitForRegistryIntegrity(packageName, version, integrity, {
+      installMetadata: true,
+      lookup: async (url, timeout, accept) => {
+        requests.push({ url, accept });
+        assert.ok(timeout > 0 && timeout <= 10_000);
+        return {
+          status: 200,
+          metadata: url.endsWith(`/${version}`)
+            ? metadata
+            : { name: packageName, versions: { [version]: metadata } },
+        };
+      },
+    });
+    assert.deepEqual(requests, [
+      {
+        url: `https://registry.npmjs.org/${encoded}/${version}`,
+        accept: "application/json",
+      },
+      {
+        url: `https://registry.npmjs.org/${encoded}`,
+        accept:
+          "application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*",
+      },
+      {
+        url: `https://registry.npmjs.org/${encoded}`,
+        accept: "application/json",
+      },
+    ]);
+    let absentRequests = 0;
+    await assertRegistryVersionAbsent(packageName, version, {
+      lookup: async (url) => {
+        absentRequests++;
+        assert.equal(url, `https://registry.npmjs.org/${encoded}/${version}`);
+        return { status: 404 };
+      },
+    });
+    assert.equal(absentRequests, 1);
+  }
+});
+
+test("invalid package identities cause zero requests in readback and absence probes", async () => {
+  for (const invalid of [
+    `${name}/extra`,
+    `${name}%2Fextra`,
+    `${name}?version=1`,
+    `${name}#fragment`,
+    `${name}/../markdown-quality`,
+    `${name}\n`,
+    ` ${name}`,
+    "@wrong/markdown-quality",
+    "@hadden-industries/markdown-quality-darwin-x64",
+    "@hadden-industries%2Fmarkdown-quality",
+    "@hadden-industries\\markdown-quality",
+  ]) {
+    let requests = 0;
+    const lookup = async () => {
+      requests++;
+      assert.fail("Invalid identity reached lookup");
+    };
+    await assert.rejects(
+      waitForRegistryIntegrity(invalid, version, integrity, {
+        lookup,
+        installMetadata: true,
+      }),
+    );
+    await assert.rejects(
+      assertRegistryVersionAbsent(invalid, version, { lookup }),
+    );
+    assert.equal(requests, 0, invalid);
+  }
+});
+
+test("installer 404 and inherited versions wait within the shared deadline", async () => {
+  for (const first of [
+    { status: 404 },
+    {
+      status: 200,
+      metadata: {
+        name,
+        versions: Object.create({ [version]: available().metadata }),
+      },
+    },
+  ]) {
+    let elapsed = 0;
+    let packuments = 0;
+    await waitForRegistryIntegrity(name, version, integrity, {
+      installMetadata: true,
+      now: () => elapsed,
+      sleep: async (ms) => {
+        elapsed += ms;
+      },
+      lookup: async (url) =>
+        url.endsWith(`/${version}`)
+          ? available()
+          : ++packuments === 1
+            ? first
+            : {
+                status: 200,
+                metadata: {
+                  name,
+                  versions: { [version]: available().metadata },
+                },
+              },
+    });
+    assert.equal(elapsed, 10_000);
+    assert.equal(packuments, 3);
   }
 });
 

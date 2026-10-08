@@ -23,13 +23,13 @@ jobs:
     outputs:
       runtimes: ${{ steps.resolve.outputs.matrix }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24.21.0"
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
       - run: npm ci --ignore-scripts --no-audit --no-fund
@@ -44,7 +44,7 @@ jobs:
         env:
           NODE_QUALIFICATION_MATRIX: ${{ steps.resolve.outputs.matrix }}
         run: node --input-type=module -e "import {packRelease} from './scripts/pack.js'; const r=packRelease(process.env.RUNNER_TEMP+'/candidate-release',JSON.parse(process.env.NODE_QUALIFICATION_MATRIX)); console.log(JSON.stringify({version:r.version,source:r.source,archives:r.archives.map(a=>({name:a.name,sha256:a.sha256,integrity:a.integrity,executableMode:a.executableMode}))}));"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: candidate-release
           path: ${{ runner.temp }}/candidate-release/
@@ -63,18 +63,18 @@ jobs:
       matrix: ${{ fromJSON(needs.pack.outputs.runtimes) }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node }}
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
       - name: Acquire complete public OwlAPI corpus as data
         if: matrix.node == '24.21.0'
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Hadden-Industries/owlapi
           ref: 073beefb7805130bc0452472d1a9c801471fbaf1
@@ -82,7 +82,7 @@ jobs:
           persist-credentials: false
       - name: Acquire frozen producer oracle source
         if: matrix.node == '24.21.0'
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: 763984e94f2122a949d2ad6f9bce5da9791015e8
           path: performance-incumbent
@@ -97,7 +97,7 @@ jobs:
         run: python scripts/acquire-native.py
       - name: Acquire complete public WebVOWL corpus as data
         if: matrix.node == '24.21.0'
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Hadden-Industries/webvowl
           ref: b0fe00404eedf12a59084871863500869474bd3a
@@ -114,13 +114,13 @@ jobs:
       - name: Qualify transported archives and measure reference-runtime performance
         if: matrix.node == '24.21.0'
         run: node scripts/qualify-public-registry.mjs --manifest transported-release/release-manifest.json --archives transported-release --performance-corpora performance-corpora --performance-output performance-observations --incumbent-cli performance-incumbent/src/cli.js candidate-qualification.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.node == '24.21.0' && format('candidate-{0}', matrix.os) || format('candidate-{0}-{1}', matrix.os, matrix.node) }}
           path: candidate-qualification.json
           if-no-files-found: error
           retention-days: 30
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always() && matrix.node == '24.21.0'
         with:
           name: performance-${{ matrix.os }}

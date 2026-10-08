@@ -27,6 +27,10 @@ Installed npm packages retain their upstream license files.
 The directly adopted front-matter extensions retain their original MIT copyright and permission notices in their installed `license` files.
 Their terms permit use, modification and distribution subject to retaining those notices; this implementation imports them without vendoring or changing their source.
 The lockfile freezes their exact integrity identities.
+The producer's scoped dependency override resolves KaTeX 0.19.0 and its Commander 15.0.0 dependency.
+Their installed `LICENSE` files retain the original MIT terms and copyright notices: Khan Academy and other contributors (KaTeX), and TJ Holowaychuk (Commander).
+Those terms permit use and redistribution subject to retaining the notices; no upstream source is vendored or modified here.
+The override applies only to the producer root, as described in the [support and release boundary](docs/support-and-release.md).
 Native packages retain `LICENSE.snapper` and a fixed executable/repack component record.
 The AGPL declaration applies to the packaging implementation and does not relabel upstream executable bytes.
 

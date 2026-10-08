@@ -156,3 +156,9 @@ Provide AGPL corresponding source and build materials alongside object-code deli
 Preserve third-party license texts and attribution.
 Public registry access does not waive source obligations.
 The repository's original `LICENSE` bytes are verified by the full check.
+
+The consolidated security remediation uses a root-only `micromark-extension-math` override to KaTeX 0.19.0 for producer development and qualification.
+It removes the affected KaTeX resolution from this repository's locked install.
+[npm applies overrides only from the root project](https://docs.npmjs.com/cli/v12/configuring-npm/package-json/#overrides), so installing the packed library without a consumer override can still resolve affected KaTeX through ESLint Markdown.
+This source repair does not remediate that consumer graph or change immutable release 1.0.3.
+Consumer-wide dependency remediation requires a separately accepted dependency/distribution design and a qualified new release.

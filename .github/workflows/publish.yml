@@ -54,11 +54,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: "24.21.0"
           package-manager-cache: false
@@ -94,7 +94,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE_ATTEMPT: ${{ steps.candidate.outputs.candidate-attempt }}
         run: gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN/attempts/$CANDIDATE_ATTEMPT/jobs?per_page=100" > provider/jobs.json
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
           ref: ${{ steps.candidate.outputs.artifact-source }}
@@ -116,7 +116,7 @@ jobs:
           digest-mismatch: error
       - name: Verify approved archives and bind publication origins before any effect
         run: node scripts/verify-publication.js frozen-release "$MANIFEST_SHA" provider
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: publication-admission
@@ -143,11 +143,11 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: "24.21.0"
           package-manager-cache: false
@@ -179,7 +179,7 @@ jobs:
           node --input-type=module -e 'import {npmCommand} from "./scripts/commands.js"; if(npmCommand(["--version"]).trim()!=="12.2.0") throw new Error("Selected Node npm version mismatch")'
       - name: Qualify retained archives and installed-platform provenance before publication
         run: node scripts/qualify-public-registry.mjs --manifest frozen-release/release-manifest.json --provenance --publication-origins frozen-release/publication-origins.json --publication-source "$GITHUB_SHA" --publication-run "$GITHUB_RUN_ID" --publication-attempt "$GITHUB_RUN_ATTEMPT" --recovery-run "$RECOVERY_RUN" --recovery-attempt "$RECOVERY_ATTEMPT" --recovery-origins-sha256 "$RECOVERY_ORIGINS_SHA" --retained-only retained-qualification.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: retained-registry-${{ matrix.os }}
@@ -197,11 +197,11 @@ jobs:
       actions: read
       id-token: write
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: "24.21.0"
           package-manager-cache: false
@@ -267,7 +267,7 @@ jobs:
           [[ "$RELEASE_TAG" == pilot || "$RELEASE_TAG" == latest ]]
           npm publish "./frozen-release/hadden-industries-markdown-quality-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag "$RELEASE_TAG" --provenance --registry=https://registry.npmjs.org/
           node scripts/wait-registry-integrity.js @hadden-industries/markdown-quality "$RELEASE_VERSION" "$CORE_INTEGRITY"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: publication-source-and-manifest
@@ -294,11 +294,11 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: "24.21.0"
           package-manager-cache: false
@@ -330,7 +330,7 @@ jobs:
           node --input-type=module -e 'import {npmCommand} from "./scripts/commands.js"; if(npmCommand(["--version"]).trim()!=="12.2.0") throw new Error("Selected Node npm version mismatch")'
       - name: Verify anonymous complete tuple bytes, signatures and bound publication origins
         run: node scripts/qualify-public-registry.mjs --manifest frozen-release/release-manifest.json --provenance --publication-origins frozen-release/publication-origins.json --publication-source "$GITHUB_SHA" --publication-run "$GITHUB_RUN_ID" --publication-attempt "$GITHUB_RUN_ATTEMPT" --recovery-run "$RECOVERY_RUN" --recovery-attempt "$RECOVERY_ATTEMPT" --recovery-origins-sha256 "$RECOVERY_ORIGINS_SHA" registry-qualification.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: attested-registry-${{ matrix.os }}
