@@ -5,7 +5,7 @@ import { fail, limits } from "./contracts.js";
 // Independent stage budgets avoid starving layout reuse behind a retained AST.
 // These account for source/result bytes, not total JavaScript heap allocation.
 export const documentMemoLimits = Object.freeze({
-  parseBytes: limits.fileBytes,
+  parseBytes: limits.fileBytes * 2,
   layoutBytes: limits.fileBytes * 2,
   entriesPerStage: 4,
 });
@@ -49,7 +49,7 @@ export function createDocumentMemo(syntax = { frontmatter: "yaml" }) {
     return entry;
   }
   return {
-    parse(text) {
+    parse(text, retain = true) {
       active();
       if (trees.has(text)) {
         counts.parseHits++;
@@ -57,10 +57,12 @@ export function createDocumentMemo(syntax = { frontmatter: "yaml" }) {
       }
       counts.parses++;
       const tree = parse(text, syntax);
-      const entry = admit(stages.parse, Buffer.byteLength(text), tree, () =>
-        trees.delete(text),
-      );
-      if (entry) trees.set(text, entry);
+      if (retain) {
+        const entry = admit(stages.parse, Buffer.byteLength(text), tree, () =>
+          trees.delete(text),
+        );
+        if (entry) trees.set(text, entry);
+      }
       return tree;
     },
     async layout(text, options, compute) {

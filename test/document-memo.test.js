@@ -239,3 +239,19 @@ test("layout byte eviction removes only the expired option variant", async (t) =
   assert.equal(calls, 3);
   assert.equal(memo.statistics.layoutBytes, Buffer.byteLength(source) * 2);
 });
+
+test("transient literal-layout parses keep useful source trees and selected syntax", () => {
+  const memo = createDocumentMemo({ frontmatter: "toml" });
+  try {
+    const original = "X".repeat(documentMemoLimits.parseBytes);
+    const tree = memo.parse(original);
+    const transient = "+++\nname = 'opaque'\n+++\n\nTransient.\n";
+    assert.equal(memo.parse(transient, false).children[0].type, "toml");
+    assert.equal(memo.parse(original), tree);
+    assert.equal(memo.statistics.parseBytes, documentMemoLimits.parseBytes);
+    assert.notEqual(memo.parse(transient, false), memo.parse(transient, false));
+    assert.equal(memo.statistics.parseBytes, documentMemoLimits.parseBytes);
+  } finally {
+    memo.dispose();
+  }
+});
