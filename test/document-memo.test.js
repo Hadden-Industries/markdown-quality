@@ -3,7 +3,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { createDocumentMemo } from "../src/document-memo.js";
+import {
+  createDocumentMemo,
+  documentMemoLimits,
+} from "../src/document-memo.js";
 import { checkLinks } from "../src/analysis.js";
 import { formatLayout } from "../src/literal-layout.js";
 import { normalizeTrailingWhitespace } from "../src/whitespace.js";
@@ -76,20 +79,20 @@ test("layout reuse tracks changed source/options and does not admit failed work"
   assert.equal(memo.statistics.layoutHits, 1);
 });
 
-test("memo bounds fall back to complete analysis and disposal forbids stale reuse", async () => {
+test("memo bounds evict older values and disposal forbids stale reuse", async () => {
   const memo = createDocumentMemo();
-  const source = "X".repeat(limits.fileBytes);
+  const source = "X".repeat(documentMemoLimits.parseBytes);
   const first = memo.parse(source);
   assert.equal(memo.parse(source), first);
-  assert.equal(memo.statistics.retainedBytes, limits.fileBytes);
+  assert.equal(memo.statistics.retainedBytes, documentMemoLimits.parseBytes);
   const small = "Alpha.\n";
   const one = memo.parse(small);
-  assert.notEqual(memo.parse(small), one);
+  assert.equal(memo.parse(small), one);
   assert.equal(
     await formatLayout(small, options, memo),
     await formatLayout(small, options),
   );
-  assert.equal(memo.statistics.retainedBytes, limits.fileBytes);
+  assert.ok(memo.statistics.retainedBytes < limits.fileBytes);
   memo.dispose();
   assert.equal(memo.statistics.retainedBytes, 0);
   assert.throws(() => memo.parse(small), { code: "ANALYSIS_FAILURE" });
@@ -99,4 +102,156 @@ test("memo bounds fall back to complete analysis and disposal forbids stale reus
   const next = createDocumentMemo();
   assert.notEqual(next.parse(small), one);
   next.dispose();
+});
+
+test("large layouts reuse independently of parsed source retention", async () => {
+  const memo = createDocumentMemo();
+  try {
+    const source = "a".repeat(limits.fileBytes / 2 + 1024) + "😀 before\n";
+    const expected = source.slice(0, -7) + "after\n";
+    memo.parse(source);
+    let calls = 0;
+    const compute = async () => {
+      calls++;
+      return expected;
+    };
+    assert.equal(await memo.layout(source, options, compute), expected);
+    assert.equal(await memo.layout(source, options, compute), expected);
+    assert.equal(calls, 1);
+    const tree = memo.parse(expected);
+    assert.equal(memo.parse(expected), tree);
+    assert.equal(await memo.layout(source, options, compute), expected);
+    assert.equal(calls, 1);
+    assert.ok(memo.statistics.parseBytes <= documentMemoLimits.parseBytes);
+    assert.ok(memo.statistics.layoutBytes <= documentMemoLimits.layoutBytes);
+  } finally {
+    memo.dispose();
+  }
+});
+
+test("stage entry limits evict the least recently used values", async (t) => {
+  const memo = createDocumentMemo();
+  t.after(() => memo.dispose());
+  const original = memo.parse("Original.\n");
+  const evicted = memo.parse("Evicted.\n");
+  memo.parse("Third.\n");
+  memo.parse("Fourth.\n");
+  assert.equal(memo.parse("Original.\n"), original);
+  memo.parse("Fifth.\n");
+  assert.equal(memo.parse("Original.\n"), original);
+  assert.notEqual(memo.parse("Evicted.\n"), evicted);
+  let calls = 0;
+  const layout = (text) =>
+    memo.layout(text, options, async () => {
+      calls++;
+      return text + "\n";
+    });
+  for (const text of ["Original", "Evicted", "Third", "Fourth"])
+    await layout(text);
+  await layout("Original");
+  await layout("Fifth");
+  await layout("Original");
+  assert.equal(calls, 5);
+  await layout("Evicted");
+  assert.equal(calls, 6);
+  assert.ok(memo.statistics.layoutBytes <= documentMemoLimits.layoutBytes);
+});
+
+test("pending layouts cannot repopulate disposed or duplicate cache entries", async () => {
+  const memo = createDocumentMemo();
+  let finish;
+  const pending = memo.layout(
+    "Pending",
+    options,
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  assert.equal(memo.statistics.layoutBytes, 0);
+  assert.equal(
+    await memo.layout("Pending", options, async () => "Complete"),
+    "Complete",
+  );
+  const bytes = memo.statistics.layoutBytes;
+  finish("Complete");
+  assert.equal(await pending, "Complete");
+  assert.equal(memo.statistics.layoutBytes, bytes);
+  const late = memo.layout(
+    "Late",
+    options,
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  memo.dispose();
+  finish("Late result");
+  assert.equal(await late, "Late result");
+  assert.equal(memo.statistics.retainedBytes, 0);
+  await assert.rejects(
+    memo.layout("Late", options, async () => "Unexpected"),
+    {
+      code: "ANALYSIS_FAILURE",
+    },
+  );
+});
+
+test("oversized and executable-option layouts never enter the cache", async (t) => {
+  const memo = createDocumentMemo();
+  t.after(() => memo.dispose());
+  const source = "x".repeat(documentMemoLimits.layoutBytes / 2 + 1);
+  for (let index = 0; index < 2; index++)
+    assert.equal(
+      await memo.layout(source, options, async () => source),
+      source,
+    );
+  let getters = 0;
+  const opaque = {
+    ...options,
+    get executable() {
+      getters++;
+      return "opaque";
+    },
+  };
+  for (let index = 0; index < 2; index++)
+    await memo.layout("Safe", opaque, async () => "Safe result");
+  assert.equal(getters, 0);
+  assert.equal(memo.statistics.layoutHits, 0);
+  assert.equal(memo.statistics.layoutBytes, 0);
+});
+
+test("layout byte eviction removes only the expired option variant", async (t) => {
+  const memo = createDocumentMemo();
+  t.after(() => memo.dispose());
+  const source = "x".repeat(documentMemoLimits.layoutBytes / 4 + 1);
+  let calls = 0;
+  const compute = async () => {
+    calls++;
+    return source;
+  };
+  await memo.layout(source, options, compute);
+  await memo.layout(source, { ...options, tabWidth: 4 }, compute);
+  assert.equal(calls, 2);
+  await memo.layout(source, { ...options, tabWidth: 4 }, compute);
+  assert.equal(calls, 2);
+  await memo.layout(source, options, compute);
+  assert.equal(calls, 3);
+  assert.equal(memo.statistics.layoutBytes, Buffer.byteLength(source) * 2);
+});
+
+test("transient literal-layout parses keep useful source trees and selected syntax", () => {
+  const memo = createDocumentMemo({ frontmatter: "toml" });
+  try {
+    const original = "X".repeat(documentMemoLimits.parseBytes);
+    const tree = memo.parse(original);
+    const transient = "+++\nname = 'opaque'\n+++\n\nTransient.\n";
+    assert.equal(memo.parse(transient, false).children[0].type, "toml");
+    assert.equal(memo.parse(original), tree);
+    assert.equal(memo.statistics.parseBytes, documentMemoLimits.parseBytes);
+    assert.notEqual(memo.parse(transient, false), memo.parse(transient, false));
+    assert.equal(memo.statistics.parseBytes, documentMemoLimits.parseBytes);
+  } finally {
+    memo.dispose();
+  }
 });

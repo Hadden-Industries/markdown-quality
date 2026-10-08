@@ -191,6 +191,7 @@ test("drifting checks defer native structural findings and preserve source coord
 
 test("nested numbering across digit widths and indented conversions preserve list meaning", async (t) => {
   for (const [source, expected] of [
+    ["9. _A_.\n9. B.\n   - Child.\n", "9. *A*.\n10. B.\n    - Child.\n"],
     [
       "> 9. _Nine_.\n> 9. Ten.\n>    Continuation.\n",
       "> 9. *Nine*.\n> 10. Ten.\n>     Continuation.\n",

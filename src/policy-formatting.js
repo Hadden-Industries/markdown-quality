@@ -4,6 +4,15 @@ import { fail } from "./contracts.js";
 
 /** Narrow source-span fixes for policy choices the maintained printer does not expose. */
 export function canonicalizePolicy(text, memo) {
+  return canonicalize(text, memo, false);
+}
+
+/** Normalize emphasis only; structural source edits still require printer layout. */
+export function canonicalizeEmphasis(text, memo) {
+  return canonicalize(text, memo, true);
+}
+
+function canonicalize(text, memo, emphasisOnly) {
   const tree = memo ? memo.parse(text) : parse(text);
   const edits = [];
   const replace = (start, end, value) => {
@@ -15,6 +24,10 @@ export function canonicalizePolicy(text, memo) {
     if (node.type === "emphasis" && text[start] === "_") {
       replace(start, start + 1, "*");
       replace(end - 1, end, "*");
+    }
+    if (emphasisOnly) {
+      for (const child of node.children ?? []) visit(child);
+      return;
     }
     if (node.type === "heading") {
       const first = node.children[0]?.position.start.offset;

@@ -96,7 +96,9 @@ async function protectLiteralLayout(text, options, memo) {
   const emptyIndentedRows = new Set();
   const codeRows = protectedLiteralRows(
     text,
-    memo ? memo.parse(text) : parse(text),
+    // Protected input is a transient printer representation. Retaining its AST
+    // evicts source trees used by policy, preservation and independent checks.
+    memo ? memo.parse(text, false) : parse(text),
     emptyIndentedRows,
   );
   const selected = new Set(
