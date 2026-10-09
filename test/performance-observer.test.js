@@ -16,6 +16,18 @@ import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import { consumer } from "./helpers.js";
 
+test("performance qualifier verifies frozen correctness evidence and retains fresh candidate gates", () => {
+  const result = spawnSync(
+    "python",
+    [
+      "-B",
+      fileURLToPath(new URL("./performance-qualification.py", import.meta.url)),
+    ],
+    { encoding: "utf8", timeout: 30000, windowsHide: true },
+  );
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+});
+
 test("maintainer observer measures real native descendants and retains genuine findings without modifying inputs", (t) => {
   const root = consumer(t, {
     "a.md": ("x".repeat(121) + "\n\n").repeat(1001).trimEnd() + "\n",

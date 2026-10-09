@@ -43,7 +43,7 @@ class TextOutputTests(unittest.TestCase):
             # Empty aggregation isolates this writer; the JS observer test exercises
             # real nonempty input/process measurements. This does not qualify a fleet.
             with patch.object(observer, 'CORPORA', {}), contextlib.redirect_stdout(io.StringIO()):
-                observer.qualify('node', str(ROOT / 'src/cli.js'), Path(temporary), output, ROOT / 'src/cli.js')
+                observer.qualify('node', str(ROOT / 'src/cli.js'), Path(temporary), output)
             data = (output / 'qualification.json').read_bytes()
             self.assert_lf(data)
             self.assertEqual(json.loads(data)['corpora'], {})

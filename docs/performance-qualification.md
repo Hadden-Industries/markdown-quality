@@ -62,13 +62,18 @@ This maintainer-owned override retains every advisory on the complete public cor
 All other resolved consumer budgets remain active; consumer defaults and the 30-second/512 MiB qualification gates are unchanged.
 Authored resource reports, qualification summaries and driver JSON status explicitly use UTF-8 with LF on every platform.
 Raw child stdout and stderr retain the actual captured bytes; result identities hash those retained bytes.
-Each result must match the independently frozen current-policy baseline oracle, allowing only the package version to differ.
+Each candidate result must match the independently frozen baseline's complete diagnostics, selected paths, outcome and exit code; its package version must match the installed candidate.
 The revision-5 oracle in `test/fixtures/performance-oracles.json` replaces the earlier strict-whitespace report-schema-1 oracle.
 It was frozen from source `763984e94f2122a949d2ad6f9bce5da9791015e8` with the explicit maintainer override, before the literal-protection optimization.
+The complete historical reports are retained as compressed [correctness fixtures](../test/fixtures/performance-incumbents/README.md), with their hosted acquisition provenance.
+Before measuring a candidate, the qualifier verifies both complete canonical reports against those pre-existing oracle hashes, normalizing only package version.
+Missing, corrupt or changed reports abort qualification.
+CI uses this retained correctness evidence instead of installing and executing the unoptimized historical producer on each runner; no historical timing or memory measurement is reused as current candidate evidence.
+The qualification report records `retainedIncumbentFullResultOracleVerified` and the verified full-result hash, rather than claiming a fresh historical execution.
 The agreed policy fixtures establish the intentional new advisory and style behavior; the corpus baseline detects any further result change from optimization.
 OwlAPI selects 63 documents with 5,829 findings (5,799 line-length information, 24 heading-punctuation information, four layout errors and two whitespace errors); WebVOWL selects 67 with 3,625 findings (3,588 line-length information, 24 heading-punctuation information, ten layout errors and three whitespace errors).
-The complete canonical result hash covers all fields and findings, alongside explicit selected/count/rule checks; the compact counts do not replace full-result identity.
-Policy identity is checked immediately after each observation so a mismatch stops before the remaining runs.
+The canonical hash authenticates all fields and findings of each retained historical report; candidate comparison uses the fields listed above because the translated fixture intentionally changes its effective configuration representation.
+Finding, selection, outcome, exit-code and count parity are checked immediately after each observation so a mismatch stops before the remaining runs; compact counts do not replace complete diagnostic comparison.
 It enforces the existing accepted timing and memory budgets and retains observations on failure without automatic retries.
 Windows uses Job Object peak committed bytes; Linux samples summed process-group RSS every 10 ms, which may miss brief peaks and count shared pages more than once.
 These metrics are declared independently and must not be compared as identical measures.

@@ -80,21 +80,6 @@ jobs:
           ref: 073beefb7805130bc0452472d1a9c801471fbaf1
           path: performance-corpora/owlapi
           persist-credentials: false
-      - name: Acquire frozen producer oracle source
-        if: matrix.node == '24.21.0'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: 763984e94f2122a949d2ad6f9bce5da9791015e8
-          path: performance-incumbent
-          persist-credentials: false
-      - name: Prepare the independently frozen producer oracle
-        if: matrix.node == '24.21.0'
-        working-directory: performance-incumbent
-        run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Prepare frozen native oracle assets
-        if: matrix.node == '24.21.0'
-        working-directory: performance-incumbent
-        run: python scripts/acquire-native.py
       - name: Acquire complete public WebVOWL corpus as data
         if: matrix.node == '24.21.0'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -113,7 +98,7 @@ jobs:
         run: node scripts/qualify-public-registry.mjs --manifest transported-release/release-manifest.json --archives transported-release candidate-qualification.json
       - name: Qualify transported archives and measure reference-runtime performance
         if: matrix.node == '24.21.0'
-        run: node scripts/qualify-public-registry.mjs --manifest transported-release/release-manifest.json --archives transported-release --performance-corpora performance-corpora --performance-output performance-observations --incumbent-cli performance-incumbent/src/cli.js candidate-qualification.json
+        run: node scripts/qualify-public-registry.mjs --manifest transported-release/release-manifest.json --archives transported-release --performance-corpora performance-corpora --performance-output performance-observations candidate-qualification.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.node == '24.21.0' && format('candidate-{0}', matrix.os) || format('candidate-{0}-{1}', matrix.os, matrix.node) }}
