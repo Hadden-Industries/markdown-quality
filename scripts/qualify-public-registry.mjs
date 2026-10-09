@@ -37,7 +37,6 @@ const { values, positionals } = parseArgs({
     "native-only": { type: "boolean", default: false },
     "performance-corpora": { type: "string" },
     "performance-output": { type: "string" },
-    "incumbent-cli": { type: "string" },
   },
   allowPositionals: true,
 });
@@ -401,8 +400,6 @@ try {
           resolve(values["performance-corpora"]),
           "--output",
           resolve(values["performance-output"]),
-          "--incumbent-cli",
-          resolve(values["incumbent-cli"]),
         ],
         { stdio: "inherit", timeout: 600000, windowsHide: true },
       );
