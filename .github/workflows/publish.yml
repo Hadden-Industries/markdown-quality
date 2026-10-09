@@ -99,14 +99,14 @@ jobs:
           persist-credentials: false
           ref: ${{ steps.candidate.outputs.artifact-source }}
           path: artifact-source
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: candidate-release
           path: frozen-release
           run-id: ${{ inputs.candidate-run }}
           github-token: ${{ github.token }}
           digest-mismatch: error
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         if: inputs.recovery-run != ''
         with:
           name: publication-source-and-manifest
@@ -157,14 +157,14 @@ jobs:
           echo "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/publication-user.npmrc" >> "$GITHUB_ENV"
           echo "NPM_CONFIG_GLOBALCONFIG=$RUNNER_TEMP/publication-global.npmrc" >> "$GITHUB_ENV"
           echo "NPM_CONFIG_CACHE=$RUNNER_TEMP/publication-cache" >> "$GITHUB_ENV"
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: candidate-release
           path: frozen-release
           run-id: ${{ inputs.candidate-run }}
           github-token: ${{ github.token }}
           digest-mismatch: error
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: publication-admission
           digest-mismatch: error
@@ -211,14 +211,14 @@ jobs:
           echo "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/publication-user.npmrc" >> "$GITHUB_ENV"
           echo "NPM_CONFIG_GLOBALCONFIG=$RUNNER_TEMP/publication-global.npmrc" >> "$GITHUB_ENV"
           echo "NPM_CONFIG_CACHE=$RUNNER_TEMP/publication-cache" >> "$GITHUB_ENV"
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: candidate-release
           path: frozen-release
           run-id: ${{ inputs.candidate-run }}
           github-token: ${{ github.token }}
           digest-mismatch: error
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: publication-admission
           digest-mismatch: error
@@ -308,14 +308,14 @@ jobs:
           echo "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/publication-user.npmrc" >> "$GITHUB_ENV"
           echo "NPM_CONFIG_GLOBALCONFIG=$RUNNER_TEMP/publication-global.npmrc" >> "$GITHUB_ENV"
           echo "NPM_CONFIG_CACHE=$RUNNER_TEMP/publication-cache" >> "$GITHUB_ENV"
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: candidate-release
           path: frozen-release
           run-id: ${{ inputs.candidate-run }}
           github-token: ${{ github.token }}
           digest-mismatch: error
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: publication-admission
           digest-mismatch: error

@@ -1,5 +1,22 @@
 # CI trust and acquisition
 
+Package qualification runs the complete current Node/platform matrix on every pull request.
+For a single ordinary same-repository PR merge onto the previous `main` tip, `.github/workflows/check.yml` can reuse that PR's fully executed package qualification.
+Admission independently checks the merged PR, tested Git tree and ordered parents, workflow identity, current resolved Node matrix, concrete Node/npm/Python versions, hosted runner images, successful complete job inventory, source attempt, and retained receipt artifact ID and digest.
+The final `required` job rechecks the original proof after test jobs have been skipped; evidence that changes at that point fails the aggregate rather than granting success.
+The workflow summaries identify `FULL` or `REUSED` and link the original run and attempt.
+
+Absent, expired, foreign, malformed or mismatched proof selects full tests during strategy selection.
+Direct, squash, rebase, forced and multi-merge pushes also run full tests.
+Node release or runner-image changes prevent reuse when the current selected inputs differ.
+Only a fully executed PR run can be the proof source; reuse records cannot form a chain.
+Proof and lane JSON are bounded data, acquired through the pinned official artifact actions with digest verification.
+GitHub API permissions are read-only; no extra credential or publication authority is granted.
+
+Transported-candidate and performance qualification remain fresh on `main` because their archives and publication contracts bind the exact source commit.
+Package-test reuse does not qualify PR archives for publication or replace reusable consumer, native-build, registry or release evidence.
+The repository's `docs/plans/ci-verification-reuse.md` records the accepted scope and its acceptance criteria.
+
 The package repository, OwlAPI, and WebVOWL are public, as inspected through GitHub on 2026-10-05.
 The owner selected public npm distribution after the private upload was rejected with E402.
 Core and both native packages declare public access; anonymous installation is a required registry qualification.

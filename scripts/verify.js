@@ -64,6 +64,7 @@ node([
   ".github/ISSUE_TEMPLATE",
   ".github/workflows/markdown-quality.yml",
   ".github/workflows/candidate.yml",
+  ".github/workflows/check.yml",
 ]);
 node([
   "--test",
