@@ -90,7 +90,7 @@ const lanes = () =>
       host: {
         os: os === "windows-latest" ? "Windows" : "Linux",
         arch: "X64",
-        image: os === "windows-latest" ? "win25" : "ubuntu24",
+        image: os === "windows-latest" ? "win25-vs2026" : "ubuntu24",
         imageVersion: "20261001.1.0",
         node: `v${node}`,
         npm: "12.2.0",
@@ -282,6 +282,25 @@ test("an ordinary merge reuses complete authenticated PR evidence, recording its
   });
 });
 
+test("legacy Windows image labels remain reusable when the complete host identity matches", async () => {
+  const input = fixture();
+  for (const records of [input.hosts, input.receipt.lanes])
+    for (const record of records)
+      if (record.lane.os === "windows-latest") record.host.image = "win25";
+  const selection = await selectProof(input);
+  assert.equal((await verifyProof({ ...input, selection })).mode, "REUSED");
+});
+
+test("a different valid Windows image variant cannot reuse proof", async () => {
+  const input = fixture();
+  input.hosts[0].host.image = "win25";
+  const selection = await selectProof(input);
+  await assert.rejects(
+    verifyProof({ ...input, selection }),
+    /Hosted runtime or runner image changed/u,
+  );
+});
+
 for (const [name, change] of [
   ["missing lane", (input) => input.receipt.lanes.pop()],
   [
@@ -320,6 +339,13 @@ for (const [name, change] of [
     (input) => (input.receipt.snapshot.workflow = sha("f")),
   ],
   ["changed Node selection", (input) => input.matrix.node.push("26.11.1")],
+  [
+    "invalid Windows image label",
+    (input) => {
+      for (const records of [input.hosts, input.receipt.lanes])
+        records[0].host.image += "-untrusted";
+    },
+  ],
   [
     "changed image",
     (input) =>
