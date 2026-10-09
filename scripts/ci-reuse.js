@@ -62,7 +62,8 @@ function validateHost(host, lane) {
   assert.equal(host.arch, "X64");
   assert.match(
     host.image,
-    lane.os === "windows-latest" ? /^win\d+$/u : /^ubuntu24$/u,
+    // Windows hosted images may identify their Visual Studio generation too.
+    lane.os === "windows-latest" ? /^win\d+(?:-vs\d{4})?$/u : /^ubuntu24$/u,
   );
   assert.match(host.imageVersion, /^\d{8}\.\d+(?:\.\d+)?$/u);
   assert.match(host.npm, /^\d+\.\d+\.\d+$/u);
