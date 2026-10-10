@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 1,
+  "fullDomains": [
+    "scripts/",
+    "schemas/",
+    "assets/",
+    "packages/",
+    ".github/",
+    "docs/",
+    "test/fixtures/"
+  ],
+  "fullFiles": [
+    "package.json",
+    "package-lock.json",
+    ".dependency-cruiser.json",
+    ".test-impact.json",
+    ".gitattributes",
+    ".gitignore",
+    ".markdown-quality.json",
+    ".prettierignore"
+  ],
+  "boundaryFiles": [
+    "src/candidate-staging.js",
+    "src/configuration.js",
+    "src/contracts.js",
+    "src/document-analysis.js",
+    "src/execution.js",
+    "src/native-tool.js",
+    "src/native-staging.js",
+    "src/qualification-evidence.js",
+    "src/qualification-runner.js",
+    "src/qualification.js"
+  ],
+  "relations": [
+    {
+      "id": "formatting-generated-formatting",
+      "dependency": "src/formatting.js",
+      "consumer": "test/formatting.test.js",
+      "kind": "generated-program",
+      "evidence": "Formatting tests generate ESM programs importing formatting.js",
+      "fixture": "test/affected-tests.test.js real generated-program seeded failure"
+    },
+    {
+      "id": "formatting-generated-native-tool",
+      "dependency": "src/native-tool.js",
+      "consumer": "test/formatting.test.js",
+      "kind": "generated-program",
+      "evidence": "Formatting tests generate ESM programs importing native-tool.js",
+      "fixture": "test/affected-tests.test.js real generated-program seeded failure"
+    },
+    {
+      "id": "formatting-generated-contracts",
+      "dependency": "src/contracts.js",
+      "consumer": "test/formatting.test.js",
+      "kind": "generated-program",
+      "evidence": "Formatting tests generate ESM programs importing contracts.js",
+      "fixture": "test/affected-tests.test.js real generated-program seeded failure"
+    },
+    {
+      "id": "cli-execution",
+      "dependency": "src/cli.js",
+      "consumer": "test/execution.test.js",
+      "kind": "spawn",
+      "evidence": "Execution tests invoke the source CLI",
+      "fixture": "test/affected-tests.test.js real spawned CLI seeded failure"
+    },
+    {
+      "id": "document-worker",
+      "dependency": "src/document-worker.js",
+      "consumer": "src/document-analysis.js",
+      "kind": "worker-url",
+      "evidence": "src/document-analysis.js constructs Worker URL; imported leaves propagate through native reaches",
+      "fixture": "test/affected-tests.test.js worker and seeded shadow cases"
+    },
+    {
+      "id": "execution-worker",
+      "dependency": "src/execution-worker.js",
+      "consumer": "src/execution.js",
+      "kind": "spawn",
+      "evidence": "src/execution.js spawns execution-worker.js",
+      "fixture": "test/affected-tests.test.js supplemental chain"
+    },
+    {
+      "id": "cli-tests",
+      "dependency": "src/cli.js",
+      "consumer": "test/cli.test.js",
+      "kind": "spawn",
+      "evidence": "test/cli.test.js invokes absolute CLI path",
+      "fixture": "test/affected-tests.test.js supplemental chain"
+    },
+    {
+      "id": "cli-display",
+      "dependency": "src/cli.js",
+      "consumer": "test/diagnostic-display.test.js",
+      "kind": "spawn",
+      "evidence": "test/diagnostic-display.test.js invokes CLI by URL",
+      "fixture": "test/affected-tests.test.js supplemental chain"
+    },
+    {
+      "id": "cli-limits",
+      "dependency": "src/cli.js",
+      "consumer": "test/resource-limits.test.js",
+      "kind": "spawn",
+      "evidence": "test/resource-limits.test.js invokes CLI",
+      "fixture": "test/affected-tests.test.js supplemental chain"
+    },
+    {
+      "id": "generated-quality",
+      "dependency": "src/quality.js",
+      "consumer": "test/resource-limits.test.js",
+      "kind": "generated-program",
+      "evidence": "test/resource-limits.test.js generates programs importing quality.js",
+      "fixture": "test/affected-tests.test.js supplemental chain"
+    },
+    {
+      "id": "generated-native",
+      "dependency": "src/native-tool.js",
+      "consumer": "test/resource-limits.test.js",
+      "kind": "generated-program",
+      "evidence": "test/resource-limits.test.js generated native-tool import",
+      "fixture": "test/affected-tests.test.js supplemental chain"
+    },
+    {
+      "id": "generated-execution",
+      "dependency": "src/execution.js",
+      "consumer": "test/resource-limits.test.js",
+      "kind": "generated-program",
+      "evidence": "test/resource-limits.test.js generated execution import",
+      "fixture": "test/affected-tests.test.js supplemental chain"
+    },
+    {
+      "id": "cli-performance",
+      "dependency": "src/cli.js",
+      "consumer": "test/performance-observer.test.js",
+      "kind": "spawn",
+      "evidence": "Python observer invokes source CLI",
+      "fixture": "test/affected-tests.test.js supplemental group and seeded shadow cases"
+    },
+    {
+      "id": "cli-runtime",
+      "dependency": "src/cli.js",
+      "consumer": "test/runtime-qualification.test.js",
+      "kind": "spawn",
+      "evidence": "Runtime qualification invokes CLI path",
+      "fixture": "test/affected-tests.test.js supplemental group and seeded shadow cases"
+    },
+    {
+      "id": "qualification-runner",
+      "dependency": "src/qualification-runner.js",
+      "consumer": "src/qualification.js",
+      "kind": "spawn",
+      "evidence": "Qualification invokes runner URL",
+      "fixture": "test/affected-tests.test.js supplemental group and seeded shadow cases"
+    },
+    {
+      "id": "qualification-runner-test",
+      "dependency": "src/qualification-runner.js",
+      "consumer": "test/qualification.test.js",
+      "kind": "spawn",
+      "evidence": "Qualification tests invoke runner URL",
+      "fixture": "test/affected-tests.test.js supplemental group and seeded shadow cases"
+    },
+    {
+      "id": "generated-native-checks",
+      "dependency": "src/native-checks.js",
+      "consumer": "test/resource-limits.test.js",
+      "kind": "generated-program",
+      "evidence": "Resource limits generated native-checks import",
+      "fixture": "test/affected-tests.test.js supplemental group and seeded shadow cases"
+    },
+    {
+      "id": "generated-native-staging",
+      "dependency": "src/native-staging.js",
+      "consumer": "test/resource-limits.test.js",
+      "kind": "generated-program",
+      "evidence": "Resource limits generated native-staging import",
+      "fixture": "test/affected-tests.test.js supplemental group and seeded shadow cases"
+    },
+    {
+      "id": "generated-analyzer",
+      "dependency": "src/document-analysis.js",
+      "consumer": "test/resource-limits.test.js",
+      "kind": "generated-program",
+      "evidence": "Resource limits generated document-analysis import",
+      "fixture": "test/affected-tests.test.js supplemental group and seeded shadow cases"
+    },
+    {
+      "id": "packed-source",
+      "dependency": "src/",
+      "consumer": "scripts/pack.js",
+      "kind": "source-copy-group",
+      "evidence": "Packer copies every source module into installed consumer archives",
+      "fixture": "test/affected-tests.test.js supplemental group and seeded shadow cases"
+    },
+    {
+      "id": "copied-source-tests",
+      "dependency": "src/",
+      "consumer": "test/packed-qualification.test.js",
+      "kind": "source-copy-group",
+      "evidence": "Packed qualification tests create and execute a source copy",
+      "fixture": "test/affected-tests.test.js supplemental group and seeded shadow cases"
+    }
+  ]
+}

@@ -44,6 +44,10 @@ Use the full profile for a consolidated source candidate; installed/transported 
 Record commands, results and actual gaps in the PR or task; a local pass is not hosted, release or consumer acceptance.
 The maintainer may iterate directly on `main`; these instructions do not require a PR or change branch controls.
 
+Development-only [dependency graphs and affected JavaScript tests](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/dependency-graph-and-tests.md) support explicit baseline inspection, selected execution and shadow comparisons.
+Without an explicit baseline, `check:affected` runs the full JavaScript inventory.
+Keep the complete `npm test` and `check:full` paths for final assurance.
+
 ## Markdown ownership
 
 Use semantic sentence lines and the existing `authored-gfm@1` policy.

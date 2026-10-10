@@ -1,0 +1,42 @@
+{
+  "forbidden": [
+    {
+      "name": "unresolved",
+      "severity": "error",
+      "from": {},
+      "to": { "couldNotResolve": true }
+    },
+    {
+      "name": "runtime-to-development",
+      "severity": "error",
+      "from": { "path": "^src/" },
+      "to": { "path": "^(test|scripts)/" }
+    },
+    {
+      "name": "runtime-to-dev-dependency",
+      "severity": "error",
+      "from": { "path": "^src/" },
+      "to": { "dependencyTypes": ["npm-dev"] }
+    },
+    {
+      "name": "cycles",
+      "severity": "warn",
+      "from": {},
+      "to": { "circular": true }
+    }
+  ],
+  "options": {
+    "doNotFollow": {
+      "dependencyTypes": [
+        "npm",
+        "npm-dev",
+        "npm-optional",
+        "npm-peer",
+        "npm-bundled",
+        "npm-no-pkg"
+      ]
+    },
+    "moduleSystems": ["es6", "cjs"],
+    "preserveSymlinks": false
+  }
+}

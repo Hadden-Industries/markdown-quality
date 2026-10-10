@@ -57,12 +57,13 @@
   "scripts": {
     "test": "node --test test/*.test.js",
     "check:focused": "node --test test/contracts.test.js",
-    "check:affected": "node --test test/*.test.js",
+    "check:affected": "node scripts/affected-tests.js",
     "check:full": "node scripts/verify.js",
     "format:code": "prettier --write src scripts test schemas assets docs package.json .markdown-quality.json .github/dependabot.yml .github/ISSUE_TEMPLATE",
     "format:markdown": "node src/cli.js format --root . --inventory git",
     "format": "npm run format:code && npm run format:markdown",
-    "check:markdown": "node src/cli.js check --root . --inventory git"
+    "check:markdown": "node src/cli.js check --root . --inventory git",
+    "graph:dependencies": "node scripts/dependency-graph.js"
   },
   "dependencies": {
     "@eslint/markdown": "8.0.3",
@@ -84,5 +85,8 @@
   "optionalDependencies": {
     "@hadden-industries/markdown-quality-linux-x64": "file:packages/linux-x64",
     "@hadden-industries/markdown-quality-win32-x64": "file:packages/win32-x64"
+  },
+  "devDependencies": {
+    "dependency-cruiser": "18.5.0"
   }
 }

@@ -31,6 +31,15 @@ test("packed root and isolated consumers install without lifecycle scripts and e
     ),
   );
   assert.ok(core.files.some((file) => file.path === "assets/.editorconfig"));
+  assert.ok(
+    core.files.every(
+      (file) =>
+        !file.path.startsWith("scripts/") &&
+        !file.path.startsWith("test/") &&
+        !file.path.includes("dependency-cruiser"),
+    ),
+    "Development graph tooling must stay outside the consumer archive",
+  );
   for (const layout of ["root", "isolated"]) {
     const consumer = join(temp, layout);
     mkdirSync(consumer);
@@ -60,6 +69,20 @@ test("packed root and isolated consumers install without lifecycle scripts and e
     const installedCore = join(
       install,
       "node_modules/@hadden-industries/markdown-quality",
+    );
+    const installedMetadata = JSON.parse(
+      readFileSync(join(installedCore, "package.json"), "utf8"),
+    );
+    assert.equal(
+      installedMetadata.dependencies["dependency-cruiser"],
+      undefined,
+    );
+    assert.equal(
+      Object.keys(JSON.parse(lockBefore).packages).some((path) =>
+        path.endsWith("/dependency-cruiser"),
+      ),
+      false,
+      "Consumer installation must not resolve developer tooling",
     );
     const originalLicense = readFileSync(
       new URL("../LICENSE", import.meta.url),
