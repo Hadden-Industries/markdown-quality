@@ -211,10 +211,26 @@ test("a changed resource forces full discovery which catches its independent reg
 test("running cancellation terminates detached descendants before returning", async (t) => {
   const markerRoot = mkdtempSync(join(tmpdir(), "impact-owned-process-"));
   t.after(() => rmSync(markerRoot, { recursive: true, force: true }));
-  const marker = join(markerRoot, "pid");
-  const program = `require('node:fs').writeFileSync(${JSON.stringify(marker)}, String(process.pid)); setInterval(() => {}, 1000);`;
+  const marker = join(markerRoot, "pid marker Ω 'quoted' ` $(literal)");
+  // Keep runtime paths as data and marker output outside the fixture snapshot.
   const f = impactFixture(t, {
-    "test/unrelated.test.js": `import test from 'node:test'; import {spawn} from 'node:child_process'; test('detached child', async () => { const child = spawn(process.execPath, ['--eval', ${JSON.stringify(program)}], {detached:true, stdio:'ignore'}); child.unref(); await new Promise(() => setInterval(() => {}, 1000)); });`,
+    "marker.json": JSON.stringify(marker),
+    "scripts/detached-child.cjs": `
+      require('node:fs').writeFileSync(process.argv[2], String(process.pid));
+      setInterval(() => {}, 1000);
+    `,
+    "test/unrelated.test.js": `
+      import test from 'node:test';
+      import {spawn} from 'node:child_process';
+      import {readFileSync} from 'node:fs';
+      import {fileURLToPath} from 'node:url';
+      test('detached child', async () => {
+        const marker = JSON.parse(readFileSync(new URL('../marker.json', import.meta.url), 'utf8'));
+        const child = spawn(process.execPath, [fileURLToPath(new URL('../scripts/detached-child.cjs', import.meta.url)), marker], {detached:true, stdio:'ignore', shell:false, windowsHide:true});
+        child.unref();
+        await new Promise(() => setInterval(() => {}, 1000));
+      });
+    `,
   });
   const report = await planAffected({ root: f.root, base: f.base });
   const controller = new AbortController();
