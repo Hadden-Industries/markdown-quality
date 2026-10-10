@@ -34,7 +34,7 @@ test("trusted staging treats candidate code/config as data and binds every stage
   assert.equal(typeof api.stageCandidate, "function");
   const trustedRoot = consumer(
     t,
-    { ".node-version": process.versions.node, ".python-version": "3.14" },
+    { ".node-version": process.versions.node, ".python-version": "3.15.0" },
     { exclude: ["docs/reviews/*"] },
   );
   writeFileSync(
@@ -97,7 +97,7 @@ test("trusted staging rejects reserved inputs, links and admission overflow befo
   assert.equal(typeof api.stageCandidate, "function");
   const trustedRoot = consumer(t, {
     ".node-version": process.versions.node,
-    ".python-version": "3.14",
+    ".python-version": "3.15.0",
   });
   writeFileSync(
     join(trustedRoot, ".markdown-quality-execution.json"),

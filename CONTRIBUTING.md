@@ -7,7 +7,7 @@ Vulnerabilities use the private reporting channel in [SECURITY.md](SECURITY.md),
 
 ## Development setup
 
-Use reference Node 24.21.0 and an existing Python 3.14 interpreter for explicit native asset preparation.
+Use reference Node 24.21.0 and an existing Python >=3.15.0 interpreter for explicit native asset preparation.
 The [support policy](docs/support-and-release.md) records the qualified source matrix and explains why published 1.0.3 still has different immutable runtime metadata.
 Do not assume an unreleased source qualification changes an installed npm release.
 

@@ -166,7 +166,7 @@ test("nested CLI invocations discover the policy root before binding tracked inv
     );
   }
   writeFileSync(join(root, ".node-version"), process.versions.node);
-  writeFileSync(join(root, ".python-version"), "3.14");
+  writeFileSync(join(root, ".python-version"), "3.15.0");
   writeFileSync(
     join(root, ".markdown-quality-execution.json"),
     JSON.stringify({
@@ -206,7 +206,7 @@ test("execution profile resolves only bounded trusted runtime declarations and f
   assert.equal(typeof api.readExecutionProfile, "function");
   const root = consumer(t, {
     ".node-version": process.versions.node,
-    "runtime.json": JSON.stringify({ python: "3.14" }),
+    "runtime.json": JSON.stringify({ python: "3.15.0" }),
   });
   const profile = {
     schemaVersion: 1,
@@ -231,7 +231,7 @@ test("execution profile resolves only bounded trusted runtime declarations and f
   );
   const resolved = api.readExecutionProfile({ root });
   assert.equal(resolved.runtimes.node, process.versions.node);
-  assert.equal(resolved.runtimes.python, "3.14");
+  assert.equal(resolved.runtimes.python, "3.15.0");
   assert.equal(resolved.limits.documentDiagnostics, 1000);
   assert.equal(resolved.samples, 2);
   profile.checkerMs = 1;

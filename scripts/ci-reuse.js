@@ -67,7 +67,15 @@ function validateHost(host, lane) {
   );
   assert.match(host.imageVersion, /^\d{8}\.\d+(?:\.\d+)?$/u);
   assert.match(host.npm, /^\d+\.\d+\.\d+$/u);
-  assert.match(host.python, /^Python 3\.14\.\d+$/u);
+  assert.match(host.python, /^Python \d+\.\d+\.\d+$/u);
+  const [pythonMajor, pythonMinor] = host.python
+    .slice(7)
+    .split(".")
+    .map(Number);
+  assert.ok(
+    pythonMajor > 3 || (pythonMajor === 3 && pythonMinor >= 15),
+    "Python 3.15.0 or newer is required",
+  );
 }
 
 /** Admit only bounded, complete lane records belonging to this checkout and attempt. */

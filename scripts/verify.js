@@ -20,6 +20,16 @@ if (
 )
   throw new Error("Original AGPL-3.0-only license bytes changed.");
 resolveTool();
+const pythonRuntime = spawnSync(
+  "python",
+  [
+    "-c",
+    "import sys; sys.exit(0 if sys.version_info >= (3, 15, 0) and sys.version_info.releaselevel == 'final' else 'Stable Python 3.15.0 or newer is required')",
+  ],
+  { cwd: root, stdio: "inherit", timeout: 30_000, windowsHide: true },
+);
+if (pythonRuntime.error || pythonRuntime.status !== 0)
+  process.exit(pythonRuntime.status ?? 2);
 const nativeEvidence = spawnSync("python", ["test/native-evidence.py"], {
   cwd: root,
   stdio: "inherit",

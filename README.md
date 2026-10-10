@@ -42,7 +42,7 @@ The [third-party notices](THIRD-PARTY-NOTICES.md) distinguish package code from 
 For development and proposals, read [Contributing](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
 Report vulnerabilities through the private channel in the [security policy](SECURITY.md).
 
-Reference builds use Node 24.21.0 and an existing Python 3.14 interpreter for asset preparation.
+Reference builds use Node 24.21.0 and an existing Python >=3.15.0 interpreter for asset preparation.
 Source and transported-package CI qualify Node 22/24/26 at each declared minimum and latest patch on Windows x64 and Ubuntu 24.04 x64.
 See the [support policy](docs/support-and-release.md) for exact minima and the distinction between development compatibility and published releases.
 Ordinary checks and logical-document operations need no Python interpreter.
