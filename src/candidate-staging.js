@@ -82,14 +82,31 @@ export function inspectCandidateData(root, profile) {
 
 /** Stream a bounded exact staged-data identity; includes non-Markdown link targets. */
 export function stagedDataDigest(root, profile) {
+  return stagedIdentity(root, profile, false).stagedDataSha256;
+}
+
+/** Complete upload inventory including hidden paths and empty directories.
+ * Uses qualification's streamed identity without retaining payload bytes.
+ */
+export function stagedDataManifest(root, profile) {
+  return stagedIdentity(root, profile, true);
+}
+
+function stagedIdentity(root, profile, includeManifest) {
   const inventory = tree(root, profile);
   const hash = createHash("sha256"),
     chunk = Buffer.alloc(65536);
+  const records = [];
   for (const record of inventory.records) {
     hash.update(
       JSON.stringify([record.type, record.path, record.size ?? null]) + "\n",
     );
-    if (record.type !== "file") continue;
+    if (record.type !== "file") {
+      if (includeManifest)
+        records.push({ path: record.path, type: record.type });
+      continue;
+    }
+    const fileHash = includeManifest ? createHash("sha256") : null;
     const path = safePath(root, record.path, { file: true }),
       fd = openSync(path, "r");
     try {
@@ -99,6 +116,7 @@ export function stagedDataDigest(root, profile) {
         size;
       while ((size = readSync(fd, chunk, 0, chunk.length, offset)) > 0) {
         hash.update(chunk.subarray(0, size));
+        fileHash?.update(chunk.subarray(0, size));
         offset += size;
         if (offset > record.size)
           fail("STAGED_DATA_CHANGED", "Data grew during identity capture.");
@@ -111,8 +129,20 @@ export function stagedDataDigest(root, profile) {
     } finally {
       closeSync(fd);
     }
+    if (includeManifest)
+      records.push({
+        path: record.path,
+        type: "file",
+        size: record.size,
+        sha256: fileHash.digest("hex"),
+      });
   }
-  return hash.digest("hex");
+  return {
+    stagedDataSha256: hash.digest("hex"),
+    records,
+    bytes: inventory.bytes,
+    entries: inventory.entries,
+  };
 }
 
 /** Stage candidate data under an independently read finite trusted profile/policy.

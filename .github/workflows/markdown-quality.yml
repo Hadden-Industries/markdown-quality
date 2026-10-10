@@ -17,6 +17,10 @@ on:
       profile:
         type: string
         default: .markdown-quality-execution.json
+      qualification-evidence:
+        description: Retain selected qualification evidence for 30 days instead of routine success retention
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -86,10 +90,13 @@ jobs:
           persist-credentials: false
       - name: Acquire trusted graph and qualify candidate data
         run: node producer/scripts/shared-qualification.mjs run
+      - name: Package compact qualification evidence
+        if: always()
+        run: node producer/scripts/package-qualification-evidence.mjs
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: shared-markdown-${{ matrix.os }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/shared-markdown-evidence/
+          path: ${{ runner.temp }}/shared-markdown-upload/
           if-no-files-found: error
-          retention-days: 30
+          retention-days: ${{ inputs.qualification-evidence && 30 || (job.status != 'success' && 14 || 7) }}

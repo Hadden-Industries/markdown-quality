@@ -38,6 +38,44 @@ function yamlValue(node) {
   return yamlValue(node.children[0]);
 }
 
+test("shared qualification uploads compact evidence with explicit retention tiers", () => {
+  const shared = yamlValue(
+    parsers.yaml.parse(
+      readFileSync(
+        new URL("../.github/workflows/markdown-quality.yml", import.meta.url),
+        "utf8",
+      ),
+    ),
+  );
+  assert.equal(
+    shared.on.workflow_call.inputs["qualification-evidence"].type,
+    "boolean",
+  );
+  assert.equal(
+    shared.on.workflow_call.inputs["qualification-evidence"].default,
+    "false",
+  );
+  const steps = shared.jobs.qualify.steps;
+  const packaging = steps.findIndex(
+    (step) =>
+      step.run === "node producer/scripts/package-qualification-evidence.mjs",
+  );
+  const upload = steps.findIndex((step) =>
+    step.uses?.startsWith("actions/upload-artifact@"),
+  );
+  assert.ok(packaging >= 0 && upload > packaging);
+  assert.equal(steps[packaging].if, "always()");
+  assert.equal(steps[upload].if, "always()");
+  assert.equal(
+    steps[upload].with.path,
+    "${{ runner.temp }}/shared-markdown-upload/",
+  );
+  assert.equal(
+    steps[upload].with["retention-days"],
+    "${{ inputs.qualification-evidence && 30 || (job.status != 'success' && 14 || 7) }}",
+  );
+});
+
 function govern(text) {
   const document = yamlValue(parsers.yaml.parse(text));
   assert.deepEqual(document.on, {

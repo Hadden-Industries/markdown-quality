@@ -11,6 +11,7 @@ import {
   validateQualityResult,
 } from "../src/quality.js";
 import { consumer } from "./helpers.js";
+import { packageQualificationEvidence } from "../src/qualification-evidence.js";
 
 const git = execFileSync(
   process.platform === "win32" ? "where.exe" : "which",
@@ -155,6 +156,17 @@ test("bundled Windows/Linux observer runs real full trusted staging and detects 
         );
         validateQualityResult(receipt.result);
       }
+      const compact = join(scratch, "compact-real-window");
+      const packaged = packageQualificationEvidence({
+        sourceRoot: output,
+        outputRoot: compact,
+      });
+      assert.equal(packaged.passed, true);
+      assert.equal(packaged.samples.length, 2);
+      assert.equal(
+        packaged.samples[0].manifestPath,
+        packaged.samples[1].manifestPath,
+      );
     } else {
       assert.notEqual(execution.status, 0);
       assert.match(

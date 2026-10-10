@@ -72,4 +72,17 @@ The subsequent owner request selects public distribution and removes the paid-pr
 Pilot cutover still requires exact public tuple readback, fresh credential-free installation, event/policy isolation and accepted consumer deltas.
 
 References: [GitHub event trust](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target), [public scoped publication](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/), and [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/).
+
+## Qualification evidence retention
+
+The reusable Markdown workflow uploads compact reports and complete content manifests, not per-sample staged source trees.
+Candidate/trusted commits, archive identities and staged digests remain in original receipts; reconstruction must verify all manifest paths, including hidden inputs.
+See [the compact artifact contract](centralized-contracts.md#compact-hosted-artifacts).
+Fresh staging, candidate non-execution, credential boundaries and finite checks remain unchanged.
+A packaging error fails the job; an uploaded partial directory is not passing qualification evidence.
+
+Routine successes retain artifacts for7 days, failures for14, and explicitly selected `qualification-evidence: true` runs for30.
+GitHub supports per-artifact retention and path selection; it does not require retaining repeated source copies.
+Source bundles needed for offline audit have separate retention ownership.
+Existing artifacts are not deleted or relabeled by this workflow change.
 Required-check identity limitations are documented in [GitHub ruleset troubleshooting](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/troubleshooting-rules).

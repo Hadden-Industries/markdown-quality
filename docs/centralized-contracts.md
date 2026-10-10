@@ -155,6 +155,31 @@ See GitHub's [job context documentation](https://docs.github.com/en/actions/refe
 The checker receives no repository-write, registry or OIDC credentials.
 Both Windows and Linux jobs retain attributable receipts and failures.
 
+### Compact hosted artifacts
+
+Fresh staging and the local qualifier output remain unchanged.
+After observation, the producer projects evidence into a separate upload directory.
+It retains original request/window/receipt/stdout/stderr bytes and an `artifact-index.json` (schema1).
+The index lists file sizes/SHA256 hashes and sample-to-manifest references.
+Complete manifests under `manifests/<stagedDataSha256>.json` list every staged file's path, size and SHA256, plus directories, including hidden paths and empty directories.
+Identical staged identities share one manifest per job; raw stages, source trees and native package archives are not uploaded.
+Successful projections require complete sample evidence, original receipt hashes and exact staged/profile identities.
+Failed/incomplete windows retain diagnostics and explicitly incomplete sample records.
+
+These are integrity inventories, not source archives or independent attestations.
+For reproduction, acquire the exact candidate/trusted Git objects and locked package archives named in the unchanged receipts.
+Restore candidate data excluding operational directories under the staging contract, add the trusted policy at `.markdown-quality-trusted-inputs/policy.json`, and restore listed directories.
+Compare the entire path/type/size/hash inventory without extras, then recompute the original staged digest.
+Hidden paths are represented inside ordinary JSON files; upload-artifact's hidden-file exclusion cannot remove those manifest entries.
+Verify the downloaded artifact against GitHub's reported artifact digest and every indexed file hash.
+Losing the Git objects or archives can prevent reconstruction; retain selected source bundles separately where long-term offline reproduction is required.
+
+Routine successful uploads expire after7 days; failed jobs after14 days.
+The optional Boolean `qualification-evidence` workflow input retains selected qualification evidence for30 days.
+It changes retention only, never scope, limits, sample count or execution.
+Existing artifacts retain their original expiry.
+Logs and receipts still contain attributable runtime paths and data diagnostics; compact packaging is not a redaction gate.
+
 Hosted positive/negative runs and owner acceptance remain separate from source tests.
 The working implementation does not prove either supported OS's complete hosted trust path until that exact commit/tuple is run there.
 Consumers must review their root-policy translations and bootstrap trust inputs before cutover.
