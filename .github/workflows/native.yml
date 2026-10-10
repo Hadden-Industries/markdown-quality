@@ -33,9 +33,14 @@ jobs:
           ref: 407c2beb04607f6ccb421e6f6418dcc00e4c1e94
           path: native-source
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
-          python-version: '>=3.15.0'
+          python-version: ">=3.15.0"
+          version: "0.13.0"
+          activate-environment: true
+          venv-path: ${{ runner.temp }}/python
+          no-project: true
+          enable-cache: false
       - name: Build frozen source and collect rights evidence
         run: python scripts/build-native.py --platform ${{ matrix.platform }} --source native-source --output native-output
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

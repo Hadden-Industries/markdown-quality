@@ -121,7 +121,10 @@ function govern(text) {
       });
     for (const step of job.steps) {
       if (step.uses)
-        assert.match(step.uses, /^actions\/[a-z-]+@[a-f0-9]{40}$/u);
+        assert.match(
+          step.uses,
+          /^(?:actions\/[a-z-]+|astral-sh\/setup-uv)@[a-f0-9]{40}$/u,
+        );
       if (step.run)
         assert.equal(
           step["continue-on-error"],
@@ -234,6 +237,12 @@ test("the real workflow preserves full PR coverage, closed graph and exact proof
   govern(source));
 
 for (const [name, before, after] of [
+  ["unapproved action owner", "astral-sh/setup-uv@", "untrusted/setup-uv@"],
+  [
+    "unpinned Python installer",
+    "astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+    "astral-sh/setup-uv@v10",
+  ],
   [
     "PR job bypass",
     "  package:\n",
