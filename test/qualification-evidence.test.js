@@ -28,7 +28,14 @@ function fixture(t, passed = true) {
     stagingEntries: 100,
     requestBytes: 1048576,
   };
-  writeFileSync(join(sourceRoot, "request.json"), JSON.stringify({ profile }));
+  const request = {
+    profile,
+    candidateSha: "a".repeat(40),
+    trustedSha: "b".repeat(40),
+    producer: { source: { sourceRevision: "c".repeat(40) } },
+    workflow: { sha: "d".repeat(40) },
+  };
+  writeFileSync(join(sourceRoot, "request.json"), JSON.stringify(request));
   const samples = [];
   for (const index of [1, 2]) {
     const sample = join(sourceRoot, `sample-${index}`);
@@ -43,8 +50,10 @@ function fixture(t, passed = true) {
         stagedDataSha256: stagedDataDigest(join(sample, "data"), profile),
         profile,
       },
-      candidate: { sha: "a".repeat(40) },
-      trusted: { sha: "b".repeat(40) },
+      candidate: { head: request.candidateSha },
+      trusted: { head: request.trustedSha },
+      producer: request.producer,
+      workflow: request.workflow,
     };
     const bytes = JSON.stringify(receipt);
     writeFileSync(join(sample, "receipt.json"), bytes);
@@ -228,5 +237,40 @@ test("projection rejects overlap, existing output and reports above the trusted 
       () => packageQualificationEvidence(paths),
       /fresh|disjoint|bound/iu,
     );
+  }
+});
+
+test("failed oversized diagnostics retain a bounded prefix with explicit truncation", (t) => {
+  const paths = fixture(t, false);
+  const original = Buffer.alloc(1048577, 0x61);
+  for (const file of ["stdout.txt", "stderr.txt"])
+    writeFileSync(join(paths.sourceRoot, "sample-1", file), original);
+  const index = packageQualificationEvidence(paths);
+  assert.equal(index.passed, false);
+  assert.equal(index.samples[0].complete, false);
+  for (const file of ["stdout.txt", "stderr.txt"]) {
+    const path = `sample-1/${file}`;
+    const entry = index.files.find((item) => item.path === path);
+    assert.equal(entry.truncated, true);
+    assert.equal(entry.originalSize, 1048577);
+    assert.equal(entry.size, 1048576);
+    const retained = readFileSync(join(paths.outputRoot, path));
+    assert.deepEqual(retained, original.subarray(0, 1048576));
+    assert.equal(entry.sha256, sha(retained));
+    assert.deepEqual(readFileSync(join(paths.sourceRoot, path)), original);
+  }
+  assert.ok(index.problems.some((item) => /truncat/iu.test(item.message)));
+});
+
+test("successful projection reconciles immutable request identities with receipts", (t) => {
+  for (const field of ["candidateSha", "trustedSha", "producer", "workflow"]) {
+    const paths = fixture(t);
+    const request = json(paths.sourceRoot, "request.json");
+    request[field] = field.endsWith("Sha") ? "e".repeat(40) : { changed: true };
+    writeFileSync(
+      join(paths.sourceRoot, "request.json"),
+      JSON.stringify(request),
+    );
+    assert.throws(() => packageQualificationEvidence(paths), /identit/iu);
   }
 });

@@ -4,9 +4,12 @@ import {
   lstatSync,
   realpathSync,
   mkdirSync,
-  readFileSync,
   writeFileSync,
   readdirSync,
+  openSync,
+  closeSync,
+  fstatSync,
+  readSync,
 } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
@@ -17,19 +20,35 @@ import { stagedDataManifest } from "./candidate-staging.js";
 const maximumReportBytes = 64 * 1024 * 1024;
 const fingerprint = (stat) =>
   [stat.dev, stat.ino, stat.size, stat.mtimeMs, stat.ctimeMs].join(":");
-function boundedRead(root, path, bound) {
+function readEvidence(root, path, bound, allowTruncation = false) {
   const full = safePath(root, path, { file: true });
   const before = lstatSync(full);
-  if (before.nlink !== 1 || before.size > bound)
+  if (before.nlink !== 1 || (!allowTruncation && before.size > bound))
     fail("EVIDENCE_LIMIT", "Evidence requires bounded singly linked files.");
-  const bytes = readFileSync(full);
-  if (
-    bytes.length !== before.size ||
-    fingerprint(before) !== fingerprint(lstatSync(full))
-  )
-    fail("EVIDENCE_CHANGED", "Evidence changed during packaging.");
-  return bytes;
+  const fd = openSync(full, "r");
+  try {
+    if (fingerprint(before) !== fingerprint(fstatSync(fd)))
+      fail("EVIDENCE_CHANGED", "Evidence changed during packaging.");
+    const bytes = Buffer.alloc(Math.min(before.size, bound));
+    let offset = 0;
+    while (offset < bytes.length) {
+      const count = readSync(fd, bytes, offset, bytes.length - offset, offset);
+      if (!count)
+        fail("EVIDENCE_CHANGED", "Evidence changed during packaging.");
+      offset += count;
+    }
+    if (
+      fingerprint(before) !== fingerprint(fstatSync(fd)) ||
+      fingerprint(before) !== fingerprint(lstatSync(full))
+    )
+      fail("EVIDENCE_CHANGED", "Evidence changed during packaging.");
+    return { bytes, originalSize: before.size, truncated: before.size > bound };
+  } finally {
+    closeSync(fd);
+  }
 }
+const boundedRead = (root, path, bound) =>
+  readEvidence(root, path, bound).bytes;
 
 /** Project quiescent qualification output for upload without modifying originals.
  * Manifests establish identity, not retained bytes or independent authenticity.
@@ -113,7 +132,17 @@ export function packageQualificationEvidence({ sourceRoot, outputRoot }) {
       const bytes = boundedRead(sourceRoot, sample.receiptPath, bound);
       if (digest(bytes) !== sample.receiptSha256)
         fail("EVIDENCE_CHANGED", "Sample receipt digest changed.");
-      recorded.set(sample.index, JSON.parse(bytes));
+      const receipt = JSON.parse(bytes);
+      if (
+        !/^[a-f0-9]{40}$/u.test(request?.candidateSha ?? "") ||
+        !/^[a-f0-9]{40}$/u.test(request?.trustedSha ?? "") ||
+        receipt.candidate?.head !== request.candidateSha ||
+        receipt.trusted?.head !== request.trustedSha ||
+        !isDeepStrictEqual(receipt.producer, request.producer) ||
+        !isDeepStrictEqual(receipt.workflow, request.workflow ?? null)
+      )
+        fail("EVIDENCE_CHANGED", "Request and receipt identities differ.");
+      recorded.set(sample.index, receipt);
     } catch (error) {
       if (passed) throw error;
       receiptProblems.push({
@@ -134,11 +163,16 @@ export function packageQualificationEvidence({ sourceRoot, outputRoot }) {
     samples: [],
     problems: receiptProblems,
   };
-  function emit(path, bytes, limit = bound) {
+  function emit(path, bytes, limit = bound, metadata = {}) {
     if (bytes.length > limit)
       fail("EVIDENCE_LIMIT", "Compact evidence file exceeds the report bound.");
     writeFileSync(join(outputRoot, path), bytes, { flag: "wx" });
-    index.files.push({ path, size: bytes.length, sha256: digest(bytes) });
+    index.files.push({
+      path,
+      size: bytes.length,
+      sha256: digest(bytes),
+      ...metadata,
+    });
   }
   for (const path of ["request.json", "window.json"])
     if (existsSync(join(sourceRoot, path))) {
@@ -169,19 +203,54 @@ export function packageQualificationEvidence({ sourceRoot, outputRoot }) {
     };
     for (const file of ["receipt.json", "stdout.txt", "stderr.txt"])
       if (existsSync(join(directory, file))) {
-        const bytes = boundedRead(sourceRoot, `${name}/${file}`, bound);
-        if (
-          file === "receipt.json" &&
-          recorded.has(number) &&
-          digest(bytes) !== samples[number - 1].receiptSha256
-        )
-          fail("EVIDENCE_CHANGED", "Receipt changed during packaging.");
-        emit(`${name}/${file}`, bytes);
-      } else if (passed)
-        fail(
-          "EVIDENCE_CHANGED",
-          "Successful sample has missing reports or logs.",
-        );
+        try {
+          // Failed observers can overshoot a log limit before termination. Keep
+          // a bounded prefix, explicitly marked; its digest covers only that prefix.
+          const { bytes, originalSize, truncated } = readEvidence(
+            sourceRoot,
+            `${name}/${file}`,
+            bound,
+            !passed,
+          );
+          if (
+            file === "receipt.json" &&
+            recorded.has(number) &&
+            digest(bytes) !== samples[number - 1].receiptSha256
+          )
+            fail("EVIDENCE_CHANGED", "Receipt changed during packaging.");
+          emit(
+            `${name}/${file}`,
+            bytes,
+            bound,
+            truncated ? { truncated: true, originalSize } : {},
+          );
+          if (truncated) {
+            sample.complete = false;
+            index.problems.push({
+              sample: number,
+              message: `${file} truncated to ${bound} bytes from ${originalSize}.`,
+            });
+          }
+        } catch (error) {
+          if (passed) throw error;
+          sample.complete = false;
+          index.problems.push({
+            sample: number,
+            message: String(error.message),
+          });
+        }
+      } else {
+        if (passed)
+          fail(
+            "EVIDENCE_CHANGED",
+            "Successful sample has missing reports or logs.",
+          );
+        sample.complete = false;
+        index.problems.push({
+          sample: number,
+          message: `${file} unavailable.`,
+        });
+      }
     const data = join(directory, "data");
     if (existsSync(data) && profile) {
       try {
