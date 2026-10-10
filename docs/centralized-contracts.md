@@ -159,12 +159,16 @@ Both Windows and Linux jobs retain attributable receipts and failures.
 
 Fresh staging and the local qualifier output remain unchanged.
 After observation, the producer projects evidence into a separate upload directory.
-It retains original request/window/receipt/stdout/stderr bytes and an `artifact-index.json` (schema1).
+Successful projections retain original request/window/receipt/stdout/stderr bytes and an `artifact-index.json` (schema1).
 The index lists file sizes/SHA256 hashes and sample-to-manifest references.
 Complete manifests under `manifests/<stagedDataSha256>.json` list every staged file's path, size and SHA256, plus directories, including hidden paths and empty directories.
 Identical staged identities share one manifest per job; raw stages, source trees and native package archives are not uploaded.
 Successful projections require complete sample evidence, original receipt hashes and exact staged/profile identities.
 Failed/incomplete windows retain diagnostics and explicitly incomplete sample records.
+Oversized failed receipts or logs retain a bounded prefix marked `truncated`, with `originalSize`; its recorded size and hash cover only the retained prefix.
+Unsafe or unavailable failed reports are identified as problems rather than complete evidence.
+Failures before the qualifier creates evidence, or unreadable request/window reports, remain attributable through the GitHub job log; a compact artifact may be unavailable.
+Manifest and index files must fit the trusted report bound; exceeding it fails packaging even if checking succeeded.
 
 These are integrity inventories, not source archives or independent attestations.
 For reproduction, acquire the exact candidate/trusted Git objects and locked package archives named in the unchanged receipts.
