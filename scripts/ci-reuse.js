@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { isDeepStrictEqual } from "node:util";
 import { qualificationMatrix } from "./node-matrix.js";
+import { pythonTarget, supportsPython } from "./python-target.js";
 
 export const repository = "Hadden-Industries/markdown-quality";
 export const workflow = ".github/workflows/check.yml";
@@ -68,13 +69,9 @@ function validateHost(host, lane) {
   assert.match(host.imageVersion, /^\d{8}\.\d+(?:\.\d+)?$/u);
   assert.match(host.npm, /^\d+\.\d+\.\d+$/u);
   assert.match(host.python, /^Python \d+\.\d+\.\d+$/u);
-  const [pythonMajor, pythonMinor] = host.python
-    .slice(7)
-    .split(".")
-    .map(Number);
   assert.ok(
-    pythonMajor > 3 || (pythonMajor === 3 && pythonMinor >= 15),
-    "Python 3.15.0 or newer is required",
+    supportsPython(host.python.slice(7)),
+    `Python ${pythonTarget()} or newer is required`,
   );
 }
 

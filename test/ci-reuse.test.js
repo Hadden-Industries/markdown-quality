@@ -26,6 +26,12 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { pythonTarget } from "../scripts/python-target.js";
+
+const minimumPython = pythonTarget();
+const [pythonMajor, pythonMinor, pythonPatch] = minimumPython
+  .split(".")
+  .map(Number);
 
 const sha = (letter) => letter.repeat(40);
 const matrix = {
@@ -94,7 +100,7 @@ const lanes = () =>
         imageVersion: "20261001.1.0",
         node: `v${node}`,
         npm: "12.2.0",
-        python: "Python 3.15.0",
+        python: `Python ${minimumPython}`,
       },
     })),
   );
@@ -292,10 +298,10 @@ test("legacy Windows image labels remain reusable when the complete host identit
 });
 
 for (const python of [
-  "Python 3.15.0",
-  "Python 3.15.1",
-  "Python 3.16.0",
-  "Python 4.0.0",
+  `Python ${minimumPython}`,
+  `Python ${pythonMajor}.${pythonMinor}.${pythonPatch + 1}`,
+  `Python ${pythonMajor}.${pythonMinor + 1}.0`,
+  `Python ${pythonMajor + 1}.0.0`,
 ])
   test(`proof admission accepts matching stable runtime ${python}`, async () => {
     const input = fixture();
@@ -306,10 +312,9 @@ for (const python of [
   });
 
 for (const python of [
-  "Python 2.15.0",
-  "Python 3.9.9",
-  "Python 3.14.9",
-  "Python 3.15.0rc1",
+  `Python ${pythonMajor - 1}.${pythonMinor}.0`,
+  `Python ${pythonMajor}.${pythonMinor - 1}.9`,
+  `Python ${minimumPython}rc1`,
 ])
   test(`proof admission refuses matching unsupported runtime ${python}`, async () => {
     const input = fixture();
@@ -386,7 +391,7 @@ for (const [name, change] of [
     (input) =>
       (input.hosts[0].host = {
         ...input.hosts[0].host,
-        python: "Python 3.15.1",
+        python: `Python ${pythonMajor}.${pythonMinor}.${pythonPatch + 1}`,
       }),
   ],
   [

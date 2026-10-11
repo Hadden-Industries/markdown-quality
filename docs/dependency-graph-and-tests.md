@@ -64,7 +64,7 @@ Without an explicit base, `check:affected` runs every current top-level JavaScri
 HISEW's unchanged no-argument profile therefore remains full.
 `npm test` and `check:full` retain their independent discovery and obligations; `check:focused` still means contract tests.
 Affected selection never narrows product Markdown documents or link targets.
-Python evidence is separate; full local verification requires stable Python 3.15 or newer in the authorized environment.
+Python evidence is separate; full local verification requires a stable interpreter at least as new as [the repository Python target](../.python-version) in the authorized environment.
 
 ## Admission and conservative fallback
 

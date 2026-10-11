@@ -4,19 +4,23 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { consumer } from "./helpers.js";
+import { pythonTarget } from "../scripts/python-target.js";
 
-for (const [minor, patch, releaselevel] of [
-  [14, 9, "final"],
-  [15, 0, "alpha"],
-  [15, 0, "beta"],
-  [15, 0, "candidate"],
+const minimum = pythonTarget();
+const [major, minor, patch] = minimum.split(".").map(Number);
+
+for (const [version, releaselevel] of [
+  [patch ? [major, minor, patch - 1] : [major, minor - 1, 9], "final"],
+  [[major, minor, patch], "alpha"],
+  [[major, minor, patch], "beta"],
+  [[major, minor, patch], "candidate"],
 ])
-  test(`full verification rejects Python 3.${minor}.${patch} ${releaselevel} before running checks`, (t) => {
+  test(`full verification rejects Python ${version.join(".")} ${releaselevel} before running checks`, (t) => {
     const root = consumer(t, {
       "sitecustomize.py":
         "import sys\nfrom collections import namedtuple\n" +
         "Version = namedtuple('Version', 'major minor micro releaselevel serial')\n" +
-        `sys.version_info = Version(3, ${minor}, ${patch}, '${releaselevel}', 0)\n`,
+        `sys.version_info = Version(${version.join(", ")}, '${releaselevel}', 0)\n`,
     });
     const result = spawnSync(
       process.execPath,
@@ -29,5 +33,7 @@ for (const [minor, patch, releaselevel] of [
       },
     );
     assert.equal(result.status, 1, result.stdout + result.stderr);
-    assert.match(result.stderr, /Stable Python 3\.15\.0 or newer is required/u);
+    assert.ok(
+      result.stderr.includes(`Stable Python ${minimum} or newer is required`),
+    );
   });

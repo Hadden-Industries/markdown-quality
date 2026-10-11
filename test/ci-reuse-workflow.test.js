@@ -38,6 +38,45 @@ function yamlValue(node) {
   return yamlValue(node.children[0]);
 }
 
+test("every Python provisioning lane reads the repository minimum before setup", () => {
+  let lanes = 0;
+  for (const name of ["check", "candidate", "native"]) {
+    const workflow = yamlValue(
+      parsers.yaml.parse(
+        readFileSync(
+          new URL(`../.github/workflows/${name}.yml`, import.meta.url),
+          "utf8",
+        ),
+      ),
+    );
+    for (const job of Object.values(workflow.jobs)) {
+      for (const [index, step] of (job.steps ?? []).entries()) {
+        if (!step.uses?.startsWith("astral-sh/setup-uv@")) continue;
+        lanes++;
+        assert.equal(
+          step.with["python-version"],
+          "${{ steps.python-target.outputs.version }}",
+        );
+        const reader = job.steps.findIndex(
+          (candidate) => candidate.id === "python-target",
+        );
+        assert.ok(reader >= 0 && reader < index);
+        assert.equal(job.steps[reader].shell, "bash");
+        assert.ok(
+          job.steps[reader].run.includes("target=$(cat .python-version)"),
+        );
+        assert.ok(job.steps[reader].run.includes("|| exit 1"));
+        assert.ok(
+          job.steps[reader].run.includes(
+            'printf \'version=>=%s\\n\' "$target" >> "$GITHUB_OUTPUT"',
+          ),
+        );
+      }
+    }
+  }
+  assert.equal(lanes, 5);
+});
+
 test("shared qualification uploads compact evidence with explicit retention tiers", () => {
   const shared = yamlValue(
     parsers.yaml.parse(

@@ -4,6 +4,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolveTool } from "../src/native-tool.js";
 import { digest } from "../src/contracts.js";
+import { pythonProbeArgs } from "./python-target.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
 function node(args) {
   const result = spawnSync(process.execPath, args, {
@@ -20,14 +21,12 @@ if (
 )
   throw new Error("Original AGPL-3.0-only license bytes changed.");
 resolveTool();
-const pythonRuntime = spawnSync(
-  "python",
-  [
-    "-c",
-    "import sys; sys.exit(0 if sys.version_info >= (3, 15, 0) and sys.version_info.releaselevel == 'final' else 'Stable Python 3.15.0 or newer is required')",
-  ],
-  { cwd: root, stdio: "inherit", timeout: 30_000, windowsHide: true },
-);
+const pythonRuntime = spawnSync("python", pythonProbeArgs(), {
+  cwd: root,
+  stdio: "inherit",
+  timeout: 30_000,
+  windowsHide: true,
+});
 if (pythonRuntime.error || pythonRuntime.status !== 0)
   process.exit(pythonRuntime.status ?? 2);
 const nativeEvidence = spawnSync("python", ["test/native-evidence.py"], {
