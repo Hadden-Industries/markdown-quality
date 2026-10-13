@@ -96,6 +96,16 @@ export function readOwned(root, path) {
 }
 
 /** Bounded shell-free Git observations; malformed UTF-8 paths are rejected separately. */
+export function outsideRoot(
+  root,
+  target,
+  paths = { relative, isAbsolute, sep },
+) {
+  const path = paths.relative(root, target);
+  // Windows returns an absolute relative-path result for different drives.
+  return paths.isAbsolute(path) || path.startsWith(`..${paths.sep}`);
+}
+
 export function git(root, args, binary = false) {
   // Bind the host executable without searching the candidate working directory.
   const executable = (process.env.PATH ?? process.env.Path ?? "")
@@ -108,7 +118,7 @@ export function git(root, args, binary = false) {
       (path) =>
         existsSync(path) &&
         lstatSync(path).isFile() &&
-        relative(realpathSync(root), realpathSync(path)).startsWith(`..${sep}`),
+        outsideRoot(realpathSync(root), realpathSync(path)),
     );
   if (!executable) throw new Error("Native host Git unavailable");
   const child = spawnSync(realpathSync(executable), args, {

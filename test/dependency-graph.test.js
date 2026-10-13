@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, symlinkSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, win32, posix } from "node:path";
 import {
   captureGraph,
   nativeReach,
@@ -11,8 +11,24 @@ import {
   writeBundle,
   entrypointInventory,
   analyzerIdentity,
+  outsideRoot,
 } from "../scripts/dependency-graph.js";
 import { impactFixture } from "./dependency-impact-helpers.js";
+
+test("host Git containment accepts other Windows drives without admitting candidate executables", () => {
+  assert.equal(
+    outsideRoot("D:\\a\\repo", "C:\\Program Files\\Git\\bin\\git.exe", win32),
+    true,
+  );
+  assert.equal(outsideRoot("C:\\a\\repo", "C:\\Git\\git.exe", win32), true);
+  assert.equal(
+    outsideRoot("C:\\a\\repo", "C:\\a\\repo\\bin\\git.exe", win32),
+    false,
+  );
+  assert.equal(outsideRoot("C:\\a\\repo", "C:\\a\\repo", win32), false);
+  assert.equal(outsideRoot("/work/repo", "/usr/bin/git", posix), true);
+  assert.equal(outsideRoot("/work/repo", "/work/repo/bin/git", posix), false);
+});
 
 test("focused reports retain literal two-hop dependents, native metrics and mixed entrypoint advice", async (t) => {
   const fixture = impactFixture(
