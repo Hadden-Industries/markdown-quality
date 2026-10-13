@@ -36,23 +36,23 @@ const [pythonMajor, pythonMinor, pythonPatch] = minimumPython
 const sha = (letter) => letter.repeat(40);
 const matrix = {
   os: ["windows-latest", "ubuntu-24.04"],
-  node: ["22.23.3", "24.21.0", "26.10.0"],
+  node: ["22.23.3", "24.21.0", "26.11.1"],
 };
 const expectedJobs = [
   "matrix",
   "probe (windows-latest, 22.23.3)",
   "probe (windows-latest, 24.21.0)",
-  "probe (windows-latest, 26.10.0)",
+  "probe (windows-latest, 26.11.1)",
   "probe (ubuntu-24.04, 22.23.3)",
   "probe (ubuntu-24.04, 24.21.0)",
-  "probe (ubuntu-24.04, 26.10.0)",
+  "probe (ubuntu-24.04, 26.11.1)",
   "strategy",
   "package (windows-latest, 22.23.3)",
   "package (windows-latest, 24.21.0)",
-  "package (windows-latest, 26.10.0)",
+  "package (windows-latest, 26.11.1)",
   "package (ubuntu-24.04, 22.23.3)",
   "package (ubuntu-24.04, 24.21.0)",
-  "package (ubuntu-24.04, 26.10.0)",
+  "package (ubuntu-24.04, 26.11.1)",
   "required",
 ];
 const context = {

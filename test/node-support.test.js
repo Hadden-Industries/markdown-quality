@@ -9,8 +9,8 @@ const semver = createRequire(npmCliPath())("semver");
 
 const releases = [
   { version: "v28.0.0" },
-  { version: "v26.11.0" },
-  { version: "v26.10.0" },
+  { version: "v26.12.0" },
+  { version: "v26.11.1" },
   { version: "v24.22.0" },
   { version: "v24.21.0" },
   { version: "v22.24.0" },
@@ -19,17 +19,17 @@ const releases = [
 test("qualification covers supported minima and newer patches without a future-major claim", () => {
   assert.deepEqual(qualificationMatrix(releases), {
     os: ["windows-latest", "ubuntu-24.04"],
-    node: ["22.23.3", "22.24.0", "24.21.0", "24.22.0", "26.10.0", "26.11.0"],
+    node: ["22.23.3", "22.24.0", "24.21.0", "24.22.0", "26.11.1", "26.12.0"],
   });
 });
 test("minimum/latest equality produces only one lane per major", () => {
   assert.deepEqual(
     qualificationMatrix(
       releases.filter(
-        (r) => !["v22.24.0", "v24.22.0", "v26.11.0"].includes(r.version),
+        (r) => !["v22.24.0", "v24.22.0", "v26.12.0"].includes(r.version),
       ),
     ).node,
-    ["22.23.3", "24.21.0", "26.10.0"],
+    ["22.23.3", "24.21.0", "26.11.1"],
   );
 });
 test("unordered official metadata selects the newest release with native semver", () => {
@@ -69,7 +69,15 @@ test("declared minima satisfy package, lock and every locked dependency engine",
         );
     }
   }
-  for (const version of ["22.23.2", "24.20.0", "26.9.0", "23.11.0", "25.9.0"])
+  for (const version of [
+    "22.23.2",
+    "24.20.0",
+    "26.9.0",
+    "26.10.0",
+    "26.11.0",
+    "23.11.0",
+    "25.9.0",
+  ])
     assert.equal(semver.satisfies(version, range), false, version);
   assert.equal(semver.satisfies("28.0.0", range), true);
 });

@@ -1,6 +1,6 @@
 # Dependency graph and affected JavaScript tests
 
-Markdown Quality uses dependency-cruiser 18.5.0 for development analysis and keeps Node's test runner.
+Markdown Quality uses dependency-cruiser `>=18.6.0`, at the exact lockfile resolution, for development analysis and keeps Node's test runner.
 Full package qualification, the complete JavaScript suite, native checks and Markdown/link inventory remain independent controls.
 The graph describes imports; it does not prove complete behavioral coverage or native/package provenance.
 
@@ -14,7 +14,8 @@ Choose a new directory outside the checkout and any links back into it.
 The generator captures all authored JS, MJS and CJS under `src`, `scripts` and `test`, including standalone roots, before applying display filters.
 It emits upstream JSON, overview/runtime/test Mermaid views, a separately labelled declared-relation table and snapshot provenance.
 Mermaid files use dependency-cruiser's renderer; Graphviz and remote uploads are unnecessary.
-Unresolved dependencies and runtime imports of development code or devDependencies are native errors; cycles warn.
+Unresolved dependencies, runtime imports of development code or devDependencies, undeclared package imports, and violations of the named foundational/tooling boundaries are native errors.
+Runtime import cycles error; authoring-only cycles warn.
 The command returns nonzero for native errors while retaining the completed diagnostic bundle.
 
 Configuration is data-only JSON.
@@ -27,6 +28,31 @@ Retain accepted proof and required failures; dispose of exploratory bundles when
 Existing bundles are never overwritten.
 Reports contain local source identities and paths: inspect them before sharing.
 No cache or recurring publication is configured.
+
+## Enforce architecture and inspect focused reports
+
+```sh
+npm run check:architecture
+npm run graph:dependencies -- --output /absolute/external/path/new-bundle --focus src/formatting.js
+```
+
+The architecture assertion also runs in the ordinary Node suite and full verification.
+It checks the complete authored import graph, then obtains npm's native dry-run inventory of the same core stage used by the release packer.
+Every shipped JavaScript module, including disconnected roots, must match its source bytes and resolve its first-party imports to admitted package members.
+Schema/assets/native payloads retain their independent archive and installed-consumer proof.
+An architecture error fails verification; the selector's full fallback cannot turn it into a successful architecture result.
+
+The optional focus path is literal, contained and present in the complete graph.
+Focus shows native immediate neighbors; dependents includes all native reverse-reachable consumers.
+JSON/Mermaid views, metrics and `entrypoints.json` share the full graph/provenance identity.
+Metrics and unreachable modules are advice, without deletion or coverage conclusions.
+Entrypoints include both CLIs, the public JavaScript export and declared worker/runner roots; JSON schema and Python exports are resources.
+Process roots remain declared relationships, separate from parsed imports.
+Folder-cycle advice is deferred for the flat runtime tree; no folder enforcement is implied.
+
+The foundational contracts protect `contracts`, `preset`, `document-analysis-pool` and `native-tool` from orchestration.
+Shared tooling contracts protect `commands`, `node-matrix`, `python-target` and `ci-reuse` from their command/release callers.
+Native transitive rules enforce these directions; legitimate filesystem/process work and CLI-only behavior are retained.
 
 ## Inspect or execute an affected set
 
@@ -89,7 +115,7 @@ Each exceptional rule can activate once, with upstream `format(..., { reaches })
 Declared edges are not presented as parsed imports or native cycle findings.
 
 Resource/process builtins, computed loads and selected boundary modules remain full domains when edited.
-The guard reuses Acorn already installed by the analyzer solely to recognize risky syntax; it does not parse dependency strings or resolve imports.
+The guard uses the explicitly declared development dependency Acorn solely to recognize risky syntax; it does not parse dependency strings or resolve imports.
 New filesystem, worker, process, generated-program and computed-load boundaries need a reviewed policy disposition and independent fixture.
 Maintain this inventory whenever those boundaries change; uncertainty requires full verification.
 

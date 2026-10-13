@@ -35,6 +35,7 @@ npm run format:code
 npm run format:markdown
 npm run check:markdown
 npm run check:focused
+npm run check:architecture
 npm run check:affected
 npm run check:full
 ```

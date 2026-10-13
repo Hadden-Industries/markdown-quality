@@ -16,6 +16,7 @@ import { npmCommand } from "./commands.js";
 import { digest, metadata } from "../src/contracts.js";
 import { manifest } from "../src/native-tool.js";
 import { nodeSupport, candidateJobNames } from "./node-matrix.js";
+import { stageCore } from "./core-package-stage.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
 export function packRelease(output, qualificationMatrix) {
   if (qualificationMatrix) candidateJobNames(qualificationMatrix);
@@ -60,50 +61,7 @@ export function packRelease(output, qualificationMatrix) {
   const stage = mkdtempSync(join(tmpdir(), "markdown-quality-pack-"));
   try {
     const core = join(stage, "core");
-    mkdirSync(core);
-    for (const path of metadata.files)
-      cpSync(join(root, path), join(core, path), { recursive: true });
-    // Source adoption binds a commit/artifact tuple even when the version is reused.
-    const identityHead = spawnSync("git", ["rev-parse", "HEAD"], {
-      cwd: root,
-      encoding: "utf8",
-      timeout: 10000,
-      windowsHide: true,
-    });
-    const identityTree = spawnSync("git", ["rev-parse", "HEAD^{tree}"], {
-      cwd: root,
-      encoding: "utf8",
-      timeout: 10000,
-      windowsHide: true,
-    });
-    const identityStatus = spawnSync(
-      "git",
-      ["status", "--porcelain=v1", "--untracked-files=all"],
-      { cwd: root, encoding: "utf8", timeout: 10000, windowsHide: true },
-    );
-    const sourceIdentity = {
-      head: identityHead.status === 0 ? identityHead.stdout.trim() : null,
-      tree: identityTree.status === 0 ? identityTree.stdout.trim() : null,
-      clean:
-        identityStatus.status === 0 ? identityStatus.stdout.length === 0 : null,
-      lockSha256: digest(readFileSync(join(root, "package-lock.json"))),
-    };
-    writeFileSync(
-      join(core, "assets/source-identity.json"),
-      JSON.stringify(sourceIdentity, null, 2) + "\n",
-    );
-    const publishable = { ...metadata };
-    delete publishable.scripts;
-    publishable.optionalDependencies = Object.fromEntries(
-      Object.values(manifest.platforms).map((spec) => [
-        spec.package,
-        metadata.version,
-      ]),
-    );
-    writeFileSync(
-      join(core, "package.json"),
-      JSON.stringify(publishable, null, 2) + "\n",
-    );
+    const { sourceIdentity } = stageCore(root, core);
     const archives = [];
     for (const [name, cwd] of [
       ...Object.keys(manifest.platforms).map((key) => [

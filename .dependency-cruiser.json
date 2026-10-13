@@ -19,9 +19,49 @@
       "to": { "dependencyTypes": ["npm-dev"] }
     },
     {
-      "name": "cycles",
+      "name": "runtime-undeclared-package",
+      "severity": "error",
+      "from": { "path": "^src/" },
+      "to": { "dependencyTypes": ["npm-no-pkg"] }
+    },
+    {
+      "name": "tooling-undeclared-package",
+      "severity": "error",
+      "from": { "path": "^(scripts|test)/" },
+      "to": { "dependencyTypes": ["npm-no-pkg"] }
+    },
+    {
+      "name": "foundations-stay-independent",
+      "severity": "error",
+      "from": {
+        "path": "^src/(contracts|preset|document-analysis-pool|native-tool)\\.js$"
+      },
+      "to": {
+        "path": "^src/(cli|qualification-cli|quality|execution|execution-worker|qualification|qualification-runner)\\.js$",
+        "reachable": true
+      }
+    },
+    {
+      "name": "shared-tooling-stays-independent",
+      "severity": "error",
+      "from": {
+        "path": "^scripts/(commands|node-matrix|python-target|ci-reuse)\\.js$"
+      },
+      "to": {
+        "path": "^scripts/(pack|ci-reuse-command|release-assets|verify-publication|qualify-public-registry|shared-qualification|verify)\\.(js|mjs)$",
+        "reachable": true
+      }
+    },
+    {
+      "name": "runtime-cycles",
+      "severity": "error",
+      "from": { "path": "^src/" },
+      "to": { "circular": true }
+    },
+    {
+      "name": "authoring-cycles",
       "severity": "warn",
-      "from": {},
+      "from": { "path": "^(scripts|test)/" },
       "to": { "circular": true }
     }
   ],

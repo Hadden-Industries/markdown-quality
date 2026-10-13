@@ -15,6 +15,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import Ajv from "ajv";
 import {
   captureGraph,
+  analyzerIdentity,
   git,
   limits,
   nativeReach,
@@ -248,7 +249,7 @@ export async function planAffected({
     base: null,
     changes: [],
     inventoryDigest: sha256(JSON.stringify(before.tests)),
-    tool: "dependency-cruiser@18.5.0",
+    tool: analyzerIdentity(),
     runtime: process.version,
     platform: process.platform,
     mode: "full",

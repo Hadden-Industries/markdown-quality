@@ -16,6 +16,7 @@ import { npmCommand } from "../scripts/commands.js";
 import { checkLinks } from "../src/analysis.js";
 import { digest } from "../src/contracts.js";
 import { qualifyRuntime } from "../scripts/qualify-runtime.js";
+import { checkArchitecture } from "../scripts/architecture.js";
 test("packed root and isolated consumers install without lifecycle scripts and execute offline", (t) => {
   const temp = mkdtempSync(join(tmpdir(), "markdown-quality-install-"));
   t.after(() => rmSync(temp, { recursive: true, force: true }));
@@ -25,6 +26,13 @@ test("packed root and isolated consumers install without lifecycle scripts and e
     (a) => a.name === `${process.platform}-${process.arch}`,
   );
   const core = release.archives.find((a) => a.name === "core");
+  // The real archive is an independent oracle for npm's dry-run admission.
+  assert.deepEqual(
+    checkArchitecture()
+      .files.map((f) => f.path)
+      .sort(),
+    core.files.map((f) => f.path).sort(),
+  );
   assert.ok(
     core.files.every(
       (f) => !f.path.includes("node_modules") && !f.path.includes(".npmrc"),

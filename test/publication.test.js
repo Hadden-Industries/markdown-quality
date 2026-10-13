@@ -168,13 +168,13 @@ test("matrix candidates require every manifest-bound runtime job and retain lega
   );
   manifest.qualificationMatrix = {
     os: ["windows-latest", "ubuntu-24.04"],
-    node: ["22.23.3", "24.21.0", "26.10.0"],
+    node: ["22.23.3", "24.21.0", "26.11.1"],
   };
   manifest.runtimePolicy = JSON.parse(
     readFileSync(new URL("../assets/node-support.json", import.meta.url)),
   );
   for (const os of manifest.qualificationMatrix.os)
-    for (const node of ["22.23.3", "26.10.0"])
+    for (const node of ["22.23.3", "26.11.1"])
       input.jobs.jobs.push({
         ...input.jobs.jobs[0],
         name: `consumer (${os}, ${node})`,

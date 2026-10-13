@@ -9,8 +9,84 @@ import {
   readOwned,
   safePath,
   writeBundle,
+  entrypointInventory,
+  analyzerIdentity,
 } from "../scripts/dependency-graph.js";
 import { impactFixture } from "./dependency-impact-helpers.js";
+
+test("focused reports retain literal two-hop dependents, native metrics and mixed entrypoint advice", async (t) => {
+  const fixture = impactFixture(
+    t,
+    {
+      "src/literal [é].js": "export const value = 1;",
+      "src/neighbor.js": "export {value} from './literal [é].js';",
+      "src/entry.js": "import './neighbor.js';",
+      "src/qualify.js": "export {};",
+      "src/worker.js": "export {};",
+      "schemas/result.json": "{}",
+      "assets/observe.py": "pass\n",
+    },
+    [
+      {
+        id: "worker",
+        kind: "worker-url",
+        dependency: "src/worker.js",
+        consumer: "src/entry.js",
+        evidence: "Fixture worker root",
+        fixture: "this test",
+      },
+    ],
+  );
+  fixture.put(
+    "package.json",
+    JSON.stringify({
+      name: "graph-fixture",
+      type: "module",
+      bin: { one: "src/entry.js", two: "src/qualify.js" },
+      exports: {
+        ".": "./src/entry.js",
+        "./schema": "./schemas/result.json",
+        "./observer": "./assets/observe.py",
+      },
+    }),
+  );
+  const outside = impactFixture(t);
+  const output = join(outside.root, "bundle");
+  await writeBundle(fixture.root, output, { focus: "src/literal [é].js" });
+  const dependents = JSON.parse(readFileSync(join(output, "dependents.json")));
+  for (const path of ["src/literal [é].js", "src/neighbor.js", "src/entry.js"])
+    assert.ok(
+      dependents.modules.some(({ source }) => source === path),
+      path,
+    );
+  assert.equal(
+    dependents.modules.some(({ source }) => source === "src/qualify.js"),
+    false,
+  );
+  const advice = JSON.parse(readFileSync(join(output, "entrypoints.json")));
+  assert.deepEqual(advice.javascript, [
+    "src/entry.js",
+    "src/qualify.js",
+    "src/worker.js",
+  ]);
+  assert.deepEqual(advice.resources, [
+    "assets/observe.py",
+    "schemas/result.json",
+  ]);
+  assert.ok(advice.findings.some((finding) => finding.from === "src/leaf.js"));
+  assert.ok(readFileSync(join(output, "metrics.txt"), "utf8").length > 0);
+  const provenance = JSON.parse(readFileSync(join(output, "provenance.json")));
+  assert.equal(provenance.tool, analyzerIdentity());
+  for (const focus of ["src/missing.js", "../outside.js", "-option.js"])
+    await assert.rejects(
+      writeBundle(fixture.root, join(outside.root, "invalid"), { focus }),
+    );
+  fixture.put(
+    "package.json",
+    JSON.stringify({ exports: { ".": { node: "./src/entry.js" } } }),
+  );
+  assert.throws(() => entrypointInventory(fixture.root), /entrypoint shape/u);
+});
 
 test("external output link is rejected before creating missing checkout descendants", async (t) => {
   const inside = impactFixture(t),

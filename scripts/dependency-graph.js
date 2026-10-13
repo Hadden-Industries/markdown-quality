@@ -37,6 +37,23 @@ export const limits = Object.freeze({
 export const sha256 = (bytes) =>
   createHash("sha256").update(bytes).digest("hex");
 
+/** Report the actual installed analyzer, admitted against the native lock. */
+export function analyzerIdentity() {
+  const installed = JSON.parse(
+    readFileSync(
+      join(repositoryRoot, "node_modules/dependency-cruiser/package.json"),
+    ),
+  );
+  const locked = JSON.parse(readOwned(repositoryRoot, "package-lock.json"))
+    .packages["node_modules/dependency-cruiser"];
+  if (
+    installed.name !== "dependency-cruiser" ||
+    installed.version !== locked?.version
+  )
+    throw new Error("Analyzer installation/lock identity mismatch");
+  return `dependency-cruiser@${installed.version}`;
+}
+
 /** Reject ambiguous, option-like and escaping Git paths before filesystem/process use. */
 export function safePath(path) {
   if (
@@ -187,7 +204,28 @@ function authoredRoots(root) {
 }
 
 /** Capture in an isolated process: the API never discovers or executes candidate configuration. */
-export function captureGraph(root, configRoot = repositoryRoot) {
+export function captureGraph(
+  root,
+  configRoot = repositoryRoot,
+  { metrics = false, advisory = false } = {},
+) {
+  analyzerIdentity();
+  const config = JSON.parse(readOwned(configRoot, ".dependency-cruiser.json"));
+  if (advisory) {
+    const { javascript } = entrypointInventory(root);
+    if (javascript.length) {
+      const pattern = `^(?:${javascript.map((path) => path.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")).join("|")})$`;
+      config.forbidden = [
+        ...config.forbidden,
+        {
+          name: "advisory-unreachable-from-entrypoints",
+          severity: "info",
+          from: { path: pattern },
+          to: { path: "^src/", pathNot: pattern, reachable: false },
+        },
+      ];
+    }
+  }
   const child = spawnSync(
     process.execPath,
     ["--max-old-space-size=256", self, "--capture-worker"],
@@ -195,9 +233,10 @@ export function captureGraph(root, configRoot = repositoryRoot) {
       cwd: root,
       input: JSON.stringify({
         root,
-        config: JSON.parse(readOwned(configRoot, ".dependency-cruiser.json")),
+        config,
         roots: authoredRoots(root),
         modules: join(repositoryRoot, "node_modules"),
+        metrics,
       }),
       encoding: "utf8",
       windowsHide: true,
@@ -231,8 +270,66 @@ export async function nativeReach(graph, seeds) {
   return JSON.parse(result.output);
 }
 
+/** Distinguish JavaScript entrypoints from resources and declared process roots. */
+export function entrypointInventory(root) {
+  const metadata = JSON.parse(readOwned(root, "package.json"));
+  const policy = JSON.parse(readOwned(root, ".test-impact.json"));
+  const javascript = [],
+    resources = [],
+    declared = [];
+  const exports = metadata.exports ?? {};
+  if (typeof exports !== "object" || Array.isArray(exports))
+    throw new Error("Unsupported export shape");
+  const bins =
+    typeof metadata.bin === "string"
+      ? [metadata.bin]
+      : Object.values(metadata.bin ?? {});
+  for (const target of [...bins, ...Object.values(exports)]) {
+    if (typeof target !== "string" || target.includes("*"))
+      throw new Error("Unsupported entrypoint shape");
+    const path = safePath(target.replace(/^\.\//u, ""));
+    readOwned(root, path);
+    (/\.(js|mjs|cjs)$/u.test(path) ? javascript : resources).push(path);
+  }
+  for (const relation of policy.relations ?? [])
+    if (
+      ["spawn", "worker-url"].includes(relation.kind) &&
+      relation.dependency.startsWith("src/") &&
+      relation.consumer.startsWith("src/")
+    ) {
+      readOwned(root, relation.dependency);
+      javascript.push(relation.dependency);
+      declared.push({
+        id: relation.id,
+        path: relation.dependency,
+        kind: relation.kind,
+      });
+    }
+  return {
+    javascript: [...new Set(javascript)].sort(),
+    resources: [...new Set(resources)].sort(),
+    declared,
+  };
+}
+
+/** Advice uses native reachability findings; it is never a dead-code verdict. */
+export function entrypointAdvice(root, graph) {
+  const inventory = entrypointInventory(root);
+  for (const path of inventory.javascript)
+    if (!graph.modules.some(({ source }) => source === path))
+      throw new Error("Entrypoint absent from graph");
+  return {
+    ...inventory,
+    findings: graph.summary.violations.filter(
+      ({ rule }) => rule.name === "advisory-unreachable-from-entrypoints",
+    ),
+    meaning:
+      "Static-import reachability only; process roots are declared, resources are separate; no deletion or coverage conclusion",
+  };
+}
+
 /** Publish a complete new external bundle atomically; never overwrite an earlier bundle. */
-export async function writeBundle(root, output) {
+export async function writeBundle(root, output, { focus = null } = {}) {
   output = resolve(output);
   const rel = relative(root, output);
   if (!rel || (!rel.startsWith(`..${sep}`) && !isAbsolute(rel)))
@@ -246,7 +343,10 @@ export async function writeBundle(root, output) {
   if (!actual || (!actual.startsWith(`..${sep}`) && !isAbsolute(actual)))
     throw new Error("Output link points into the repository");
   const before = snapshot(root);
-  const graph = captureGraph(root);
+  const graph = captureGraph(root, repositoryRoot, {
+    metrics: true,
+    advisory: true,
+  });
   const { format } = await import("dependency-cruiser");
   const views = {
     overview: {},
@@ -254,6 +354,15 @@ export async function writeBundle(root, output) {
     tests: { focus: "^test/" },
   };
   const rendered = {};
+  if (focus !== null) {
+    safePath(focus);
+    readOwned(root, focus);
+    if (!graph.modules.some(({ source }) => source === focus))
+      throw new Error("Focus module is absent from the complete graph");
+    const pattern = `^${focus.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}$`;
+    views.focus = { focus: pattern };
+    views.dependents = { reaches: pattern };
+  }
   for (const [name, filter] of Object.entries(views))
     rendered[name] = (
       await format(graph, { outputType: "mermaid", ...filter })
@@ -281,6 +390,20 @@ export async function writeBundle(root, output) {
     );
     for (const [name, view] of Object.entries(rendered))
       writeFileSync(join(temp, `${name}.mmd`), view);
+    for (const name of ["focus", "dependents"])
+      if (views[name])
+        writeFileSync(
+          join(temp, `${name}.json`),
+          (await format(graph, { outputType: "json", ...views[name] })).output,
+        );
+    writeFileSync(
+      join(temp, "metrics.txt"),
+      (await format(graph, { outputType: "metrics" })).output,
+    );
+    writeFileSync(
+      join(temp, "entrypoints.json"),
+      JSON.stringify(await entrypointAdvice(root, graph), null, 2) + "\n",
+    );
     const policy = JSON.parse(readOwned(root, ".test-impact.json"));
     writeFileSync(
       join(temp, "declared-relations.json"),
@@ -294,7 +417,10 @@ export async function writeBundle(root, output) {
           snapshot: before,
           runtime: process.version,
           platform: process.platform,
-          tool: "dependency-cruiser@18.5.0",
+          tool: analyzerIdentity(),
+          focus,
+          reportScope:
+            "Native import graph; metrics and unreachable paths are advisory",
           graphDigest: sha256(JSON.stringify(graph)),
           lockDigest: sha256(readOwned(root, "package-lock.json")),
           configDigest: sha256(readOwned(root, ".dependency-cruiser.json")),
@@ -337,6 +463,7 @@ if (process.argv[1] && resolve(process.argv[1]) === self) {
           validate: true,
           ruleSet: { forbidden: request.config.forbidden },
           outputType: "json",
+          metrics: request.metrics === true,
         },
         {
           modules: [request.modules],
@@ -356,11 +483,17 @@ if (process.argv[1] && resolve(process.argv[1]) === self) {
       await format(graph, { outputType: "json" });
       process.stdout.write(JSON.stringify(graph));
     } else {
-      if (process.argv.length !== 4 || process.argv[2] !== "--output")
+      if (
+        ![4, 6].includes(process.argv.length) ||
+        process.argv[2] !== "--output" ||
+        (process.argv.length === 6 && process.argv[4] !== "--focus")
+      )
         throw new Error(
-          "Usage: graph:dependencies -- --output <new external directory>",
+          "Usage: graph:dependencies -- --output <new external directory> [--focus <literal module>]",
         );
-      const graph = await writeBundle(repositoryRoot, process.argv[3]);
+      const graph = await writeBundle(repositoryRoot, process.argv[3], {
+        focus: process.argv[5] ?? null,
+      });
       console.log(
         `Captured ${graph.modules.length} modules; ${graph.summary.violations.length} native rule findings`,
       );

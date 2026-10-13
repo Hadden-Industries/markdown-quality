@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+import {
+  cpSync,
+  mkdirSync,
+  readdirSync,
+  writeFileSync,
+  lstatSync,
+} from "node:fs";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+import { readOwned, safePath, sha256, limits } from "./dependency-graph.js";
+
+/** Construct the same core consumed by npm packing and shipment inspection. */
+export function stageCore(root, core) {
+  const metadata = JSON.parse(readOwned(root, "package.json"));
+  const manifest = JSON.parse(readOwned(root, "assets/tool-manifest.json"));
+  let entries = 0,
+    bytes = 0;
+  function admit(path) {
+    safePath(path);
+    let target = root;
+    for (const part of path.split("/")) {
+      target = join(target, part);
+      if (lstatSync(target).isSymbolicLink())
+        throw new Error("Linked core stage input");
+    }
+    if (++entries > limits.files) throw new Error("Core stage entry limit");
+    // readOwned rejects redirects; directory iteration below rejects links too.
+    const absolute = join(root, path);
+    const parent = path.includes("/")
+      ? path.slice(0, path.lastIndexOf("/"))
+      : "";
+    const name = path.slice(parent.length ? parent.length + 1 : 0);
+    const entry = readdirSync(join(root, parent), { withFileTypes: true }).find(
+      (e) => e.name === name,
+    );
+    if (!entry || entry.isSymbolicLink())
+      throw new Error("Unsafe core stage input");
+    if (entry.isDirectory())
+      for (const child of readdirSync(absolute)) admit(`${path}/${child}`);
+    else {
+      bytes += readOwned(root, path).length;
+      if (bytes > limits.bytes) throw new Error("Core stage byte limit");
+    }
+  }
+  for (const path of metadata.files) admit(path);
+  mkdirSync(core);
+  for (const path of metadata.files)
+    cpSync(join(root, path), join(core, path), { recursive: true });
+  const git = (args) =>
+    spawnSync("git", args, {
+      cwd: root,
+      encoding: "utf8",
+      timeout: 10000,
+      windowsHide: true,
+    });
+  const head = git(["rev-parse", "HEAD"]),
+    tree = git(["rev-parse", "HEAD^{tree}"]),
+    status = git(["status", "--porcelain=v1", "--untracked-files=all"]);
+  const sourceIdentity = {
+    head: head.status === 0 ? head.stdout.trim() : null,
+    tree: tree.status === 0 ? tree.stdout.trim() : null,
+    clean: status.status === 0 ? status.stdout.length === 0 : null,
+    lockSha256: sha256(readOwned(root, "package-lock.json")),
+  };
+  writeFileSync(
+    join(core, "assets/source-identity.json"),
+    JSON.stringify(sourceIdentity, null, 2) + "\n",
+  );
+  const publishable = { ...metadata };
+  delete publishable.scripts;
+  publishable.optionalDependencies = Object.fromEntries(
+    Object.values(manifest.platforms).map((spec) => [
+      spec.package,
+      metadata.version,
+    ]),
+  );
+  writeFileSync(
+    join(core, "package.json"),
+    JSON.stringify(publishable, null, 2) + "\n",
+  );
+  return { metadata: publishable, sourceIdentity };
+}

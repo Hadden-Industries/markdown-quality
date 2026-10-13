@@ -38,7 +38,7 @@ Independent Claude correctness/security review, the scoped native security scan 
 The owner's repository-only `docs/research/**` and `docs/reviews/**` exclusions are included; other authored docs stay selected, and unrelated research bytes remain unchanged and uncommitted.
 
 Signed source `7994fdb08efa4fc391f6e035c9fff17820635b58` qualifies the Node 22/24/26 matrix against one frozen candidate tuple on Windows and Linux.
-Source engines are `^22.23.3 || ^24.21.0 || >=26.10.0`; Node 26.10.0 is the qualified Current floor, not a claim about the first LTS version.
+Source engines are `^22.23.3 || ^24.21.0 || >=26.11.1`; Node 26.11.1 is the qualified Current floor, not a claim about the first LTS version.
 [Package qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37539180714), [transported qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37539180707) and [CodeQL](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37539179834) passed for that source.
 
 Signed source `a692068a1e5c60c38d9cc17d11511c0eea0c990a` adds contribution/conduct/security guidance, issue/PR templates, Dependabot proposals, GitHub metadata and direct-source Markdown dogfooding, without a self-dependency or branch/ruleset controls.

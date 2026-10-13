@@ -11,7 +11,7 @@ That policy text retains CC BY-SA 4.0, its attribution and the indicated changes
 
 | Direct runtime dependency       | Version | Declared license                  |
 | ------------------------------- | ------- | --------------------------------- |
-| Prettier                        | 3.9.9   | MIT                               |
+| Prettier                        | 3.9.10  | MIT                               |
 | ESLint                          | 10.12.0 | MIT                               |
 | ESLint Markdown                 | 8.0.3   | MIT                               |
 | Ajv                             | 8.20.0  | MIT                               |
@@ -24,10 +24,11 @@ That policy text retains CC BY-SA 4.0, its attribution and the indicated changes
 | Snapper upstream executable     | 0.11.9  | MIT, Copyright 2026 Rohit Goswami |
 
 Installed npm packages retain their upstream license files.
-Development analysis uses dependency-cruiser 18.5.0 under MIT, copyright 2016-2026 Sander Verweij.
+Development analysis uses dependency-cruiser 18.6.0 under MIT, copyright 2016-2026 Sander Verweij.
 Its installed `LICENSE` retains the original permission and copyright notice; no analyzer source is vendored or modified.
 The exact developer dependency graph and its integrity identities are frozen in the lockfile, and installed transitive components retain their own upstream notices.
-Acorn is reused through dependency-cruiser's declared dependency solely for a conservative syntax guard.
+Acorn 8.19.0 is explicitly declared for the conservative syntax guard; its installed MIT notice credits the contributors listed in its AUTHORS file.
+micromark 4.0.3 and micromark-extension-math 3.1.0 are explicitly declared for security regression tests; their installed MIT notices credit Titus Wormer.
 Developer scripts and analyzer code are excluded from consumer archives and runtime dependencies; packed development metadata can remain visible.
 This personal development adoption does not claim organizational rights clearance or change the package's AGPL-3.0-only terms.
 The directly adopted front-matter extensions retain their original MIT copyright and permission notices in their installed `license` files.

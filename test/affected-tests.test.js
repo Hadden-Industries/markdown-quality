@@ -366,9 +366,29 @@ test("diamonds, cycles and multiple edits produce deterministic finite unions", 
     "test/unrelated.test.js",
     "import test from 'node:test'; test('edited', () => {});",
   );
-  const first = await planAffected({ root: f.root, base: f.base });
-  const second = await planAffected({ root: f.root, base: f.base });
-  assert.equal(first.mode, "selected", first.fallback);
+  const admitted = await planAffected({ root: f.root, base: f.base });
+  assert.equal(admitted.mode, "full");
+  assert.equal(admitted.fallback, "native-rule-error");
+  // Cycles now fail runtime policy, but native reachability must still terminate
+  // and preserve its independently expected union on an error-containing graph.
+  const graph = captureGraph(f.root);
+  const inventory = [
+    "test/cycle.test.js",
+    "test/leaf.test.js",
+    "test/unrelated.test.js",
+  ];
+  const first = await selectFromGraphs(
+    [graph],
+    ["src/leaf.js", "test/unrelated.test.js"],
+    inventory,
+    [],
+  );
+  const second = await selectFromGraphs(
+    [graph],
+    ["src/leaf.js", "test/unrelated.test.js"],
+    inventory,
+    [],
+  );
   assert.deepEqual(first.selected, [
     "test/cycle.test.js",
     "test/leaf.test.js",

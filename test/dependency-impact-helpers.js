@@ -27,7 +27,7 @@ export function impactFixture(t, files = {}, relations = []) {
       name: "impact-fixture",
       private: true,
       type: "module",
-      devDependencies: { "dependency-cruiser": "18.5.0" },
+      devDependencies: { "dependency-cruiser": "18.6.0" },
     }),
   );
   put("package-lock.json", "{}\n");
