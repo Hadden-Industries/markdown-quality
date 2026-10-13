@@ -74,3 +74,17 @@ test("containment and all five stat components retain their distinct semantics",
     assert.notEqual(fingerprint({ ...stat, [key]: 99 }), fingerprint(stat));
   assert.equal(fingerprint({ ...stat, birthtimeMs: 99 }), fingerprint(stat));
 });
+
+test(
+  "Windows containment rejects other drives and UNC shares",
+  { skip: process.platform !== "win32" },
+  () => {
+    assert.equal(contained("C:\\owned", "C:\\owned\\child"), true);
+    assert.equal(contained("C:\\owned", "D:\\owned\\child"), false);
+    assert.equal(contained("C:\\owned", "C:\\owned-other"), false);
+    assert.equal(
+      contained("\\\\server\\share\\owned", "\\\\server\\other\\owned"),
+      false,
+    );
+  },
+);

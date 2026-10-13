@@ -111,18 +111,99 @@ test("independent list and continuation rechecks preserve real findings and line
     "- [x] First.\n  Continuation.\n- [ ] Second.\n",
     "\n- First.\n- Second. More.\n",
     "Long " + "sentence ".repeat(1000) + "ends.\n",
+    ">> 1. Alpha.\n>> 2. Beta.\n",
+    "- Alpha.\n1. Beta.\n",
+    "```js\nAlpha. Beta.\n```\n",
   ];
   const tool = resolveTool();
+  // Authored public findings, corroborated against the preserved pre-extraction list algorithm.
+  const fused = (line) => ({
+    source: "snapper",
+    rule: "fused",
+    line,
+    column: 1,
+    message: "Sentence layout: fused.",
+    severity: "error",
+  });
+  const expected = [
+    [],
+    [fused(1)],
+    [fused(1), fused(2)],
+    [],
+    [fused(3)],
+    [],
+    [],
+    [],
+    [],
+  ];
   assert.deepEqual(
-    checkProseGroup(tool, texts, staging.token),
     texts.map((text) => checkProse(tool, text)),
+    expected,
   );
+  assert.deepEqual(checkProseGroup(tool, texts, staging.token), expected);
   assert.deepEqual(readdirSync(staging.token.path).sort(), [
     ".editorconfig",
     "snapper-check.toml",
   ]);
   staging.close();
   assert.equal(existsSync(staging.token.path), false);
+});
+
+test("both prose callers suppress an admitted literal-only native finding", () => {
+  const code = `
+    import {mock} from 'node:test'; import assert from 'node:assert/strict';
+    const option=process.versions.node.startsWith('22.')?'namedExports':'exports';
+    mock.module('node:child_process',{[option]:{spawnSync:()=>({status:1,stdout:Buffer.from(JSON.stringify([{would_reformat:true,diagnostics:[{kind:'fused',line:2,excerpt:'Alpha. Beta.'}]}]))})}});
+    const {checkProse,checkProseGroup}=await import('./src/prose-diagnostics.js');
+    const text='\x60\x60\x60js\\nAlpha. Beta.\\n\x60\x60\x60\\n';
+    assert.deepEqual(checkProse({executable:'unused'},text),[]);
+    const admitted={wouldReformat:true,diagnostics:[{source:'snapper',rule:'fused',line:2,column:1,message:'Sentence layout: fused.',severity:'error'}]};
+    assert.deepEqual(checkProseGroup({executable:'unused'},[text],null,null,[admitted]),[[]]);
+  `;
+  execFileSync(
+    process.execPath,
+    ["--experimental-test-module-mocks", "--input-type=module", "-e", code],
+    { cwd: new URL("../", import.meta.url), timeout: 10000, windowsHide: true },
+  );
+});
+
+test("native grouping, report bounds and prose retention enforce independent byte boundaries", () => {
+  const code = `
+    import {mock} from 'node:test'; import assert from 'node:assert/strict'; import * as cp from 'node:child_process';
+    const original=cp.spawnSync; let groups=[];
+    const option=process.versions.node.startsWith('22.')?'namedExports':'exports';
+    mock.module('node:child_process',{[option]:{spawnSync:(exe,args,options)=>{
+      if(!args.includes('--check'))return original(exe,args,options);
+      groups.push(args.filter(arg=>/input-[0-9]+\\.md$/.test(arg)).length);
+      return {status:0,stdout:Buffer.from('[]')};
+    }}});
+    const {createNativeStaging}=await import('./src/native-staging.js');
+    const {runNativeChecks}=await import('./src/native-checks.js');
+    const {checkProseGroup}=await import('./src/prose-diagnostics.js');
+    const {limits}=await import('./src/contracts.js');
+    const staging=createNativeStaging(process.cwd()); assert.ok(staging);
+    try {
+      for(const [count,expected] of [[31,[31]],[32,[32]],[33,[32,1]]]) {
+        groups=[]; runNativeChecks({executable:'unused'},Array(count).fill('Stable.\\n'),staging.token);
+        assert.deepEqual(groups,expected);
+      }
+      groups=[]; runNativeChecks({executable:'unused'},Array(3).fill('x'.repeat(1500000)+'\\n'),staging.token);
+      assert.deepEqual(groups,[2,1],'native input bytes split below the count capacity');
+      groups=[]; runNativeChecks({executable:'unused'},Array(3).fill('Stable.\\n'),staging.token,null,{...limits,nativeOutputBytes:10000});
+      assert.deepEqual(groups,[1,1,1],'independent report-byte upper bound splits the group');
+      const text='> 1. '+'x'.repeat(1500000)+'.\\n';
+      const admitted=Array.from({length:3},()=>({wouldReformat:true,diagnostics:[{rule:'fused',line:1}]}));
+      const starts=[]; groups=[];
+      assert.deepEqual(checkProseGroup({executable:'unused'},Array(3).fill(text),staging.token,{start:owners=>starts.push(owners),finish:()=>{}},admitted),[[],[],[]]);
+      assert.equal(Math.max(...starts.map(owners=>owners.length)),2,'retention flushes before three large snippets reach the native partitioner');
+      assert.deepEqual(groups,[2,1]);
+    } finally {staging.close();}
+  `;
+  execFileSync(
+    process.execPath,
+    ["--experimental-test-module-mocks", "--input-type=module", "-e", code],
+    { cwd: new URL("../", import.meta.url), timeout: 30000, windowsHide: true },
+  );
 });
 
 test("native protocol and process faults fail once, attribute no guessed results and clean payloads", () => {

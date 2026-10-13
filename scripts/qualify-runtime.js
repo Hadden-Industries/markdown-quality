@@ -47,7 +47,11 @@ import {readFileSync} from 'node:fs';
 const require=createRequire(process.argv[2]);
 const api=await import(pathToFileURL(require.resolve('@hadden-industries/markdown-quality')));
 for(const name of ['runQuality','inspectSelection','processDocument','executeQuality','validateQualityResult','readExecutionProfile','stageCandidate','qualifyCandidate']) assert.equal(typeof api[name],'function',name);
-for(const name of ['configuration-schema','result-schema','execution-schema']) assert.ok(JSON.parse(readFileSync(require.resolve('@hadden-industries/markdown-quality/'+name),'utf8')));
+const Ajv=require('ajv');
+for(const name of ['configuration-schema','result-schema','execution-schema']) {
+  const schema=JSON.parse(readFileSync(require.resolve('@hadden-industries/markdown-quality/'+name),'utf8'));
+  new Ajv({strict:true}).compile(schema);
+}
 assert.ok(readFileSync(require.resolve('@hadden-industries/markdown-quality/qualification-observer')).length);
 const result=await api.executeQuality({root:process.argv[3],mode:'format',document:{path:'logical.md',requestId:'packed',contentBase64:Buffer.from('Alpha. Beta.\\n').toString('base64')}});
 api.validateQualityResult(result,{requestId:'packed',exitCode:0});

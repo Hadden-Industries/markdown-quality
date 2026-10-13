@@ -20,6 +20,31 @@ assert ctypes.sizeof(Accounting) == 48
 assert Extended.peak_job.offset == 136 and Accounting.active.offset == 40
 record = Accounting()
 assert not kernel.QueryInformationJobObject(1, 1, ctypes.byref(record), ctypes.sizeof(record), None)
+if len(sys.argv) > 1 and sys.argv[1] == "failure":
+    # Inject invalid arguments at the native API boundary, then prove real handle closure.
+    real_set, real_assign, real_close = kernel.SetInformationJobObject, kernel.AssignProcessToJobObject, kernel.CloseHandle
+    for operation in ("set", "assign"):
+        closed = []
+        def close(handle):
+            result = real_close(handle)
+            assert result
+            closed.append(handle)
+            return result
+        kernel.CloseHandle = close
+        kernel.SetInformationJobObject = (lambda job, number, policy, size: real_set(job, number, policy, 0)) if operation == "set" else real_set
+        kernel.AssignProcessToJobObject = (lambda job, process: real_assign(job, 1)) if operation == "assign" else real_assign
+        module.windows_abi = lambda: (kernel, Extended, Accounting)
+        try:
+            module.windows_job_raw()
+        except OSError:
+            pass
+        else:
+            raise AssertionError("Invalid native operation was admitted")
+        assert len(closed) == 1
+        assert not kernel.QueryInformationJobObject(closed[0], 1, ctypes.byref(record), ctypes.sizeof(record), None)
+        assert ctypes.get_last_error() == 6  # ERROR_INVALID_HANDLE after actual CloseHandle.
+    print("closed-failed-jobs")
+    sys.exit(0)
 read, abort = module.windows_job_raw()
 child = subprocess.Popen([sys.executable, "-I", "-B", "-c", "import time; payload=bytearray(16*1024*1024); print('ready',flush=True); time.sleep(0.3)"], stdout=subprocess.PIPE)
 assert child.stdout.readline().strip() == b"ready"
@@ -35,4 +60,5 @@ deadline = time.monotonic() + 5
 while read()[1].active != 1 and time.monotonic() < deadline:
     time.sleep(0.01)
 assert read()[1].active == 1
+assert read()[0].peak_job >= memory.peak_job  # Job peaks remain cumulative after child exit.
 print("quiescent-owned-job")

@@ -137,7 +137,7 @@ test("isolated npm acquisition binds selected Node and fails on setup or version
   };
   const calls = [];
   acquireHostedNpm(env, (args, options) => {
-    calls.push({ args, env: options.env });
+    calls.push({ args, env: options.env, timeout: options.timeout });
     return args[0] === "--version" ? "12.2.0\n" : "";
   });
   assert.deepEqual(calls[0].args, [
@@ -152,6 +152,11 @@ test("isolated npm acquisition binds selected Node and fails on setup or version
     "--registry=https://registry.npmjs.org/",
   ]);
   assert.equal(readFileSync(isolation.NPM_CONFIG_USERCONFIG, "utf8"), "");
+  assert.equal(
+    calls[0].timeout,
+    0,
+    "the hosted job owns the npm acquisition deadline",
+  );
   assert.throws(() =>
     acquireHostedNpm({ ...env, NPM_CONFIG_CACHE: "foreign" }, () => {
       throw Error("must not run");

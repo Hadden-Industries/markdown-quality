@@ -27,7 +27,7 @@ test(
   "supported Windows x64 ABI and raw Job operations run in a disposable child",
   { skip: process.platform !== "win32" },
   () => {
-    for (const mode of [[], ["abort"]]) {
+    for (const mode of [[], ["abort"], ["failure"]]) {
       const result = spawnSync(
         "python",
         [
@@ -40,12 +40,16 @@ test(
       );
       assert.equal(
         result.status,
-        mode.length ? 2 : 0,
+        mode[0] === "abort" ? 2 : 0,
         result.stdout + result.stderr,
       );
       assert.match(
         result.stdout,
-        mode.length ? /aborting-owned-job/u : /quiescent-owned-job/u,
+        mode[0] === "abort"
+          ? /aborting-owned-job/u
+          : mode[0] === "failure"
+            ? /closed-failed-jobs/u
+            : /quiescent-owned-job/u,
       );
     }
   },

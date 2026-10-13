@@ -8,6 +8,8 @@ import {
   rmSync,
   rmdirSync,
   writeFileSync,
+  readdirSync,
+  unlinkSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -18,6 +20,38 @@ import {
   removeStagedFile,
 } from "../src/native-staging.js";
 import { consumer } from "./helpers.js";
+
+test("owned staging admits 34 known entries and refuses a 35th unknown entry", (t) => {
+  for (const extra of [false, true]) {
+    const staging = createNativeStaging(consumer(t));
+    assert.ok(staging);
+    for (let index = 0; index < 32; index++)
+      writeStagedFile(staging.token, `input-${index}.md`, "Private.\n");
+    assert.equal(readdirSync(staging.token.path).length, 34);
+    assert.throws(
+      () => writeStagedFile(staging.token, "input-32.md", "Unadmitted.\n"),
+      { code: "NATIVE_STAGING" },
+    );
+    if (extra) {
+      const sentinel = join(staging.token.path, "sentinel.md");
+      writeFileSync(sentinel, "Owned test sentinel.", { flag: "wx" });
+      assert.equal(readdirSync(staging.token.path).length, 35);
+      assert.throws(() => staging.close(), { code: "NATIVE_CLEANUP" });
+      assert.equal(readdirSync(staging.token.path).length, 35);
+      // Explicit test-owned recovery after verifying the original capability; no production fallback.
+      verifyNativeStaging(staging.token);
+      for (const name of [
+        "sentinel.md",
+        ".editorconfig",
+        "snapper-check.toml",
+        ...Array.from({ length: 32 }, (_, index) => `input-${index}.md`),
+      ])
+        unlinkSync(join(staging.token.path, name));
+      rmdirSync(staging.token.path);
+    } else staging.close();
+    assert.equal(existsSync(staging.token.path), false);
+  }
+});
 
 test("staging refuses consumer-contained temporary storage and changed configuration", (t) => {
   assert.equal(createNativeStaging(tmpdir()), null);

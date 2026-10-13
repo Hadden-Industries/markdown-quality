@@ -41,7 +41,8 @@ export function acquireHostedNpm(
       "--no-fund",
       "--registry=https://registry.npmjs.org/",
     ],
-    { env },
+    // The owning hosted job bounds acquisition; preserve the former shell step's deadline.
+    { env, timeout: 0 },
   );
   assert.equal(
     command(["--version"], { env }).trim(),
