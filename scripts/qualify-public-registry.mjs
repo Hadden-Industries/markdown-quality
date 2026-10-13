@@ -49,13 +49,7 @@ assert.ok(
   !values["performance-corpora"] || values.archives,
   "Performance qualification requires frozen transported candidate archives",
 );
-function boundedFile(path, maximum) {
-  const stat = lstatSync(path);
-  assert.ok(stat.isFile() && !stat.isSymbolicLink() && stat.size <= maximum);
-  const bytes = readFileSync(path);
-  assert.ok(bytes.length <= maximum);
-  return bytes;
-}
+const boundedFile = (path, maximum) => releaseBytes(path, maximum);
 const manifestBytes = boundedFile(
   values.manifest
     ? resolve(values.manifest)
@@ -184,11 +178,7 @@ try {
       assert.equal(metadata.dist.integrity, archive.integrity);
       bytes = await acquire(metadata.dist.tarball, 20000000);
     }
-    assert.equal(digest(bytes), archive.sha256);
-    assert.equal(
-      `sha512-${createHash("sha512").update(bytes).digest("base64")}`,
-      archive.integrity,
-    );
+    verifyArchiveBytes(bytes, archive);
     records.push({
       package: archive.package,
       version: expected.version,
@@ -466,3 +456,5 @@ try {
 } finally {
   rmSync(temporary, { recursive: true, force: true });
 }
+
+import { releaseBytes, verifyArchiveBytes } from "./release-bytes.js";

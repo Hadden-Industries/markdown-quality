@@ -22,6 +22,7 @@ import urllib.request
 import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+VOCABULARY = json.loads((pathlib.Path(__file__).resolve().parent / 'native-evidence-contract.json').read_text(encoding='utf-8'))
 CONFIG = json.loads((ROOT / 'assets/native-build.json').read_text(encoding='utf-8'))
 MAX_TEXT = 32_000_000
 
@@ -295,6 +296,9 @@ def main():
     for filename, field in [('Cargo.lock', 'lockSha256'), ('Cargo.toml', 'manifestSha256')]:
         if digest(read(source / filename)) != CONFIG[field]:
             raise ValueError('Native build changed frozen source inputs')
+    expected_files = (set(VOCABULARY['baseMembers']) - {VOCABULARY['selfHashExcluded']}) | {executable.name}
+    if {p.name for p in output.iterdir()} != expected_files:
+        raise ValueError('Unexpected native build evidence inventory')
     # Absolute runner paths are not part of the recipient inventory.
     save('build-evidence.json', {'schemaVersion': 1, 'status': 'pending independent rights review and platform qualification',
          'source': CONFIG['sourceCommit'], 'lockSha256': CONFIG['lockSha256'],

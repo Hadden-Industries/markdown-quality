@@ -15,15 +15,14 @@ import {
   fstatSync,
 } from "node:fs";
 import { resolve, dirname, join, relative } from "node:path";
-import { contained, safePath, loadConfiguration } from "./configuration.js";
+import { safePath, loadConfiguration } from "./configuration.js";
 import { readExecutionProfile } from "./execution-profile.js";
 import { digest, fail } from "./contracts.js";
 
 const reserved = ".markdown-quality-trusted-inputs";
 const operational = new Set([".git", "node_modules", ".venv", "venv", ".hi"]);
 const slash = (name) => name.replaceAll("\\", "/");
-const fingerprint = (stat) =>
-  [stat.dev, stat.ino, stat.size, stat.mtimeMs, stat.ctimeMs].join(":");
+import { fingerprint } from "./stat-fingerprint.js";
 
 function tree(root, profile, strip = false) {
   const records = [];
@@ -249,3 +248,5 @@ export function stageCandidate({
     stagedDataSha256: stagedDataDigest(outputRoot, profile),
   };
 }
+
+import { contained } from "./path-containment.js";

@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import { resolve, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { contained, safePath } from "./configuration.js";
+import { safePath } from "./configuration.js";
 import { readExecutionProfile } from "./execution-profile.js";
 import { executionEnvironment } from "./execution.js";
 import { fail, decode, digest, metadata } from "./contracts.js";
@@ -370,3 +370,5 @@ export async function qualifyCandidate({
   }
   return report;
 }
+
+import { contained } from "./path-containment.js";

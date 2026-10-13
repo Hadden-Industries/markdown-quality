@@ -74,6 +74,12 @@ node([
   ".github/workflows/markdown-quality.yml",
   ".github/workflows/candidate.yml",
   ".github/workflows/check.yml",
+  ".github/workflows/native.yml",
+  ".github/workflows/publish.yml",
+  ".github/actions",
+  ".github/bootstrap-node.json",
+  ".dependency-cruiser.json",
+  ".test-impact.json",
 ]);
 node([
   "--test",

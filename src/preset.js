@@ -73,11 +73,8 @@ export const formatterDefaults = Object.freeze({
   arrowParens: "always",
   htmlWhitespaceSensitivity: "css",
 });
-export const sentenceDefaults = Object.freeze({
-  format: "markdown",
-  max_width: 0,
-  clause_breaks: false,
-});
+export { sentenceDefaults } from "./native-policy.js";
+import { sentenceDefaults } from "./native-policy.js";
 
 /** Effective native rule settings, with info mapped to ESLint's supported warn. */
 export function nativeLintRules(config) {

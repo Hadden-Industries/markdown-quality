@@ -64,29 +64,10 @@ export function checkProse(tool, text, syntax, budgets) {
   const literals = literalOnlyLines(text, syntax);
   return runNative(tool, text, true, budgets).filter((d) => {
     if (literals.has(d.line)) return false;
-    const index = d.line - 1,
-      item = listItem(lines[index]);
-    if (!item) return true;
-    const previous = listItem(lines[index - 1]);
-    const quotedNumber = d.rule === "fused" && item.quotes > 0 && item.ordered;
-    const adjacent =
-      d.rule === "wrap" &&
-      previous &&
-      previous.prefix === item.prefix &&
-      previous.indent === item.indent &&
-      previous.ordered === item.ordered;
-    if (!quotedNumber && !adjacent) return true;
-    const prose = [item.prose];
-    for (let next = index + 1; next < lines.length; next++) {
-      const line = lines[next];
-      if (!line.startsWith(item.prefix) || listItem(line)) break;
-      const content = line.slice(item.prefix.length),
-        indent = item.contentOffset - item.prefix.length;
-      if (!content.startsWith(" ".repeat(indent))) break;
-      prose.push(content.slice(indent));
-    }
+    const snippet = listRecheckSnippet(lines, d);
+    if (snippet === null) return true;
     // Malformed output, unknown findings, crashes, and timeouts still fail closed.
-    return runNative(tool, prose.join("\n") + "\n", true, budgets).length !== 0;
+    return runNative(tool, snippet, true, budgets).length !== 0;
   });
 }
 
@@ -171,31 +152,14 @@ export function checkProseGroup(
         owner
       ].diagnostics.entries()) {
         if (!keep[owner][finding]) continue;
-        const index = diagnostic.line - 1,
-          item = listItem(lines[index]);
-        if (!item) continue;
-        const previous = listItem(lines[index - 1]);
-        const quotedNumber =
-          diagnostic.rule === "fused" && item.quotes > 0 && item.ordered;
-        const adjacent =
-          diagnostic.rule === "wrap" &&
-          previous &&
-          previous.prefix === item.prefix &&
-          previous.indent === item.indent &&
-          previous.ordered === item.ordered;
-        if (!quotedNumber && !adjacent) continue;
-        const prose = [item.prose];
-        for (let next = index + 1; next < lines.length; next++) {
-          const line = lines[next];
-          if (!line.startsWith(item.prefix) || listItem(line)) break;
-          const content = line.slice(item.prefix.length),
-            indent = item.contentOffset - item.prefix.length;
-          if (!content.startsWith(" ".repeat(indent))) break;
-          prose.push(content.slice(indent));
-        }
-        const snippet = prose.join("\n") + "\n",
-          bytes = Buffer.byteLength(snippet);
-        if (pending.length === 32 || pendingBytes + bytes > 4_194_304) flush();
+        const snippet = listRecheckSnippet(lines, diagnostic);
+        if (snippet === null) continue;
+        const bytes = Buffer.byteLength(snippet);
+        if (
+          pending.length === nativeGroupCapacity ||
+          pendingBytes + bytes > proseRetentionBytes
+        )
+          flush();
         pending.push({ text: snippet, owner, finding });
         pendingBytes += bytes;
       }
@@ -215,4 +179,32 @@ export function checkProseGroup(
   return checked.map((entry, owner) =>
     entry.diagnostics.filter((_, index) => keep[owner][index]),
   );
+}
+
+import { nativeGroupCapacity } from "./native-protocol.js";
+// Retained snippets and native invocation inputs have separate byte policies.
+const proseRetentionBytes = 4_194_304;
+export function listRecheckSnippet(lines, d) {
+  const index = d.line - 1,
+    item = listItem(lines[index]);
+  if (!item) return null;
+  const previous = listItem(lines[index - 1]);
+  const quotedNumber = d.rule === "fused" && item.quotes > 0 && item.ordered;
+  const adjacent =
+    d.rule === "wrap" &&
+    previous &&
+    previous.prefix === item.prefix &&
+    previous.indent === item.indent &&
+    previous.ordered === item.ordered;
+  if (!quotedNumber && !adjacent) return null;
+  const prose = [item.prose];
+  for (let next = index + 1; next < lines.length; next++) {
+    const line = lines[next];
+    if (!line.startsWith(item.prefix) || listItem(line)) break;
+    const content = line.slice(item.prefix.length),
+      indent = item.contentOffset - item.prefix.length;
+    if (!content.startsWith(" ".repeat(indent))) break;
+    prose.push(content.slice(indent));
+  }
+  return prose.join("\n") + "\n";
 }

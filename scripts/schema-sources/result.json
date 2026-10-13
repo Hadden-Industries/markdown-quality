@@ -1,0 +1,279 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "package",
+    "preset",
+    "tools",
+    "operation",
+    "configDigest",
+    "selection",
+    "diagnostics",
+    "outcome",
+    "exitCode",
+    "written",
+    "unchanged",
+    "unprocessed",
+    "errors",
+    "configuration",
+    "policy",
+    "strict",
+    "document"
+  ],
+  "properties": {
+    "strict": {
+      "type": "boolean"
+    },
+    "policy": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["dialect", "frontmatter", "lint", "formatter", "sentence"],
+      "properties": {
+        "dialect": {
+          "const": "gfm"
+        },
+        "frontmatter": {
+          "enum": [false, "yaml", "toml", "json"]
+        },
+        "lint": {
+          "type": "object"
+        },
+        "formatter": {
+          "type": "object"
+        },
+        "sentence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["format", "max_width", "clause_breaks"],
+          "properties": {
+            "format": {
+              "const": "markdown"
+            },
+            "max_width": {
+              "const": 0
+            },
+            "clause_breaks": {
+              "const": false
+            }
+          }
+        }
+      }
+    },
+    "schemaVersion": {
+      "const": 3
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "preset": {
+      "const": "authored-gfm@1"
+    },
+    "tools": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prettier", "eslint", "markdown", "snapper"],
+      "properties": {
+        "prettier": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eslint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "markdown": {
+          "type": "string",
+          "minLength": 1
+        },
+        "snapper": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "operation": {
+      "enum": ["check", "format", "inspect", "unknown"]
+    },
+    "configDigest": {
+      "type": ["string", "null"]
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "files", "exclusions", "inventory"],
+      "properties": {
+        "mode": {
+          "enum": ["full", "explicit"]
+        },
+        "files": {
+          "$ref": "#/definitions/paths"
+        },
+        "exclusions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "reason", "pattern", "matchedPath"],
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "reason": {
+                "enum": ["excluded", "not-included"]
+              },
+              "pattern": {
+                "type": ["string", "null"]
+              },
+              "matchedPath": {
+                "type": ["string", "null"]
+              }
+            }
+          }
+        },
+        "inventory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "decision", "pattern", "matchedPath"],
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "decision": {
+                "enum": ["selected", "excluded", "not-included"]
+              },
+              "pattern": {
+                "type": ["string", "null"]
+              },
+              "matchedPath": {
+                "type": ["string", "null"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "source",
+          "rule",
+          "line",
+          "column",
+          "message",
+          "severity"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "source": {
+            "enum": ["formatter", "snapper", "eslint", "links", "quality"]
+          },
+          "rule": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "column": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "message": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": ["error", "warning", "info"]
+          }
+        }
+      }
+    },
+    "outcome": {
+      "enum": ["clean", "findings", "error"]
+    },
+    "exitCode": {
+      "enum": [0, 1, 2]
+    },
+    "written": {
+      "$ref": "#/definitions/paths"
+    },
+    "unchanged": {
+      "$ref": "#/definitions/paths"
+    },
+    "unprocessed": {
+      "$ref": "#/definitions/paths"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "document": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "requestId", "decision", "contentBase64"],
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": ["string", "null"]
+            },
+            "decision": {
+              "enum": ["selected", "excluded", "not-included"]
+            },
+            "contentBase64": {
+              "type": "string",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$id": "urn:hadden-industries:markdown-quality:result:3"
+}

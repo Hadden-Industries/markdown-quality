@@ -69,7 +69,7 @@ export function validateDiagnostics(result, text) {
   for (const d of reports[0].diagnostics)
     if (
       !d ||
-      !["fused", "wrap", "long"].includes(d.kind) ||
+      !nativeDiagnosticKinds.includes(d.kind) ||
       !Number.isSafeInteger(d.line) ||
       d.line < 1 ||
       d.line > lines ||
@@ -84,30 +84,16 @@ export function validateDiagnostics(result, text) {
     fail("NATIVE_REPORT", "Inconsistent native failure report.");
   // Snapper's documented advisory length threshold is independent of wrapping.
   // This preset has no sentence-length policy; validate but omit that advisory.
-  return reports[0].diagnostics
-    .filter((d) => d.kind !== "long")
-    .map((d) => ({
-      source: "snapper",
-      rule: d.kind,
-      line: d.line,
-      column: 1,
-      message: `Sentence layout: ${d.kind}.`,
-      severity: "error",
-    }));
+  return reports[0].diagnostics.map(nativeDiagnostic).filter(Boolean);
 }
 export function runNative(tool, text, check = false, budgets = limits) {
   const args = [
     "--native",
     "--config",
     fileURLToPath(new URL("../assets/snapper.toml", import.meta.url)),
-    "--format",
-    "markdown",
+    ...nativeFormatArguments(),
     "--stdin-filepath",
     "document.md",
-    "--max-width",
-    "0",
-    "--color",
-    "never",
   ];
   if (check) args.push("--check", "--output-format", "json");
   // A fixed working directory and virtual filename keep consumer configuration out.
@@ -133,3 +119,6 @@ export function runNative(tool, text, check = false, budgets = limits) {
     );
   return decode(result.stdout);
 }
+
+import { nativeFormatArguments } from "./native-policy.js";
+import { nativeDiagnostic, nativeDiagnosticKinds } from "./native-protocol.js";

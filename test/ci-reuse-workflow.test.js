@@ -3,6 +3,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { parsers } from "prettier/plugins/yaml";
+import {
+  candidateJobNames,
+  qualificationMatrix,
+  nodeSupport,
+} from "../scripts/node-matrix.js";
 
 const source = readFileSync(
   new URL("../.github/workflows/check.yml", import.meta.url),
@@ -38,8 +43,173 @@ function yamlValue(node) {
   return yamlValue(node.children[0]);
 }
 
-test("every Python provisioning lane reads the repository minimum before setup", () => {
-  let lanes = 0;
+test("literal Node bootstrap consumers conform to their separate authority", () => {
+  const bootstrap = JSON.parse(
+    readFileSync(new URL("../.github/bootstrap-node.json", import.meta.url)),
+  );
+  const expected = [
+    "check.matrix",
+    "check.strategy",
+    "check.required",
+    "candidate.pack",
+    "markdown-quality.qualify",
+    "publish.admit",
+    "publish.retained",
+    "publish.publish",
+    "publish.registry",
+    "registry.registry",
+  ];
+  const actual = [];
+  for (const name of [
+    "check",
+    "candidate",
+    "markdown-quality",
+    "publish",
+    "registry",
+  ]) {
+    const workflow = yamlValue(
+      parsers.yaml.parse(
+        readFileSync(
+          new URL(`../.github/workflows/${name}.yml`, import.meta.url),
+          "utf8",
+        ),
+      ),
+    );
+    for (const [job, specification] of Object.entries(workflow.jobs))
+      for (const step of specification.steps ?? []) {
+        const pin = step.with?.["node-version"];
+        if (pin && !pin.includes("${{")) {
+          assert.equal(pin, bootstrap.version);
+          actual.push(`${name}.${job}`);
+        }
+      }
+  }
+  assert.deepEqual(actual, expected);
+});
+
+test("a changed admitted Node reference owns candidate names and all performance conditions", () => {
+  const policy = { ...nodeSupport, reference: "22.23.3" };
+  const matrix = qualificationMatrix(
+    policy.minimums.map((version) => ({ version: `v${version}` })),
+    policy,
+  );
+  assert.deepEqual(candidateJobNames(matrix, policy), [
+    "pack",
+    "consumer (windows-latest)",
+    "consumer (windows-latest, 24.21.0)",
+    "consumer (windows-latest, 26.11.1)",
+    "consumer (ubuntu-24.04)",
+    "consumer (ubuntu-24.04, 24.21.0)",
+    "consumer (ubuntu-24.04, 26.11.1)",
+  ]);
+  for (const reference of [undefined, "missing"])
+    assert.throws(() =>
+      qualificationMatrix(
+        policy.minimums.map((version) => ({ version: `v${version}` })),
+        { ...policy, reference },
+      ),
+    );
+  const workflow = yamlValue(
+    parsers.yaml.parse(
+      readFileSync(
+        new URL("../.github/workflows/candidate.yml", import.meta.url),
+        "utf8",
+      ),
+    ),
+  );
+  assert.equal(
+    workflow.jobs.pack.outputs.reference,
+    "${{ steps.resolve.outputs.reference }}",
+  );
+  const consumer = workflow.jobs.consumer;
+  assert.equal(
+    consumer.name,
+    "${{ matrix.node == needs.pack.outputs.reference && format('consumer ({0})', matrix.os) || format('consumer ({0}, {1})', matrix.os, matrix.node) }}",
+  );
+  for (const step of consumer.steps.filter((step) => step.if))
+    assert.ok(step.if.includes("needs.pack.outputs.reference"));
+  assert.equal(
+    consumer.steps.filter((step) =>
+      step.if?.includes("matrix.node == needs.pack.outputs.reference"),
+    ).length,
+    4,
+  );
+  assert.equal(
+    consumer.steps.filter((step) =>
+      step.if?.includes("matrix.node != needs.pack.outputs.reference"),
+    ).length,
+    1,
+  );
+  assert.equal(
+    consumer.steps.find((step) => step.with?.name?.includes("candidate-{0}"))
+      .with.name,
+    "${{ matrix.node == needs.pack.outputs.reference && format('candidate-{0}', matrix.os) || format('candidate-{0}-{1}', matrix.os, matrix.node) }}",
+  );
+});
+
+test("all three npm phases preserve intervening admission and fail closed ordering", () => {
+  const workflow = yamlValue(
+    parsers.yaml.parse(
+      readFileSync(
+        new URL("../.github/workflows/publish.yml", import.meta.url),
+        "utf8",
+      ),
+    ),
+  );
+  for (const id of ["retained", "publish", "registry"]) {
+    const steps = workflow.jobs[id].steps;
+    const isolation = steps.findIndex(
+      (step) => step.run === "node scripts/publication-npm.js isolate",
+    );
+    const admission = steps.findIndex(
+      (step) =>
+        step.run ===
+        "node scripts/prepare-publication-environment.js --environment frozen-release",
+    );
+    const acquisition = steps.findIndex(
+      (step) => step.run === "node scripts/publication-npm.js acquire",
+    );
+    assert.ok(
+      isolation >= 0 && admission > isolation && acquisition > admission,
+    );
+    for (const index of [isolation, admission, acquisition]) {
+      assert.equal(steps[index]["continue-on-error"], undefined);
+      assert.equal(steps[index].if, undefined);
+    }
+    assert.equal(steps[isolation].shell, "bash");
+    assert.equal(steps[acquisition].shell, "bash");
+  }
+});
+
+const pythonActionSource = readFileSync(
+  new URL("../.github/actions/setup-python/action.yml", import.meta.url),
+  "utf8",
+);
+function governPythonAction(text) {
+  const action = yamlValue(parsers.yaml.parse(text));
+  assert.equal(action.runs.using, "composite");
+  assert.equal(action.runs.steps.length, 2);
+  assert.deepEqual(action.runs.steps[0], {
+    id: "python-target",
+    shell: "bash",
+    run: "bash .github/actions/setup-python/read-target.sh",
+  });
+  assert.equal(
+    action.runs.steps[1].uses,
+    "astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+  );
+  assert.deepEqual(action.runs.steps[1].with, {
+    "python-version": "${{ steps.python-target.outputs.version }}",
+    version: "0.13.0",
+    "activate-environment": "true",
+    "venv-path": "${{ runner.temp }}/python",
+    "no-project": "true",
+    "enable-cache": "false",
+  });
+}
+test("five concrete Python lanes use the governed dependency-free local action", () => {
+  governPythonAction(pythonActionSource);
+  const lanes = [];
   for (const name of ["check", "candidate", "native"]) {
     const workflow = yamlValue(
       parsers.yaml.parse(
@@ -49,33 +219,61 @@ test("every Python provisioning lane reads the repository minimum before setup",
         ),
       ),
     );
-    for (const job of Object.values(workflow.jobs)) {
+    for (const [id, job] of Object.entries(workflow.jobs)) {
       for (const [index, step] of (job.steps ?? []).entries()) {
-        if (!step.uses?.startsWith("astral-sh/setup-uv@")) continue;
-        lanes++;
-        assert.equal(
-          step.with["python-version"],
-          "${{ steps.python-target.outputs.version }}",
-        );
-        const reader = job.steps.findIndex(
-          (candidate) => candidate.id === "python-target",
-        );
-        assert.ok(reader >= 0 && reader < index);
-        assert.equal(job.steps[reader].shell, "bash");
+        if (step.uses !== "./.github/actions/setup-python") continue;
+        lanes.push(`${name}.${id}`);
         assert.ok(
-          job.steps[reader].run.includes("target=$(cat .python-version)"),
+          job.steps
+            .slice(0, index)
+            .some((step) => step.uses?.startsWith("actions/checkout@")),
         );
-        assert.ok(job.steps[reader].run.includes("|| exit 1"));
         assert.ok(
-          job.steps[reader].run.includes(
-            'printf \'version=>=%s\\n\' "$target" >> "$GITHUB_OUTPUT"',
-          ),
+          job.steps
+            .slice(index + 1)
+            .some((step) =>
+              /(?:python |npm run check:full|node scripts\/(?:qualify-public-registry|ci-reuse-command))/u.test(
+                step.run ?? "",
+              ),
+            ),
+          `${name}.${id} must invoke its Python-dependent check after setup`,
         );
+        if (name === "native")
+          assert.equal(
+            job.steps
+              .slice(0, index)
+              .some((step) => step.uses?.startsWith("actions/setup-node@")),
+            false,
+          );
       }
     }
+    if (name === "native")
+      for (const path of [
+        ".github/actions/setup-python/**",
+        ".python-version",
+        "scripts/native-evidence-contract.json",
+      ])
+        assert.ok(workflow.on.push.paths.includes(path));
   }
-  assert.equal(lanes, 5);
+  assert.deepEqual(lanes, [
+    "check.probe",
+    "check.package",
+    "candidate.pack",
+    "candidate.consumer",
+    "native.native",
+  ]);
 });
+for (const [before, after] of [
+  ["astral-sh/setup-uv@", "untrusted/setup-uv@"],
+  ["1c37ad07a6a961277cf70c0d37d6f313000f5884", "v10"],
+  ["enable-cache: false", "enable-cache: true"],
+  ["steps.python-target.outputs.version", "env.PYTHON_VERSION"],
+  ["shell: bash", "shell: pwsh"],
+])
+  test(`nested Python action rejects ${after}`, () =>
+    assert.throws(() =>
+      governPythonAction(pythonActionSource.replace(before, after)),
+    ));
 
 test("shared qualification uploads compact evidence with explicit retention tiers", () => {
   const shared = yamlValue(
@@ -159,7 +357,7 @@ function govern(text) {
         "pull-requests": "read",
       });
     for (const step of job.steps) {
-      if (step.uses)
+      if (step.uses && step.uses !== "./.github/actions/setup-python")
         assert.match(
           step.uses,
           /^(?:actions\/[a-z-]+|astral-sh\/setup-uv)@[a-f0-9]{40}$/u,
@@ -276,10 +474,14 @@ test("the real workflow preserves full PR coverage, closed graph and exact proof
   govern(source));
 
 for (const [name, before, after] of [
-  ["unapproved action owner", "astral-sh/setup-uv@", "untrusted/setup-uv@"],
   [
-    "unpinned Python installer",
-    "astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+    "unapproved local action",
+    "./.github/actions/setup-python",
+    "./.github/actions/untrusted",
+  ],
+  [
+    "untrusted Python action pin",
+    "./.github/actions/setup-python",
     "astral-sh/setup-uv@v10",
   ],
   [

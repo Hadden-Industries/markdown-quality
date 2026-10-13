@@ -57,6 +57,7 @@ class TextOutputTests(unittest.TestCase):
                 archives = root / 'archives'
                 archives.mkdir()
                 shutil.copyfile(ROOT / 'scripts/prepare-native.py', root / 'scripts/prepare-native.py')
+                shutil.copyfile(ROOT / 'scripts/native-evidence-contract.json', root / 'scripts/native-evidence-contract.json')
                 (root / 'LICENSE').write_bytes(b'Wrapper licence\n')
                 platforms = {}
                 original = b'Original licence\r\nCopyright fixture\r\n'

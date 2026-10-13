@@ -17,8 +17,12 @@ import { digest, metadata } from "../src/contracts.js";
 import { manifest } from "../src/native-tool.js";
 import { nodeSupport, candidateJobNames } from "./node-matrix.js";
 import { stageCore } from "./core-package-stage.js";
+import { checkGeneratedSchemas } from "./generate-schemas.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
 export function packRelease(output, qualificationMatrix) {
+  checkGeneratedSchemas();
+  checkNativePolicy();
+  checkWindowsJob();
   if (qualificationMatrix) candidateJobNames(qualificationMatrix);
   if (
     digest(readFileSync(join(root, "LICENSE"))) !==
@@ -196,3 +200,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     throw new Error("Usage: node scripts/pack.js OUTPUT_DIRECTORY");
   process.stdout.write(JSON.stringify(packRelease(process.argv[2])) + "\n");
 }
+
+import { checkNativePolicy } from "./generate-native-policy.js";
+
+import { checkWindowsJob } from "./generate-windows-job.js";

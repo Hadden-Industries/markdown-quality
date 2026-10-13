@@ -287,16 +287,7 @@ export function entrypointInventory(root) {
   const javascript = [],
     resources = [],
     declared = [];
-  const exports = metadata.exports ?? {};
-  if (typeof exports !== "object" || Array.isArray(exports))
-    throw new Error("Unsupported export shape");
-  const bins =
-    typeof metadata.bin === "string"
-      ? [metadata.bin]
-      : Object.values(metadata.bin ?? {});
-  for (const target of [...bins, ...Object.values(exports)]) {
-    if (typeof target !== "string" || target.includes("*"))
-      throw new Error("Unsupported entrypoint shape");
+  for (const target of declaredTargets(metadata)) {
     const path = safePath(target.replace(/^\.\//u, ""));
     readOwned(root, path);
     (/\.(js|mjs|cjs)$/u.test(path) ? javascript : resources).push(path);
@@ -519,3 +510,5 @@ if (process.argv[1] && resolve(process.argv[1]) === self) {
     process.exitCode = 2;
   }
 }
+
+import { declaredTargets } from "./declared-targets.js";

@@ -4,6 +4,19 @@ These development contracts implement the producer portions of the centralizatio
 They are separate from published `1.0.3`, hosted qualification, and consumer adoption acceptance.
 The latest producer commit can be adopted after its exact transported tuple is qualified; npm publication and a new release are not prerequisites.
 
+## Current source compatibility
+
+| Contract      | Version |
+| ------------- | ------- |
+| Configuration | 2       |
+| Result        | 3       |
+| Execution     | 1       |
+
+Current configuration admission rejects schema 1.
+Analyzer limits permit `false` to remove ceilings and `null` to bypass an individual ceiling; trusted execution limits require finite positive safe integers.
+Each shipped schema compiles independently without a sibling schema registry.
+Historical release evidence retains the versions and behavior actually shipped by that release.
+
 ## Logical documents and bounded invocation
 
 ```javascript

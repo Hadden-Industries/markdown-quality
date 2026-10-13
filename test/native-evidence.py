@@ -23,6 +23,16 @@ freeze_spec.loader.exec_module(freezer)
 
 
 class ToolAcquisitionTests(unittest.TestCase):
+    def test_current_inventory_has_independent_base_and_supplement_expectations(self):
+        expected = ('LICENSE.snapper', 'COPYRIGHT-library.html', 'THIRD-PARTY-NOTICES.txt',
+                    'embedded-dependencies.json', 'component-inventory.json', 'cargo-notices.json',
+                    'build-evidence.json', 'MPL-SOURCE.tar.xz')
+        self.assertEqual(freezer.FILES, expected)
+        self.assertEqual(builder.VOCABULARY['baseMembers'], list(expected))
+        self.assertEqual(builder.VOCABULARY['supplementMembers'], ['rights-evidence.json', 'SUPPLEMENTAL-NOTICES.txt'])
+        self.assertEqual(builder.VOCABULARY['selfHashExcluded'], 'build-evidence.json')
+        self.assertEqual(builder.VOCABULARY['platformArchives'], {'win32-x64': 'snapper-windows.zip', 'linux-x64': 'snapper-linux.tar.xz'})
+
     def acquire(self, files, expected=None):
         stream = io.BytesIO()
         with zipfile.ZipFile(stream, 'w') as archive:

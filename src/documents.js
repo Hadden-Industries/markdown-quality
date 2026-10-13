@@ -20,7 +20,7 @@ import {
 } from "node:path";
 import { execFileSync } from "node:child_process";
 import picomatch from "picomatch";
-import { safePath, contained } from "./configuration.js";
+import { safePath } from "./configuration.js";
 import { fail, limits, exceeds, decode } from "./contracts.js";
 const blocked = new Set([".git", "node_modules", ".venv", "venv", ".hi"]);
 /** Full repository requests reconcile tracked Markdown by default; data roots
@@ -318,3 +318,5 @@ export function readDocument(root, file, budgets = limits) {
     closeSync(fd);
   }
 }
+
+import { contained } from "./path-containment.js";

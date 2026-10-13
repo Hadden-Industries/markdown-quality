@@ -64,7 +64,13 @@ def manifest(root, revision):
             "sha256": digest(json.dumps(records, sort_keys=True).encode())}
 
 
-def windows_job():
+# BEGIN GENERATED WINDOWS JOB
+# SPDX-License-Identifier: AGPL-3.0-only
+"""Build-only source embedded into both standalone observation drivers."""
+
+
+def windows_abi():
+    import ctypes
     from ctypes import wintypes
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
 
@@ -92,31 +98,65 @@ def windows_job():
 
     kernel.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
     kernel.CreateJobObjectW.restype = wintypes.HANDLE
+    kernel.GetCurrentProcess.argtypes = []
     kernel.GetCurrentProcess.restype = wintypes.HANDLE
     kernel.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
-    kernel.QueryInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p,
-                                               wintypes.DWORD, ctypes.c_void_p]
+    kernel.AssignProcessToJobObject.restype = wintypes.BOOL
+    kernel.QueryInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD, ctypes.c_void_p]
+    kernel.QueryInformationJobObject.restype = wintypes.BOOL
     kernel.SetInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+    kernel.SetInformationJobObject.restype = wintypes.BOOL
+    kernel.TerminateJobObject.argtypes = [wintypes.HANDLE, wintypes.UINT]
+    kernel.TerminateJobObject.restype = wintypes.BOOL
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.CloseHandle.restype = wintypes.BOOL
+    return kernel, Extended, Accounting
+
+
+def windows_job_raw():
+    import ctypes
+    kernel, Extended, Accounting = windows_abi()
     job = kernel.CreateJobObjectW(None, None)
+    if not job:
+        raise ctypes.WinError(ctypes.get_last_error())
     policy = Extended()
-    policy.basic.flags = 0x2000  # Kill descendants on driver exit; no memory/CPU limits.
-    if not job or not kernel.SetInformationJobObject(job, 9, ctypes.byref(policy), ctypes.sizeof(policy)):
-        raise ctypes.WinError(ctypes.get_last_error())
+    policy.basic.flags = 0x2000  # Kill descendants on driver exit; no resource limits.
+    if not kernel.SetInformationJobObject(job, 9, ctypes.byref(policy), ctypes.sizeof(policy)):
+        error = ctypes.WinError(ctypes.get_last_error())
+        kernel.CloseHandle(job)
+        raise error
     if not kernel.AssignProcessToJobObject(job, kernel.GetCurrentProcess()):
-        raise ctypes.WinError(ctypes.get_last_error())
+        error = ctypes.WinError(ctypes.get_last_error())
+        kernel.CloseHandle(job)
+        raise error
 
     def read():
-        memory, cpu = Extended(), Accounting()
-        for number, record in ((9, memory), (1, cpu)):
+        memory, accounting = Extended(), Accounting()
+        for number, record in ((9, memory), (1, accounting)):
             if not kernel.QueryInformationJobObject(job, number, ctypes.byref(record), ctypes.sizeof(record), None):
                 raise ctypes.WinError(ctypes.get_last_error())
+        return memory, accounting
+
+    def abort():
+        if not kernel.TerminateJobObject(job, 2):
+            raise ctypes.WinError(ctypes.get_last_error())
+
+    return read, abort
+# END GENERATED WINDOWS JOB
+
+
+def windows_job():
+    read, abort = windows_job_raw()
+
+    def observe():
+        memory, cpu = read()
         return {"peakTreeBytes": memory.peak_job, "activeDescendants": cpu.active - 1,
                 "processesIncludingDriver": cpu.processes,
                 "userCpuMsIncludingDriver": cpu.user / 10000,
                 "kernelCpuMsIncludingDriver": cpu.kernel / 10000,
                 "memoryMetric": "Windows Job Object peak committed bytes, including fresh Python driver and all descendants; not RSS"}
 
-    return read
+    return observe
 
 
 def linux_tree():

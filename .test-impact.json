@@ -199,6 +199,102 @@
       "kind": "source-copy-group",
       "evidence": "Packed qualification tests create and execute a source copy",
       "fixture": "test/affected-tests.test.js supplemental group and seeded shadow cases"
+    },
+    {
+      "id": "schema-source",
+      "dependency": "scripts/schema-sources/",
+      "consumer": "scripts/generate-schemas.js",
+      "kind": "resource",
+      "evidence": "Explicit DRY build/data/process input consumed at this boundary",
+      "fixture": "test/dry-impact.test.js conservative full fallback seeded failure"
+    },
+    {
+      "id": "embedded-job-source",
+      "dependency": "scripts/windows-job-source.py",
+      "consumer": "scripts/generate-windows-job.js",
+      "kind": "resource",
+      "evidence": "Explicit DRY build/data/process input consumed at this boundary",
+      "fixture": "test/dry-impact.test.js conservative full fallback seeded failure"
+    },
+    {
+      "id": "embedded-job-test",
+      "dependency": "scripts/windows-job-source.py",
+      "consumer": "test/generated-windows-job.test.js",
+      "kind": "resource",
+      "evidence": "Explicit DRY build/data/process input consumed at this boundary",
+      "fixture": "test/dry-impact.test.js conservative full fallback seeded failure"
+    },
+    {
+      "id": "windows-job-child",
+      "dependency": "test/windows-job.py",
+      "consumer": "test/generated-windows-job.test.js",
+      "kind": "spawn",
+      "evidence": "Explicit DRY build/data/process input consumed at this boundary",
+      "fixture": "test/dry-impact.test.js conservative full fallback seeded failure"
+    },
+    {
+      "id": "native-vocabulary-build",
+      "dependency": "scripts/native-evidence-contract.json",
+      "consumer": "scripts/build-native.py",
+      "kind": "resource",
+      "evidence": "Explicit DRY build/data/process input consumed at this boundary",
+      "fixture": "test/dry-impact.test.js conservative full fallback seeded failure"
+    },
+    {
+      "id": "native-vocabulary-freeze",
+      "dependency": "scripts/native-evidence-contract.json",
+      "consumer": "scripts/freeze-native.py",
+      "kind": "resource",
+      "evidence": "Explicit DRY build/data/process input consumed at this boundary",
+      "fixture": "test/dry-impact.test.js conservative full fallback seeded failure"
+    },
+    {
+      "id": "native-vocabulary-prepare",
+      "dependency": "scripts/native-evidence-contract.json",
+      "consumer": "scripts/prepare-native.py",
+      "kind": "resource",
+      "evidence": "Explicit DRY build/data/process input consumed at this boundary",
+      "fixture": "test/dry-impact.test.js conservative full fallback seeded failure"
+    },
+    {
+      "id": "native-vocabulary-acquire",
+      "dependency": "scripts/native-evidence-contract.json",
+      "consumer": "scripts/acquire-native.py",
+      "kind": "resource",
+      "evidence": "Explicit DRY build/data/process input consumed at this boundary",
+      "fixture": "test/dry-impact.test.js conservative full fallback seeded failure"
+    },
+    {
+      "id": "python-action-reader",
+      "dependency": ".github/actions/setup-python/read-target.sh",
+      "consumer": ".github/actions/setup-python/action.yml",
+      "kind": "resource",
+      "evidence": "Explicit DRY build/data/process input consumed at this boundary",
+      "fixture": "test/dry-impact.test.js conservative full fallback seeded failure"
+    },
+    {
+      "id": "python-action-test",
+      "dependency": ".github/actions/setup-python/",
+      "consumer": "test/ci-reuse-workflow.test.js",
+      "kind": "resource",
+      "evidence": "Explicit DRY build/data/process input consumed at this boundary",
+      "fixture": "test/dry-impact.test.js conservative full fallback seeded failure"
+    },
+    {
+      "id": "bootstrap-node-test",
+      "dependency": ".github/bootstrap-node.json",
+      "consumer": "test/ci-reuse-workflow.test.js",
+      "kind": "resource",
+      "evidence": "Explicit DRY build/data/process input consumed at this boundary",
+      "fixture": "test/dry-impact.test.js conservative full fallback seeded failure"
+    },
+    {
+      "id": "python-reader-test",
+      "dependency": ".github/actions/setup-python/read-target.sh",
+      "consumer": "test/dry-tooling.test.js",
+      "kind": "spawn",
+      "evidence": "Explicit DRY build/data/process input consumed at this boundary",
+      "fixture": "test/dry-impact.test.js conservative full fallback seeded failure"
     }
   ]
 }

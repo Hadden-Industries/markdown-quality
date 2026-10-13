@@ -13,9 +13,8 @@ import tarfile
 import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-FILES = ('LICENSE.snapper', 'COPYRIGHT-library.html', 'THIRD-PARTY-NOTICES.txt',
-         'embedded-dependencies.json', 'component-inventory.json', 'cargo-notices.json', 'build-evidence.json',
-         'MPL-SOURCE.tar.xz')
+VOCABULARY = json.loads((pathlib.Path(__file__).resolve().parent / 'native-evidence-contract.json').read_text(encoding='utf-8'))
+FILES = tuple(VOCABULARY['baseMembers'])
 
 
 def sha(data):
@@ -76,7 +75,7 @@ def freeze(inputs, output, run_id, workflow_commit, release_url, rights_path=Non
                        for name in ('cargo-about', 'cargo-auditable'))
                 or evidence['extractorSource'] != build['auditExtractor']):
             raise ValueError('Hosted build provenance mismatch: ' + key)
-        expected = {name: sha(data) for name, data in evidence_bytes.items() if name != 'build-evidence.json'}
+        expected = {name: sha(data) for name, data in evidence_bytes.items() if name != VOCABULARY['selfHashExcluded']}
         if evidence['files'] != expected or evidence['binarySha256'] != expected[binary_name]:
             raise ValueError('Hosted evidence byte mismatch: ' + key)
         inventory = json.loads(evidence_bytes['component-inventory.json'])
@@ -108,8 +107,8 @@ def freeze(inputs, output, run_id, workflow_commit, release_url, rights_path=Non
                     sections.append(f"\n===== {item['name']} {item['version']} / {notice.get('path', 'source notice')} =====\n{notice['text']}")
             # Render with LF; rights-evidence retains original text and its byte hash.
             evidence_bytes['SUPPLEMENTAL-NOTICES.txt'] = ('\n'.join(sections) + '\n').replace('\r\n', '\n').replace('\r', '\n').encode('utf-8')
-            expected.update({name: sha(evidence_bytes[name]) for name in ('rights-evidence.json', 'SUPPLEMENTAL-NOTICES.txt')})
-        archive_name = 'snapper-windows.zip' if key.startswith('win') else 'snapper-linux.tar.xz'
+            expected.update({name: sha(evidence_bytes[name]) for name in VOCABULARY['supplementMembers']})
+        archive_name = VOCABULARY['platformArchives'][key]
         stream = io.BytesIO()
         if key.startswith('win'):
             with zipfile.ZipFile(stream, 'w', compression=zipfile.ZIP_DEFLATED) as archive:

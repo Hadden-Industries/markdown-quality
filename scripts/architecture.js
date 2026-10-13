@@ -53,16 +53,7 @@ export function shipmentErrors(root, core, files, graph, metadata) {
       )
         errors.push(`Unshipped dependency: ${source} -> ${edge.resolved}`);
   }
-  const exports = metadata.exports ?? {};
-  if (typeof exports !== "object" || Array.isArray(exports))
-    throw new Error("Unsupported export shape");
-  const bins =
-    typeof metadata.bin === "string"
-      ? [metadata.bin]
-      : Object.values(metadata.bin ?? {});
-  for (const target of [...bins, ...Object.values(exports)]) {
-    if (typeof target !== "string" || target.includes("*"))
-      throw new Error("Unsupported entrypoint shape");
+  for (const target of declaredTargets(metadata)) {
     const path = safePath(target.replace(/^\.\//u, ""));
     if (!admitted.has(path)) errors.push(`Unshipped entrypoint: ${path}`);
   }
@@ -119,3 +110,5 @@ export function checkArchitecture(root = repositoryRoot) {
     rmSync(stage, { recursive: true, force: true });
   }
 }
+
+import { declaredTargets } from "./declared-targets.js";

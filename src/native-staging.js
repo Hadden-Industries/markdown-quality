@@ -14,34 +14,26 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, isAbsolute, join, relative, sep } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { fail, limits } from "./contracts.js";
 
-export const nativeCheckConfig =
-  'format = "markdown"\nmax_width = 0\nclause_breaks = false\nlong_threshold = 2097153\n';
+import { sentenceToml } from "./native-policy.js";
+import { nativeGroupCapacity, isNativeInputName } from "./native-protocol.js";
+import { contained as contains } from "./path-containment.js";
+export const nativeCheckConfig = sentenceToml(true);
 const editorConfig = "root = true\n\n[*]\nmax_line_length = off\n";
 const configFiles = new Map([
   ["snapper-check.toml", nativeCheckConfig],
   [".editorconfig", editorConfig],
 ]);
-const inputName = /^input-(?:[0-9]|[12][0-9]|3[01])\.md$/u;
-
 function identity(stat) {
   return { dev: stat.dev, ino: stat.ino, birthtimeNs: stat.birthtimeNs };
 }
 function same(stat, expected) {
   return Object.keys(expected).every((key) => stat[key] === expected[key]);
 }
-function contains(root, path) {
-  const part = relative(root, path);
-  return (
-    part === "" ||
-    (!isAbsolute(part) && part !== ".." && !part.startsWith(".." + sep))
-  );
-}
-
 /** Establish a private external capability, or preserve the stdin path if unavailable. */
 export function createNativeStaging(consumerRoot, budgets = limits) {
   let token;
@@ -162,7 +154,7 @@ export function verifyNativeStaging(token, checkConfiguration = true) {
 /** Write one package-selected exclusive file; its caller owns the returned identity. */
 export function writeStagedFile(token, name, text) {
   verifyNativeStaging(token, false);
-  if (!inputName.test(name) && !configFiles.has(name))
+  if (!isNativeInputName(name) && !configFiles.has(name))
     fail("NATIVE_STAGING", "Invalid native staging input.");
   const path = join(token.path, name);
   let descriptor;
@@ -204,8 +196,8 @@ function closeNativeStaging(token) {
     verifyNativeStaging(token, false);
     const names = readdirSync(token.path);
     if (
-      names.length > 34 ||
-      names.some((name) => !inputName.test(name) && !configFiles.has(name))
+      names.length > nativeGroupCapacity + configFiles.size ||
+      names.some((name) => !isNativeInputName(name) && !configFiles.has(name))
     )
       throw Error("Unexpected staging contents.");
     for (const name of names) {

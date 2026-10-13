@@ -35,7 +35,11 @@ function reportBound(text, staging) {
     3200 * text.split("\n").length +
     512 +
     (staging
-      ? Buffer.byteLength(JSON.stringify(join(staging.path, "input-31.md")))
+      ? Buffer.byteLength(
+          JSON.stringify(
+            join(staging.path, nativeInputName(nativeGroupCapacity - 1)),
+          ),
+        )
       : 0)
   );
 }
@@ -107,8 +111,8 @@ export function runNativeChecks(
       continue;
     }
     if (
-      pending.length === 32 ||
-      bytes + inputBytes > 4_194_304 ||
+      pending.length === nativeGroupCapacity ||
+      bytes + inputBytes > nativeGroupInputBytes ||
       exceeds(bound + outputBound, budgets.nativeOutputBytes)
     )
       flush();
@@ -125,7 +129,7 @@ function checkFiles(tool, texts, staging, budgets) {
   const files = [];
   try {
     for (const [index, text] of texts.entries())
-      files.push(writeStagedFile(staging, `input-${index}.md`, text));
+      files.push(writeStagedFile(staging, nativeInputName(index), text));
     verifyNativeStaging(staging);
     for (const [index, file] of files.entries()) {
       const stat = lstatSync(file.path, { bigint: true });
@@ -147,12 +151,7 @@ function checkFiles(tool, texts, staging, budgets) {
         "--native",
         "--config",
         join(staging.path, "snapper-check.toml"),
-        "--format",
-        "markdown",
-        "--max-width",
-        "0",
-        "--color",
-        "never",
+        ...nativeFormatArguments(),
         "--check",
         "--output-format",
         "json",
@@ -225,7 +224,7 @@ function readReports(result, files, texts) {
       if (
         !diagnostic ||
         Object.keys(diagnostic).length !== 3 ||
-        !["fused", "wrap", "long"].includes(diagnostic.kind) ||
+        !nativeDiagnosticKinds.includes(diagnostic.kind) ||
         !Number.isSafeInteger(diagnostic.line) ||
         diagnostic.line < 1 ||
         diagnostic.line > sourceLines ||
@@ -235,15 +234,8 @@ function readReports(result, files, texts) {
       )
         fail("NATIVE_REPORT", "Invalid or unknown native diagnostic.");
       findings.add(`${diagnostic.kind}:${diagnostic.line}`);
-      if (diagnostic.kind !== "long")
-        checked[index].diagnostics.push({
-          source: "snapper",
-          rule: diagnostic.kind,
-          line: diagnostic.line,
-          column: 1,
-          message: `Sentence layout: ${diagnostic.kind}.`,
-          severity: "error",
-        });
+      const mapped = nativeDiagnostic(diagnostic);
+      if (mapped) checked[index].diagnostics.push(mapped);
     }
     checked[index].wouldReformat = report.would_reformat;
   }
@@ -251,3 +243,12 @@ function readReports(result, files, texts) {
     fail("NATIVE_REPORT", "Inconsistent native failure report.");
   return checked;
 }
+
+import { nativeFormatArguments } from "./native-policy.js";
+import {
+  nativeDiagnostic,
+  nativeDiagnosticKinds,
+  nativeGroupCapacity,
+  nativeGroupInputBytes,
+  nativeInputName,
+} from "./native-protocol.js";

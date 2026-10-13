@@ -153,10 +153,7 @@ jobs:
           package-manager-cache: false
       - name: Select isolated npm configuration
         shell: bash
-        run: |
-          echo "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/publication-user.npmrc" >> "$GITHUB_ENV"
-          echo "NPM_CONFIG_GLOBALCONFIG=$RUNNER_TEMP/publication-global.npmrc" >> "$GITHUB_ENV"
-          echo "NPM_CONFIG_CACHE=$RUNNER_TEMP/publication-cache" >> "$GITHUB_ENV"
+        run: node scripts/publication-npm.js isolate
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: candidate-release
@@ -172,11 +169,7 @@ jobs:
         run: node scripts/prepare-publication-environment.js --environment frozen-release
       - name: Acquire pinned hosted npm from selected Node installation
         shell: bash
-        run: |
-          touch "$NPM_CONFIG_USERCONFIG" "$NPM_CONFIG_GLOBALCONFIG"
-          NPM_PREFIX="$(node --input-type=module -e 'import {dirname,resolve} from "node:path"; console.log(process.platform==="win32"?dirname(process.execPath):resolve(dirname(process.execPath),".."))')"
-          npm install --global npm@12.2.0 --prefix "$NPM_PREFIX" --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
-          node --input-type=module -e 'import {npmCommand} from "./scripts/commands.js"; if(npmCommand(["--version"]).trim()!=="12.2.0") throw new Error("Selected Node npm version mismatch")'
+        run: node scripts/publication-npm.js acquire
       - name: Qualify retained archives and installed-platform provenance before publication
         run: node scripts/qualify-public-registry.mjs --manifest frozen-release/release-manifest.json --provenance --publication-origins frozen-release/publication-origins.json --publication-source "$GITHUB_SHA" --publication-run "$GITHUB_RUN_ID" --publication-attempt "$GITHUB_RUN_ATTEMPT" --recovery-run "$RECOVERY_RUN" --recovery-attempt "$RECOVERY_ATTEMPT" --recovery-origins-sha256 "$RECOVERY_ORIGINS_SHA" --retained-only retained-qualification.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -207,10 +200,7 @@ jobs:
           package-manager-cache: false
       - name: Select isolated npm configuration
         shell: bash
-        run: |
-          echo "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/publication-user.npmrc" >> "$GITHUB_ENV"
-          echo "NPM_CONFIG_GLOBALCONFIG=$RUNNER_TEMP/publication-global.npmrc" >> "$GITHUB_ENV"
-          echo "NPM_CONFIG_CACHE=$RUNNER_TEMP/publication-cache" >> "$GITHUB_ENV"
+        run: node scripts/publication-npm.js isolate
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: candidate-release
@@ -226,11 +216,7 @@ jobs:
         run: node scripts/prepare-publication-environment.js --environment frozen-release
       - name: Acquire pinned hosted npm from selected Node installation
         shell: bash
-        run: |
-          touch "$NPM_CONFIG_USERCONFIG" "$NPM_CONFIG_GLOBALCONFIG"
-          NPM_PREFIX="$(node --input-type=module -e 'import {dirname,resolve} from "node:path"; console.log(process.platform==="win32"?dirname(process.execPath):resolve(dirname(process.execPath),".."))')"
-          npm install --global npm@12.2.0 --prefix "$NPM_PREFIX" --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
-          node --input-type=module -e 'import {npmCommand} from "./scripts/commands.js"; if(npmCommand(["--version"]).trim()!=="12.2.0") throw new Error("Selected Node npm version mismatch")'
+        run: node scripts/publication-npm.js acquire
       - name: Publish Windows package under pilot and verify integrity
         if: env.PUBLISH_WIN32_X64 == 'true'
         env:
@@ -304,10 +290,7 @@ jobs:
           package-manager-cache: false
       - name: Select isolated npm configuration
         shell: bash
-        run: |
-          echo "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/publication-user.npmrc" >> "$GITHUB_ENV"
-          echo "NPM_CONFIG_GLOBALCONFIG=$RUNNER_TEMP/publication-global.npmrc" >> "$GITHUB_ENV"
-          echo "NPM_CONFIG_CACHE=$RUNNER_TEMP/publication-cache" >> "$GITHUB_ENV"
+        run: node scripts/publication-npm.js isolate
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: candidate-release
@@ -323,11 +306,7 @@ jobs:
         run: node scripts/prepare-publication-environment.js --environment frozen-release
       - name: Acquire pinned hosted npm from selected Node installation
         shell: bash
-        run: |
-          touch "$NPM_CONFIG_USERCONFIG" "$NPM_CONFIG_GLOBALCONFIG"
-          NPM_PREFIX="$(node --input-type=module -e 'import {dirname,resolve} from "node:path"; console.log(process.platform==="win32"?dirname(process.execPath):resolve(dirname(process.execPath),".."))')"
-          npm install --global npm@12.2.0 --prefix "$NPM_PREFIX" --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
-          node --input-type=module -e 'import {npmCommand} from "./scripts/commands.js"; if(npmCommand(["--version"]).trim()!=="12.2.0") throw new Error("Selected Node npm version mismatch")'
+        run: node scripts/publication-npm.js acquire
       - name: Verify anonymous complete tuple bytes, signatures and bound publication origins
         run: node scripts/qualify-public-registry.mjs --manifest frozen-release/release-manifest.json --provenance --publication-origins frozen-release/publication-origins.json --publication-source "$GITHUB_SHA" --publication-run "$GITHUB_RUN_ID" --publication-attempt "$GITHUB_RUN_ATTEMPT" --recovery-run "$RECOVERY_RUN" --recovery-attempt "$RECOVERY_ATTEMPT" --recovery-origins-sha256 "$RECOVERY_ORIGINS_SHA" registry-qualification.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

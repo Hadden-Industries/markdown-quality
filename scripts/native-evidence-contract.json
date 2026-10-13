@@ -1,0 +1,18 @@
+{
+  "baseMembers": [
+    "LICENSE.snapper",
+    "COPYRIGHT-library.html",
+    "THIRD-PARTY-NOTICES.txt",
+    "embedded-dependencies.json",
+    "component-inventory.json",
+    "cargo-notices.json",
+    "build-evidence.json",
+    "MPL-SOURCE.tar.xz"
+  ],
+  "supplementMembers": ["rights-evidence.json", "SUPPLEMENTAL-NOTICES.txt"],
+  "selfHashExcluded": "build-evidence.json",
+  "platformArchives": {
+    "win32-x64": "snapper-windows.zip",
+    "linux-x64": "snapper-linux.tar.xz"
+  }
+}

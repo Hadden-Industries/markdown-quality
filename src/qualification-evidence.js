@@ -13,13 +13,12 @@ import {
 } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { contained, safePath } from "./configuration.js";
+import { safePath } from "./configuration.js";
 import { digest, fail } from "./contracts.js";
 import { stagedDataManifest } from "./candidate-staging.js";
 
 const maximumReportBytes = 64 * 1024 * 1024;
-const fingerprint = (stat) =>
-  [stat.dev, stat.ino, stat.size, stat.mtimeMs, stat.ctimeMs].join(":");
+import { fingerprint } from "./stat-fingerprint.js";
 function readEvidence(root, path, bound, allowTruncation = false) {
   const full = safePath(root, path, { file: true });
   const before = lstatSync(full);
@@ -315,3 +314,5 @@ export function packageQualificationEvidence({ sourceRoot, outputRoot }) {
   writeFileSync(join(outputRoot, "artifact-index.json"), bytes, { flag: "wx" });
   return index;
 }
+
+import { contained } from "./path-containment.js";

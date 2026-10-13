@@ -8,13 +8,8 @@ import { candidateJobNames } from "./node-matrix.js";
 export const repository = "Hadden-Industries/markdown-quality";
 export const hash = (bytes, algorithm = "sha256") =>
   createHash(algorithm).update(bytes).digest("hex");
-export function regularBytes(path, maximum = 64 * 1024 * 1024) {
-  const info = lstatSync(path);
-  assert.ok(info.isFile() && !info.isSymbolicLink() && info.size <= maximum);
-  const bytes = readFileSync(path);
-  assert.ok(bytes.length <= maximum);
-  return bytes;
-}
+export const regularBytes = (path, maximum = 64 * 1024 * 1024) =>
+  releaseBytes(path, maximum);
 export const readJson = (path) =>
   JSON.parse(regularBytes(path, 16 * 1024 * 1024).toString("utf8"));
 
@@ -176,11 +171,7 @@ export function verifyPayloads(qualified, directory, sourceArchive) {
     for (const key of ["filename", "sha256", "integrity"])
       assert.equal(declared[key], archive[key]);
     const bytes = regularBytes(join(directory, archive.filename));
-    assert.equal(hash(bytes), archive.sha256);
-    assert.equal(
-      "sha512-" + createHash("sha512").update(bytes).digest("base64"),
-      archive.integrity,
-    );
+    verifyArchiveBytes(bytes, archive);
   }
   assert.equal(
     hash(regularBytes(join(directory, manifest.sbom.filename))),
@@ -297,3 +288,5 @@ export function verifyInventory(release, assets, allowMissing = false) {
     assert.equal(missing.size, 0, "Incomplete release inventory");
   return [...missing.values()];
 }
+
+import { releaseBytes, verifyArchiveBytes } from "./release-bytes.js";

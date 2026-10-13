@@ -4,37 +4,55 @@
       "name": "unresolved",
       "severity": "error",
       "from": {},
-      "to": { "couldNotResolve": true }
+      "to": {
+        "couldNotResolve": true
+      }
     },
     {
       "name": "runtime-to-development",
       "severity": "error",
-      "from": { "path": "^src/" },
-      "to": { "path": "^(test|scripts)/" }
+      "from": {
+        "path": "^src/"
+      },
+      "to": {
+        "path": "^(test|scripts)/"
+      }
     },
     {
       "name": "runtime-to-dev-dependency",
       "severity": "error",
-      "from": { "path": "^src/" },
-      "to": { "dependencyTypes": ["npm-dev"] }
+      "from": {
+        "path": "^src/"
+      },
+      "to": {
+        "dependencyTypes": ["npm-dev"]
+      }
     },
     {
       "name": "runtime-undeclared-package",
       "severity": "error",
-      "from": { "path": "^src/" },
-      "to": { "dependencyTypes": ["npm-no-pkg"] }
+      "from": {
+        "path": "^src/"
+      },
+      "to": {
+        "dependencyTypes": ["npm-no-pkg"]
+      }
     },
     {
       "name": "tooling-undeclared-package",
       "severity": "error",
-      "from": { "path": "^(scripts|test)/" },
-      "to": { "dependencyTypes": ["npm-no-pkg"] }
+      "from": {
+        "path": "^(scripts|test)/"
+      },
+      "to": {
+        "dependencyTypes": ["npm-no-pkg"]
+      }
     },
     {
       "name": "foundations-stay-independent",
       "severity": "error",
       "from": {
-        "path": "^src/(contracts|preset|document-analysis-pool|native-tool)\\.js$"
+        "path": "^src/(contracts|preset|document-analysis-pool|native-tool|analyzer-limits|native-policy|native-protocol|path-containment|stat-fingerprint)\\.js$"
       },
       "to": {
         "path": "^src/(cli|qualification-cli|quality|execution|execution-worker|qualification|qualification-runner)\\.js$",
@@ -45,7 +63,7 @@
       "name": "shared-tooling-stays-independent",
       "severity": "error",
       "from": {
-        "path": "^scripts/(commands|node-matrix|python-target|ci-reuse)\\.js$"
+        "path": "^scripts/(commands|node-matrix|python-target|ci-reuse|declared-targets|release-bytes|publication-context)\\.js$"
       },
       "to": {
         "path": "^scripts/(pack|ci-reuse-command|release-assets|verify-publication|qualify-public-registry|shared-qualification|verify)\\.(js|mjs)$",
@@ -55,14 +73,33 @@
     {
       "name": "runtime-cycles",
       "severity": "error",
-      "from": { "path": "^src/" },
-      "to": { "circular": true }
+      "from": {
+        "path": "^src/"
+      },
+      "to": {
+        "circular": true
+      }
     },
     {
       "name": "authoring-cycles",
       "severity": "warn",
-      "from": { "path": "^(scripts|test)/" },
-      "to": { "circular": true }
+      "from": {
+        "path": "^(scripts|test)/"
+      },
+      "to": {
+        "circular": true
+      }
+    },
+    {
+      "name": "runtime-leaves-stay-independent",
+      "severity": "error",
+      "from": {
+        "path": "^src/(analyzer-limits|native-policy|native-protocol|path-containment|stat-fingerprint)\\.js$"
+      },
+      "to": {
+        "path": "^src/(configuration|contracts|preset|native-tool|native-staging|prose-diagnostics)\\.js$",
+        "reachable": true
+      }
     }
   ],
   "options": {

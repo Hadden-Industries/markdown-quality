@@ -2,11 +2,12 @@
 """Explicit build-only acquisition of frozen native assets."""
 import hashlib, json, pathlib, subprocess, sys, tempfile, urllib.request
 root = pathlib.Path(__file__).resolve().parent.parent
+VOCABULARY = json.loads((pathlib.Path(__file__).resolve().parent / 'native-evidence-contract.json').read_text(encoding='utf-8'))
 manifest = json.loads((root / 'assets/tool-manifest.json').read_text(encoding='utf-8'))
 with tempfile.TemporaryDirectory(prefix='markdown-quality-native-') as temporary:
     target = pathlib.Path(temporary)
     for key, spec in manifest['platforms'].items():
-        filename = 'snapper-windows.zip' if key.startswith('win') else 'snapper-linux.tar.xz'
+        filename = VOCABULARY['platformArchives'][key]
         with urllib.request.urlopen(spec['url'], timeout=60) as response:
             data = response.read(40_000_001)
         if len(data) > 40_000_000 or hashlib.sha256(data).hexdigest() != spec['archiveSha256']:

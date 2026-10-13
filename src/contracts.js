@@ -1,32 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { analyzerLimits } from "./analyzer-limits.js";
 export const packageRoot = new URL("../", import.meta.url);
 export const metadata = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
 );
 /** Explicit resource defaults; consumers may override any field or select null (unlimited). */
-export const limits = Object.freeze({
-  fileBytes: 2_097_152,
-  totalBytes: 33_554_432,
-  files: 10_000,
-  entries: 100_000,
-  configBytes: 262_144,
-  nativeMs: 15_000,
-  nativeOutputBytes: 8_388_608,
-  diagnostics: 10_000,
-  documentDiagnostics: 1_000,
-  diagnosticBytes: 4_194_304,
-  selectionBytes: 4_194_304,
-  analysisMs: 30_000,
-  workerHeapMb: 128,
-  workerStackMb: 4,
-  stagingMs: 1_000,
-  stagingOutputBytes: 65_536,
-  patterns: 100,
-  patternLength: 512,
-  lintRules: 60,
-});
+export const limits = analyzerLimits;
 /** Null is an explicit bypass, never a request to restore defaults. */
 export const exceeds = (value, ceiling) => ceiling !== null && value > ceiling;
 export const digest = (bytes) =>

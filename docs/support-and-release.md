@@ -32,7 +32,7 @@ The public contract includes CLI, library API, schemas, exit meanings, formatter
 A compatible repair may use a patch version.
 An opt-in compatible feature may use a minor version.
 The owner-approved opinionated-defaults change replaces `authored-gfm@1` in place and requires a new package major because existing invocations change.
-Configuration schema 1 remains loadable; result schema 2 distinguishes advisory severities, strict admission and effective native policy.
+The [current compatibility contract](centralized-contracts.md#current-source-compatibility) owns schema admission, advisory severities, strict admission and effective native policy.
 Do not republish existing archives or describe this development source as the published 1.0.3 behavior.
 Exact coordinated package version selection and publication remain release decisions.
 Dependency upgrades are classified from observed corpus and consumer deltas.

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
-import { resolve, dirname, join, relative, isAbsolute, sep } from "node:path";
+import { resolve, dirname, join, relative, sep } from "node:path";
 import Ajv from "ajv";
 import markdown from "@eslint/markdown";
 import { decode, digest, fail, limits, exceeds } from "./contracts.js";
-import { lintDefaults, advisoryDefaults } from "./preset.js";
+import { lintDefaults, advisoryDefaults, formatterDefaults } from "./preset.js";
 const schema = JSON.parse(
   readFileSync(
     new URL("../schemas/configuration.schema.json", import.meta.url),
@@ -26,13 +26,8 @@ function resolveLimits(base, override) {
     ? Object.fromEntries(Object.keys(limits).map((key) => [key, null]))
     : { ...base, ...override };
 }
-export function contained(root, path) {
-  const rel = relative(root, path);
-  return (
-    rel === "" ||
-    (!isAbsolute(rel) && rel !== ".." && !rel.startsWith(".." + sep))
-  );
-}
+import { contained } from "./path-containment.js";
+export { contained } from "./path-containment.js";
 export function safePath(root, input, { missing = false, file = false } = {}) {
   if (
     typeof input !== "string" ||
@@ -164,7 +159,11 @@ export function loadConfiguration({ root, config, limits: overrides } = {}) {
       ...value.lint,
     },
     links: { localFiles: true, rootRelative: "reject", ...value.links },
-    layout: { endOfLine: "lf", tabWidth: 2, ...value.layout },
+    layout: {
+      endOfLine: formatterDefaults.endOfLine,
+      tabWidth: formatterDefaults.tabWidth,
+      ...value.layout,
+    },
     syntax: { frontmatter: "yaml", ...value.syntax },
     limits: budgets,
   };

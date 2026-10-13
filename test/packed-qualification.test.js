@@ -16,41 +16,14 @@ import { consumer } from "./helpers.js";
 import { npmCommand } from "../scripts/commands.js";
 
 const source = fileURLToPath(new URL("../", import.meta.url));
-const git = execFileSync(
-  process.platform === "win32" ? "where.exe" : "which",
-  ["git"],
-  { encoding: "utf8" },
-)
-  .trim()
-  .split(/\r?\n/u)[0];
-const python = execFileSync(
-  "python",
-  ["-c", "import sys;print(sys.executable)"],
-  { encoding: "utf8" },
-).trim();
-const pythonVersion = execFileSync(python, ["--version"], { encoding: "utf8" })
-  .trim()
-  .replace("Python ", "");
-function freeze(root) {
-  const run = (...args) =>
-    execFileSync(git, ["-c", "core.autocrlf=false", "-C", root, ...args], {
-      windowsHide: true,
-    });
-  run("init", "-q");
-  run("add", "--all");
-  run(
-    "-c",
-    "user.name=Fixture",
-    "-c",
-    "user.email=fixture@example.invalid",
-    "-c",
-    "commit.gpgsign=false",
-    "commit",
-    "-qm",
-    "Frozen package qualification fixture",
-  );
-  return run("rev-parse", "HEAD").toString().trim();
-}
+import {
+  git,
+  python,
+  pythonVersion,
+  freezeFixture,
+} from "./qualification-host.js";
+const freeze = (root) =>
+  freezeFixture(root, "Frozen package qualification fixture");
 
 test("clean frozen source archives qualify through the installed public boundary without release publication", async (t) => {
   const scratch = consumer(t);

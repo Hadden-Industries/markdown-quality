@@ -23,6 +23,11 @@ export function qualificationMatrix(releases, policy = nodeSupport) {
     assert.ok(version);
     return version;
   });
+  assert.equal(policy.schemaVersion, 1);
+  assert.ok(
+    policy.minimums.includes(policy.reference),
+    "Missing admitted Node reference",
+  );
   const nodes = policy.minimums.flatMap((minimum) => {
     assert.ok(
       versions.includes(minimum),
@@ -61,20 +66,27 @@ export function candidateJobNames(matrix, policy = nodeSupport) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  // Fetch release metadata only; no returned URL or script is executed.
-  const response = await fetch("https://nodejs.org/dist/index.json", {
-    redirect: "error",
-    signal: AbortSignal.timeout(30000),
-  });
-  assert.equal(response.status, 200);
-  const chunks = [];
-  let bytes = 0;
-  for await (const chunk of response.body) {
-    bytes += chunk.byteLength;
-    assert.ok(bytes <= 1048576, "Node release metadata exceeds its bound");
-    chunks.push(chunk);
+  if (process.argv[2] === "--reference") {
+    assert.equal(process.argv.length, 3);
+    assert.ok(nodeSupport.minimums.includes(nodeSupport.reference));
+    console.log(nodeSupport.reference);
+  } else {
+    assert.equal(process.argv.length, 2);
+    // Fetch release metadata only; no returned URL or script is executed.
+    const response = await fetch("https://nodejs.org/dist/index.json", {
+      redirect: "error",
+      signal: AbortSignal.timeout(30000),
+    });
+    assert.equal(response.status, 200);
+    const chunks = [];
+    let bytes = 0;
+    for await (const chunk of response.body) {
+      bytes += chunk.byteLength;
+      assert.ok(bytes <= 1048576, "Node release metadata exceeds its bound");
+      chunks.push(chunk);
+    }
+    console.log(
+      JSON.stringify(qualificationMatrix(JSON.parse(Buffer.concat(chunks)))),
+    );
   }
-  console.log(
-    JSON.stringify(qualificationMatrix(JSON.parse(Buffer.concat(chunks)))),
-  );
 }

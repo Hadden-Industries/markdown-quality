@@ -22,6 +22,7 @@ jobs:
     timeout-minutes: 15
     outputs:
       runtimes: ${{ steps.resolve.outputs.matrix }}
+      reference: ${{ steps.resolve.outputs.reference }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -29,21 +30,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24.21.0"
-      - id: python-target
-        name: Read the repository Python minimum
-        shell: bash
-        run: |
-          target=$(cat .python-version)
-          [[ $target =~ ^[1-9][0-9]*\.[0-9]+\.[0-9]+$ ]] || exit 1
-          printf 'version=>=%s\n' "$target" >> "$GITHUB_OUTPUT"
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
-        with:
-          python-version: ${{ steps.python-target.outputs.version }}
-          version: "0.13.0"
-          activate-environment: true
-          venv-path: ${{ runner.temp }}/python
-          no-project: true
-          enable-cache: false
+      - uses: ./.github/actions/setup-python
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: python scripts/acquire-native.py
       - id: resolve
@@ -52,6 +39,9 @@ jobs:
           $runtimeMatrix = node scripts/node-matrix.js
           if ($LASTEXITCODE -ne 0) { throw "Node release metadata resolution failed" }
           Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "matrix=$runtimeMatrix"
+          $reference = node scripts/node-matrix.js --reference
+          if ($LASTEXITCODE -ne 0) { throw "Node reference resolution failed" }
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "reference=$reference"
       - name: Pack one frozen tuple on Windows
         env:
           NODE_QUALIFICATION_MATRIX: ${{ steps.resolve.outputs.matrix }}
@@ -63,7 +53,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   consumer:
-    name: ${{ matrix.node == '24.21.0' && format('consumer ({0})', matrix.os) || format('consumer ({0}, {1})', matrix.os, matrix.node) }}
+    name: ${{ matrix.node == needs.pack.outputs.reference && format('consumer ({0})', matrix.os) || format('consumer ({0}, {1})', matrix.os, matrix.node) }}
     needs: pack
     env:
       GIT_CONFIG_COUNT: "1"
@@ -81,23 +71,9 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node }}
-      - id: python-target
-        name: Read the repository Python minimum
-        shell: bash
-        run: |
-          target=$(cat .python-version)
-          [[ $target =~ ^[1-9][0-9]*\.[0-9]+\.[0-9]+$ ]] || exit 1
-          printf 'version=>=%s\n' "$target" >> "$GITHUB_OUTPUT"
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
-        with:
-          python-version: ${{ steps.python-target.outputs.version }}
-          version: "0.13.0"
-          activate-environment: true
-          venv-path: ${{ runner.temp }}/python
-          no-project: true
-          enable-cache: false
+      - uses: ./.github/actions/setup-python
       - name: Acquire complete public OwlAPI corpus as data
-        if: matrix.node == '24.21.0'
+        if: matrix.node == needs.pack.outputs.reference
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Hadden-Industries/owlapi
@@ -105,7 +81,7 @@ jobs:
           path: performance-corpora/owlapi
           persist-credentials: false
       - name: Acquire complete public WebVOWL corpus as data
-        if: matrix.node == '24.21.0'
+        if: matrix.node == needs.pack.outputs.reference
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Hadden-Industries/webvowl
@@ -118,19 +94,19 @@ jobs:
           path: transported-release
           digest-mismatch: error
       - name: Qualify the same transported archives in both layouts
-        if: matrix.node != '24.21.0'
+        if: matrix.node != needs.pack.outputs.reference
         run: node scripts/qualify-public-registry.mjs --manifest transported-release/release-manifest.json --archives transported-release candidate-qualification.json
       - name: Qualify transported archives and measure reference-runtime performance
-        if: matrix.node == '24.21.0'
+        if: matrix.node == needs.pack.outputs.reference
         run: node scripts/qualify-public-registry.mjs --manifest transported-release/release-manifest.json --archives transported-release --performance-corpora performance-corpora --performance-output performance-observations candidate-qualification.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ${{ matrix.node == '24.21.0' && format('candidate-{0}', matrix.os) || format('candidate-{0}-{1}', matrix.os, matrix.node) }}
+          name: ${{ matrix.node == needs.pack.outputs.reference && format('candidate-{0}', matrix.os) || format('candidate-{0}-{1}', matrix.os, matrix.node) }}
           path: candidate-qualification.json
           if-no-files-found: error
           retention-days: 30
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always() && matrix.node == '24.21.0'
+        if: always() && matrix.node == needs.pack.outputs.reference
         with:
           name: performance-${{ matrix.os }}
           path: performance-observations/

@@ -16,27 +16,12 @@ import { candidateJobNames } from "./node-matrix.js";
 const repository = "Hadden-Industries/markdown-quality";
 const digest = (bytes, algorithm = "sha256") =>
   createHash(algorithm).update(bytes).digest("hex");
-function bytes(path, maximum) {
-  const stat = lstatSync(path);
-  assert.ok(
-    stat.isFile() && !stat.isSymbolicLink() && stat.size <= maximum,
-    "Expected bounded regular release input",
-  );
-  const result = readFileSync(path);
-  assert.ok(result.length <= maximum);
-  return result;
-}
+const bytes = (path, maximum) =>
+  releaseBytes(path, maximum, "Expected bounded regular release input");
 const json = (path) => JSON.parse(bytes(path, 1_048_576).toString("utf8"));
 
 export function verifyCandidateContext(run, context) {
-  assert.equal(context.repository, repository);
-  assert.equal(context.event, "workflow_dispatch");
-  assert.equal(context.ref, "refs/heads/main");
-  assert.equal(
-    context.workflowRef,
-    `${repository}/.github/workflows/publish.yml@refs/heads/main`,
-  );
-  assert.match(context.head, /^[a-f0-9]{40}$/u);
+  validatePublicationContext(context);
   assert.match(String(context.runId), /^[1-9]\d{0,15}$/u);
   assert.equal(String(run.id), String(context.runId));
   assert.equal(run.repository.full_name, repository);
@@ -64,14 +49,7 @@ export function verifyPublication({
   previous,
 }) {
   const candidate = verifyCandidateContext(run, context);
-  assert.equal(context.repository, repository);
-  assert.equal(context.event, "workflow_dispatch");
-  assert.equal(context.ref, "refs/heads/main");
-  assert.equal(
-    context.workflowRef,
-    `${repository}/.github/workflows/publish.yml@refs/heads/main`,
-  );
-  assert.match(context.head, /^[a-f0-9]{40}$/u);
+  validatePublicationContext(context);
   assert.match(context.runId, /^[1-9]\d{0,15}$/u);
   assert.match(manifestSha, /^[a-f0-9]{64}$/u);
   assert.equal(currentRef.ref, "refs/heads/main");
@@ -177,11 +155,7 @@ export function verifyPublication({
     assert.equal(archive.version, release.version);
     assert.equal(archive.filename, filename);
     const tarball = bytes(join(directory, filename), 20_000_000);
-    assert.equal(digest(tarball), archive.sha256);
-    assert.equal(
-      `sha512-${createHash("sha512").update(tarball).digest("base64")}`,
-      archive.integrity,
-    );
+    verifyArchiveBytes(tarball, archive);
     if (archive.name === "linux-x64") {
       assert.equal(archive.executableMode.mode, "0o755");
       assert.equal(archive.executableMode.allMemberBytesPreserved, true);
@@ -225,19 +199,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     currentRef: json(join(providerDirectory, "current-ref.json")),
     environment: json(join(providerDirectory, "environment.json")),
     branches: json(join(providerDirectory, "branches.json")),
-    context: {
-      repository: process.env.GITHUB_REPOSITORY,
-      event: process.env.GITHUB_EVENT_NAME,
-      ref: process.env.GITHUB_REF,
-      workflowRef: process.env.GITHUB_WORKFLOW_REF,
-      head: process.env.GITHUB_SHA,
-      runId: process.env.CANDIDATE_RUN,
-      publicationRun: process.env.GITHUB_RUN_ID,
-      publicationAttempt: process.env.GITHUB_RUN_ATTEMPT,
-      recoveryRun: process.env.RECOVERY_RUN,
-      recoveryAttempt: process.env.RECOVERY_ATTEMPT,
-      recoveryOriginsSha: process.env.RECOVERY_ORIGINS_SHA,
-    },
+    context: publicationContext(process.env),
     ...(process.env.RECOVERY_RUN
       ? {
           previous: {
@@ -277,3 +239,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   );
   process.stdout.write(JSON.stringify(result) + "\n");
 }
+
+import { releaseBytes, verifyArchiveBytes } from "./release-bytes.js";
+
+import {
+  validatePublicationContext,
+  publicationContext,
+} from "./publication-context.js";

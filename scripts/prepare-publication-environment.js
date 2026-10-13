@@ -7,13 +7,7 @@ import { fileURLToPath } from "node:url";
 import { validatePublicationOrigins } from "./publication-origins.js";
 import { verifyCandidateContext } from "./verify-publication.js";
 
-function boundedBytes(path, maximum = 1_048_576) {
-  const stat = lstatSync(path);
-  assert.ok(stat.isFile() && !stat.isSymbolicLink() && stat.size <= maximum);
-  const bytes = readFileSync(path);
-  assert.ok(bytes.length <= maximum);
-  return bytes;
-}
+const boundedBytes = (path, maximum = 1_048_576) => releaseBytes(path, maximum);
 const json = (path) => JSON.parse(boundedBytes(path).toString("utf8"));
 
 export function verifyPublicationArchiveBytes(directory, release) {
@@ -23,14 +17,7 @@ export function verifyPublicationArchiveBytes(directory, release) {
       /^hadden-industries-markdown-quality(?:-(?:win32|linux)-x64)?-[1-9]\d*\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.tgz$/u,
     );
     const bytes = boundedBytes(join(directory, archive.filename), 20_000_000);
-    assert.equal(
-      createHash("sha256").update(bytes).digest("hex"),
-      archive.sha256,
-    );
-    assert.equal(
-      `sha512-${createHash("sha512").update(bytes).digest("base64")}`,
-      archive.integrity,
-    );
+    verifyArchiveBytes(bytes, archive);
   }
 }
 
@@ -50,14 +37,7 @@ function admittedEnvironment(directory, context) {
 }
 
 export function verifyCurrentPublicationRef(currentRef, context) {
-  assert.equal(context.repository, "Hadden-Industries/markdown-quality");
-  assert.equal(context.event, "workflow_dispatch");
-  assert.equal(context.ref, "refs/heads/main");
-  assert.equal(
-    context.workflowRef,
-    `${context.repository}/.github/workflows/publish.yml@refs/heads/main`,
-  );
-  assert.match(context.head, /^[a-f0-9]{40}$/u);
+  validatePublicationContext(context);
   assert.equal(currentRef.ref, "refs/heads/main");
   assert.equal(
     currentRef.object.sha,
@@ -72,14 +52,7 @@ export function preparePublicationEnvironment(
   map,
   context,
 ) {
-  assert.equal(context.repository, "Hadden-Industries/markdown-quality");
-  assert.equal(context.event, "workflow_dispatch");
-  assert.equal(context.ref, "refs/heads/main");
-  assert.equal(
-    context.workflowRef,
-    `${context.repository}/.github/workflows/publish.yml@refs/heads/main`,
-  );
-  assert.match(context.head, /^[a-f0-9]{40}$/u);
+  validatePublicationContext(context);
   assert.match(release.version, /^[1-9]\d*\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u);
   assert.deepEqual(
     release.archives.map((a) => a.name),
@@ -132,19 +105,7 @@ export function preparePublicationEnvironment(
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   assert.equal(process.argv.length, 4);
-  const context = {
-    repository: process.env.GITHUB_REPOSITORY,
-    event: process.env.GITHUB_EVENT_NAME,
-    ref: process.env.GITHUB_REF,
-    workflowRef: process.env.GITHUB_WORKFLOW_REF,
-    head: process.env.GITHUB_SHA,
-    runId: process.env.CANDIDATE_RUN,
-    publicationRun: process.env.GITHUB_RUN_ID,
-    publicationAttempt: process.env.GITHUB_RUN_ATTEMPT,
-    recoveryRun: process.env.RECOVERY_RUN,
-    recoveryAttempt: process.env.RECOVERY_ATTEMPT,
-    recoveryOriginsSha: process.env.RECOVERY_ORIGINS_SHA,
-  };
+  const context = publicationContext(process.env);
   if (process.argv[2] === "--candidate-context") {
     const candidate = verifyCandidateContext(
       json(join(process.argv[3], "run.json")),
@@ -170,3 +131,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     );
   }
 }
+
+import { releaseBytes, verifyArchiveBytes } from "./release-bytes.js";
+
+import {
+  validatePublicationContext,
+  publicationContext,
+} from "./publication-context.js";
