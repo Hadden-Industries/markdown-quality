@@ -55,7 +55,7 @@ test("runner settles incomplete evidence when native cleanup fails while its har
   } finally {
     mock.mock.restore();
     syncBuiltinESMExports();
-    // The failed cleanup deliberately left this owned harness alive. Reap it with the real native facility.
+    // Reap this owned harness if it is still alive after the deliberately failed cleanup.
     if (result?.outcome.selected.pid) {
       const pid = result.outcome.selected.pid;
       if (process.platform === "win32") {
@@ -64,7 +64,9 @@ test("runner settles incomplete evidence when native cleanup fails while its har
           ["/PID", String(pid), "/T", "/F"],
           { windowsHide: true, timeout: 5000 },
         );
-        assert.equal(killed.status, 0, killed.stderr?.toString());
+        assert.ifError(killed.error);
+        if (killed.status !== 0)
+          assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
       } else {
         try {
           process.kill(-pid, "SIGKILL");

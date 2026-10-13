@@ -2,7 +2,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync, mkdirSync, symlinkSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  symlinkSync,
+  existsSync,
+} from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -181,13 +187,22 @@ test("isolated npm acquisition binds selected Node and fails on setup or version
 });
 test("dependency-free Bash Python target reader agrees with stable finite JS admission", (t) => {
   const root = consumer(t);
-  const git =
+  const gitPaths =
     process.platform === "win32"
       ? execFileSync("where.exe", ["git"], { encoding: "utf8" })
           .trim()
-          .split(/\r?\n/u)[0]
-      : null;
-  const bash = git ? join(dirname(dirname(git)), "bin/bash.exe") : "bash";
+          .split(/\r?\n/u)
+      : [];
+  const bash =
+    process.platform === "win32"
+      ? gitPaths
+          .flatMap((git) => [
+            join(dirname(dirname(git)), "bin/bash.exe"),
+            join(dirname(dirname(dirname(git))), "bin/bash.exe"),
+          ])
+          .find((path) => existsSync(path))
+      : "bash";
+  assert.ok(bash, "Git for Windows Bash executable was not found");
   const reader = fileURLToPath(
     new URL("../.github/actions/setup-python/read-target.sh", import.meta.url),
   );
@@ -210,6 +225,7 @@ test("dependency-free Bash Python target reader agrees with stable finite JS adm
       timeout: 10000,
       windowsHide: true,
     });
+    assert.ifError(result.error);
     assert.equal(result.status, valid ? 0 : 1, result.stderr);
     if (valid)
       assert.equal(
