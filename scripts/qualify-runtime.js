@@ -48,7 +48,7 @@ const require=createRequire(process.argv[2]);
 const api=await import(pathToFileURL(require.resolve('@hadden-industries/markdown-quality')));
 for(const name of ['runQuality','inspectSelection','processDocument','executeQuality','validateQualityResult','readExecutionProfile','stageCandidate','qualifyCandidate']) assert.equal(typeof api[name],'function',name);
 const Ajv=require('ajv');
-for(const name of ['configuration-schema','result-schema','execution-schema']) {
+for(const name of ['configuration-schema','result-schema','execution-schema','migration-schema']) {
   const schema=JSON.parse(readFileSync(require.resolve('@hadden-industries/markdown-quality/'+name),'utf8'));
   new Ajv({strict:true}).compile(schema);
 }

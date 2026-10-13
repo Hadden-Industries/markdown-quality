@@ -157,6 +157,11 @@ test("isolated npm acquisition binds selected Node and fails on setup or version
     0,
     "the hosted job owns the npm acquisition deadline",
   );
+  assert.equal(
+    calls[1].timeout,
+    undefined,
+    "version readback retains the command's bounded default",
+  );
   assert.throws(() =>
     acquireHostedNpm({ ...env, NPM_CONFIG_CACHE: "foreign" }, () => {
       throw Error("must not run");

@@ -22,9 +22,15 @@ record = Accounting()
 assert not kernel.QueryInformationJobObject(1, 1, ctypes.byref(record), ctypes.sizeof(record), None)
 if len(sys.argv) > 1 and sys.argv[1] == "failure":
     # Inject invalid arguments at the native API boundary, then prove real handle closure.
-    real_set, real_assign, real_close = kernel.SetInformationJobObject, kernel.AssignProcessToJobObject, kernel.CloseHandle
+    real_set, real_assign, real_close, real_create = kernel.SetInformationJobObject, kernel.AssignProcessToJobObject, kernel.CloseHandle, kernel.CreateJobObjectW
     for operation in ("set", "assign"):
         closed = []
+        created = []
+        def create(attributes, name):
+            handle = real_create(attributes, name)
+            created.append(handle)
+            return handle
+        kernel.CreateJobObjectW = create
         def close(handle):
             result = real_close(handle)
             assert result
@@ -41,6 +47,7 @@ if len(sys.argv) > 1 and sys.argv[1] == "failure":
         else:
             raise AssertionError("Invalid native operation was admitted")
         assert len(closed) == 1
+        assert closed == created
         assert not kernel.QueryInformationJobObject(closed[0], 1, ctypes.byref(record), ctypes.sizeof(record), None)
         assert ctypes.get_last_error() == 6  # ERROR_INVALID_HANDLE after actual CloseHandle.
     print("closed-failed-jobs")
