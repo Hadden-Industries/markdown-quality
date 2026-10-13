@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { execFile, spawn, spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
+import { parse } from "acorn";
 import {
   mkdirSync,
   mkdtempSync,
@@ -124,9 +124,7 @@ export async function selectFromGraphs(graphs, changed, tests, relations) {
 
 /** Parser guard for unmodelled loads; it extracts no dependencies and performs no resolution. */
 function hasUnmodelledBoundary(bytes) {
-  // Reuse the analyzer's installed public Acorn dependency, not its private extractor.
-  const require = createRequire(import.meta.resolve("dependency-cruiser"));
-  const { parse } = require("acorn");
+  // Use the explicitly owned parser; analyzer updates cannot select a nested copy.
   const ast = parse(bytes.toString("utf8"), {
     ecmaVersion: "latest",
     sourceType: "module",

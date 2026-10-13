@@ -37,6 +37,8 @@ npm run graph:dependencies -- --output /absolute/external/path/new-bundle --focu
 ```
 
 The architecture assertion also runs in the ordinary Node suite and full verification.
+The actual packaging test independently invokes the same gate, so removal of the named architecture test cannot silently remove full-suite package-boundary enforcement.
+This deliberate redundancy protects two consumers while keeping one implementation of the accepted rules.
 It checks the complete authored import graph, then obtains npm's native dry-run inventory of the same core stage used by the release packer.
 Every shipped JavaScript module, including disconnected roots, must match its source bytes and resolve its first-party imports to admitted package members.
 Schema/assets/native payloads retain their independent archive and installed-consumer proof.

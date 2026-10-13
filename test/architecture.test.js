@@ -18,6 +18,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import childProcess from "node:child_process";
+import { syncBuiltinESMExports } from "node:module";
 
 test("the actual repository satisfies architecture and shipped closure", () => {
   const result = checkArchitecture();
@@ -55,6 +57,59 @@ test("candidate assertion rejects a real error instead of selector-style full fa
     "src/leaf.js": "import './missing.js';",
   });
   assert.throws(() => checkArchitecture(fixture.root), /unresolved/u);
+});
+
+test("architecture diagnostics preserve the native indirect violating path", (t) => {
+  const fixture = packageFixture(t, {
+    "src/contracts.js": "import './middle.js';",
+    "src/middle.js": "import './quality.js';",
+    "src/quality.js": "export {};",
+  });
+  assert.throws(() => checkArchitecture(fixture.root), /src\/middle\.js/u);
+});
+
+test("an exported but absent package member cannot disappear from architecture proof", (t) => {
+  const fixture = packageFixture(t);
+  const metadata = JSON.parse(readFileSync(join(fixture.root, "package.json")));
+  metadata.exports["./missing"] = "./src/missing.js";
+  fixture.put("package.json", JSON.stringify(metadata));
+  assert.throws(
+    () => checkArchitecture(fixture.root),
+    /Unshipped entrypoint: src\/missing.js/u,
+  );
+});
+
+test("shipped JavaScript outside the captured authored roots fails explicitly", (t) => {
+  const fixture = packageFixture(t, { "assets/disconnected.js": "export {};" });
+  assert.throws(
+    () => checkArchitecture(fixture.root),
+    /Missing runtime graph root: assets\/disconnected.js/u,
+  );
+});
+
+test("a foreign native npm package result cannot qualify this candidate", (t) => {
+  const fixture = packageFixture(t);
+  const original = childProcess.spawnSync;
+  // Only the genuine external npm response is replaced; graph and membership
+  // semantics retain their real implementations and independent fixtures.
+  childProcess.spawnSync = (executable, argv, options) =>
+    argv.includes("--dry-run")
+      ? {
+          status: 0,
+          stdout: '[{"name":"foreign-package","version":"1.0.0","files":[]}]',
+          stderr: "",
+        }
+      : original(executable, argv, options);
+  syncBuiltinESMExports();
+  try {
+    assert.throws(
+      () => checkArchitecture(fixture.root),
+      /Wrong core package inventory/u,
+    );
+  } finally {
+    childProcess.spawnSync = original;
+    syncBuiltinESMExports();
+  }
 });
 
 test("source-resolvable imports to npm-omitted members fail for disconnected runtime roots", (t) => {
@@ -98,6 +153,19 @@ test("staging preserves metadata transformation and source bytes; corrupt shipme
         metadata,
       ),
     /Ambiguous/u,
+  );
+  assert.throws(
+    () =>
+      shipmentErrors(
+        fixture.root,
+        core,
+        result.files.map((file, index) =>
+          index ? file : { ...file, size: file.size + 1 },
+        ),
+        graph,
+        metadata,
+      ),
+    /Shipment size mismatch/u,
   );
   writeFileSync(join(core, "src/leaf.js"), "export const value = 2;\n");
   assert.ok(

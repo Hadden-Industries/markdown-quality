@@ -104,7 +104,8 @@ export function checkArchitecture(root = repositoryRoot) {
       ({ rule }) => rule.severity === "error",
     );
     const errors = [
-      ...violations.map((v) => `${v.rule.name}: ${v.from} -> ${v.to}`),
+      // Native via/cycle evidence is retained instead of inventing a graph path.
+      ...violations.map((v) => `${v.rule.name}: ${JSON.stringify(v)}`),
       ...shipment.errors,
     ];
     if (errors.length) throw new Error(errors.join("\n"));

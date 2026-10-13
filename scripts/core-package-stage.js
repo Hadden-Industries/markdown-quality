@@ -7,8 +7,13 @@ import {
   lstatSync,
 } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
-import { readOwned, safePath, sha256, limits } from "./dependency-graph.js";
+import {
+  readOwned,
+  safePath,
+  sha256,
+  limits,
+  git,
+} from "./dependency-graph.js";
 
 /** Construct the same core consumed by npm packing and shipment inspection. */
 export function stageCore(root, core) {
@@ -47,20 +52,21 @@ export function stageCore(root, core) {
   mkdirSync(core);
   for (const path of metadata.files)
     cpSync(join(root, path), join(core, path), { recursive: true });
-  const git = (args) =>
-    spawnSync("git", args, {
-      cwd: root,
-      encoding: "utf8",
-      timeout: 10000,
-      windowsHide: true,
-    });
-  const head = git(["rev-parse", "HEAD"]),
-    tree = git(["rev-parse", "HEAD^{tree}"]),
-    status = git(["status", "--porcelain=v1", "--untracked-files=all"]);
+  // Preserve unknown-on-failure identity semantics while sharing host Git binding.
+  const observeGit = (args) => {
+    try {
+      return git(root, args).trim();
+    } catch {
+      return null;
+    }
+  };
+  const head = observeGit(["rev-parse", "HEAD"]),
+    tree = observeGit(["rev-parse", "HEAD^{tree}"]),
+    status = observeGit(["status", "--porcelain=v1", "--untracked-files=all"]);
   const sourceIdentity = {
-    head: head.status === 0 ? head.stdout.trim() : null,
-    tree: tree.status === 0 ? tree.stdout.trim() : null,
-    clean: status.status === 0 ? status.stdout.length === 0 : null,
+    head,
+    tree,
+    clean: status === null ? null : status.length === 0,
     lockSha256: sha256(readOwned(root, "package-lock.json")),
   };
   writeFileSync(
