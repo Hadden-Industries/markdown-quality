@@ -14,11 +14,22 @@ test("shared generator and native resources select and execute the conservative 
     "scripts/schema-sources/configuration.json",
     "scripts/windows-job-source.py",
     "scripts/native-evidence-contract.json",
+    "scripts/resource-');throw new Error('injected').json",
+    "scripts/resource-`${process.exit(99)}-\u2028\u2029.json",
   ]) {
     const fixture = impactFixture(t, {
       [path]: "canonical\n",
-      "test/resource.test.js": `import test from 'node:test'; import assert from 'node:assert/strict'; import {readFileSync} from 'node:fs'; test('independent resource bytes',()=>assert.equal(readFileSync(${JSON.stringify(path)},'utf8'),'canonical\\n'));\n`,
+      "test/resource-path.json": JSON.stringify(path),
+      "test/resource.test.js": `import test from 'node:test'; import assert from 'node:assert/strict'; import {readFileSync} from 'node:fs'; const path = JSON.parse(readFileSync('test/resource-path.json','utf8')); test('independent resource bytes',()=>assert.equal(readFileSync(path,'utf8'),'canonical\\n'));\n`,
     });
+    const baseline = await runAffected(
+      await planAffected({
+        root: fixture.root,
+        base: fixture.base,
+        paths: [path],
+      }),
+    );
+    assert.equal(baseline.outcome.code, 0, baseline.outcome.selected.stdout);
     fixture.put(path, "drift\n");
     const plan = await planAffected({ root: fixture.root, base: fixture.base });
     assert.equal(plan.mode, "full", path);
