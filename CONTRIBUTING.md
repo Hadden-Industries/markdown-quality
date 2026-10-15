@@ -70,7 +70,7 @@ Review any actual formatting diff and rerun the check for convergence.
 ## JSON ownership
 
 Use the isolated, source-locked JSON Quality package through `npm run install:json` on supported Node 24 or 26.
-Follow [JSON development checks](docs/json-quality.md) for complete discovery, protected native evidence, real package qualification and guarded formatting.
+Follow [JSON development checks](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/json-quality.md) for complete discovery, protected native evidence, real package qualification and guarded formatting.
 Generic Prettier excludes JSON; `npm run check:full` composes product checks, source identity lint, isolated consumer tests, actual packed JSON and the final complete-root JSON check.
 `check:product` retains the product suite on Node 22 and future declared product runtimes; it does not claim JSON-tool qualification there.
 Architecture inspection still needs the isolated package's source installation, acquired beforehand on the reference tooling runtime.

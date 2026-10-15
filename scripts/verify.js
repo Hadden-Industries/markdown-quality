@@ -15,6 +15,7 @@ if (
 const productOnly = process.argv[2] === "--product";
 const python = repositoryPython(root);
 // Existing product subprocesses inherit the same explicitly selected environment.
+process.env.VIRTUAL_ENV = dirname(dirname(python));
 process.env.PATH = dirname(python) + delimiter + process.env.PATH;
 function node(args) {
   const result = spawnSync(process.execPath, args, {
