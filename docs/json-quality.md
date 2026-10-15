@@ -54,6 +54,8 @@ No directory wildcard grants historical immunity.
 
 Exact generated native documents use their producer's JSON indentation contract and receive all semantic checks.
 Two original Linux crate-author strings retain their exact decoded NFC exceptions by JSON pointer, UTF-8 byte length and SHA-256; no whole-file normalization waiver applies.
+The Windows reports contain no corresponding non-NFC strings, so they receive no speculative exception.
+A new non-NFC value fails checking; native documents cannot be changed by the generic writers.
 Native npm locks retain their own writer and the required root-package empty key.
 Historical compressed correctness reports receive ordinary JSON presentation; their native reader verifies the pre-existing full-result hashes without regenerating correctness or performance claims.
 
@@ -67,6 +69,8 @@ Fresh artifacts must be built, frozen, reconciled and qualified; previously publ
 The real package qualifier packs the core and both native packages into `dist/json-qualification`.
 The native archive reader reconciles complete tar membership, member sizes and hashes against the actual staged inventory before forwarding JSON buffers to the shared analyzer.
 It rejects traversal, links, case aliases, duplicates and excessive compressed or expanded input.
+The native supplier also has a separate 60-second process deadline and 64 MiB output-transport ceiling, including base64 overhead.
+Per-source limits do not promise that every maximum-sized source combination fits the transport or shared aggregate budget; exceeding any boundary fails the complete check.
 The shipped nested MPL source must equal the separately admitted original source archive.
 A missing archive, changed authority or incomplete native census cannot become a physical-only pass.
 
