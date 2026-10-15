@@ -50,6 +50,13 @@ class CargoNoticesTests(unittest.TestCase):
                     builder.serialize_cargo_notices(path)
                 self.assertEqual(path.read_bytes(), source)
 
+    def test_current_serialization_retains_original_unicode_as_utf8(self):
+        result, encoded = self.serialize(b'{"authors":["Jos\\u00e9","Cafe\\u0301"],"licenses":[],"crates":[]}')
+        self.assertEqual(result['authors'], ['Jos\u00e9', 'Cafe\u0301'])
+        self.assertIn('Jos\u00e9'.encode('utf-8'), encoded)
+        self.assertIn('Cafe\u0301'.encode('utf-8'), encoded)
+        self.assertNotIn(b'\\u', encoded)
+
 
 class ToolAcquisitionTests(unittest.TestCase):
     def test_current_inventory_has_independent_base_and_supplement_expectations(self):

@@ -68,7 +68,7 @@ def serialize_cargo_notices(path, facts=None, raw_evidence=None):
 
     notices = json.loads(source.decode('utf-8'), object_pairs_hook=unique_pairs,
                         parse_constant=reject_constant)
-    encoded = (json.dumps(notices, indent=2, allow_nan=False) + '\n').encode('utf-8')
+    encoded = (json.dumps(notices, indent=2, ensure_ascii=False, allow_nan=False) + '\n').encode('utf-8')
     pathlib.Path(path).write_bytes(encoded)
     if facts is not None:
         facts.update({'sourceSha256': digest(source), 'sourceBytes': len(source),
@@ -330,7 +330,7 @@ def main():
     shutil.copyfile(executable, output / ('snapper-fmt' + suffix))
     def save(name, value):
         """Emit LF JSON before build-evidence hashes the retained file bytes."""
-        (output / name).write_text(json.dumps(value, indent=2) + '\n', encoding='utf-8', newline='\n')
+        (output / name).write_text(json.dumps(value, indent=2, ensure_ascii=False) + '\n', encoding='utf-8', newline='\n')
     save('embedded-dependencies.json', embedded)
     save('component-inventory.json', {'schemaVersion': 1, 'binarySha256': digest(binary),
          'coverage': 'Conservative target-filtered Cargo graph, original nested notices, embedded auditable graph, official Rust runtime notices. Native and system linkage requires independent reconciliation.',
