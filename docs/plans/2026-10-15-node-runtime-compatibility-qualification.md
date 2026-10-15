@@ -36,6 +36,27 @@ The source change is reversible through an ordinary follow-up commit.
 
 ## Results
 
+### Accepted file-observation repair
+
+After the initial higher-floor candidate was pushed, the owner requested accounting for the Windows stat mismatch in code so the dependency minima could be supported.
+This is a continuation of the R2 undertaking with a declared file-identity trust boundary.
+The initial results below remain evidence for the unchanged implementation, rather than a permanent reason to require a newer runtime.
+
+Use native handle observations consistently for file identity and fingerprints in private native staging, trusted candidate staging and qualification evidence.
+Keep path observations as independent regular-file, non-link, single-link and stability guards.
+Do not compare a device number from a path observation directly with one from a handle observation, and do not omit device identity from comparisons between handles.
+Capture the original created-file handle identity and require subsequent reopened handles to match it.
+Preserve existing root/ancestor checks, bounded reads, descriptor closure and refusal to remove replacements.
+Centralize the observation mechanics without copying domain admission policy or adding a version-dependent shim.
+
+Qualify stable files and independently hostile replacement, symlink, hard-link, device-identity and metadata-change cases.
+Exercise candidate staging and evidence packaging as well as native batch checks on the older runtimes.
+The target floors return to 22.13.0, 24.0.0 and 26.0.0 only if these checks pass.
+Keep reference 24.21.0 and the separate JSON tooling contract.
+Obtain a frozen security diff assessment, final ordinary review and independent execution for this changed safety code, followed by full HISEW and exact hosted verification.
+
+### Initial unchanged-code boundary
+
 The derived common Windows/Linux consumer floors are **22.17.0, 24.2.0 and 26.0.0**.
 The [compatibility record](../node-runtime-compatibility.md) records the dependency and upstream-runtime reasons.
 All 158 production lock entries admit the initial dependency-only candidates, but Windows native batch staging rejects 22.13.0 and 24.0.0 because `fstat()` and `lstat()` disagree on device identity.
