@@ -46,6 +46,11 @@ Original hosted files and build evidence remain unchanged; this supplement recor
 The freeze command's `--rights` input includes the supplement without issuing rights approval.
 Authored build configuration, JSON reports, package metadata and command status use explicit UTF-8 and LF on both platforms.
 The builder serializes the cargo-about JSON report itself so dependency defaults cannot select its physical line endings.
+Before materialization, the owning reader inspects every object pair and removes only repeated identical boolean `doctest` fields emitted by cargo-about 0.9.2.
+Differing values, non-boolean duplicates, all other repeated names and non-JSON numeric constants fail without replacing the raw report.
+The retained platform reports independently established 3,598 Linux and 3,586 Windows occurrences with no conflicting values; no licence text, component or array entry is removed.
+New hosted runs retain original cargo-about bytes in a separate native-originals artifact outside recipient output, with raw/output identities and counts in build evidence.
+The original artifact remains evidence even when its raw redundant fields fail strict JSON checking; it is not shipped as a consumer document or relabelled as a passing strict report.
 Readable `THIRD-PARTY-NOTICES.txt` and `SUPPLEMENTAL-NOTICES.txt` render physical CRLF and lone CR as LF.
 Original notice text and original-file hashes remain in the inventories and rights supplement; acquired licenses, runtime copyright files and source archives retain their original bytes.
 The producer regression suite checks physical output bytes, including generated files outside Git tracking, before their hashes are bound into evidence.

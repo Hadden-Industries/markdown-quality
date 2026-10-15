@@ -22,6 +22,35 @@ freezer = importlib.util.module_from_spec(freeze_spec)
 freeze_spec.loader.exec_module(freezer)
 
 
+class CargoNoticesTests(unittest.TestCase):
+    def serialize(self, source):
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / 'cargo-notices.json'
+            path.write_bytes(source)
+            result = builder.serialize_cargo_notices(path)
+            return result, path.read_bytes()
+
+    def test_repeated_doctest_retains_every_notice_and_component(self):
+        source = b'{"licenses":[{"text":"Original\\r\\nnotice","used_by":[{"crate":{"name":"a","version":"1"}}]}],"crates":[{"targets":[{"doctest":true,"doctest":true},{"doctest":false,"doctest":false}]}]}'
+        result, encoded = self.serialize(source)
+        self.assertEqual(result['licenses'][0]['text'], 'Original\r\nnotice')
+        self.assertEqual(result['licenses'][0]['used_by'][0]['crate'], {'name': 'a', 'version': '1'})
+        self.assertEqual(result['crates'][0]['targets'], [{'doctest': True}, {'doctest': False}])
+        self.assertEqual(encoded.count(b'"doctest"'), 2)
+
+    def test_conflicting_or_unrecognized_duplicate_never_replaces_raw_report(self):
+        for source in (b'{"doctest":true,"doctest":false}',
+                       b'{"doctest":true,"doctest":1}',
+                       b'{"text":"first","text":"second"}',
+                       b'{"text":"same","text":"same"}'):
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as directory:
+                path = pathlib.Path(directory) / 'cargo-notices.json'
+                path.write_bytes(source)
+                with self.assertRaisesRegex(ValueError, 'duplicate'):
+                    builder.serialize_cargo_notices(path)
+                self.assertEqual(path.read_bytes(), source)
+
+
 class ToolAcquisitionTests(unittest.TestCase):
     def test_current_inventory_has_independent_base_and_supplement_expectations(self):
         expected = ('LICENSE.snapper', 'COPYRIGHT-library.html', 'THIRD-PARTY-NOTICES.txt',

@@ -38,7 +38,15 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-python
       - name: Build frozen source and collect rights evidence
-        run: python scripts/build-native.py --platform ${{ matrix.platform }} --source native-source --output native-output
+        run: python scripts/build-native.py --platform ${{ matrix.platform }} --source native-source --output native-output --raw-evidence "${{ runner.temp }}/native-originals/cargo-${{ matrix.platform }}.json"
+      - name: Retain original cargo-about bytes separately from recipient files
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-originals-${{ matrix.platform }}
+          path: ${{ runner.temp }}/native-originals/
+          if-no-files-found: warn
+          retention-days: 30
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-${{ matrix.platform }}

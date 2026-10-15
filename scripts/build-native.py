@@ -39,6 +39,45 @@ def read(path, limit=MAX_TEXT):
     return data
 
 
+def serialize_cargo_notices(path, facts=None, raw_evidence=None):
+    """Repair cargo-about's repeated boolean doctest fields, refusing ambiguity.
+
+    cargo-about 0.9.2 flattens Cargo targets with a repeated doctest field.
+    Only identical booleans at that known field are redundant. Other duplicate
+    names, differing values and non-JSON constants stop before replacement.
+    Notice strings, arrays, component records and licence associations survive.
+    """
+    source = read(path)
+    if raw_evidence is not None:
+        pathlib.Path(raw_evidence).write_bytes(source)
+    repeated = 0
+
+    def unique_pairs(items):
+        nonlocal repeated
+        result = {}
+        for key, value in items:
+            if key in result:
+                if key != 'doctest' or type(value) is not bool or value is not result[key]:
+                    raise ValueError('Unqualified or conflicting cargo-about duplicate key: ' + key)
+                repeated += 1
+            result[key] = value
+        return result
+
+    def reject_constant(value):
+        raise ValueError('Non-JSON cargo-about constant: ' + value)
+
+    notices = json.loads(source.decode('utf-8'), object_pairs_hook=unique_pairs,
+                        parse_constant=reject_constant)
+    encoded = (json.dumps(notices, indent=2, allow_nan=False) + '\n').encode('utf-8')
+    pathlib.Path(path).write_bytes(encoded)
+    if facts is not None:
+        facts.update({'sourceSha256': digest(source), 'sourceBytes': len(source),
+                      'identicalDoctestDuplicates': repeated, 'sha256': digest(encoded),
+                      'licenses': len(notices.get('licenses', [])),
+                      'crates': len(notices.get('crates', []))})
+    return notices
+
+
 def run(args, cwd=None, capture=False, timeout=3600):
     result = subprocess.run(args, cwd=cwd, check=True, timeout=timeout,
                             stdout=subprocess.PIPE if capture else None)
@@ -158,6 +197,8 @@ def main():
     parser.add_argument('--platform', choices=CONFIG['tools'], required=True)
     parser.add_argument('--source', type=pathlib.Path, required=True)
     parser.add_argument('--output', type=pathlib.Path, required=True)
+    parser.add_argument('--raw-evidence', type=pathlib.Path,
+                        help='Retain original cargo-about bytes outside recipient output')
     args = parser.parse_args()
     if os.environ.get('GITHUB_ACTIONS') != 'true':
         raise ValueError('This procedure is restricted to hosted CI')
@@ -206,10 +247,11 @@ def main():
          '--config', str(config_path), '--manifest-path', str(source / 'Cargo.toml'),
          '--output-file', str(output / 'cargo-notices.json'), '--no-default-features',
          '--features', ' '.join(CONFIG['features'])], source)
-    cargo_notices = json.loads(read(output / 'cargo-notices.json'))
-    # Own the report's physical serialization rather than cargo-about's default.
-    (output / 'cargo-notices.json').write_text(json.dumps(cargo_notices, indent=2) + '\n',
-                                             encoding='utf-8', newline='\n')
+    cargo_notice_facts = {}
+    if args.raw_evidence is not None:
+        args.raw_evidence.parent.mkdir(parents=True, exist_ok=True)
+    cargo_notices = serialize_cargo_notices(output / 'cargo-notices.json',
+                                           cargo_notice_facts, args.raw_evidence)
     packages = []
     mpl_source = output / 'MPL-SOURCE.tar.xz'
     mpl_packages = [p for p in metadata['packages'] if 'MPL-2.0' in (p.get('license') or '')]
@@ -308,6 +350,7 @@ def main():
          'rustRuntimeLicenseInputs': runtime_terms,
          'githubRun': os.environ['GITHUB_RUN_ID'], 'workflowCommit': os.environ['GITHUB_SHA'],
          'binarySha256': digest(binary),
+         'cargoNoticeSerialization': cargo_notice_facts,
          'files': {p.name: digest(read(p, 100_000_000)) for p in sorted(output.iterdir())}})
     # No automatic rights approval or manifest mutation is performed here.
     print(json.dumps({'platform': args.platform, 'binarySha256': digest(binary), 'packages': len(packages)}))
