@@ -1,8 +1,24 @@
 # Shared JSON Quality adoption implementation plan
 
-Status: **Draft for owner review; implementation is not authorized by this document.**
+Status: **Accepted for implementation by the owner on 15 October 2026, with the amendments below.**
 Prepared on 14 October 2026 for Hadden Industries Markdown Quality.
 Revised on 15 October 2026 from the completed OwlAPI adoption and its linked delivery evidence.
+
+## Accepted implementation amendments on 15 October
+
+The owner now authorizes implementation through HISEW, required configuration changes, commit messages, commits and direct pushes to main.
+This accepts the proposed R2 route, requirements, scenarios and necessary configuration rows; the earlier draft-only authority descriptions below are retained planning history and are superseded by this acceptance.
+Registry/package publication and replacement of historical release assets remain separate effects.
+
+- Raise only the Node 26 minimum from 26.11.1 to **26.12.0**, retaining Node 22/24 floors and the open future-major product range.
+- Check every root dependencies entry against the latest registry version and update any stale entries; the 15 October lookup found all ten entries already current.
+- Durably repair repeated cargo-about keys at the owning producer, prove conservation before deduplication and reject differing duplicates.
+  The retained Linux and Windows reports contain respectively 3,598 and 3,586 duplicate occurrences, all identical doctest fields, with no conflicting values.
+  This observation permits equivalent-value deduplication; it does not justify silently choosing a value for any future conflict.
+- Establish a usable repository-local Python 3.15 environment for the required native evidence checks, preserving existing local material.
+- Qualify fresh current outputs and recipient packages while preserving original hosted evidence and published archives; report any necessary publication effect separately.
+
+The first implementation checkpoint records this acceptance and these amendments before executable changes.
 
 The intended outcome is complete, attributable checking of Markdown Quality's JSON through the maintained **@hadden-industries/json-quality** package, while preserving Markdown behavior, native component and licence evidence, package provenance, and supported consumer runtimes.
 One maintained engine should own generic JSON rules; Markdown Quality should retain its domain, producer, archive and release contracts.
