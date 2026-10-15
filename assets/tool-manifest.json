@@ -10,58 +10,58 @@
     "win32-x64": {
       "package": "@hadden-industries/markdown-quality-win32-x64",
       "executable": "bin/snapper-fmt.exe",
-      "sha256": "e10c4d3dcc0be7243a0daec06f2e14078cf108a4b3c63c5f4dde6c3dab6dd0e8",
-      "archiveSha256": "b0a468a8bdb4bc2b90de3c95e17903299bf8b8dc9ee5b0151573b1589c178a4e",
-      "url": "https://github.com/Hadden-Industries/markdown-quality/releases/download/snapper-0.11.9-build.1/snapper-windows.zip",
+      "sha256": "11f8a035c85a3df479b07338b52b438e9e0160c3c0e7c1f3558bb4579230a9d2",
+      "archiveSha256": "4fade7eee24c394f52ed1429df6647cf783b36c4b11448511a6cf2d58e63c554",
+      "url": "https://github.com/Hadden-Industries/markdown-quality/releases/download/snapper-0.11.9-build.2/snapper-windows.zip",
       "files": {
         "COPYRIGHT-library.html": "68129500b616d5838629e68f55ff3aed5e096dacf60ce9eb41bbe599a563afa6",
         "LICENSE.snapper": "fa4d98afdb9f06e6b57032bdb35010a97eb25044b54b7c7d5e01bd7c92c6507c",
         "MPL-SOURCE.tar.xz": "252156d485d814a0b00d4ae9a6ea1a8dc704c8dcd5f0e4a8398f971ac616f371",
         "SUPPLEMENTAL-NOTICES.txt": "f49f1558c32755f0599f39b5bace5587c003573a84810871ead841f478d0349d",
-        "THIRD-PARTY-NOTICES.txt": "0ba4d38b631ff9d29ed17edf88a8486be875efdcec2a7621eb829da22c36be43",
-        "build-evidence.json": "9f6dec95aa27aff7b05095cf4a16bcf2c2ccb9922c43c26aeaa09b9a46274d54",
-        "cargo-notices.json": "f5459fbdcf02354f87e1caf051238493f097be172b5af3e4f5e74b359146c29e",
-        "component-inventory.json": "20946bc5e18d05989a4588d1c74b3610a1d8b37befc02b282a90f6aba74120bb",
-        "embedded-dependencies.json": "7ee860225752042d92ef965797a837223c43944c03ade144b7b9b5aa415047f1",
-        "rights-evidence.json": "79810ecc3ee8f1d7f82b15fe5f1715c395a33ee4e884d1edd7e8eb6dc57bac69",
-        "snapper-fmt.exe": "e10c4d3dcc0be7243a0daec06f2e14078cf108a4b3c63c5f4dde6c3dab6dd0e8"
+        "THIRD-PARTY-NOTICES.txt": "743cd3e4e14afb11b9943546ac53f94fe861c2ee6837ddb04faf5ca3b68ab576",
+        "build-evidence.json": "5a668b8277e1f6a1043bd6ee90a6a870c89cc18116e14a32f6782948a743e37f",
+        "cargo-notices.json": "3b8a0f63dbc341403bc077d685d5a58b8355ee9e21a0ea649264f5078e48c65a",
+        "component-inventory.json": "dcb5100a3b3c20a1af50957537489f6e4144112d45780769ca8d7b3f6fed0437",
+        "embedded-dependencies.json": "cd4a559e73830639d3b52ba4221462b88e3d57141aa9c50d5b14507c850cbdf7",
+        "rights-evidence.json": "b8b25eeb3db6d3a3630f4626b2854265855b32bf5a8112048438854cea3cd8ee",
+        "snapper-fmt.exe": "11f8a035c85a3df479b07338b52b438e9e0160c3c0e7c1f3558bb4579230a9d2"
       }
     },
     "linux-x64": {
       "package": "@hadden-industries/markdown-quality-linux-x64",
       "executable": "bin/snapper-fmt",
       "sha256": "b8d1975d40fc28314ce0e1191b484960685c66f2dc2bca2f5352e5d7e5f4a429",
-      "archiveSha256": "919712862213af22c32d517292824a0c15344d9490ae34637c8e3f847bd69bd1",
-      "url": "https://github.com/Hadden-Industries/markdown-quality/releases/download/snapper-0.11.9-build.1/snapper-linux.tar.xz",
+      "archiveSha256": "0ad68f46809bc9024d76529e7e2c2073010606b6c80c68379a76d6b6dff43df9",
+      "url": "https://github.com/Hadden-Industries/markdown-quality/releases/download/snapper-0.11.9-build.2/snapper-linux.tar.xz",
       "files": {
         "COPYRIGHT-library.html": "68129500b616d5838629e68f55ff3aed5e096dacf60ce9eb41bbe599a563afa6",
         "LICENSE.snapper": "fa4d98afdb9f06e6b57032bdb35010a97eb25044b54b7c7d5e01bd7c92c6507c",
         "MPL-SOURCE.tar.xz": "252156d485d814a0b00d4ae9a6ea1a8dc704c8dcd5f0e4a8398f971ac616f371",
         "SUPPLEMENTAL-NOTICES.txt": "f49f1558c32755f0599f39b5bace5587c003573a84810871ead841f478d0349d",
-        "THIRD-PARTY-NOTICES.txt": "8b44d1ee8374e79ee8abb09c529940aa6e1d26e528e0bc50fd03e2f9b8877579",
-        "build-evidence.json": "3847989fdde68d10a1396da2455c8cda8f13f2739fdff29598e3cf46d6712923",
-        "cargo-notices.json": "22473eb073afc5d9f451888f96ab31dffc9bf3a55c50650f6fad058ba726df85",
-        "component-inventory.json": "f816c4092b17bc493ae0ce3a9146e497f8047812a6f3dd54caaa0f1f6859b956",
+        "THIRD-PARTY-NOTICES.txt": "7aca975b6480f3fa5216fb956d5206f43f3fb601c670e1263e13de925d90bac6",
+        "build-evidence.json": "9ff8922fa4fb1343e475db1e16ecf0d44da05f5729640e72769f435687405b43",
+        "cargo-notices.json": "86147599f977088a3690c5eb2954a84ea14d5f91a7b6afc6a082e6e4e2bcd88e",
+        "component-inventory.json": "cb110d2d886220ad04feea802f96eaab7889e70f7cb9b8782e4fba08fe0b814c",
         "embedded-dependencies.json": "d56f821a1e0363edf2e32fd9633a723d2c1ae511309ea1d2d36863915582667e",
-        "rights-evidence.json": "79810ecc3ee8f1d7f82b15fe5f1715c395a33ee4e884d1edd7e8eb6dc57bac69",
+        "rights-evidence.json": "b8b25eeb3db6d3a3630f4626b2854265855b32bf5a8112048438854cea3cd8ee",
         "snapper-fmt": "b8d1975d40fc28314ce0e1191b484960685c66f2dc2bca2f5352e5d7e5f4a429"
       }
     }
   },
   "build": {
-    "runId": "37274204161",
-    "workflowCommit": "722a0ab76bdae368b0f282f4a0e9ebee05ccdc59",
-    "rights": "Original component/runtime notices reconciled independently; exact supplement and unchanged original outputs verified in both acquisition archives",
-    "configSha256": "04e03e2d5324f54ab19def9e978ee7771018c430aad352831349016bd689bacf",
-    "rightsSupplementSha256": "79810ecc3ee8f1d7f82b15fe5f1715c395a33ee4e884d1edd7e8eb6dc57bac69",
+    "runId": "38742809829",
+    "workflowCommit": "5c0ea28670386d6456438061b20cc90770f9f912",
+    "rights": "pending independent reconciliation",
+    "configSha256": "3b0d128a7e3930482721ca9edca48027992caf64a6e3710d475afdb7916cb8a7",
+    "rightsSupplementSha256": "b8b25eeb3db6d3a3630f4626b2854265855b32bf5a8112048438854cea3cd8ee",
     "rightsSupplement": {
       "schemaVersion": 1,
       "stage": "Separately authored original-notice repack supplement; independent reconciliation required",
       "sourceCommit": "407c2beb04607f6ccb421e6f6418dcc00e4c1e94",
-      "githubRun": "37274204161",
-      "workflowCommit": "722a0ab76bdae368b0f282f4a0e9ebee05ccdc59",
+      "githubRun": "38742809829",
+      "workflowCommit": "5c0ea28670386d6456438061b20cc90770f9f912",
       "binarySha256": {
-        "win32-x64": "e10c4d3dcc0be7243a0daec06f2e14078cf108a4b3c63c5f4dde6c3dab6dd0e8",
+        "win32-x64": "11f8a035c85a3df479b07338b52b438e9e0160c3c0e7c1f3558bb4579230a9d2",
         "linux-x64": "b8d1975d40fc28314ce0e1191b484960685c66f2dc2bca2f5352e5d7e5f4a429"
       },
       "components": [
@@ -1887,11 +1887,6 @@
           ]
         }
       ]
-    },
-    "rightsReview": {
-      "reportSha256": "c81dc9bebbdd73935cbae26b3997bfe7ac7f40da0227824066b7f5820ec13507",
-      "repackVerificationSha256": "a15199f93906e0702f6cd9f32c43e391cd17a6dbbaa4bbfc83109f052300b355",
-      "platformQualification": "separate mandatory gate"
     }
   }
 }

@@ -1,10 +1,23 @@
 {
   "schemaVersion": 1,
   "preset": "authored-gfm@1",
-  "include": ["*.md", "docs/**/*.md", "packages/vowl/**/*.md"],
+  "include": [
+    "*.md",
+    "docs/**/*.md",
+    "packages/vowl/**/*.md"
+  ],
   "exclude": [],
-  "ignoreFiles": [".gitignore", ".prettierignore"],
+  "ignoreFiles": [
+    ".gitignore",
+    ".prettierignore"
+  ],
   "lint": {},
-  "links": { "localFiles": true, "rootRelative": "reject" },
-  "layout": { "endOfLine": "lf", "tabWidth": 2 }
+  "links": {
+    "localFiles": true,
+    "rootRelative": "reject"
+  },
+  "layout": {
+    "endOfLine": "lf",
+    "tabWidth": 2
+  }
 }

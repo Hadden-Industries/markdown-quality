@@ -32,6 +32,7 @@ jobs:
           node-version: "24.21.0"
       - uses: ./.github/actions/setup-python
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run install:json
       - run: python scripts/acquire-native.py
       - id: resolve
         name: Resolve minimum and latest supported runtimes
@@ -42,14 +43,14 @@ jobs:
           $reference = node scripts/node-matrix.js --reference
           if ($LASTEXITCODE -ne 0) { throw "Node reference resolution failed" }
           Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "reference=$reference"
-      - name: Pack one frozen tuple on Windows
+      - name: Pack and require JSON quality for one frozen tuple on Windows
         env:
           NODE_QUALIFICATION_MATRIX: ${{ steps.resolve.outputs.matrix }}
-        run: node --input-type=module -e "import {packRelease} from './scripts/pack.js'; const r=packRelease(process.env.RUNNER_TEMP+'/candidate-release',JSON.parse(process.env.NODE_QUALIFICATION_MATRIX)); console.log(JSON.stringify({version:r.version,source:r.source,archives:r.archives.map(a=>({name:a.name,sha256:a.sha256,integrity:a.integrity,executableMode:a.executableMode}))}));"
+        run: npm run qualify:json:packages
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: candidate-release
-          path: ${{ runner.temp }}/candidate-release/
+          path: dist/json-qualification/
           if-no-files-found: error
           retention-days: 30
   consumer:

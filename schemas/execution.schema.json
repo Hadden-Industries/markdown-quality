@@ -21,17 +21,36 @@
     "toolchain": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["lockFile", "coreArchive", "nativeArchives"],
+      "required": [
+        "lockFile",
+        "coreArchive",
+        "nativeArchives"
+      ],
       "properties": {
-        "lockFile": { "type": "string", "minLength": 1 },
-        "coreArchive": { "type": "string", "minLength": 1 },
+        "lockFile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "coreArchive": {
+          "type": "string",
+          "minLength": 1
+        },
         "nativeArchives": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["win32-x64", "linux-x64"],
+          "required": [
+            "win32-x64",
+            "linux-x64"
+          ],
           "properties": {
-            "win32-x64": { "type": "string", "minLength": 1 },
-            "linux-x64": { "type": "string", "minLength": 1 }
+            "win32-x64": {
+              "type": "string",
+              "minLength": 1
+            },
+            "linux-x64": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         }
       }
@@ -188,12 +207,17 @@
     "runtimes": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["node", "python"],
+      "required": [
+        "node",
+        "python"
+      ],
       "properties": {
         "node": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["file"],
+          "required": [
+            "file"
+          ],
           "properties": {
             "file": {
               "type": "string",
@@ -208,7 +232,9 @@
         "python": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["file"],
+          "required": [
+            "file"
+          ],
           "properties": {
             "file": {
               "type": "string",

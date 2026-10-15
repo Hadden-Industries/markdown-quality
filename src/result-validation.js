@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { isDeepStrictEqual } from "node:util";
 import { readFileSync } from "node:fs";
 import Ajv from "ajv";
 import { fail, metadata } from "./contracts.js";
@@ -10,8 +11,7 @@ const schema = JSON.parse(
   ),
 );
 const validate = new Ajv({ strict: true, allErrors: true }).compile(schema);
-const samePaths = (a, b) =>
-  JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+const samePaths = (a, b) => isDeepStrictEqual([...a].sort(), [...b].sort());
 
 /** Validate the actual shipped schema and semantic admission, optionally binding a transport request. */
 export function validateQualityResult(report, expected = {}) {

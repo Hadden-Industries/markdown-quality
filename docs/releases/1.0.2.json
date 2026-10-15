@@ -83,7 +83,11 @@
     "source": "183fd4ee75cdf5a7f053e00c1032e5d7891d075d",
     "workflow": ".github/workflows/candidate.yml",
     "event": "push",
-    "jobs": ["pack", "consumer (windows-latest)", "consumer (ubuntu-24.04)"]
+    "jobs": [
+      "pack",
+      "consumer (windows-latest)",
+      "consumer (ubuntu-24.04)"
+    ]
   },
   "publication": {
     "run": "37417063198",

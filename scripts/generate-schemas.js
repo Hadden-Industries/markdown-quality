@@ -79,10 +79,13 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (process.argv[2] === "--check") checkGeneratedSchemas();
   else {
     assert.equal(process.argv[2], "--write", "Use --check or --write");
+    // Writing is a supported-tooling-runtime operation; product schema checks
+    // and imports remain dependency-free on every public product runtime.
+    const { formatJsonValue } = await import("../tooling/json/public-api.mjs");
     for (const [name, value] of Object.entries(schemaProjections()))
       writeFileSync(
         join(root, "schemas", `${name}.schema.json`),
-        JSON.stringify(value, null, 2) + "\n",
+        await formatJsonValue(value),
       );
   }
 }

@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "defaults": {
+    "formatContract": "prettier-json",
+    "allowFormatWrites": true,
+    "normalization": "NFC"
+  },
+  "exceptions": [
+    {
+      "paths": [
+        "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-1.0.3.tgz!/package/cargo-notices.json"
+      ],
+      "owner": "Original crate attribution owners",
+      "reason": "The actual packed copy must retain the same independently pinned original author strings as the admitted native source.",
+      "allowFormatWrites": false,
+      "preserveNfcValues": [
+        {
+          "pointer": "/licenses/25/used_by/0/crate/authors/1",
+          "sha256": "f7a46979f4c152096032b17774ded243fdb9cfe324a381e8a8a4a2a8e32a2cc5",
+          "byteLength": 35
+        },
+        {
+          "pointer": "/crates/92/package/authors/1",
+          "sha256": "f7a46979f4c152096032b17774ded243fdb9cfe324a381e8a8a4a2a8e32a2cc5",
+          "byteLength": 35
+        }
+      ]
+    },
+    {
+      "paths": [
+        "dist/json-qualification/release-manifest.json",
+        "dist/json-qualification/source-sbom.cdx.json",
+        "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-1.0.3.tgz!/package/component.json",
+        "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-1.0.3.tgz!/package/rights-evidence.json",
+        "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-1.0.3.tgz!/package/embedded-dependencies.json",
+        "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-1.0.3.tgz!/package/component-inventory.json",
+        "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-1.0.3.tgz!/package/cargo-notices.json",
+        "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-1.0.3.tgz!/package/build-evidence.json",
+        "dist/json-qualification/hadden-industries-markdown-quality-win32-x64-1.0.3.tgz!/package/component.json",
+        "dist/json-qualification/hadden-industries-markdown-quality-win32-x64-1.0.3.tgz!/package/rights-evidence.json",
+        "dist/json-qualification/hadden-industries-markdown-quality-win32-x64-1.0.3.tgz!/package/embedded-dependencies.json",
+        "dist/json-qualification/hadden-industries-markdown-quality-win32-x64-1.0.3.tgz!/package/component-inventory.json",
+        "dist/json-qualification/hadden-industries-markdown-quality-win32-x64-1.0.3.tgz!/package/cargo-notices.json",
+        "dist/json-qualification/hadden-industries-markdown-quality-win32-x64-1.0.3.tgz!/package/build-evidence.json"
+      ],
+      "owner": "Actual package tuple producer",
+      "reason": "Exact current generated reports and native JSON archive members use their owning JSON indentation contract; archive membership and original member hashes are independently reconciled.",
+      "formatContract": "producer-json-indent",
+      "allowFormatWrites": false
+    },
+    {
+      "paths": [
+        "**/node_modules/**"
+      ],
+      "owner": "Repository owner",
+      "reason": "The owner explicitly excludes every npm installation tree; native lock and payload admission remain independently required.",
+      "exclude": true
+    },
+    {
+      "paths": [
+        "package-lock.json",
+        "tooling/json/package-lock.json"
+      ],
+      "owner": "Native npm lock writer",
+      "reason": "npm owns lock bytes and its exact root package key.",
+      "allowFormatWrites": false,
+      "allowEmptyKeys": [
+        "/packages/"
+      ]
+    },
+    {
+      "paths": [
+        "packages/linux-x64/component.json",
+        "packages/linux-x64/rights-evidence.json",
+        "packages/linux-x64/embedded-dependencies.json",
+        "packages/linux-x64/component-inventory.json",
+        "packages/linux-x64/cargo-notices.json",
+        "packages/linux-x64/build-evidence.json",
+        "packages/win32-x64/component.json",
+        "packages/win32-x64/rights-evidence.json",
+        "packages/win32-x64/embedded-dependencies.json",
+        "packages/win32-x64/component-inventory.json",
+        "packages/win32-x64/cargo-notices.json",
+        "packages/win32-x64/build-evidence.json"
+      ],
+      "owner": "Native preparation and package owners",
+      "reason": "Native member bytes and metadata retain their qualified producer identity; shared checks remain mandatory.",
+      "formatContract": "producer-json-indent",
+      "allowFormatWrites": false
+    },
+    {
+      "paths": [
+        "packages/linux-x64/cargo-notices.json"
+      ],
+      "owner": "Original crate attribution owners",
+      "reason": "Preserve the two independently identified original author strings without silently changing attribution normalization.",
+      "allowFormatWrites": false,
+      "preserveNfcValues": [
+        {
+          "pointer": "/licenses/25/used_by/0/crate/authors/1",
+          "sha256": "f7a46979f4c152096032b17774ded243fdb9cfe324a381e8a8a4a2a8e32a2cc5",
+          "byteLength": 35
+        },
+        {
+          "pointer": "/crates/92/package/authors/1",
+          "sha256": "f7a46979f4c152096032b17774ded243fdb9cfe324a381e8a8a4a2a8e32a2cc5",
+          "byteLength": 35
+        }
+      ]
+    }
+  ],
+  "nativeSources": [
+    {
+      "id": "repository-evidence",
+      "provider": "repositoryEvidence",
+      "owner": "Native package and performance evidence owners",
+      "reason": "Admit original compressed correctness reports and locked MPL source members before shared analysis.",
+      "minimumDocuments": 4
+    }
+  ],
+  "preserveSourcePresentation": [
+    {
+      "paths": [
+        "packages/linux-x64/MPL-SOURCE.tar.xz!/webpki-roots-0.25.4/.cargo_vcs_info.json",
+        "packages/win32-x64/MPL-SOURCE.tar.xz!/webpki-roots-0.25.4/.cargo_vcs_info.json"
+      ],
+      "owner": "Unmodified MPL recipient source owner",
+      "reason": "Exact 94-byte original member SHA-256 555820648728561eac884844e331dd2612e40e257637734b51bb4976bc1307e6 was verified inside both immutable native npm 1.0.3 archives by registry SRI; all semantic checks remain mandatory."
+    }
+  ]
+}

@@ -50,6 +50,7 @@ test("literal Node bootstrap consumers conform to their separate authority", () 
   const expected = [
     "check.matrix",
     "check.strategy",
+    "check.package",
     "check.required",
     "candidate.pack",
     "markdown-quality.qualify",
@@ -97,10 +98,10 @@ test("a changed admitted Node reference owns candidate names and all performance
     "pack",
     "consumer (windows-latest)",
     "consumer (windows-latest, 24.21.0)",
-    "consumer (windows-latest, 26.11.1)",
+    "consumer (windows-latest, 26.12.0)",
     "consumer (ubuntu-24.04)",
     "consumer (ubuntu-24.04, 24.21.0)",
-    "consumer (ubuntu-24.04, 26.11.1)",
+    "consumer (ubuntu-24.04, 26.12.0)",
   ]);
   for (const reference of [undefined, "missing"])
     assert.throws(() =>
@@ -394,13 +395,32 @@ function govern(text) {
       }
     }
   }
-  const tests = pkg.steps.find((step) => step.run === "npm run check:full");
+  const tests = pkg.steps.find((step) => step.run === "npm run check:product");
   assert.ok(tests);
   assert.equal(tests.if, undefined);
+  const toolingCondition =
+    "startsWith(matrix.node, '24.') || startsWith(matrix.node, '26.')";
+  const installJson = pkg.steps.find(
+    (step) => step.run === "npm run install:json",
+  );
+  const jsonCheck = pkg.steps.find(
+    (step) =>
+      step.run ===
+      "npm run lint:json:identity\nnpm run test:json\nnpm run check:json\n",
+  );
+  assert.ok(installJson);
+  assert.ok(jsonCheck);
+  assert.equal(installJson.if, undefined);
+  assert.equal(jsonCheck.if, toolingCondition);
+  for (const step of [installJson, jsonCheck]) {
+    assert.equal(step["continue-on-error"], undefined);
+  }
+  assert.ok(pkg.steps.indexOf(installJson) < pkg.steps.indexOf(tests));
+  assert.ok(pkg.steps.indexOf(jsonCheck) > pkg.steps.indexOf(tests));
   assert.equal(
     pkg.steps.findIndex(
       (step) => step.run === "node scripts/ci-reuse-command.js lane",
-    ) > pkg.steps.indexOf(tests),
+    ) > pkg.steps.indexOf(jsonCheck),
     true,
   );
   const result = required.steps.find((step) => step.id === "result");
@@ -497,13 +517,23 @@ for (const [name, before, after] of [
   ["conditional aggregate", "if: always()", "if: success()"],
   [
     "skip tests",
-    "      - run: npm run check:full",
-    "      - if: github.event_name == 'push'\n        run: npm run check:full",
+    "      - run: npm run check:product",
+    "      - if: github.event_name == 'push'\n        run: npm run check:product",
   ],
   [
     "tolerate test failure",
-    "      - run: npm run check:full",
-    "      - continue-on-error: true\n        run: npm run check:full",
+    "      - run: npm run check:product",
+    "      - continue-on-error: true\n        run: npm run check:product",
+  ],
+  [
+    "remove the final JSON gate",
+    "          npm run check:json\n",
+    "          echo omitted-json-gate\n",
+  ],
+  [
+    "omit JSON acquisition",
+    "        run: npm run install:json",
+    "        run: echo omitted-json-acquisition",
   ],
   ["privileged token", "  contents: read", "  contents: write"],
   [

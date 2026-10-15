@@ -129,12 +129,24 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 24.21.0
           package-manager-cache: false
       - uses: ./.github/actions/setup-python
+      - name: Acquire isolated development sources on the canonical tooling runtime
+        run: npm run install:json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: python scripts/acquire-native.py
-      - run: npm run check:full
+      - run: npm run check:product
+      - name: Require JSON quality after every product producer
+        if: startsWith(matrix.node, '24.') || startsWith(matrix.node, '26.')
+        run: |
+          npm run lint:json:identity
+          npm run test:json
+          npm run check:json
       - name: Record the actual fully tested lane identity
         # Optional metadata never invalidates successful package tests.
         continue-on-error: true

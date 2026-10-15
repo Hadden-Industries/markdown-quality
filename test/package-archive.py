@@ -16,6 +16,19 @@ spec.loader.exec_module(module)
 
 
 class PackageModeTests(unittest.TestCase):
+    def test_case_colliding_members_are_refused_before_replacement(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'package.tgz'
+            with tarfile.open(path, 'w:gz') as archive:
+                for name in ('package/bin/snapper-fmt', 'package/metadata.json', 'package/METADATA.json'):
+                    member = tarfile.TarInfo(name)
+                    member.size = 1
+                    archive.addfile(member, io.BytesIO(b'x'))
+            original = path.read_bytes()
+            with self.assertRaises(ValueError):
+                module.normalize_executable(path, 'package/bin/snapper-fmt', hashlib.sha256(b'x').hexdigest())
+            self.assertEqual(path.read_bytes(), original)
+
     def test_windows_generated_mode_preserves_every_member_byte(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "package.tgz"

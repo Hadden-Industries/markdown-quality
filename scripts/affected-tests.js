@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { isDeepStrictEqual } from "node:util";
 import { execFile, spawn, spawnSync } from "node:child_process";
 import { parse } from "acorn";
 import {
@@ -367,11 +368,11 @@ export async function planAffected({
       mode: "selected",
       graphDigests: graphs.map((graph) => sha256(JSON.stringify(graph))),
     });
-    if (JSON.stringify(before) !== JSON.stringify(snapshot(root)))
+    if (!isDeepStrictEqual(before, snapshot(root)))
       throw new Error("Snapshot drift");
     return report;
   } catch (error) {
-    if (JSON.stringify(before) !== JSON.stringify(snapshot(root)))
+    if (!isDeepStrictEqual(before, snapshot(root)))
       throw new Error("Snapshot drift");
     return full(`analysis-unavailable:${error.message}`);
   } finally {
@@ -474,9 +475,7 @@ export async function runAffected(
   signal?.throwIfAborted();
   if (!Number.isInteger(timeout) || timeout <= 0 || timeout > limits.testMs)
     throw new Error("Invalid runner timeout");
-  if (
-    JSON.stringify(report.candidate) !== JSON.stringify(snapshot(report.root))
-  )
+  if (!isDeepStrictEqual(report.candidate, snapshot(report.root)))
     throw new Error("Snapshot drift before execution");
   const execute = (paths) =>
     new Promise((resolveRun, reject) => {
@@ -619,9 +618,7 @@ export async function runAffected(
       });
     });
   const selected = await execute(report.selected);
-  if (
-    JSON.stringify(report.candidate) !== JSON.stringify(snapshot(report.root))
-  )
+  if (!isDeepStrictEqual(report.candidate, snapshot(report.root)))
     throw new Error("Snapshot drift after execution");
   let full = null;
   if (shadow && !selected.signal) {
@@ -632,13 +629,11 @@ export async function runAffected(
       .filter((entry) => entry.isFile() && entry.name.endsWith(".test.js"))
       .map((entry) => `test/${entry.name}`)
       .sort();
-    if (JSON.stringify(discovered) !== JSON.stringify(report.candidate.tests))
+    if (!isDeepStrictEqual(discovered, report.candidate.tests))
       throw new Error("Independent shadow inventory disagrees");
     full = await execute(discovered);
   }
-  if (
-    JSON.stringify(report.candidate) !== JSON.stringify(snapshot(report.root))
-  )
+  if (!isDeepStrictEqual(report.candidate, snapshot(report.root)))
     throw new Error("Snapshot drift after shadow");
   const comparable = (run) =>
     run.outcomes
@@ -653,7 +648,7 @@ export async function runAffected(
       .sort();
   const shadowAgreement = full
     ? selected.code === full.code &&
-      JSON.stringify(comparable(selected)) === JSON.stringify(comparable(full))
+      isDeepStrictEqual(comparable(selected), comparable(full))
     : null;
   return {
     ...report,

@@ -1,5 +1,19 @@
 # Implementation decisions and evidence
 
+## JSON adoption candidate on 2026-10-15
+
+The source integrates the isolated public JSON Quality engine, complete native/archive admission, guarded source formatting, serialization identity lint and mandatory product/package/CI gates.
+The Node 26 minimum is 26.12.0; all ten root runtime dependencies already matched npm's latest versions at the 15 October registry lookup.
+Both repository release JSON documents receive ordinary checks, with no directory-wide historical exemption.
+The [JSON development guide](json-quality.md) records the exact original MPL member preservation and producer ownership.
+
+Fresh [native run 38742809829](https://github.com/Hadden-Industries/markdown-quality/actions/runs/38742809829) passed on Windows and Linux from producer commit `5c0ea28670386d6456438061b20cc90770f9f912`.
+Its raw cargo reports contain 3,598 Linux and 3,586 Windows identical boolean `doctest` duplicates; the recipient reports remove only that redundancy and conserve every typed value, array entry, component, licence and association.
+The fresh reports pass strict JSON checks with the two exact original attribution pins.
+The candidate is frozen for `snapper-0.11.9-build.2`; its rights state remains pending independent reconciliation, and that acquisition release is not yet published.
+Final HISEW verification, reviews and authorized source delivery remain pending at this checkpoint.
+Immutable npm 1.0.3 and its published archives are unchanged.
+
 ## Current completion state on 2026-10-07
 
 The original v1 implementation, performance delivery and five-repository rollout are complete.
@@ -41,7 +55,7 @@ Signed source `7994fdb08efa4fc391f6e035c9fff17820635b58` qualifies the Node 22/2
 That historical source's engines were `^22.23.3 || ^24.21.0 || >=26.10.0`; Node 26.10.0 was its qualified Current floor, not a claim about the first LTS version.
 [Package qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37539180714), [transported qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37539180707) and [CodeQL](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37539179834) passed for that source.
 
-Current development source raises the Node 26 floor to 26.11.1 while retaining the Node 22/24 lines.
+Current development source raises the Node 26 floor to 26.12.0 while retaining the Node 22/24 lines.
 The historical results above do not qualify this new candidate or its updated floor; its fresh verification and hosted results have their own source identities.
 
 Signed source `a692068a1e5c60c38d9cc17d11511c0eea0c990a` adds contribution/conduct/security guidance, issue/PR templates, Dependabot proposals, GitHub metadata and direct-source Markdown dogfooding, without a self-dependency or branch/ruleset controls.

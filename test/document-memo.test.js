@@ -28,7 +28,7 @@ test("exact document reuse preserves literals/options and fresh physical targets
   const memo = createDocumentMemo();
   t.after(() => memo.dispose());
   const tree = memo.parse(source);
-  const preimage = JSON.stringify(tree);
+  const preimage = structuredClone(tree);
   assert.equal(memo.parse(source), tree);
   assert.notEqual(memo.parse(source + "\n"), tree);
   const first = await formatLayout(source, options, memo);
@@ -51,7 +51,7 @@ test("exact document reuse preserves literals/options and fresh physical targets
   );
   writeFileSync(join(root, "target.md"), "Restored.\n");
   assert.deepEqual(checkLinks(context, source, "source.md", memo), []);
-  assert.equal(JSON.stringify(tree), preimage);
+  assert.deepEqual(tree, preimage);
   assert.ok(memo.statistics.parseHits >= 4);
   assert.equal(memo.statistics.layoutHits, 1);
 });

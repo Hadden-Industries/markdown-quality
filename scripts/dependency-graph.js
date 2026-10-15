@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { isDeepStrictEqual } from "node:util";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import {
@@ -195,6 +196,8 @@ function authoredRoots(root) {
     for (const entry of readdirSync(join(root, path), {
       withFileTypes: true,
     })) {
+      // Installed payloads are external leaves, never authored graph roots.
+      if (entry.name === "node_modules") continue;
       const name = `${path}/${entry.name}`;
       if (++entries > limits.files)
         throw new Error("Graph directory inventory limit");
@@ -209,6 +212,7 @@ function authoredRoots(root) {
     }
   }
   for (const path of ["src", "scripts", "test"]) visit(path);
+  if (existsSync(join(root, "tooling"))) visit("tooling");
   if (!files.length) throw new Error("Empty graph roots");
   return files.sort();
 }
@@ -369,8 +373,7 @@ export async function writeBundle(root, output, { focus = null } = {}) {
       await format(graph, { outputType: "mermaid", ...filter })
     ).output;
   const after = snapshot(root);
-  if (JSON.stringify(before) !== JSON.stringify(after))
-    throw new Error("Snapshot drift");
+  if (!isDeepStrictEqual(before, after)) throw new Error("Snapshot drift");
   mkdirSync(dirname(output), { recursive: true });
   const actualParent = relative(
     realpathSync(root),
@@ -467,7 +470,9 @@ if (process.argv[1] && resolve(process.argv[1]) === self) {
           metrics: request.metrics === true,
         },
         {
-          modules: [request.modules],
+          // Resolve an isolated tool from its importing package's own installation;
+          // the root dependency directory also serves disposable source fixtures.
+          modules: ["node_modules", request.modules],
           // Enhanced-resolve intersects restrictions, so express the two allowed roots as one union.
           restrictions: [
             new RegExp(

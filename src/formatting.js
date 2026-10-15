@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { isDeepStrictEqual } from "node:util";
 import { formatLayout } from "./literal-layout.js";
 import { parse } from "./analysis.js";
 import { runNative } from "./native-tool.js";
@@ -50,8 +51,7 @@ export async function prepareFormattedDocument(
   // Return the original for reporting; batch validation will prevent all writes.
   if (
     normalized !== text &&
-    JSON.stringify(semantic(tree(text))) !==
-      JSON.stringify(semantic(tree(normalized)))
+    !isDeepStrictEqual(semantic(tree(text)), semantic(tree(normalized)))
   )
     return { output: text };
   const endOfLine =
@@ -87,8 +87,7 @@ export async function prepareFormattedDocument(
   let layoutInput = canonicalizeEmphasis(normalized, memo);
   if (
     layoutInput !== normalized &&
-    JSON.stringify(semantic(tree(normalized))) !==
-      JSON.stringify(semantic(tree(layoutInput)))
+    !isDeepStrictEqual(semantic(tree(normalized)), semantic(tree(layoutInput)))
   )
     layoutInput = normalized;
   const layout = await layoutPolicy(layoutInput);
@@ -106,10 +105,7 @@ export async function prepareFormattedDocument(
   // Byte identity proves preservation and an observed fixed point of the entire
   // deterministic formatter pipeline. The independent prose check still runs.
   if (result === text) return { output: result };
-  if (
-    JSON.stringify(semantic(tree(text))) !==
-    JSON.stringify(semantic(tree(result)))
-  )
+  if (!isDeepStrictEqual(semantic(tree(text)), semantic(tree(result))))
     fail("PRESERVATION", "Formatting changed parsed meaning or a literal.");
   if (endOfLine === "lf" && result.includes("\r"))
     fail("PRESERVATION", "LF output contains a physical carriage return.");

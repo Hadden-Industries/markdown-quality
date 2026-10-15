@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { isDeepStrictEqual } from "node:util";
 import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -89,7 +90,7 @@ export function checkArchitecture(root = repositoryRoot) {
       graph,
       metadata,
     );
-    if (JSON.stringify(before) !== JSON.stringify(snapshot(root)))
+    if (!isDeepStrictEqual(before, snapshot(root)))
       throw new Error("Architecture snapshot drift");
     const violations = graph.summary.violations.filter(
       ({ rule }) => rule.severity === "error",

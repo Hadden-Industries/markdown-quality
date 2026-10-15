@@ -36,23 +36,23 @@ const [pythonMajor, pythonMinor, pythonPatch] = minimumPython
 const sha = (letter) => letter.repeat(40);
 const matrix = {
   os: ["windows-latest", "ubuntu-24.04"],
-  node: ["22.23.3", "24.21.0", "26.11.1"],
+  node: ["22.23.3", "24.21.0", "26.12.0"],
 };
 const expectedJobs = [
   "matrix",
   "probe (windows-latest, 22.23.3)",
   "probe (windows-latest, 24.21.0)",
-  "probe (windows-latest, 26.11.1)",
+  "probe (windows-latest, 26.12.0)",
   "probe (ubuntu-24.04, 22.23.3)",
   "probe (ubuntu-24.04, 24.21.0)",
-  "probe (ubuntu-24.04, 26.11.1)",
+  "probe (ubuntu-24.04, 26.12.0)",
   "strategy",
   "package (windows-latest, 22.23.3)",
   "package (windows-latest, 24.21.0)",
-  "package (windows-latest, 26.11.1)",
+  "package (windows-latest, 26.12.0)",
   "package (ubuntu-24.04, 22.23.3)",
   "package (ubuntu-24.04, 24.21.0)",
-  "package (ubuntu-24.04, 26.11.1)",
+  "package (ubuntu-24.04, 26.12.0)",
   "required",
 ];
 const context = {
@@ -370,7 +370,7 @@ for (const [name, change] of [
     "wrong workflow blob",
     (input) => (input.receipt.snapshot.workflow = sha("f")),
   ],
-  ["changed Node selection", (input) => input.matrix.node.push("26.11.1")],
+  ["changed Node selection", (input) => input.matrix.node.push("26.12.0")],
   [
     "invalid Windows image label",
     (input) => {

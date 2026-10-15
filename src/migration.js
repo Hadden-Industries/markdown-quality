@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { isDeepStrictEqual } from "node:util";
 import Ajv from "ajv";
 import { digest, fail } from "./contracts.js";
 const inputSchema = {
@@ -36,7 +37,7 @@ export function compareQualityReports({
         "Comparison cannot interpret an unsupported report schema.",
       );
     const samePaths = (left, right) =>
-      JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
+      isDeepStrictEqual([...left].sort(), [...right].sort());
     const blocking =
       report.schemaVersion === 1
         ? report.diagnostics.length > 0
@@ -80,10 +81,10 @@ export function compareQualityReports({
     const paths = ordered.map((input) => input.path);
     if (
       new Set(paths).size !== paths.length ||
-      JSON.stringify(paths) !==
-        JSON.stringify(
-          [...report.selection.files].sort((a, b) => a.localeCompare(b, "en")),
-        )
+      !isDeepStrictEqual(
+        paths,
+        [...report.selection.files].sort((a, b) => a.localeCompare(b, "en")),
+      )
     )
       fail(
         "INVALID_INPUT_MANIFEST",
@@ -120,8 +121,10 @@ export function compareQualityReports({
   if (
     before.inputDigest !== after.inputDigest ||
     incumbent.selection.mode !== candidate.selection.mode ||
-    JSON.stringify([...incumbent.selection.files].sort()) !==
-      JSON.stringify([...candidate.selection.files].sort())
+    !isDeepStrictEqual(
+      [...incumbent.selection.files].sort(),
+      [...candidate.selection.files].sort(),
+    )
   )
     fail(
       "COMPARISON_SCOPE",

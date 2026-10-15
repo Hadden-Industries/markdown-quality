@@ -2,7 +2,11 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "preset", "include"],
+  "required": [
+    "schemaVersion",
+    "preset",
+    "include"
+  ],
   "properties": {
     "schemaVersion": {
       "const": 2
@@ -28,7 +32,12 @@
     "lint": {
       "type": "object",
       "additionalProperties": {
-        "enum": ["off", "info", "warn", "error"]
+        "enum": [
+          "off",
+          "info",
+          "warn",
+          "error"
+        ]
       }
     },
     "syntax": {
@@ -36,7 +45,12 @@
       "additionalProperties": false,
       "properties": {
         "frontmatter": {
-          "enum": [false, "yaml", "toml", "json"]
+          "enum": [
+            false,
+            "yaml",
+            "toml",
+            "json"
+          ]
         }
       }
     },
@@ -48,7 +62,10 @@
           "type": "boolean"
         },
         "rootRelative": {
-          "enum": ["reject", "root"]
+          "enum": [
+            "reject",
+            "root"
+          ]
         }
       }
     },
@@ -57,7 +74,11 @@
       "additionalProperties": false,
       "properties": {
         "endOfLine": {
-          "enum": ["lf", "crlf", "preserve"]
+          "enum": [
+            "lf",
+            "crlf",
+            "preserve"
+          ]
         },
         "tabWidth": {
           "type": "integer",

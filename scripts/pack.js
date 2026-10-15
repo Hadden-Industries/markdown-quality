@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { isDeepStrictEqual } from "node:util";
 import {
   mkdtempSync,
   mkdirSync,
@@ -18,6 +19,7 @@ import { manifest } from "../src/native-tool.js";
 import { nodeSupport, candidateJobNames } from "./node-matrix.js";
 import { stageCore } from "./core-package-stage.js";
 import { checkGeneratedSchemas } from "./generate-schemas.js";
+import { repositoryPython } from "./python-target.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
 export function packRelease(output, qualificationMatrix) {
   checkGeneratedSchemas();
@@ -56,7 +58,7 @@ export function packRelease(output, qualificationMatrix) {
       const component = JSON.parse(
         readFileSync(join(directory, "component.json"), "utf8"),
       );
-      if (JSON.stringify(component.build) !== JSON.stringify(manifest.build))
+      if (!isDeepStrictEqual(component.build, manifest.build))
         throw new Error("Native repack rights supplement mismatch: " + key);
     }
   }
@@ -95,7 +97,7 @@ export function packRelease(output, qualificationMatrix) {
       if (name === "linux-x64") {
         const spec = manifest.platforms[name];
         const normalized = spawnSync(
-          "python",
+          repositoryPython(root),
           [
             join(root, "scripts/package-archive.py"),
             path,

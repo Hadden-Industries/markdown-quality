@@ -2,7 +2,11 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "preset", "include"],
+  "required": [
+    "schemaVersion",
+    "preset",
+    "include"
+  ],
   "properties": {
     "schemaVersion": {
       "const": 2
@@ -28,7 +32,12 @@
     "lint": {
       "type": "object",
       "additionalProperties": {
-        "enum": ["off", "info", "warn", "error"]
+        "enum": [
+          "off",
+          "info",
+          "warn",
+          "error"
+        ]
       }
     },
     "syntax": {
@@ -36,7 +45,12 @@
       "additionalProperties": false,
       "properties": {
         "frontmatter": {
-          "enum": [false, "yaml", "toml", "json"]
+          "enum": [
+            false,
+            "yaml",
+            "toml",
+            "json"
+          ]
         }
       }
     },
@@ -48,7 +62,10 @@
           "type": "boolean"
         },
         "rootRelative": {
-          "enum": ["reject", "root"]
+          "enum": [
+            "reject",
+            "root"
+          ]
         }
       }
     },
@@ -57,7 +74,11 @@
       "additionalProperties": false,
       "properties": {
         "endOfLine": {
-          "enum": ["lf", "crlf", "preserve"]
+          "enum": [
+            "lf",
+            "crlf",
+            "preserve"
+          ]
         },
         "tabWidth": {
           "type": "integer",
@@ -76,97 +97,154 @@
           "additionalProperties": false,
           "properties": {
             "fileBytes": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "totalBytes": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "files": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "entries": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "configBytes": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "nativeMs": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "nativeOutputBytes": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "diagnostics": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "documentDiagnostics": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "diagnosticBytes": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "selectionBytes": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "analysisMs": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "workerHeapMb": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "workerStackMb": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "stagingMs": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "stagingOutputBytes": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "patterns": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "patternLength": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "lintRules": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 9007199254740991
             }

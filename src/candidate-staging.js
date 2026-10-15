@@ -98,6 +98,7 @@ function stagedIdentity(root, profile, includeManifest) {
   const records = [];
   for (const record of inventory.records) {
     hash.update(
+      // json-identity-contract: digest; owner: candidate staging; reason: Existing ordered record encoding binds staged bytes and remains unchanged.
       JSON.stringify([record.type, record.path, record.size ?? null]) + "\n",
     );
     if (record.type !== "file") {

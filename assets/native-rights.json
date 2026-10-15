@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "stage": "Separately authored original-notice repack supplement; independent reconciliation required",
   "sourceCommit": "407c2beb04607f6ccb421e6f6418dcc00e4c1e94",
-  "githubRun": "37274204161",
-  "workflowCommit": "722a0ab76bdae368b0f282f4a0e9ebee05ccdc59",
+  "githubRun": "38742809829",
+  "workflowCommit": "5c0ea28670386d6456438061b20cc90770f9f912",
   "binarySha256": {
-    "win32-x64": "e10c4d3dcc0be7243a0daec06f2e14078cf108a4b3c63c5f4dde6c3dab6dd0e8",
+    "win32-x64": "11f8a035c85a3df479b07338b52b438e9e0160c3c0e7c1f3558bb4579230a9d2",
     "linux-x64": "b8d1975d40fc28314ce0e1191b484960685c66f2dc2bca2f5352e5d7e5f4a429"
   },
   "components": [
@@ -151,7 +151,9 @@
       },
       "originalLicenseDeclaration": {
         "license": "MIT",
-        "authors": ["Oliver Scherer <rust-pandoc-ast885559849564@oli-obk.de>"]
+        "authors": [
+          "Oliver Scherer <rust-pandoc-ast885559849564@oli-obk.de>"
+        ]
       },
       "rationale": "Frozen repository and published crate contain no original license/copyright/notice file. Preserve original MIT and author declaration, with generic MIT permission text already in cargo-notices.json; no copyright notice is invented."
     },

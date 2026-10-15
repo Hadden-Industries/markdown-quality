@@ -21,7 +21,11 @@
     "toolchain": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["lockFile", "coreArchive", "nativeArchives"],
+      "required": [
+        "lockFile",
+        "coreArchive",
+        "nativeArchives"
+      ],
       "properties": {
         "lockFile": {
           "type": "string",
@@ -34,7 +38,10 @@
         "nativeArchives": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["win32-x64", "linux-x64"],
+          "required": [
+            "win32-x64",
+            "linux-x64"
+          ],
           "properties": {
             "win32-x64": {
               "type": "string",
@@ -103,12 +110,17 @@
     "runtimes": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["node", "python"],
+      "required": [
+        "node",
+        "python"
+      ],
       "properties": {
         "node": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["file"],
+          "required": [
+            "file"
+          ],
           "properties": {
             "file": {
               "type": "string",
@@ -123,7 +135,9 @@
         "python": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["file"],
+          "required": [
+            "file"
+          ],
           "properties": {
             "file": {
               "type": "string",

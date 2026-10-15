@@ -7,7 +7,10 @@ The oracle hashes, policy source, invocation limits, and corpus revisions were p
 
 The reports were retained from [transported qualification run 37997260094](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37997260094), source `aec44f56b528af592ad6ba7e1e114e333246c19c`, artifact `performance-ubuntu-24.04` (artifact ID `11647692630`).
 That job independently executed the pinned historical producer and verified both reports against the already committed full-result hashes.
-`owlapi.json.gz` and `webvowl.json.gz` preserve the decompressed bytes of `owlapi-incumbent.stdout.json` and `webvowl-incumbent.stdout.json`, respectively; gzip timestamps are zero for reproducibility.
+`owlapi.json.gz` and `webvowl.json.gz` retain the complete decoded values of `owlapi-incumbent.stdout.json` and `webvowl-incumbent.stdout.json`, respectively; gzip timestamps are zero for reproducibility.
+The JSON adoption changed only their presentation through JSON Quality's public source formatter, after native admission and with the original compressed reports retained in external implementation evidence.
+The existing semantic oracle hashes were verified before and after that change without regeneration.
+The owning presentation command is `node scripts/format-performance-incumbents.mjs`; these reports receive ordinary JSON checks and no historical presentation exemption.
 The corresponding frozen public corpus revisions remain declared in `scripts/qualify-performance.py`.
 
 The Windows job in that run aborted in historical baseline analysis before candidate observations.

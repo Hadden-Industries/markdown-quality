@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
+import { isDeepStrictEqual } from "node:util";
 import { stageCandidate, stagedDataDigest } from "./candidate-staging.js";
 import { executeQuality } from "./execution.js";
 import { validateQualityResult } from "./result-validation.js";
@@ -51,22 +52,24 @@ validateQualityResult(result, {
 if (stagedDataDigest(outputRoot, staging.profile) !== before)
   fail("STAGED_DATA_CHANGED", "Read-only check changed staged data.");
 if (
-  JSON.stringify(
+  !isDeepStrictEqual(
     checkoutIdentity(
       request.sourceRoot,
       request.git,
       request.candidateSha,
       request.profile,
     ),
-  ) !== JSON.stringify(candidate) ||
-  JSON.stringify(
+    candidate,
+  ) ||
+  !isDeepStrictEqual(
     checkoutIdentity(
       request.trustedRoot,
       request.git,
       request.trustedSha,
       request.profile,
     ),
-  ) !== JSON.stringify(trusted)
+    trusted,
+  )
 )
   fail("CHECKOUT_CHANGED", "Qualification checkout changed during execution.");
 const receipt = {

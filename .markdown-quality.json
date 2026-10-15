@@ -1,8 +1,15 @@
 {
   "schemaVersion": 2,
   "preset": "authored-gfm@1",
-  "include": ["*.md", "docs/**/*.md", ".github/**/*.md"],
-  "exclude": ["docs/research/**", "docs/reviews/**"],
+  "include": [
+    "*.md",
+    "docs/**/*.md",
+    ".github/**/*.md"
+  ],
+  "exclude": [
+    "docs/research/**",
+    "docs/reviews/**"
+  ],
   "lint": {},
   "links": {
     "localFiles": true,

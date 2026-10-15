@@ -1,9 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
+
+/** Select the local development or explicitly activated hosted virtual environment. */
+export function repositoryPython(repositoryRoot = root) {
+  const environment = process.env.VIRTUAL_ENV || join(repositoryRoot, ".venv");
+  const executable = join(
+    environment,
+    process.platform === "win32" ? "Scripts/python.exe" : "bin/python",
+  );
+  if (!existsSync(executable))
+    throw new Error("An approved Python virtual environment is required.");
+  return executable;
+}
 
 function parts(version) {
   if (!/^[1-9]\d*\.\d+\.\d+$/u.test(version))

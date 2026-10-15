@@ -133,7 +133,7 @@ def freeze(inputs, output, run_id, workflow_commit, release_url, rights_path=Non
         spec.update({'sha256': expected[binary_name], 'archiveSha256': sha(data),
                      'url': release_url.rstrip('/') + '/' + archive_name,
                      'files': {name: sha(data) for name, data in sorted(evidence_bytes.items())}})
-    (output / 'tool-manifest.candidate.json').write_bytes((json.dumps(manifest, indent=2) + '\n').encode('utf-8'))
+    (output / 'tool-manifest.candidate.json').write_bytes((json.dumps(manifest, ensure_ascii=False, indent=2) + '\n').encode('utf-8'))
     return manifest
 
 

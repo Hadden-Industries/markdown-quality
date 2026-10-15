@@ -19,6 +19,15 @@ Registry/package publication and replacement of historical release assets remain
 - Qualify fresh current outputs and recipient packages while preserving original hosted evidence and published archives; report any necessary publication effect separately.
 
 The first implementation checkpoint records this acceptance and these amendments before executable changes.
+The owner's subsequent clarification rejects directory-wide historical-release preservation such as docs/releases/*.json.
+A file's presence under docs/releases does not make it immutable.
+Any immutable npm-release preservation must identify the specific JSON and independently verified archive membership and bytes; other owned JSON receives ordinary quality checking and presentation.
+
+The implementation checkpoint is recorded in [implementation status](../implementation-status.md#json-adoption-candidate-on-2026-10-15) and the maintained [JSON development guide](../json-quality.md).
+Fresh producer run 38742809829 passed both platforms; full-root checking includes 47 physical and 28 native documents after actual package production, without a release-document exemption.
+The retained performance reports were re-presented without changing their pre-existing semantic oracle hashes; original compressed preimages remain in external implementation evidence.
+Current native source-presentation preservation identifies only the two exact 94-byte MPL source members verified inside registry-SRI-checked native npm 1.0.3 archives.
+The candidate native acquisition release, independent reconciliation, final assurance and source delivery remain separate pending obligations.
 
 The intended outcome is complete, attributable checking of Markdown Quality's JSON through the maintained **@hadden-industries/json-quality** package, while preserving Markdown behavior, native component and licence evidence, package provenance, and supported consumer runtimes.
 One maintained engine should own generic JSON rules; Markdown Quality should retain its domain, producer, archive and release contracts.

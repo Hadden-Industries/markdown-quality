@@ -35,15 +35,25 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def load_incumbent(name):
+def load_incumbent_bytes(name):
     # These complete historical reports are correctness evidence, not current
     # performance evidence. Bind them to the already accepted full-result hash.
-    incumbent = json.loads(gzip.decompress((INCUMBENTS / f"{name}.json.gz").read_bytes()))
+    # Bound expansion before materializing the complete historical result.
+    with gzip.open(INCUMBENTS / f"{name}.json.gz", 'rb') as stream:
+        original = stream.read(32 * 1024 * 1024 + 1)
+    if len(original) > 32 * 1024 * 1024:
+        raise ValueError('Retained incumbent exceeds the document limit')
+    incumbent = json.loads(original)
     normalized = json.loads(json.dumps(incumbent))
     normalized["package"]["version"] = "<candidate>"
     canonical = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     assert digest(canonical) == ORACLES["corpora"][name]["resultSha256WithoutVersion"], "Incumbent does not match the retained full oracle"
-    return incumbent
+    return original
+
+
+def load_incumbent(name):
+    """Use the same admitted original bytes for qualification and JSON checking."""
+    return json.loads(load_incumbent_bytes(name))
 
 
 def manifest(root, revision):

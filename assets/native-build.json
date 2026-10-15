@@ -23,7 +23,15 @@
     }
   ],
   "profile": "dist",
-  "features": ["cli", "neural", "lsp", "watch", "pandoc", "treesitter", "mcp"],
+  "features": [
+    "cli",
+    "neural",
+    "lsp",
+    "watch",
+    "pandoc",
+    "treesitter",
+    "mcp"
+  ],
   "auditExtractor": {
     "url": "https://static.crates.io/crates/rust-audit-info/rust-audit-info-0.5.4.crate",
     "sha256": "4691a1a98b31dc5c7b55a2968628c79ed035b1fad6b3b3849d872244e04bcf83",

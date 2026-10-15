@@ -13,12 +13,17 @@ Do not assume an unreleased source qualification changes an installed npm releas
 
 ```sh
 npm ci --ignore-scripts
-python scripts/acquire-native.py
+npm run install:json
+# Use the repository .venv interpreter, or the explicitly activated CI environment.
+.venv/bin/python scripts/acquire-native.py
 npm run check:markdown
 npm test
 ```
 
 Asset acquisition downloads only frozen manifest inputs and verifies their identities before preparation.
+Create `.venv` with the declared stable Python version before native preparation.
+On Windows its interpreter is `.venv/Scripts/python.exe`; on Linux it is `.venv/bin/python`.
+The verification driver selects that interpreter explicitly, or uses the hosted action's activated `VIRTUAL_ENV`.
 To use already verified archives offline, run `python scripts/prepare-native.py --archives /path/to/verified/archives` instead.
 Check and format operations never acquire native executables; consumers do not need Python.
 Retain the lockfile and follow [native build requirements](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/native-builds.md) for an actual native upgrade.
@@ -61,6 +66,14 @@ Physical local link targets must exist.
 Trailing spaces and two-space hard breaks are disallowed outside the documented literal-code exceptions; use explicit backslash breaks where needed.
 Fenced and indented code preserve their content; sensitive inline/HTML cases can require manual correction instead of an unsafe rewrite.
 Review any actual formatting diff and rerun the check for convergence.
+
+## JSON ownership
+
+Use the isolated, source-locked JSON Quality package through `npm run install:json` on supported Node 24 or 26.
+Follow [JSON development checks](docs/json-quality.md) for complete discovery, protected native evidence, real package qualification and guarded formatting.
+Generic Prettier excludes JSON; `npm run check:full` composes product checks, source identity lint, isolated consumer tests, actual packed JSON and the final complete-root JSON check.
+`check:product` retains the product suite on Node 22 and future declared product runtimes; it does not claim JSON-tool qualification there.
+Architecture inspection still needs the isolated package's source installation, acquired beforehand on the reference tooling runtime.
 
 ## Proposals and release boundaries
 

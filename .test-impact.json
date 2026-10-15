@@ -7,7 +7,8 @@
     "packages/",
     ".github/",
     "docs/",
-    "test/fixtures/"
+    "test/fixtures/",
+    "tooling/"
   ],
   "fullFiles": [
     "package.json",
@@ -17,7 +18,8 @@
     ".gitattributes",
     ".gitignore",
     ".markdown-quality.json",
-    ".prettierignore"
+    ".prettierignore",
+    ".json-quality.json"
   ],
   "boundaryFiles": [
     "src/candidate-staging.js",
@@ -295,6 +297,38 @@
       "kind": "spawn",
       "evidence": "Explicit DRY build/data/process input consumed at this boundary",
       "fixture": "test/dry-impact.test.js conservative full fallback seeded failure"
+    },
+    {
+      "id": "json-acquisition",
+      "dependency": "scripts/installRepositoryQualityTools.mjs",
+      "consumer": "tooling/json/public-api.mjs",
+      "kind": "spawn",
+      "evidence": "Explicit JSON adoption process/resource input",
+      "fixture": "test/json-tooling/consumer.test.mjs and conservative full fallback"
+    },
+    {
+      "id": "json-policy",
+      "dependency": ".json-quality.json",
+      "consumer": "scripts/runRepositoryJsonQuality.mjs",
+      "kind": "resource",
+      "evidence": "Explicit JSON adoption process/resource input",
+      "fixture": "test/json-tooling/consumer.test.mjs and conservative full fallback"
+    },
+    {
+      "id": "native-json-python",
+      "dependency": "scripts/collect-json-documents.py",
+      "consumer": "scripts/native-json-documents.mjs",
+      "kind": "spawn",
+      "evidence": "Explicit JSON adoption process/resource input",
+      "fixture": "test/json-tooling/consumer.test.mjs and conservative full fallback"
+    },
+    {
+      "id": "json-tests",
+      "dependency": "test/json-tooling/",
+      "consumer": "scripts/verify.js",
+      "kind": "resource",
+      "evidence": "Explicit JSON adoption process/resource input",
+      "fixture": "test/json-tooling/consumer.test.mjs and conservative full fallback"
     }
   ]
 }

@@ -7,7 +7,7 @@ Public release, semver selection, registry qualification and `latest` promotion 
 The [centralized contracts guide](centralized-contracts.md) describes configuration schema 2, result schema 3 and the shared trusted qualification/profile contract.
 Local source tests do not establish hosted Windows/Linux qualification or downstream acceptance of a new tuple.
 
-Development source admits Node 22.23.3+, Node 24.21.0+, and Node 26.11.1 or newer, excluding the unsupported Node 23/25 lines and with no upper major-version bound.
+Development source admits Node 22.23.3+, Node 24.21.0+, and Node 26.12.0 or newer, excluding the unsupported Node 23/25 lines and with no upper major-version bound.
 The qualification matrix covers Node 22/24/26 on Windows x64 and Ubuntu 24.04 x64 with glibc.
 Each workflow resolves the declared minimum and latest stable patch of each line from official Node release metadata, collapsing equal versions.
 It fails rather than silently dropping a missing minimum.

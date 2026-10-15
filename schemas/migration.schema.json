@@ -36,7 +36,10 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["before", "after"],
+        "required": [
+          "before",
+          "after"
+        ],
         "properties": {
           "before": {
             "$ref": "#/definitions/diagnostic"
@@ -50,7 +53,10 @@
     "wouldFormat": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["incumbent", "candidate"],
+      "required": [
+        "incumbent",
+        "candidate"
+      ],
       "properties": {
         "incumbent": {
           "$ref": "#/definitions/paths"
@@ -82,11 +88,17 @@
           "type": "integer",
           "minimum": 1
         },
-        "selectionDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "selectionDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
         "package": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["name", "version"],
+          "required": [
+            "name",
+            "version"
+          ],
           "properties": {
             "name": {
               "type": "string"
@@ -103,19 +115,31 @@
           }
         },
         "configDigest": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "configuration": {
-          "type": ["object", "null"]
+          "type": [
+            "object",
+            "null"
+          ]
         },
         "policy": {
-          "type": ["object", "null"]
+          "type": [
+            "object",
+            "null"
+          ]
         },
         "strict": {
           "type": "boolean"
         },
         "exitCode": {
-          "enum": [0, 1]
+          "enum": [
+            0,
+            1
+          ]
         },
         "inputDigest": {
           "type": "string",
@@ -170,7 +194,11 @@
           "type": "string"
         },
         "severity": {
-          "enum": ["error", "warning", "info"]
+          "enum": [
+            "error",
+            "warning",
+            "info"
+          ]
         }
       }
     }

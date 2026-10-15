@@ -15,7 +15,7 @@
         "path": "^src/"
       },
       "to": {
-        "path": "^(test|scripts)/"
+        "path": "^(test|scripts|tooling)/"
       }
     },
     {
@@ -25,7 +25,9 @@
         "path": "^src/"
       },
       "to": {
-        "dependencyTypes": ["npm-dev"]
+        "dependencyTypes": [
+          "npm-dev"
+        ]
       }
     },
     {
@@ -35,7 +37,9 @@
         "path": "^src/"
       },
       "to": {
-        "dependencyTypes": ["npm-no-pkg"]
+        "dependencyTypes": [
+          "npm-no-pkg"
+        ]
       }
     },
     {
@@ -45,7 +49,9 @@
         "path": "^(scripts|test)/"
       },
       "to": {
-        "dependencyTypes": ["npm-no-pkg"]
+        "dependencyTypes": [
+          "npm-no-pkg"
+        ]
       }
     },
     {
@@ -113,7 +119,10 @@
         "npm-no-pkg"
       ]
     },
-    "moduleSystems": ["es6", "cjs"],
+    "moduleSystems": [
+      "es6",
+      "cjs"
+    ],
     "preserveSymlinks": false
   }
 }

@@ -205,16 +205,16 @@ test("matrix release evidence requires all runtime jobs and cannot silently down
   );
   f.qualified.candidate.matrix = {
     os: ["windows-latest", "ubuntu-24.04"],
-    node: ["22.23.3", "24.21.0", "26.11.1"],
+    node: ["22.23.3", "24.21.0", "26.12.0"],
   };
   f.qualified.candidate.jobs = [
     "pack",
     "consumer (windows-latest)",
     "consumer (ubuntu-24.04)",
     "consumer (windows-latest, 22.23.3)",
-    "consumer (windows-latest, 26.11.1)",
+    "consumer (windows-latest, 26.12.0)",
     "consumer (ubuntu-24.04, 22.23.3)",
-    "consumer (ubuntu-24.04, 26.11.1)",
+    "consumer (ubuntu-24.04, 26.12.0)",
   ];
   verifyQualification(f.qualified);
   assert.throws(
