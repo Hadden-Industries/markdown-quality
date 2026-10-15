@@ -32,6 +32,7 @@ if (
 )
   throw new Error("Original AGPL-3.0-only license bytes changed.");
 resolveTool();
+node(["scripts/project-node-support.js", "--check"]);
 const pythonRuntime = spawnSync(python, pythonProbeArgs(), {
   cwd: root,
   stdio: "inherit",

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { runNative } from "./native-tool.js";
 import { spawnSync } from "node:child_process";
-import { lstatSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { decode, fail, limits, exceeds } from "./contracts.js";
@@ -9,6 +8,7 @@ import {
   removeStagedFile,
   nativeCheckConfig,
   verifyNativeStaging,
+  verifyStagedFile,
   writeStagedFile,
 } from "./native-staging.js";
 
@@ -131,20 +131,8 @@ function checkFiles(tool, texts, staging, budgets) {
     for (const [index, text] of texts.entries())
       files.push(writeStagedFile(staging, nativeInputName(index), text));
     verifyNativeStaging(staging);
-    for (const [index, file] of files.entries()) {
-      const stat = lstatSync(file.path, { bigint: true });
-      if (
-        !stat.isFile() ||
-        stat.isSymbolicLink() ||
-        stat.nlink !== 1n ||
-        Object.keys(file.identity).some(
-          (key) => stat[key] !== file.identity[key],
-        ) ||
-        stat.size !== BigInt(Buffer.byteLength(texts[index])) ||
-        readFileSync(file.path, "utf8") !== texts[index]
-      )
-        fail("NATIVE_STAGING", "Private native input changed before checking.");
-    }
+    for (const [index, file] of files.entries())
+      verifyStagedFile(staging, file, texts[index]);
     const result = spawnSync(
       tool.executable,
       [

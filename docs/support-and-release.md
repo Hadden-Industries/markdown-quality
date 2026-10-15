@@ -7,17 +7,17 @@ Public release, semver selection, registry qualification and `latest` promotion 
 The [centralized contracts guide](centralized-contracts.md) describes configuration schema 2, result schema 3 and the shared trusted qualification/profile contract.
 Local source tests do not establish hosted Windows/Linux qualification or downstream acceptance of a new tuple.
 
-Development source targets consumer compatibility from Node 22.17.0 within Node 22, Node 24.2.0 within Node 24, and Node 26.0.0 within Node 26.
+Development source targets the consumer minima in the [canonical Node policy](https://github.com/Hadden-Industries/markdown-quality/blob/main/assets/node-support.json).
 Other major families, including future majors, are excluded until qualified.
 The [runtime compatibility record](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/node-runtime-compatibility.md) explains the lower bounds and distinguishes compatibility from security patch recommendations.
 The qualification matrix covers Node 22/24/26 on Windows x64 and Ubuntu 24.04 x64 with glibc.
 Each workflow resolves the declared minimum and latest stable release of each line from official Node release metadata, collapsing equal versions.
-It additionally retains pinned reference Node 24.21.0 even when that version is neither a minimum nor latest.
+It additionally retains the pinned reference even when that version is neither a minimum nor latest.
 It fails rather than silently dropping a missing minimum or reference.
 All lanes run product source checks and real CLI/native consumer probes in root and isolated layouts, with exact formatting bytes, fenced literal preservation, convergence, local-link failure and operational-error contracts.
 Fresh installation and offline lockfile replay enforce package engines.
 The package workflow records the actual product runtime before switching to the reference runtime for the mandatory isolated JSON tooling checks.
-The transported lanes install the same frozen archives produced once on reference Node 24.21.0; unchanged native executables are not rebuilt for each Node version.
+The transported lanes install the same frozen archives produced once on the reference runtime; unchanged native executables are not rebuilt for each Node version.
 Performance measurements remain on the reference runtime.
 The candidate manifest freezes the runtime policy and resolved matrix alongside archive hashes.
 Publication admission requires every matching provider job to succeed for that exact source and run attempt; release evidence retains the snapshot as `candidate.runtimePolicy` and `candidate.matrix`.

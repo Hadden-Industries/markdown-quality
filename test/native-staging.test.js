@@ -16,6 +16,7 @@ import { join } from "node:path";
 import {
   createNativeStaging,
   verifyNativeStaging,
+  verifyStagedFile,
   writeStagedFile,
   removeStagedFile,
 } from "../src/native-staging.js";
@@ -103,4 +104,30 @@ test("a replaced staging root is rejected without changing the replacement senti
   rmdirSync(staging.token.path);
   renameSync(moved, staging.token.path);
   staging.close();
+});
+
+test("staged handle device, inode and birth identity remain mandatory for checking and removal", (t) => {
+  const staging = createNativeStaging(consumer(t));
+  assert.ok(staging);
+  t.after(() => staging.close());
+  const text = "Private.\n";
+  const file = writeStagedFile(staging.token, "input-0.md", text);
+  for (const key of ["dev", "ino", "birthtimeNs"]) {
+    const original = file.identity[key];
+    file.identity[key] = original + 1n;
+    try {
+      assert.throws(() => verifyStagedFile(staging.token, file, text), {
+        code: "NATIVE_STAGING",
+      });
+      assert.throws(() => removeStagedFile(staging.token, file), {
+        code: "NATIVE_CLEANUP",
+      });
+      assert.ok(existsSync(file.path), `${key} mismatch removed the original`);
+    } finally {
+      file.identity[key] = original;
+    }
+  }
+  verifyStagedFile(staging.token, file, text);
+  removeStagedFile(staging.token, file);
+  assert.equal(existsSync(file.path), false);
 });

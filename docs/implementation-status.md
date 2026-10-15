@@ -2,11 +2,11 @@
 
 ## Consumer Node compatibility on 2026-10-15
 
-The [runtime compatibility record](node-runtime-compatibility.md) establishes the lower-bound reasons for Node 22.17.0, Node 24.2.0 and Node 26.0.0.
-Dependency-only candidates 22.13.0 and 24.0.0 were insufficient on Windows because of inconsistent file device identities; the immediate predecessors 22.16.0 and 24.1.0 reproduce that failure.
-The identity guard remains intact, and installed qualification now exercises native batch staging as well as single documents.
+The [runtime compatibility record](node-runtime-compatibility.md) records the dependency minima and qualification evidence.
+The Windows path/handle device mismatch is handled through consistent native handle observations while retaining independent path-stability guards and full handle identity comparisons.
+Installed qualification exercises native batch staging as well as single documents.
 Consumer engines cover only these supported families.
-CI additionally tests the latest release in each family and preserves reference Node 24.21.0 independently for development, packing, release and performance evidence.
+CI additionally tests the latest release in each family and preserves the policy reference independently for development, packing, release and performance evidence.
 Isolated JSON tooling runs on its own supported reference runtime after the product lane identity is recorded.
 
 ## JSON adoption candidate on 2026-10-15

@@ -22,6 +22,7 @@ import { fail, limits } from "./contracts.js";
 import { sentenceToml } from "./native-policy.js";
 import { nativeGroupCapacity, isNativeInputName } from "./native-protocol.js";
 import { contained as contains } from "./path-containment.js";
+import { openRegularFile, statRegularFile } from "./regular-file.js";
 export const nativeCheckConfig = sentenceToml(true);
 const editorConfig = "root = true\n\n[*]\nmax_line_length = off\n";
 const configFiles = new Map([
@@ -177,7 +178,7 @@ export function removeStagedFile(token, file) {
   try {
     verifyNativeStaging(token, false);
     if (dirname(file.path) !== token.path) throw Error("Outside staging.");
-    const stat = lstatSync(file.path, { bigint: true });
+    const stat = statRegularFile(file.path, { bigint: true });
     if (
       !stat.isFile() ||
       stat.isSymbolicLink() ||
@@ -188,6 +189,27 @@ export function removeStagedFile(token, file) {
     unlinkSync(file.path);
   } catch {
     fail("NATIVE_CLEANUP", "Private native staging cleanup is incomplete.");
+  }
+}
+
+/** Check bytes through the same handle whose complete identity was admitted. */
+export function verifyStagedFile(token, file, text) {
+  try {
+    verifyNativeStaging(token, false);
+    if (dirname(file.path) !== token.path) throw Error("Outside staging.");
+    const { descriptor, stat } = openRegularFile(file.path, { bigint: true });
+    try {
+      if (
+        !same(stat, file.identity) ||
+        stat.size !== BigInt(Buffer.byteLength(text)) ||
+        readFileSync(descriptor, "utf8") !== text
+      )
+        throw Error("Changed staging input.");
+    } finally {
+      closeSync(descriptor);
+    }
+  } catch {
+    fail("NATIVE_STAGING", "Private native input changed before checking.");
   }
 }
 
@@ -204,7 +226,7 @@ function closeNativeStaging(token) {
       const path = join(token.path, name);
       removeStagedFile(token, {
         path,
-        identity: identity(lstatSync(path, { bigint: true })),
+        identity: identity(statRegularFile(path, { bigint: true })),
       });
     }
     verifyNativeStaging(token, false);

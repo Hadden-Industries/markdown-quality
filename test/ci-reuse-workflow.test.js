@@ -43,7 +43,7 @@ function yamlValue(node) {
   return yamlValue(node.children[0]);
 }
 
-test("literal Node bootstrap consumers conform to their separate authority", () => {
+test("generated Node bootstrap consumers conform to the canonical tooling reference", () => {
   const bootstrap = JSON.parse(
     readFileSync(new URL("../.github/bootstrap-node.json", import.meta.url)),
   );
@@ -62,6 +62,7 @@ test("literal Node bootstrap consumers conform to their separate authority", () 
     "registry.registry",
   ];
   const actual = [];
+  assert.equal(bootstrap.version, nodeSupport.reference);
   for (const name of [
     "check",
     "candidate",
@@ -90,7 +91,12 @@ test("literal Node bootstrap consumers conform to their separate authority", () 
 });
 
 test("a changed admitted Node reference owns candidate names and all performance conditions", () => {
-  const policy = { ...nodeSupport, reference: "22.17.0" };
+  // Deliberately synthetic policy; these values do not track the current contract.
+  const policy = {
+    ...nodeSupport,
+    minimums: ["22.13.0", "24.0.0", "26.0.0"],
+    reference: "22.13.0",
+  };
   const matrix = qualificationMatrix(
     [...policy.minimums, "24.21.0"].map((version) => ({
       version: `v${version}`,
@@ -100,11 +106,11 @@ test("a changed admitted Node reference owns candidate names and all performance
   assert.deepEqual(candidateJobNames(matrix, policy), [
     "pack",
     "consumer (windows-latest)",
-    "consumer (windows-latest, 24.2.0)",
+    "consumer (windows-latest, 24.0.0)",
     "consumer (windows-latest, 24.21.0)",
     "consumer (windows-latest, 26.0.0)",
     "consumer (ubuntu-24.04)",
-    "consumer (ubuntu-24.04, 24.2.0)",
+    "consumer (ubuntu-24.04, 24.0.0)",
     "consumer (ubuntu-24.04, 24.21.0)",
     "consumer (ubuntu-24.04, 26.0.0)",
   ]);

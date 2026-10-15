@@ -10,7 +10,7 @@ export const nodeSupport = JSON.parse(
 );
 
 // Consumer minima and the pinned tooling/performance reference are independent.
-function validatePolicy(policy) {
+export function validatePolicy(policy) {
   assert.equal(policy.schemaVersion, 1);
   assert.ok(Array.isArray(policy.minimums) && policy.minimums.length > 0);
   const families = new Set();

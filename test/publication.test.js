@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import test from "node:test";
 import assert from "node:assert/strict";
+import { nodeSupport, qualificationMatrix } from "../scripts/node-matrix.js";
 import {
   mkdtempSync,
   mkdirSync,
@@ -166,15 +167,18 @@ test("matrix candidates require every manifest-bound runtime job and retain lega
     () => verifyPublication(input),
     "New source cannot omit matrix evidence",
   );
-  manifest.qualificationMatrix = {
-    os: ["windows-latest", "ubuntu-24.04"],
-    node: ["22.17.0", "24.2.0", "24.21.0", "26.0.0"],
-  };
+  manifest.qualificationMatrix = qualificationMatrix(
+    [...nodeSupport.minimums, nodeSupport.reference].map((version) => ({
+      version: `v${version}`,
+    })),
+  );
   manifest.runtimePolicy = JSON.parse(
     readFileSync(new URL("../assets/node-support.json", import.meta.url)),
   );
   for (const os of manifest.qualificationMatrix.os)
-    for (const node of ["22.17.0", "24.2.0", "26.0.0"])
+    for (const node of manifest.qualificationMatrix.node.filter(
+      (version) => version !== nodeSupport.reference,
+    ))
       input.jobs.jobs.push({
         ...input.jobs.jobs[0],
         name: `consumer (${os}, ${node})`,

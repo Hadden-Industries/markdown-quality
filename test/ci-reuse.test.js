@@ -27,6 +27,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { pythonTarget } from "../scripts/python-target.js";
+import { nodeSupport, qualificationMatrix } from "../scripts/node-matrix.js";
 
 const minimumPython = pythonTarget();
 const [pythonMajor, pythonMinor, pythonPatch] = minimumPython
@@ -34,29 +35,20 @@ const [pythonMajor, pythonMinor, pythonPatch] = minimumPython
   .map(Number);
 
 const sha = (letter) => letter.repeat(40);
-const matrix = {
-  os: ["windows-latest", "ubuntu-24.04"],
-  node: ["22.17.0", "24.2.0", "24.21.0", "26.0.0"],
-};
+const matrix = qualificationMatrix(
+  [...nodeSupport.minimums, nodeSupport.reference].map((version) => ({
+    version: `v${version}`,
+  })),
+);
 const expectedJobs = [
   "matrix",
-  "probe (windows-latest, 22.17.0)",
-  "probe (windows-latest, 24.2.0)",
-  "probe (windows-latest, 24.21.0)",
-  "probe (windows-latest, 26.0.0)",
-  "probe (ubuntu-24.04, 22.17.0)",
-  "probe (ubuntu-24.04, 24.2.0)",
-  "probe (ubuntu-24.04, 24.21.0)",
-  "probe (ubuntu-24.04, 26.0.0)",
+  ...matrix.os.flatMap((os) =>
+    matrix.node.map((node) => `probe (${os}, ${node})`),
+  ),
   "strategy",
-  "package (windows-latest, 22.17.0)",
-  "package (windows-latest, 24.2.0)",
-  "package (windows-latest, 24.21.0)",
-  "package (windows-latest, 26.0.0)",
-  "package (ubuntu-24.04, 22.17.0)",
-  "package (ubuntu-24.04, 24.2.0)",
-  "package (ubuntu-24.04, 24.21.0)",
-  "package (ubuntu-24.04, 26.0.0)",
+  ...matrix.os.flatMap((os) =>
+    matrix.node.map((node) => `package (${os}, ${node})`),
+  ),
   "required",
 ];
 const context = {

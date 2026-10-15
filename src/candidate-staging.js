@@ -23,6 +23,7 @@ const reserved = ".markdown-quality-trusted-inputs";
 const operational = new Set([".git", "node_modules", ".venv", "venv", ".hi"]);
 const slash = (name) => name.replaceAll("\\", "/");
 import { fingerprint } from "./stat-fingerprint.js";
+import { statRegularFile } from "./regular-file.js";
 
 function tree(root, profile, strip = false) {
   const records = [];
@@ -58,14 +59,20 @@ function tree(root, profile, strip = false) {
             "UNSAFE_STAGING",
             "Candidate requires regular singly linked data files.",
           );
-        bytes += stat.size;
+        let observed;
+        try {
+          observed = statRegularFile(path);
+        } catch {
+          fail("UNSAFE_STAGING", "Candidate file changed during admission.");
+        }
+        bytes += observed.size;
         if (bytes > profile.stagingBytes)
           fail("STAGING_LIMIT", "Candidate exceeds the staged byte bound.");
         records.push({
           path: logical,
           type: "file",
-          size: stat.size,
-          fingerprint: fingerprint(stat),
+          size: observed.size,
+          fingerprint: fingerprint(observed),
         });
       }
     }

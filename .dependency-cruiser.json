@@ -58,7 +58,7 @@
       "name": "foundations-stay-independent",
       "severity": "error",
       "from": {
-        "path": "^src/(contracts|preset|document-analysis-pool|native-tool|analyzer-limits|native-policy|native-protocol|path-containment|stat-fingerprint)\\.js$"
+        "path": "^src/(contracts|preset|document-analysis-pool|native-tool|analyzer-limits|native-policy|native-protocol|path-containment|stat-fingerprint|regular-file)\\.js$"
       },
       "to": {
         "path": "^src/(cli|qualification-cli|quality|execution|execution-worker|qualification|qualification-runner)\\.js$",
@@ -100,7 +100,7 @@
       "name": "runtime-leaves-stay-independent",
       "severity": "error",
       "from": {
-        "path": "^src/(analyzer-limits|native-policy|native-protocol|path-containment|stat-fingerprint)\\.js$"
+        "path": "^src/(analyzer-limits|native-policy|native-protocol|path-containment|stat-fingerprint|regular-file)\\.js$"
       },
       "to": {
         "path": "^src/(configuration|contracts|preset|native-tool|native-staging|prose-diagnostics)\\.js$",

@@ -36,6 +36,22 @@ The source change is reversible through an ordinary follow-up commit.
 
 ## Results
 
+### Accepted canonical runtime policy extension
+
+The owner requested finding the local repository that defines Node versions in one place and applying the same DRY approach here.
+OwlAPI provides that precedent in `docs/release/runtime-policy.json`, `scripts/runtime-policy.mjs` and `scripts/workflow-runtime-policy.mjs`: canonical selections and checked projections into native consumer declarations.
+
+Retain `assets/node-support.json` as the single editable version policy, with separate consumer minimums and development/release reference fields.
+Add `npm run sync:node` to project npm engines, root lock engines, initial workflow selections, bootstrap JSON and the current compatibility version list.
+Full and product verification must reject projection drift.
+Preserve matrix/profile expressions, unrelated workflow bytes, dependency lock entries and immutable historical release evidence.
+Current-policy test fixtures consume the policy; intentionally synthetic policies remain independent test inputs.
+Prove a single synthetic policy edit updates both declarations and bootstrap selections, retains dynamic selectors and unrelated values, and becomes idempotent.
+The bootstrap JSON is now generated from the reference, superseding the earlier separately editable bootstrap authority.
+
+Hosted failures on the preceding candidate had empty npm-install diagnostics.
+Preserve their logs and expose the native process error, exit status, signal and duration before choosing any recovery; the existing timeout remains unchanged.
+
 ### Accepted file-observation repair
 
 After the initial higher-floor candidate was pushed, the owner requested accounting for the Windows stat mismatch in code so the dependency minima could be supported.

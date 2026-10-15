@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import test from "node:test";
 import assert from "node:assert/strict";
+import { nodeSupport, qualificationMatrix } from "../scripts/node-matrix.js";
 import { createHash } from "node:crypto";
 import {
   mkdtempSync,
@@ -203,20 +204,20 @@ test("matrix release evidence requires all runtime jobs and cannot silently down
   f.qualified.candidate.runtimePolicy = JSON.parse(
     readFileSync(new URL("../assets/node-support.json", import.meta.url)),
   );
-  f.qualified.candidate.matrix = {
-    os: ["windows-latest", "ubuntu-24.04"],
-    node: ["22.17.0", "24.2.0", "24.21.0", "26.0.0"],
-  };
+  f.qualified.candidate.matrix = qualificationMatrix(
+    [...nodeSupport.minimums, nodeSupport.reference].map((version) => ({
+      version: `v${version}`,
+    })),
+  );
   f.qualified.candidate.jobs = [
     "pack",
     "consumer (windows-latest)",
     "consumer (ubuntu-24.04)",
-    "consumer (windows-latest, 22.17.0)",
-    "consumer (windows-latest, 24.2.0)",
-    "consumer (windows-latest, 26.0.0)",
-    "consumer (ubuntu-24.04, 22.17.0)",
-    "consumer (ubuntu-24.04, 24.2.0)",
-    "consumer (ubuntu-24.04, 26.0.0)",
+    ...f.qualified.candidate.matrix.os.flatMap((os) =>
+      f.qualified.candidate.matrix.node
+        .filter((node) => node !== nodeSupport.reference)
+        .map((node) => `consumer (${os}, ${node})`),
+    ),
   ];
   verifyQualification(f.qualified);
   assert.throws(

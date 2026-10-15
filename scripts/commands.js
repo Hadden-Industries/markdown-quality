@@ -15,6 +15,7 @@ export function npmCliPath() {
 }
 export function npmCommand(args, options = {}) {
   const cli = npmCliPath();
+  const started = performance.now();
   const result = spawnSync(process.execPath, [cli, ...args], {
     encoding: "utf8",
     timeout: 120_000,
@@ -24,7 +25,8 @@ export function npmCommand(args, options = {}) {
   });
   if (result.error || result.status !== 0)
     throw new Error(
-      `npm ${args[0]} failed: ${(result.stderr ?? "").slice(0, 2000)}`,
+      `npm ${args[0]} failed after ${Math.round(performance.now() - started)}ms (status=${result.status}, signal=${result.signal}, error=${result.error?.code ?? "none"}): ${(result.stderr ?? "").slice(0, 2000)}${result.error ? ` ${result.error.message}` : ""}`,
+      { cause: result.error },
     );
   return result.stdout;
 }

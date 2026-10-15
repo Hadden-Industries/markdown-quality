@@ -6,7 +6,6 @@ import {
   mkdirSync,
   writeFileSync,
   readdirSync,
-  openSync,
   closeSync,
   fstatSync,
   readSync,
@@ -19,13 +18,22 @@ import { stagedDataManifest } from "./candidate-staging.js";
 
 const maximumReportBytes = 64 * 1024 * 1024;
 import { fingerprint } from "./stat-fingerprint.js";
+import { openRegularFile, statRegularFile } from "./regular-file.js";
 function readEvidence(root, path, bound, allowTruncation = false) {
   const full = safePath(root, path, { file: true });
-  const before = lstatSync(full);
-  if (before.nlink !== 1 || (!allowTruncation && before.size > bound))
+  const pathStat = lstatSync(full);
+  if (pathStat.nlink !== 1 || (!allowTruncation && pathStat.size > bound))
     fail("EVIDENCE_LIMIT", "Evidence requires bounded singly linked files.");
-  const fd = openSync(full, "r");
+  let opened;
   try {
+    opened = openRegularFile(full);
+  } catch {
+    fail("EVIDENCE_CHANGED", "Evidence changed during packaging.");
+  }
+  const { descriptor: fd, stat: before } = opened;
+  try {
+    if (!allowTruncation && before.size > bound)
+      fail("EVIDENCE_LIMIT", "Evidence requires bounded singly linked files.");
     if (fingerprint(before) !== fingerprint(fstatSync(fd)))
       fail("EVIDENCE_CHANGED", "Evidence changed during packaging.");
     const bytes = Buffer.alloc(Math.min(before.size, bound));
@@ -36,9 +44,15 @@ function readEvidence(root, path, bound, allowTruncation = false) {
         fail("EVIDENCE_CHANGED", "Evidence changed during packaging.");
       offset += count;
     }
+    let current;
+    try {
+      current = statRegularFile(full);
+    } catch {
+      fail("EVIDENCE_CHANGED", "Evidence changed during packaging.");
+    }
     if (
       fingerprint(before) !== fingerprint(fstatSync(fd)) ||
-      fingerprint(before) !== fingerprint(lstatSync(full))
+      fingerprint(before) !== fingerprint(current)
     )
       fail("EVIDENCE_CHANGED", "Evidence changed during packaging.");
     return { bytes, originalSize: before.size, truncated: before.size > bound };
