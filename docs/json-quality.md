@@ -7,7 +7,8 @@ The package's public API owns discovery, parsing, quality rules, formatting, nor
 Repository Python owners supply original admitted compressed/archive bytes and provenance, without implementing a second JSON checker.
 
 Use the reference Node 24.21.0 or supported Node 26 starting at 26.12.0.
-Product consumers retain Node `^22.23.3 || ^24.21.0 || >=26.12.0`; JSON tooling has its narrower declared runtime support.
+Product consumers target Node `^22.17.0 || ^24.2.0 || ^26.0.0`; JSON tooling has its narrower declared runtime support.
+The [runtime compatibility record](node-runtime-compatibility.md) separates consumer minima from development tooling.
 The ten root runtime dependencies were checked against npm's current latest tags on 2026-10-15 and already matched them.
 The source-only adoption does not republish immutable npm 1.0.3.
 
@@ -76,6 +77,6 @@ A missing archive, changed authority or incomplete native census cannot become a
 
 `check:full` requires the actual package check and a final complete-root result after product generators.
 Hosted package jobs acquire the isolated source on the reference runtime, restore the exact product matrix runtime, and run every product check.
-The Node 24 and 26 lanes additionally require identity lint, isolated consumer tests and JSON checking after those producers.
+Every lane records its product runtime, switches back to reference Node 24.21.0, then requires identity lint, isolated consumer tests and JSON checking after those producers.
 The transported candidate job requires actual packed JSON quality before uploading its tuple.
 Workflow regression tests reject removed, conditional or tolerated mandatory gates; optional reuse metadata cannot convert a failed JSON gate into successful package qualification.

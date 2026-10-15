@@ -9,7 +9,29 @@ export const nodeSupport = JSON.parse(
   readFileSync(new URL("../assets/node-support.json", import.meta.url), "utf8"),
 );
 
-/** Resolve concrete minimum/latest lanes using npm's native semver implementation. */
+// Consumer minima and the pinned tooling/performance reference are independent.
+function validatePolicy(policy) {
+  assert.equal(policy.schemaVersion, 1);
+  assert.ok(Array.isArray(policy.minimums) && policy.minimums.length > 0);
+  const families = new Set();
+  for (const minimum of policy.minimums) {
+    assert.equal(semver.valid(minimum), minimum);
+    assert.equal(semver.prerelease(minimum), null);
+    const family = semver.major(minimum);
+    assert.ok(!families.has(family), "Duplicate Node family minimum");
+    families.add(family);
+  }
+  assert.equal(semver.valid(policy.reference), policy.reference);
+  assert.equal(semver.prerelease(policy.reference), null);
+  assert.ok(
+    policy.minimums.some((minimum) =>
+      semver.satisfies(policy.reference, `^${minimum}`),
+    ),
+    "Missing admitted Node reference",
+  );
+}
+
+/** Resolve minimum/latest/reference lanes using npm's native semver implementation. */
 export function qualificationMatrix(releases, policy = nodeSupport) {
   assert.ok(
     Array.isArray(releases) && releases.length > 0 && releases.length <= 10000,
@@ -23,10 +45,10 @@ export function qualificationMatrix(releases, policy = nodeSupport) {
     assert.ok(version);
     return version;
   });
-  assert.equal(policy.schemaVersion, 1);
+  validatePolicy(policy);
   assert.ok(
-    policy.minimums.includes(policy.reference),
-    "Missing admitted Node reference",
+    versions.includes(policy.reference),
+    `Missing declared reference ${policy.reference}`,
   );
   const nodes = policy.minimums.flatMap((minimum) => {
     assert.ok(
@@ -35,7 +57,15 @@ export function qualificationMatrix(releases, policy = nodeSupport) {
     );
     const latest = semver.maxSatisfying(versions, `^${minimum}`);
     assert.ok(latest, `No supported release for ${minimum}`);
-    return latest === minimum ? [minimum] : [minimum, latest];
+    return [
+      ...new Set([
+        minimum,
+        latest,
+        ...(semver.satisfies(policy.reference, `^${minimum}`)
+          ? [policy.reference]
+          : []),
+      ]),
+    ].sort(semver.compare);
   });
   return { os: policy.platforms, node: nodes };
 }
@@ -44,8 +74,6 @@ export function qualificationMatrix(releases, policy = nodeSupport) {
 export function candidateJobNames(matrix, policy = nodeSupport) {
   if (!matrix)
     return ["pack", "consumer (windows-latest)", "consumer (ubuntu-24.04)"];
-  assert.equal(policy.schemaVersion, 1);
-  assert.ok(policy.minimums.includes(policy.reference));
   assert.deepEqual(
     matrix,
     qualificationMatrix(
@@ -68,7 +96,7 @@ export function candidateJobNames(matrix, policy = nodeSupport) {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (process.argv[2] === "--reference") {
     assert.equal(process.argv.length, 3);
-    assert.ok(nodeSupport.minimums.includes(nodeSupport.reference));
+    validatePolicy(nodeSupport);
     console.log(nodeSupport.reference);
   } else {
     assert.equal(process.argv.length, 2);

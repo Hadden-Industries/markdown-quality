@@ -11,25 +11,36 @@ const releases = [
   { version: "v28.0.0" },
   { version: "v26.13.0" },
   { version: "v26.12.0" },
+  { version: "v26.0.0" },
   { version: "v24.22.0" },
   { version: "v24.21.0" },
+  { version: "v24.2.0" },
   { version: "v22.24.0" },
   { version: "v22.23.3" },
+  { version: "v22.17.0" },
 ];
 test("qualification covers supported minima and newer patches without a future-major claim", () => {
   assert.deepEqual(qualificationMatrix(releases), {
     os: ["windows-latest", "ubuntu-24.04"],
-    node: ["22.23.3", "22.24.0", "24.21.0", "24.22.0", "26.12.0", "26.13.0"],
+    node: [
+      "22.17.0",
+      "22.24.0",
+      "24.2.0",
+      "24.21.0",
+      "24.22.0",
+      "26.0.0",
+      "26.13.0",
+    ],
   });
 });
-test("minimum/latest equality produces only one lane per major", () => {
+test("minimum/latest equality deduplicates each major while retaining the separate reference", () => {
+  const policy = { ...nodeSupport, reference: "24.2.0" };
   assert.deepEqual(
     qualificationMatrix(
-      releases.filter(
-        (r) => !["v22.24.0", "v24.22.0", "v26.13.0"].includes(r.version),
-      ),
+      policy.minimums.map((version) => ({ version: `v${version}` })),
+      policy,
     ).node,
-    ["22.23.3", "24.21.0", "26.12.0"],
+    ["22.17.0", "24.2.0", "26.0.0"],
   );
 });
 test("unordered official metadata selects the newest release with native semver", () => {
@@ -49,7 +60,42 @@ test("incomplete or invalid release metadata cannot produce successful partial q
     assert.throws(() => qualificationMatrix(data));
   }
 });
-test("declared minima satisfy package, lock and every locked dependency engine", () => {
+test("reference runtime remains qualified when it is neither a minimum nor latest", () => {
+  const policy = {
+    ...nodeSupport,
+    minimums: ["22.17.0", "24.2.0", "26.0.0"],
+    reference: "24.21.0",
+  };
+  const metadata = [
+    "22.17.0",
+    "22.23.3",
+    "24.2.0",
+    "24.21.0",
+    "24.22.0",
+    "26.0.0",
+    "26.12.0",
+  ].map((version) => ({ version: `v${version}` }));
+  assert.deepEqual(qualificationMatrix(metadata, policy).node, [
+    "22.17.0",
+    "22.23.3",
+    "24.2.0",
+    "24.21.0",
+    "24.22.0",
+    "26.0.0",
+    "26.12.0",
+  ]);
+  assert.throws(() =>
+    qualificationMatrix(
+      metadata.filter((release) => release.version !== "v24.21.0"),
+      policy,
+    ),
+  );
+  for (const reference of ["22.12.0", "25.0.0", "28.0.0", "24.21.0-rc.1"])
+    assert.throws(() =>
+      qualificationMatrix(metadata, { ...policy, reference }),
+    );
+});
+test("consumer minima satisfy the production graph while the tooling reference satisfies development engines", () => {
   const metadata = JSON.parse(
     readFileSync(new URL("../package.json", import.meta.url)),
   );
@@ -58,27 +104,44 @@ test("declared minima satisfy package, lock and every locked dependency engine",
   );
   const range = metadata.engines.node;
   assert.equal(lock.packages[""].engines.node, range);
-  assert.ok(nodeSupport.minimums.includes(nodeSupport.reference));
+  assert.equal(
+    range,
+    nodeSupport.minimums.map((minimum) => `^${minimum}`).join(" || "),
+  );
   for (const minimum of nodeSupport.minimums) {
     assert.ok(semver.satisfies(minimum, range), `Core rejects ${minimum}`);
     for (const [path, dependency] of Object.entries(lock.packages)) {
-      if (dependency.engines?.node)
+      if (!dependency.dev && dependency.engines?.node)
         assert.ok(
           semver.satisfies(minimum, dependency.engines.node),
           `${path} rejects ${minimum}`,
         );
     }
   }
+  for (const [path, dependency] of Object.entries(lock.packages))
+    if (dependency.engines?.node)
+      assert.ok(
+        semver.satisfies(nodeSupport.reference, dependency.engines.node),
+        `${path} rejects tooling reference`,
+      );
   for (const version of [
-    "22.23.2",
-    "24.20.0",
-    "26.9.0",
-    "26.10.0",
-    "26.11.0",
-    "26.11.1",
+    "22.12.0",
+    "22.16.0",
+    "24.1.0",
+    "24.2.0-rc.1",
+    "26.0.0-rc.1",
     "23.11.0",
     "25.9.0",
   ])
     assert.equal(semver.satisfies(version, range), false, version);
-  assert.equal(semver.satisfies("28.0.0", range), true);
+  assert.equal(semver.satisfies("28.0.0", range), false);
+  for (const version of [
+    "22.17.1",
+    "22.23.3",
+    "24.2.1",
+    "24.21.0",
+    "26.0.1",
+    "26.12.0",
+  ])
+    assert.ok(semver.satisfies(version, range), version);
 });

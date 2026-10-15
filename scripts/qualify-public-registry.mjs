@@ -257,10 +257,19 @@ try {
           : {}),
       }),
     );
-    npmCommand(["install", "--ignore-scripts", "--no-audit", "--no-fund"], {
-      cwd: install,
-      env: environment,
-    });
+    npmCommand(
+      [
+        "install",
+        "--engine-strict",
+        "--ignore-scripts",
+        "--no-audit",
+        "--no-fund",
+      ],
+      {
+        cwd: install,
+        env: environment,
+      },
+    );
     const lockBytes = readFileSync(join(install, "package-lock.json"));
     const lock = JSON.parse(lockBytes);
     const verifyFiles = () => {
@@ -365,7 +374,14 @@ try {
       runtimeQualification = qualifyRuntime(cli, consumer, runtimeEnvironment);
     }
     npmCommand(
-      ["ci", "--ignore-scripts", "--offline", "--no-audit", "--no-fund"],
+      [
+        "ci",
+        "--engine-strict",
+        "--ignore-scripts",
+        "--offline",
+        "--no-audit",
+        "--no-fund",
+      ],
       { cwd: install, env: environment },
     );
     assert.deepEqual(

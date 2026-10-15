@@ -7,7 +7,7 @@ import { spawnSync, spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import * as api from "../src/quality.js";
-import { consumer } from "./helpers.js";
+import { consumer, moduleMockExportOption } from "./helpers.js";
 
 test("bounded public execution preserves logical identity and rejects report overflow", async (t) => {
   assert.equal(typeof api.executeQuality, "function");
@@ -154,7 +154,7 @@ test("CLI installed metadata failures use operational exit without fabricated ve
   writeFileSync(
     script,
     `import {mock} from 'node:test';
-    const mockExports=process.versions.node.startsWith('22.')?'namedExports':'exports';
+    const mockExports=${JSON.stringify(moduleMockExportOption)};
     mock.module(${JSON.stringify(target)}, {[mockExports]:{installedToolVersions(){throw Object.assign(new Error('Missing metadata'),{code:'TOOL_METADATA'});}}});
     process.argv=[process.execPath,'cli','inspect','--root',${JSON.stringify(root)},'--unknown-option','--json'];
     await import(${JSON.stringify(cli)});`,

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runQuality } from "../src/quality.js";
-import { consumer } from "./helpers.js";
+import { consumer, moduleMockExportOption } from "./helpers.js";
 import { limits as defaults } from "../src/contracts.js";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -352,7 +352,7 @@ test("native/staging budgets and worker memory reach actual runtime calls with f
     import * as childProcess from "node:child_process";
     import * as threads from "node:worker_threads";
     const calls = [], workers = [];
-    const mockExports = process.versions.node.startsWith("22.") ? "namedExports" : "exports";
+    const mockExports = ${JSON.stringify(moduleMockExportOption)};
     mock.module("node:child_process", { [mockExports]: { spawnSync: (...args) => {
       const options = args[2];
       calls.push({ command: args[0], args: args[1], timeout: options.timeout, maxBuffer: options.maxBuffer === Infinity ? "unlimited" : options.maxBuffer });

@@ -9,7 +9,7 @@ import { createNativeStaging } from "../src/native-staging.js";
 import { resolveTool, runNative } from "../src/native-tool.js";
 import { runNativeChecks } from "../src/native-checks.js";
 import { checkProse, checkProseGroup } from "../src/prose-diagnostics.js";
-import { consumer } from "./helpers.js";
+import { consumer, moduleMockExportOption } from "./helpers.js";
 
 test("the original stdin path owns its EditorConfig boundary inside a consumer", async (t) => {
   const root = consumer(t, {
@@ -73,7 +73,7 @@ test("one admitted group performs one native check rather than per-document laun
     const native=cp.spawnSync;
     let checks=0;
     // Use the supported native option without changing the mocked behavior.
-    const mockExports=process.versions.node.startsWith('22.')?'namedExports':'exports';
+    const mockExports=${JSON.stringify(moduleMockExportOption)};
     mock.module('node:child_process',{[mockExports]:{spawnSync:(...args)=>{
       if(args[1].includes('--check'))checks++;
       return native(...args);
@@ -152,7 +152,7 @@ test("independent list and continuation rechecks preserve real findings and line
 test("both prose callers suppress an admitted literal-only native finding", () => {
   const code = `
     import {mock} from 'node:test'; import assert from 'node:assert/strict';
-    const option=process.versions.node.startsWith('22.')?'namedExports':'exports';
+    const option=${JSON.stringify(moduleMockExportOption)};
     mock.module('node:child_process',{[option]:{spawnSync:()=>({status:1,stdout:Buffer.from(JSON.stringify([{would_reformat:true,diagnostics:[{kind:'fused',line:2,excerpt:'Alpha. Beta.'}]}]))})}});
     const {checkProse,checkProseGroup}=await import('./src/prose-diagnostics.js');
     const text='\x60\x60\x60js\\nAlpha. Beta.\\n\x60\x60\x60\\n';
@@ -171,7 +171,7 @@ test("native grouping, report bounds and prose retention enforce independent byt
   const code = `
     import {mock} from 'node:test'; import assert from 'node:assert/strict'; import * as cp from 'node:child_process';
     const original=cp.spawnSync; let groups=[];
-    const option=process.versions.node.startsWith('22.')?'namedExports':'exports';
+    const option=${JSON.stringify(moduleMockExportOption)};
     mock.module('node:child_process',{[option]:{spawnSync:(exe,args,options)=>{
       if(!args.includes('--check'))return original(exe,args,options);
       groups.push(args.filter(arg=>/input-[0-9]+\\.md$/.test(arg)).length);
@@ -214,7 +214,7 @@ test("native protocol and process faults fail once, attribute no guessed results
     import * as cp from 'node:child_process';
     const native=cp.spawnSync;
     let change, calls=0;
-    const mockExports=process.versions.node.startsWith('22.')?'namedExports':'exports';
+    const mockExports=${JSON.stringify(moduleMockExportOption)};
     mock.module('node:child_process',{[mockExports]:{spawnSync:(...args)=>{
       if(!args[1].includes('--check'))return native(...args);
       calls++;

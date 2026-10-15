@@ -7,18 +7,23 @@ Public release, semver selection, registry qualification and `latest` promotion 
 The [centralized contracts guide](centralized-contracts.md) describes configuration schema 2, result schema 3 and the shared trusted qualification/profile contract.
 Local source tests do not establish hosted Windows/Linux qualification or downstream acceptance of a new tuple.
 
-Development source admits Node 22.23.3+, Node 24.21.0+, and Node 26.12.0 or newer, excluding the unsupported Node 23/25 lines and with no upper major-version bound.
+Development source targets consumer compatibility from Node 22.17.0 within Node 22, Node 24.2.0 within Node 24, and Node 26.0.0 within Node 26.
+Other major families, including future majors, are excluded until qualified.
+The [runtime compatibility record](node-runtime-compatibility.md) explains the lower bounds and distinguishes compatibility from security patch recommendations.
 The qualification matrix covers Node 22/24/26 on Windows x64 and Ubuntu 24.04 x64 with glibc.
-Each workflow resolves the declared minimum and latest stable patch of each line from official Node release metadata, collapsing equal versions.
-It fails rather than silently dropping a missing minimum.
-All lanes run source checks and real CLI/native consumer probes in root and isolated layouts, with exact formatting bytes, fenced literal preservation, convergence, local-link failure and operational-error contracts.
+Each workflow resolves the declared minimum and latest stable release of each line from official Node release metadata, collapsing equal versions.
+It additionally retains pinned reference Node 24.21.0 even when that version is neither a minimum nor latest.
+It fails rather than silently dropping a missing minimum or reference.
+All lanes run product source checks and real CLI/native consumer probes in root and isolated layouts, with exact formatting bytes, fenced literal preservation, convergence, local-link failure and operational-error contracts.
+Fresh installation and offline lockfile replay enforce package engines.
+The package workflow records the actual product runtime before switching to the reference runtime for the mandatory isolated JSON tooling checks.
 The transported lanes install the same frozen archives produced once on reference Node 24.21.0; unchanged native executables are not rebuilt for each Node version.
 Performance measurements remain on the reference runtime.
 The candidate manifest freezes the runtime policy and resolved matrix alongside archive hashes.
 Publication admission requires every matching provider job to succeed for that exact source and run attempt; release evidence retains the snapshot as `candidate.runtimePolicy` and `candidate.matrix`.
 Historical candidates without a matrix retain their original two-platform admission contract.
 Only observed passing platform evidence can establish support.
-Newer Node majors are permitted by the package metadata; they remain unqualified until tested.
+Use the latest security-patched release in a supported family for ordinary operation; the compatibility minimum is not a security recommendation.
 Published 1.0.3 retains its immutable `>=24.21.0 <25` engine declaration and Node 24.21.0 qualification.
 This source compatibility change does not republish 1.0.3 or authorize a new release; Node 22/26 consumer support requires qualification of the adopted source/archive tuple or a subsequent release.
 macOS, ARM, and musl are unqualified.

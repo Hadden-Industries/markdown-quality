@@ -2,6 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { moduleMockExportOption } from "./helpers.js";
 
 // The module mock controls only native I/O. Real Prettier and the formatting
 // decision remain under test; the existing integration suite uses real Snapper.
@@ -20,8 +21,7 @@ function observeFormatting(
     const calls = [];
     const behavior = ${JSON.stringify(behavior)};
     const replacement = ${JSON.stringify(replacement)};
-    // Node 22's native mock API predates the exports option.
-    const mockExports = process.versions.node.startsWith("22.") ? "namedExports" : "exports";
+    const mockExports = ${JSON.stringify(moduleMockExportOption)};
     mock.module(${JSON.stringify(native)}, { [mockExports]: {
       runNative(_tool, text, check = false) {
         calls.push(check ? "check" : "format");

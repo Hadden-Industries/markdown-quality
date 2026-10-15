@@ -12,7 +12,7 @@ import {
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync, spawnSync } from "node:child_process";
-import { consumer } from "./helpers.js";
+import { consumer, moduleMockExportOption } from "./helpers.js";
 import { declaredTargets } from "../scripts/declared-targets.js";
 import {
   validatePublicationContext,
@@ -116,7 +116,7 @@ test("release acquisition rejects growth beyond the caller bound after metadata 
   const reader = new URL("../scripts/release-bytes.js", import.meta.url).href;
   const code = `import {mock} from 'node:test'; import assert from 'node:assert/strict'; import * as fs from 'node:fs';
     const path=process.argv[1]; const read=fs.readFileSync;
-    const option=process.versions.node.startsWith('22.')?'namedExports':'exports';
+    const option=${JSON.stringify(moduleMockExportOption)};
     mock.module('node:fs',{[option]:{lstatSync:fs.lstatSync,readFileSync:(input)=>{fs.writeFileSync(path,'abcd'); return read(input);}}});
     const {releaseBytes}=await import(${JSON.stringify(reader)});
     assert.throws(()=>releaseBytes(path,3));`;

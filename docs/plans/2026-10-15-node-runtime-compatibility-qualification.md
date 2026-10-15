@@ -36,4 +36,18 @@ The source change is reversible through an ordinary follow-up commit.
 
 ## Results
 
-Qualification is in progress; exact results and runtime identities will be recorded here before final review.
+The derived common Windows/Linux consumer floors are **22.17.0, 24.2.0 and 26.0.0**.
+The [compatibility record](../node-runtime-compatibility.md) records the dependency and upstream-runtime reasons.
+All 158 production lock entries admit the initial dependency-only candidates, but Windows native batch staging rejects 22.13.0 and 24.0.0 because `fstat()` and `lstat()` disagree on device identity.
+Official distribution binaries reproduce failure at the immediate predecessors 22.16.0 and 24.1.0 and success at 22.17.0, 24.2.0 and 26.0.0.
+No product identity or cleanup guard is relaxed.
+
+Focused source qualification covers 160 tests at each selected floor.
+A stale positive-version fixture from the initial candidates was corrected to the selected floors; the repaired six-test runtime-policy suite passes at all three versions.
+The remaining source checks retain their original passing results for unchanged inputs.
+Node 24's older native module-mock API is handled by shared test setup, with the official 24.15 API boundary recorded.
+The packed consumer corpus now requires multi-document native staging, engine-strict installation and offline replay in both layouts.
+
+The resolved matrix retains minima, current family releases and reference 24.21.0 on both platforms.
+At the 2026-10-15 metadata observation it selects 22.17.0, 22.23.3, 24.2.0, 24.21.0, 24.22.0, 26.0.0 and 26.12.0.
+Exact committed-candidate HISEW, review and hosted delivery results are retained in the execution evidence and provider runs rather than copied into a self-referential source commit.

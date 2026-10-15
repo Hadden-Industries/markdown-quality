@@ -17,10 +17,10 @@ export function qualifyRuntime(cli, consumer, environment) {
       include: ["*.md"],
     }),
   );
-  function run(operation, name, status) {
+  function run(operation, selection, status) {
     const result = spawnSync(
       process.execPath,
-      [cli, operation, "--root", root, "--json", "--", name],
+      [cli, operation, "--root", root, "--json", "--", ...[selection].flat()],
       {
         cwd: consumer,
         env: environment,
@@ -159,10 +159,45 @@ assert.deepEqual(result.written,[]);
       );
       failures.push(fixture.name);
     }
+    // A multi-document selection exercises private native batch staging. Single
+    // document probes cannot detect Windows fstat/lstat identity regressions.
+    const grouped = [
+      {
+        name: "group-one.md",
+        source: "# One\n\nAlpha. Beta.\n",
+        expected: "# One\n\nAlpha.\nBeta.\n",
+      },
+      {
+        name: "group-two.md",
+        source: "# Two\n\nGamma. Delta.\n",
+        expected: "# Two\n\nGamma.\nDelta.\n",
+      },
+    ];
+    const names = grouped.map((fixture) => fixture.name);
+    for (const fixture of grouped)
+      writeFileSync(join(root, fixture.name), fixture.source);
+    run("check", names, 1);
+    for (const fixture of grouped)
+      assert.equal(
+        readFileSync(join(root, fixture.name), "utf8"),
+        fixture.source,
+      );
+    run("format", names, 0);
+    for (const fixture of grouped)
+      assert.equal(
+        readFileSync(join(root, fixture.name), "utf8"),
+        fixture.expected,
+      );
+    run("check", names, 0);
+    assert.deepEqual(run("format", names, 0).written, []);
     return {
       node: process.version,
       formatted,
       failures,
+      groupedDocuments: grouped.map((fixture) => ({
+        path: fixture.name,
+        sha256: createHash("sha256").update(fixture.expected).digest("hex"),
+      })),
       publicContracts:
         "Installed supported exports/schema/observer and bounded logical transport qualified",
     };

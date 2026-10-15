@@ -51,6 +51,7 @@ test("literal Node bootstrap consumers conform to their separate authority", () 
     "check.matrix",
     "check.strategy",
     "check.package",
+    "check.package",
     "check.required",
     "candidate.pack",
     "markdown-quality.qualify",
@@ -89,19 +90,23 @@ test("literal Node bootstrap consumers conform to their separate authority", () 
 });
 
 test("a changed admitted Node reference owns candidate names and all performance conditions", () => {
-  const policy = { ...nodeSupport, reference: "22.23.3" };
+  const policy = { ...nodeSupport, reference: "22.17.0" };
   const matrix = qualificationMatrix(
-    policy.minimums.map((version) => ({ version: `v${version}` })),
+    [...policy.minimums, "24.21.0"].map((version) => ({
+      version: `v${version}`,
+    })),
     policy,
   );
   assert.deepEqual(candidateJobNames(matrix, policy), [
     "pack",
     "consumer (windows-latest)",
+    "consumer (windows-latest, 24.2.0)",
     "consumer (windows-latest, 24.21.0)",
-    "consumer (windows-latest, 26.12.0)",
+    "consumer (windows-latest, 26.0.0)",
     "consumer (ubuntu-24.04)",
+    "consumer (ubuntu-24.04, 24.2.0)",
     "consumer (ubuntu-24.04, 24.21.0)",
-    "consumer (ubuntu-24.04, 26.12.0)",
+    "consumer (ubuntu-24.04, 26.0.0)",
   ]);
   for (const reference of [undefined, "missing"])
     assert.throws(() =>
@@ -398,8 +403,6 @@ function govern(text) {
   const tests = pkg.steps.find((step) => step.run === "npm run check:product");
   assert.ok(tests);
   assert.equal(tests.if, undefined);
-  const toolingCondition =
-    "startsWith(matrix.node, '24.') || startsWith(matrix.node, '26.')";
   const installJson = pkg.steps.find(
     (step) => step.run === "npm run install:json",
   );
@@ -411,18 +414,23 @@ function govern(text) {
   assert.ok(installJson);
   assert.ok(jsonCheck);
   assert.equal(installJson.if, undefined);
-  assert.equal(jsonCheck.if, toolingCondition);
+  assert.equal(jsonCheck.if, undefined);
   for (const step of [installJson, jsonCheck]) {
     assert.equal(step["continue-on-error"], undefined);
   }
   assert.ok(pkg.steps.indexOf(installJson) < pkg.steps.indexOf(tests));
   assert.ok(pkg.steps.indexOf(jsonCheck) > pkg.steps.indexOf(tests));
-  assert.equal(
-    pkg.steps.findIndex(
-      (step) => step.run === "node scripts/ci-reuse-command.js lane",
-    ) > pkg.steps.indexOf(jsonCheck),
-    true,
+  const laneIndex = pkg.steps.findIndex(
+    (step) => step.run === "node scripts/ci-reuse-command.js lane",
   );
+  const toolingRuntime = pkg.steps
+    .slice(0, pkg.steps.indexOf(jsonCheck))
+    .findLast((step) => step.uses?.startsWith("actions/setup-node@"));
+  assert.equal(toolingRuntime.with["node-version"], nodeSupport.reference);
+  assert.equal(toolingRuntime.if, undefined);
+  assert.ok(pkg.steps.indexOf(tests) < laneIndex);
+  assert.ok(laneIndex < pkg.steps.indexOf(toolingRuntime));
+  assert.ok(pkg.steps.indexOf(toolingRuntime) < pkg.steps.indexOf(jsonCheck));
   const result = required.steps.find((step) => step.id === "result");
   assert.equal(result.run, "node scripts/ci-reuse-command.js required");
   assert.equal(result.if, undefined);

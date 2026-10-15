@@ -1,9 +1,18 @@
 # Implementation decisions and evidence
 
+## Consumer Node compatibility on 2026-10-15
+
+The [runtime compatibility record](node-runtime-compatibility.md) establishes the lower-bound reasons for Node 22.17.0, Node 24.2.0 and Node 26.0.0.
+Dependency-only candidates 22.13.0 and 24.0.0 were insufficient on Windows because of inconsistent file device identities; the immediate predecessors 22.16.0 and 24.1.0 reproduce that failure.
+The identity guard remains intact, and installed qualification now exercises native batch staging as well as single documents.
+Consumer engines cover only these supported families.
+CI additionally tests the latest release in each family and preserves reference Node 24.21.0 independently for development, packing, release and performance evidence.
+Isolated JSON tooling runs on its own supported reference runtime after the product lane identity is recorded.
+
 ## JSON adoption candidate on 2026-10-15
 
 The source integrates the isolated public JSON Quality engine, complete native/archive admission, guarded source formatting, serialization identity lint and mandatory product/package/CI gates.
-The Node 26 minimum is 26.12.0; all ten root runtime dependencies already matched npm's latest versions at the 15 October registry lookup.
+That adoption selected a Node 26 minimum of 26.12.0, superseded by the compatibility qualification above; all ten root runtime dependencies already matched npm's latest versions at the 15 October registry lookup.
 Both repository release JSON documents receive ordinary checks, with no directory-wide historical exemption.
 The [JSON development guide](json-quality.md) records the exact original MPL member preservation and producer ownership.
 
@@ -61,8 +70,8 @@ Signed source `7994fdb08efa4fc391f6e035c9fff17820635b58` qualifies the Node 22/2
 That historical source's engines were `^22.23.3 || ^24.21.0 || >=26.10.0`; Node 26.10.0 was its qualified Current floor, not a claim about the first LTS version.
 [Package qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37539180714), [transported qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37539180707) and [CodeQL](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37539179834) passed for that source.
 
-Current development source raises the Node 26 floor to 26.12.0 while retaining the Node 22/24 lines.
-The historical results above do not qualify this new candidate or its updated floor; its fresh verification and hosted results have their own source identities.
+The later JSON adoption selected Node 26.12.0 while retaining the Node 22/24 lines; the compatibility qualification above subsequently separates the consumer minima from its tooling reference.
+Historical results do not qualify another candidate or its runtime floors; fresh verification and hosted results have their own source identities.
 
 Signed source `a692068a1e5c60c38d9cc17d11511c0eea0c990a` adds contribution/conduct/security guidance, issue/PR templates, Dependabot proposals, GitHub metadata and direct-source Markdown dogfooding, without a self-dependency or branch/ruleset controls.
 [Package qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37547798813), [transported qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37547798838) and [CodeQL](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37547798382) passed for that source.
