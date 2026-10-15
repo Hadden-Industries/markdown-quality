@@ -162,6 +162,15 @@ test("public qualifier rejects overlapping trusted/candidate/output roots before
   );
 });
 
+test("Linux observer retains failed qualification while waiting for descendant cleanup", () => {
+  const result = spawnSync(
+    python,
+    ["-I", "-B", "test/qualification-observer.py"],
+    { timeout: 30000, encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+});
+
 test("observer refuses delayed descendants and retains attributable cleanup failure evidence", (t) => {
   const scratch = consumer(t);
   const output = join(scratch, "observation");
@@ -209,6 +218,9 @@ test("observer refuses delayed descendants and retains attributable cleanup fail
     /Descendants did not quiesce/u,
     readFileSync(join(output, "sample-1/stderr.txt"), "utf8"),
   );
-  assert.ok(["quiescent", "pending-job-abort"].includes(report.failureCleanup));
+  assert.ok(
+    ["quiescent", "pending-job-abort"].includes(report.failureCleanup),
+    JSON.stringify(report),
+  );
   assert.equal(report.samples.length, 0);
 });

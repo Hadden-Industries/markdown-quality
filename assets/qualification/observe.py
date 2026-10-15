@@ -193,9 +193,20 @@ def run():
                 needs_abort, cleanup = True, "unknown-job-state"
         elif child is not None:
             try:
+                cleanup_deadline = time.monotonic() + 5
                 if child.poll() is None or linux_members(child.pid):
-                    os.killpg(child.pid, signal.SIGKILL)
-                child.wait(timeout=5)
+                    try:
+                        os.killpg(child.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        # The last descendant can exit between observation and signaling.
+                        pass
+                child.wait(timeout=max(0, cleanup_deadline - time.monotonic()))
+                # Waiting for the parent does not wait for its orphaned descendants.
+                while linux_members(child.pid):
+                    remaining = cleanup_deadline - time.monotonic()
+                    if remaining <= 0:
+                        break
+                    time.sleep(min(0.05, remaining))
                 cleanup = "quiescent" if not linux_members(child.pid) else "not-quiescent"
             except (OSError, subprocess.TimeoutExpired):
                 cleanup = "unknown-group-state"
