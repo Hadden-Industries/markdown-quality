@@ -19,6 +19,8 @@ markdown-quality check --root /path/to/repository
 markdown-quality check --root /path/to/repository --strict
 markdown-quality format --root /path/to/repository
 markdown-quality inspect --root /path/to/repository --json
+markdown-quality inspect-profile --root /path/to/repository --json
+markdown-quality format --stdin-request --root /path/to/repository --json
 markdown-quality check --root /path/to/repository -- "docs/literal [1].md"
 markdown-quality check --root /path/to/repository --files-json '[]'
 ```
@@ -70,5 +72,9 @@ Full, explicit and logical-document selection share the root policy, including a
 Ignore files have no Markdown policy authority.
 Use `--inventory git` to explain every tracked Markdown path under a full check.
 The public `processDocument` and `executeQuality` APIs support generated content without checkout writes.
+`format --stdin-request` exposes supplied-document formatting through bounded JSON transport.
+`inspect-profile` resolves execution controls without running document analysis or qualification.
+`markdown-quality-qualify consumer` measures a consumer against the locked producer archive and workflow tuple.
+The former `document`, qualifier `profile` and qualifier `candidate` commands are removed without aliases.
 The package ships trusted staging, a Windows/Linux observer, and a reusable workflow; see the [CI trust guide](docs/ci-trust.md).
 Source tests and workflow definitions alone do not establish hosted or consumer adoption acceptance.

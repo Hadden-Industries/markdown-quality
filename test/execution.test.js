@@ -61,16 +61,44 @@ test("logical CLI bounded JSON framing uses the public operation", (t) => {
   });
   const output = spawnSync(
     process.execPath,
-    ["src/cli.js", "document", "--root", root, "--json"],
+    ["src/cli.js", "format", "--stdin-request", "--root", root, "--json"],
     { input, encoding: "utf8", timeout: 15000 },
   );
   assert.equal(output.status, 0, output.stdout + output.stderr);
   const result = JSON.parse(output.stdout);
   assert.equal(result.document.requestId, "cli1");
+  assert.deepEqual(result.written, []);
+  assert.equal(existsSync(join(root, "new.md")), false);
   assert.equal(
     Buffer.from(result.document.contentBase64, "base64").toString(),
     "Alpha.\nBeta.\n",
   );
+});
+
+test("retired commands and incompatible stdin options fail before formatting checkout files", (t) => {
+  const original = "Alpha. Beta.\n";
+  const root = consumer(t, { "README.md": original });
+  for (const args of [
+    ["document"],
+    ["check", "--stdin-request"],
+    ["format", "--stdin-request", "--files-json", "[]"],
+  ]) {
+    const result = spawnSync(
+      process.execPath,
+      ["src/cli.js", ...args, "--root", root, "--json"],
+      { encoding: "utf8", input: "{}", timeout: 15000 },
+    );
+    assert.equal(result.status, 2, result.stdout + result.stderr);
+    assert.equal(readFileSync(join(root, "README.md"), "utf8"), original);
+  }
+  for (const command of ["profile", "candidate"]) {
+    const result = spawnSync(
+      process.execPath,
+      ["src/qualification-cli.js", command, "--root", root],
+      { encoding: "utf8", timeout: 15000 },
+    );
+    assert.equal(result.status, 2);
+  }
 });
 
 test("malformed provided logical documents cannot fall through to checkout formatting", async (t) => {
@@ -234,6 +262,38 @@ test("execution profile resolves only bounded trusted runtime declarations and f
   assert.equal(resolved.runtimes.python, "3.15.0");
   assert.equal(resolved.limits.documentDiagnostics, 1000);
   assert.equal(resolved.samples, 2);
+  const inspected = spawnSync(
+    process.execPath,
+    ["src/cli.js", "inspect-profile", "--root", root, "--json"],
+    { encoding: "utf8", timeout: 15000 },
+  );
+  assert.equal(inspected.status, 0, inspected.stdout + inspected.stderr);
+  assert.deepEqual(JSON.parse(inspected.stdout), resolved);
+  assert.equal(Object.hasOwn(JSON.parse(inspected.stdout), "passed"), false);
+  const logical = spawnSync(
+    process.execPath,
+    [
+      "src/cli.js",
+      "format",
+      "--stdin-request",
+      "--root",
+      root,
+      "--execution-profile",
+      ".markdown-quality-execution.json",
+      "--json",
+    ],
+    {
+      input: JSON.stringify({
+        path: "generated.md",
+        contentBase64: Buffer.from("Alpha. Beta.\n").toString("base64"),
+      }),
+      encoding: "utf8",
+      timeout: 15000,
+    },
+  );
+  assert.equal(logical.status, 0, logical.stdout + logical.stderr);
+  assert.deepEqual(JSON.parse(logical.stdout).written, []);
+  assert.equal(existsSync(join(root, "generated.md")), false);
   profile.checkerMs = 1;
   writeFileSync(
     join(root, ".markdown-quality-execution.json"),

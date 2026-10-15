@@ -45,7 +45,7 @@ Selected content must satisfy UTF-8 and the selected input limits.
 Failure retains original content and prevents the caller from treating returned bytes as admitted output.
 `unchanged` records checkout write admission, including a successfully processed logical document; returned content can differ.
 
-`markdown-quality document --root PATH --json` reads one JSON object from standard input with `path`, optional `requestId`, and canonical `contentBase64`.
+`markdown-quality format --stdin-request --root PATH --json` reads one JSON object from standard input with `path`, optional `requestId`, and canonical `contentBase64`.
 Its request framing is bounded to 8 MiB.
 It returns the same result schema 3 and never renames a generated file into an unrelated basename.
 Non-JavaScript callers own framing, request correlation and domain freshness, then write only admitted bytes.
