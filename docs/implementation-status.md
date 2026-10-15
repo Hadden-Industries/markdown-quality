@@ -10,8 +10,14 @@ The [JSON development guide](json-quality.md) records the exact original MPL mem
 Fresh [native run 38742809829](https://github.com/Hadden-Industries/markdown-quality/actions/runs/38742809829) passed on Windows and Linux from producer commit `5c0ea28670386d6456438061b20cc90770f9f912`.
 Its raw cargo reports contain 3,598 Linux and 3,586 Windows identical boolean `doctest` duplicates; the recipient reports remove only that redundancy and conserve every typed value, array entry, component, licence and association.
 The fresh reports pass strict JSON checks with the two exact original attribution pins.
-The candidate is frozen for `snapper-0.11.9-build.2`; its rights state remains pending independent reconciliation, and that acquisition release is not yet published.
-Final HISEW verification, reviews and authorized source delivery remain pending at this checkpoint.
+The owner separately authorized the new [native acquisition prerelease](https://github.com/Hadden-Industries/markdown-quality/releases/tag/snapper-0.11.9-build.2), published as immutable with a verified signed tag at the producer commit above.
+Both downloaded assets match their frozen hashes; GitHub release and individual asset attestations were verified.
+Original component/runtime attribution and dependency graphs remain unchanged; the manifest binds the reused original rights assessment, independently reviewed typed-report conservation and current binary/provenance reconciliation.
+Windows system DLL imports are unchanged and the Linux executable is byte-identical to its reconciled predecessor.
+HISEW full verification passed for the implementation candidate, including actual packed consumers, 14 JSON integration tests and the complete 47-physical/28-native final JSON check.
+Independent static follow-up found no remaining correction defect; the sealed security scan covered all 47 changed-path security items with no reportable finding.
+The initial full-run failures and the broad review's missing coverage-label condition remain retained; the actual integration defects and the narrow reporting gap were addressed without changing old reports or lowering required checks.
+Final delivery metadata receives the same gates before source publication; hosted push-triggered checks and exact remote readback remain separately attributable in the delivery record.
 Immutable npm 1.0.3 and its published archives are unchanged.
 
 ## Current completion state on 2026-10-07

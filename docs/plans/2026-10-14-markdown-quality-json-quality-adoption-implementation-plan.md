@@ -27,7 +27,9 @@ The implementation checkpoint is recorded in [implementation status](../implemen
 Fresh producer run 38742809829 passed both platforms; full-root checking includes 47 physical and 28 native documents after actual package production, without a release-document exemption.
 The retained performance reports were re-presented without changing their pre-existing semantic oracle hashes; original compressed preimages remain in external implementation evidence.
 Current native source-presentation preservation identifies only the two exact 94-byte MPL source members verified inside registry-SRI-checked native npm 1.0.3 archives.
-The candidate native acquisition release, independent reconciliation, final assurance and source delivery remain separate pending obligations.
+The owner subsequently authorized the new `snapper-0.11.9-build.2` acquisition prerelease; it is published immutable with a verified signed tag and verified release/asset attestations, preserving all earlier releases.
+Original dependency graphs, source/runtime attribution and Windows system imports are unchanged; original rights evidence is reused with explicit new producer/binary bindings and independently reviewed cargo-report conservation.
+Local HISEW full verification and independent static/security review completed during implementation; final metadata, source delivery and hosted checks retain their distinct candidate and evidence identities.
 
 The intended outcome is complete, attributable checking of Markdown Quality's JSON through the maintained **@hadden-industries/json-quality** package, while preserving Markdown behavior, native component and licence evidence, package provenance, and supported consumer runtimes.
 One maintained engine should own generic JSON rules; Markdown Quality should retain its domain, producer, archive and release contracts.

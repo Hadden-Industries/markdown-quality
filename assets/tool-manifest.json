@@ -51,7 +51,16 @@
   "build": {
     "runId": "38742809829",
     "workflowCommit": "5c0ea28670386d6456438061b20cc90770f9f912",
-    "rights": "pending independent reconciliation",
+    "rights": "Original component/runtime notices and dependency graphs retained from the independently reconciled 1.0.3 tuple; new report conservation reviewed independently and producer/binary bindings reconciled. Acquisition prerelease authorized separately; registry publication remains separate.",
+    "rightsReview": {
+      "priorReportSha256": "c81dc9bebbdd73935cbae26b3997bfe7ac7f40da0227824066b7f5820ec13507",
+      "priorRepackVerificationSha256": "a15199f93906e0702f6cd9f32c43e391cd17a6dbbaa4bbfc83109f052300b355",
+      "independentStaticAttempt": "6ea9827b-c00f-5432-8aa9-3a7f906c3d5f",
+      "originalTypedValuesEvidenceSha256": "603d6d542ecd768c104f54b9f48f60efec06c84565deacc7b526af4d5dfeaf5d",
+      "nativeBaselineReconciliationSha256": "929ddb7d3e010455653568b3e0ed009109755a86e1447199f5c4f32d827a02b5",
+      "systemLinkage": "Windows system DLL imports unchanged; Linux executable byte-identical to the reconciled predecessor",
+      "platformQualification": "separate mandatory gate"
+    },
     "configSha256": "3b0d128a7e3930482721ca9edca48027992caf64a6e3710d475afdb7916cb8a7",
     "rightsSupplementSha256": "b8b25eeb3db6d3a3630f4626b2854265855b32bf5a8112048438854cea3cd8ee",
     "rightsSupplement": {
