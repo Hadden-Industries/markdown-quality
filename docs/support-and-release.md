@@ -9,7 +9,7 @@ Local source tests do not establish hosted Windows/Linux qualification or downst
 
 Development source targets consumer compatibility from Node 22.17.0 within Node 22, Node 24.2.0 within Node 24, and Node 26.0.0 within Node 26.
 Other major families, including future majors, are excluded until qualified.
-The [runtime compatibility record](node-runtime-compatibility.md) explains the lower bounds and distinguishes compatibility from security patch recommendations.
+The [runtime compatibility record](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/node-runtime-compatibility.md) explains the lower bounds and distinguishes compatibility from security patch recommendations.
 The qualification matrix covers Node 22/24/26 on Windows x64 and Ubuntu 24.04 x64 with glibc.
 Each workflow resolves the declared minimum and latest stable release of each line from official Node release metadata, collapsing equal versions.
 It additionally retains pinned reference Node 24.21.0 even when that version is neither a minimum nor latest.

@@ -36,23 +36,27 @@ const [pythonMajor, pythonMinor, pythonPatch] = minimumPython
 const sha = (letter) => letter.repeat(40);
 const matrix = {
   os: ["windows-latest", "ubuntu-24.04"],
-  node: ["22.23.3", "24.21.0", "26.12.0"],
+  node: ["22.17.0", "24.2.0", "24.21.0", "26.0.0"],
 };
 const expectedJobs = [
   "matrix",
-  "probe (windows-latest, 22.23.3)",
+  "probe (windows-latest, 22.17.0)",
+  "probe (windows-latest, 24.2.0)",
   "probe (windows-latest, 24.21.0)",
-  "probe (windows-latest, 26.12.0)",
-  "probe (ubuntu-24.04, 22.23.3)",
+  "probe (windows-latest, 26.0.0)",
+  "probe (ubuntu-24.04, 22.17.0)",
+  "probe (ubuntu-24.04, 24.2.0)",
   "probe (ubuntu-24.04, 24.21.0)",
-  "probe (ubuntu-24.04, 26.12.0)",
+  "probe (ubuntu-24.04, 26.0.0)",
   "strategy",
-  "package (windows-latest, 22.23.3)",
+  "package (windows-latest, 22.17.0)",
+  "package (windows-latest, 24.2.0)",
   "package (windows-latest, 24.21.0)",
-  "package (windows-latest, 26.12.0)",
-  "package (ubuntu-24.04, 22.23.3)",
+  "package (windows-latest, 26.0.0)",
+  "package (ubuntu-24.04, 22.17.0)",
+  "package (ubuntu-24.04, 24.2.0)",
   "package (ubuntu-24.04, 24.21.0)",
-  "package (ubuntu-24.04, 26.12.0)",
+  "package (ubuntu-24.04, 26.0.0)",
   "required",
 ];
 const context = {
@@ -121,7 +125,7 @@ test("full PR qualification produces a receipt only for a complete successful la
   assert.equal(receipt.mode, "FULL");
   assert.equal(receipt.pullRequest, 7);
   assert.deepEqual(receipt.matrix, matrix);
-  assert.equal(receipt.lanes.length, 6);
+  assert.equal(receipt.lanes.length, 8);
   assert.deepEqual(receipt.jobs, expectedJobs);
   assert.deepEqual(jobNames(matrix), expectedJobs);
 });
