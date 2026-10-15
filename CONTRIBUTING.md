@@ -7,7 +7,8 @@ Vulnerabilities use the private reporting channel in [SECURITY.md](SECURITY.md),
 
 ## Development setup
 
-Use reference Node 24.21.0 and an existing stable Python interpreter at least as new as [.python-version](https://github.com/Hadden-Industries/markdown-quality/blob/main/.python-version) for explicit native asset preparation.
+Use the reference Node version in [node-support.json](https://github.com/Hadden-Industries/markdown-quality/blob/main/assets/node-support.json) and an existing stable Python interpreter at least as new as [.python-version](https://github.com/Hadden-Industries/markdown-quality/blob/main/.python-version) for explicit native asset preparation.
+Change Node selections in that policy and run `npm run sync:node`; `npm run check:node` verifies the generated declarations.
 The [support policy](docs/support-and-release.md) records the qualified source matrix and explains why published 1.0.3 still has different immutable runtime metadata.
 Do not assume an unreleased source qualification changes an installed npm release.
 
