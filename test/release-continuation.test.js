@@ -47,7 +47,7 @@ function fixture() {
         run_attempt: 1,
         head_sha: head,
         status: "completed",
-        conclusion: "success",
+        conclusion: name === "candidate / shared" ? "skipped" : "success",
         steps:
           name === "stage"
             ? [

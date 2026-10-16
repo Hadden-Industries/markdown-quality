@@ -30,11 +30,28 @@ export function releaseQualificationJobNames(matrix, policy) {
         `product / package (${os}, ${node})`,
       ]),
     ),
+    "candidate / shared",
     ...candidates.map((name) => `candidate / ${name}`),
     "security",
     "distribution",
     "qualified",
   ];
+}
+
+/** GitHub retains the separate manual-fixture branch as one inactive job. */
+export function verifyReleaseQualificationJob(run, job) {
+  assert.equal(job.status, "completed");
+  const inactive = job.name === "candidate / shared";
+  assert.equal(
+    job.conclusion,
+    inactive ? "skipped" : "success",
+    `Unexpected release gate result: ${job.name}`,
+  );
+  if (inactive)
+    assert.deepEqual(job.steps, [], "Inactive fixture branch executed steps");
+  assert.equal(job.head_sha, run.head_sha);
+  assert.equal(job.run_id, run.id);
+  assert.equal(job.run_attempt, run.run_attempt);
 }
 
 /** Reject omitted, skipped, duplicate, stale-attempt and wrong-source gate evidence. */
@@ -46,11 +63,5 @@ export function verifyReleaseQualificationJobs(run, jobs, release) {
   assert.equal(jobs.total_count, expected.length, "Incomplete release gates");
   assert.equal(jobs.jobs.length, expected.length, "Truncated release gates");
   assert.deepEqual(jobs.jobs.map((job) => job.name).sort(), expected.sort());
-  for (const job of jobs.jobs) {
-    assert.equal(job.status, "completed");
-    assert.equal(job.conclusion, "success", `Release gate failed: ${job.name}`);
-    assert.equal(job.head_sha, run.head_sha);
-    assert.equal(job.run_id, run.id);
-    assert.equal(job.run_attempt, run.run_attempt);
-  }
+  for (const job of jobs.jobs) verifyReleaseQualificationJob(run, job);
 }

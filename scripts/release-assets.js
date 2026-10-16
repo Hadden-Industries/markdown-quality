@@ -6,6 +6,7 @@ import { candidateJobNames } from "./node-matrix.js";
 import {
   releaseQualificationJobNames,
   releaseQualificationWorkflow,
+  verifyReleaseQualificationJob,
 } from "./release-qualification.js";
 import { registryJobNames, registryWorkflow } from "./release-qualification.js";
 import { verifyReleaseAcceptance } from "./release-acceptance.js";
@@ -184,6 +185,10 @@ export function verifyProvider(provider, expected) {
   for (const name of expected.jobs) {
     const matches = jobs.jobs.filter((j) => j.name === name);
     assert.equal(matches.length, 1, "Missing or duplicate required job");
+    if (expected.workflow === releaseQualificationWorkflow) {
+      verifyReleaseQualificationJob(run, matches[0]);
+      continue;
+    }
     assert.equal(matches[0].status, "completed");
     assert.equal(matches[0].conclusion, "success");
     assert.equal(String(matches[0].run_id), expected.run);

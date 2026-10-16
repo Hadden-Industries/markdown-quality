@@ -93,8 +93,10 @@ function fixture(t, current = false) {
           name,
           run_id: +run,
           run_attempt: 1,
+          head_sha: source,
           status: "completed",
-          conclusion: "success",
+          conclusion: name === "candidate / shared" ? "skipped" : "success",
+          steps: [],
         })),
       },
     };
@@ -205,6 +207,7 @@ function fixture(t, current = false) {
           `product / package (${os}, ${node})`,
         ]),
       ),
+      "candidate / shared",
       "candidate / pack",
       ...matrix.os.flatMap((os) =>
         matrix.node.map((node) =>

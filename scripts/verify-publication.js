@@ -89,13 +89,6 @@ export function verifyPublication({
   assert.equal(run.head_sha, artifactSource);
   assert.equal(run.status, "completed");
   assert.equal(run.conclusion, "success");
-  for (const job of jobs.jobs) {
-    assert.equal(job.status, "completed");
-    assert.equal(job.conclusion, "success");
-    assert.equal(job.head_sha, artifactSource);
-    assert.equal(job.run_id, run.id);
-    assert.equal(job.run_attempt, run.run_attempt);
-  }
   const manifestBytes = bytes(
     join(directory, "release-manifest.json"),
     1_048_576,

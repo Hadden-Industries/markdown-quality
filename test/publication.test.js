@@ -51,6 +51,7 @@ const releaseJobNames = [
       `product / package (${os}, ${node})`,
     ]),
   ),
+  "candidate / shared",
   "candidate / pack",
   ...runtimeMatrix.os.flatMap((os) =>
     runtimeMatrix.node.map((node) =>
@@ -156,7 +157,8 @@ function fixture(t) {
         name,
         head_sha: source,
         status: "completed",
-        conclusion: "success",
+        conclusion: name === "candidate / shared" ? "skipped" : "success",
+        steps: [],
         run_id: 123,
         run_attempt: 1,
       })),
@@ -191,6 +193,27 @@ function fixture(t) {
 test("exact qualified opaque tuple is admitted without extraction or execution", (t) => {
   const { input } = fixture(t);
   assert.equal(verifyPublication(input).version, "1.0.0");
+});
+test("the hosted inactive fixture branch must be present, skipped and unexecuted", (t) => {
+  const { input } = fixture(t);
+  const job = input.jobs.jobs.find(({ name }) => name === "candidate / shared");
+  assert.equal(verifyPublication(input).version, "1.0.0");
+  for (const conclusion of ["success", "failure", "cancelled", null]) {
+    job.conclusion = conclusion;
+    assert.throws(() => verifyPublication(input));
+  }
+  job.conclusion = "skipped";
+  job.steps = [{ name: "Unexpected execution", conclusion: "success" }];
+  assert.throws(() => verifyPublication(input));
+  job.steps = [];
+  job.run_attempt = 2;
+  assert.throws(() => verifyPublication(input));
+  job.run_attempt = 1;
+  job.name = "candidate / unrelated";
+  assert.throws(() => verifyPublication(input));
+  input.jobs.jobs = input.jobs.jobs.filter((item) => item !== job);
+  input.jobs.total_count--;
+  assert.throws(() => verifyPublication(input));
 });
 test("transported candidate success alone cannot authorize release effects", (t) => {
   const { input } = fixture(t);
