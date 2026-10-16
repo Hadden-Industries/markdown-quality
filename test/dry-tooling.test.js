@@ -62,6 +62,7 @@ test("common publication controls decode supplied environments and revalidate mu
       "RECOVERY_RUN",
       "RECOVERY_ATTEMPT",
       "RECOVERY_ORIGINS_SHA",
+      "STAGING_PHASE",
     ].map((key, index) => [key, String(index)]),
   );
   assert.deepEqual(publicationContext(env), {
@@ -76,6 +77,7 @@ test("common publication controls decode supplied environments and revalidate mu
     recoveryRun: "8",
     recoveryAttempt: "9",
     recoveryOriginsSha: "10",
+    phase: "11",
   });
   const context = {
     repository: "Hadden-Industries/markdown-quality",

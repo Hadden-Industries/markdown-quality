@@ -86,7 +86,7 @@ The public alpha.2 archives remain immutable historical delivery evidence and ar
 The packer normalizes the Linux npm member's executable mode with Python tarfile, verifies all member bytes are unchanged, and recomputes the final archive integrity.
 Qualify the exact transported release archives on both platforms, rather than each platform's independently generated package.
 The unpublished private alpha.1 candidate and all rejected attempts remain historical evidence.
-The current supported path is the [deliberate release operation](release-operations.md).
+The current supported path is the [deliberate release operation](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/release-operations.md).
 Ordinary direct-main development remains available after local tests.
 A manual release qualification composes fresh product, JSON, architecture, transported matrix, performance, exact-source CodeQL, actual recipient audit and distribution SBOM gates.
 Ordinary CI success alone cannot authorize staging.
