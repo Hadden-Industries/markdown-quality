@@ -1,12 +1,130 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import assert from "node:assert/strict";
 import test from "node:test";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   reconcileNativeSbom,
   reconcileMergedSbom,
   verifyRecipientSbom,
   bindCoreSbom,
+  bindNativeSbom,
+  bindRecipientSbom,
 } from "../scripts/distribution-sbom.js";
+
+test("recipient URL binding conserves native inventory and refuses unrelated paths or identities", () => {
+  const directory = resolve("candidate space #%");
+  const release = {
+    version: "1.0.0",
+    archives: ["core", "win32-x64"].map((name) => ({
+      name,
+      package: `@example/${name}`,
+      filename: `${name}.tgz`,
+      integrity: "sha512-" + Buffer.alloc(64, 1).toString("base64"),
+    })),
+  };
+  const original = {
+    bomFormat: "CycloneDX",
+    components: release.archives.map((archive) => ({
+      name: archive.package,
+      version: release.version,
+      hashes: [{ alg: "SHA-512", content: "01".repeat(64) }],
+      externalReferences: [
+        {
+          type: "distribution",
+          url: `file:${join(directory, archive.filename)}`,
+        },
+      ],
+    })),
+    dependencies: [{ ref: "recipient", dependsOn: ["core", "win32-x64"] }],
+  };
+  const expected = structuredClone(original);
+  for (const [index, archive] of release.archives.entries())
+    expected.components[index].externalReferences[0].url = pathToFileURL(
+      join(directory, archive.filename),
+    ).href;
+  assert.deepEqual(
+    bindRecipientSbom(
+      structuredClone(original),
+      release,
+      "win32-x64",
+      directory,
+    ),
+    expected,
+  );
+  for (const mutate of [
+    (bom) => {
+      bom.components[0].hashes[0].content = "02".repeat(64);
+    },
+    (bom) => {
+      bom.components[0].externalReferences[0].url += ".other";
+    },
+    (bom) => {
+      bom.components[0].externalReferences.push({
+        ...bom.components[0].externalReferences[0],
+      });
+    },
+    (bom) => {
+      bom.components.pop();
+    },
+  ]) {
+    const invalid = structuredClone(original);
+    mutate(invalid);
+    assert.throws(() =>
+      bindRecipientSbom(invalid, release, "win32-x64", directory),
+    );
+  }
+});
+
+test("native archive PURLs encode namespace, package and version components", () => {
+  const sha256 = "a".repeat(64);
+  const bom = {
+    metadata: { component: { "bom-ref": "native" } },
+    components: [
+      {
+        type: "library",
+        name: "crate",
+        version: "1.0.0",
+        purl: "pkg:cargo/crate@1.0.0",
+      },
+    ],
+  };
+  const result = bindNativeSbom(bom, {
+    archive: {
+      name: "win32-x64",
+      package: "@example/native",
+      version: "1.0.0+build",
+      sha256,
+    },
+    native: {
+      platforms: { "win32-x64": { sha256 } },
+      source: { commit: "source" },
+    },
+    embedded: { packages: [{ name: "crate", version: "1.0.0" }] },
+    inventory: {
+      binarySha256: sha256,
+      packages: [
+        {
+          name: "crate",
+          version: "1.0.0",
+          license: "MIT",
+          sourceArchiveSha256: sha256,
+          sourceArchiveUrl: "https://example.test/crate",
+        },
+      ],
+    },
+    build: {
+      binarySha256: sha256,
+      source: "source",
+      rust: "rustc 1.90.0 (example)",
+      rustRuntimeLicenseInputs: [],
+    },
+  });
+  assert.equal(
+    result.metadata.component.purl,
+    "pkg:npm/%40example/native@1.0.0%2Bbuild",
+  );
+});
 
 test("bundled SBOM coverage rejects missing, substituted and unexplained components", () => {
   const archive = {

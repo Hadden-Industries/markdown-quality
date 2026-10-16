@@ -13,8 +13,20 @@ export function stageBundledDependencies(root, core, metadata) {
   assert.deepEqual(metadata.bundleDependencies, ["@eslint/markdown"]);
   const lockBytes = readOwned(root, "package-lock.json");
   const lock = JSON.parse(lockBytes);
-  // The original producer manifest and lock are the native npm ci inputs.
-  writeFileSync(join(core, "package.json"), readOwned(root, "package.json"));
+  // The original lock remains npm's integrity authority. Limit this temporary
+  // installation to the declared bundle roots: unbundled runtime packages are
+  // installed separately by recipients and need not be unpacked here.
+  const acquisition = JSON.parse(readOwned(root, "package.json"));
+  acquisition.dependencies = Object.fromEntries(
+    metadata.bundleDependencies.map((name) => [
+      name,
+      acquisition.dependencies[name],
+    ]),
+  );
+  delete acquisition.devDependencies;
+  delete acquisition.optionalDependencies;
+  delete acquisition.bundleDependencies;
+  writeFileSync(join(core, "package.json"), JSON.stringify(acquisition) + "\n");
   writeFileSync(join(core, "package-lock.json"), lockBytes);
   npmCommand(
     [
@@ -132,7 +144,7 @@ export function stageBundledDependencies(root, core, metadata) {
     roots: metadata.bundleDependencies,
     sourceLockSha256: sha256(lockBytes),
     acquisition:
-      "npm ci --offline --ignore-scripts --omit=dev --omit=optional; native lock integrity admission",
+      "Declared bundle roots only; npm ci --offline --ignore-scripts --omit=dev --omit=optional with the unchanged producer lock; native integrity admission",
     supplementalNotice: {
       path: "LICENSES/MIT-format.txt",
       source:

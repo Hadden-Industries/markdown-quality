@@ -8,6 +8,56 @@ import { join } from "node:path";
 import { consumer } from "./helpers.js";
 import { npmCommand } from "../scripts/commands.js";
 
+async function fixtureServer(t, source, args = []) {
+  const server = spawn(
+    process.execPath,
+    ["--input-type=module", "-e", source, ...args],
+    {
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  let diagnostic = "";
+  server.stderr.on("data", (bytes) => {
+    diagnostic = (diagnostic + bytes).slice(-2000);
+  });
+  // Observe completion before any asynchronous work. An already-exited child
+  // will never emit a second exit when an after hook later calls kill().
+  const closed = new Promise((resolve) => server.once("close", resolve));
+  t.after(async () => {
+    server.kill();
+    await closed;
+  });
+  const startup = new AbortController();
+  const deadline = setTimeout(() => startup.abort(), 5000);
+  try {
+    const [port] = await Promise.race([
+      once(server.stdout, "data", { signal: startup.signal }),
+      closed.then((code) => {
+        throw new Error(`Registry fixture exited (${code}): ${diagnostic}`);
+      }),
+      once(server, "error", { signal: startup.signal }).then(([error]) => {
+        throw error;
+      }),
+    ]);
+    assert.match(String(port), /^\d+$/u);
+    return port;
+  } finally {
+    clearTimeout(deadline);
+    startup.abort();
+  }
+}
+
+test("a registry startup failure reports its diagnostic and cleanup completes", async (t) => {
+  await assert.rejects(
+    fixtureServer(
+      t,
+      'console.error("fixture startup failure"); process.exit(7)',
+    ),
+    /Registry fixture exited \(7\): fixture startup failure/u,
+  );
+});
+
 test("a stalled registry read retries within the unchanged install deadline", async (t) => {
   const root = consumer(t),
     fixture = join(root, "fixture"),
@@ -22,12 +72,9 @@ test("a stalled registry read retries within the unchanged install deadline", as
     npmCommand(["pack", "--json", "--ignore-scripts"], { cwd: fixture }),
   );
   const archive = (Array.isArray(packed) ? packed : Object.values(packed))[0];
-  const server = spawn(
-    process.execPath,
-    [
-      "--input-type=module",
-      "-e",
-      `
+  const port = await fixtureServer(
+    t,
+    `
     import http from "node:http";
     import { readFileSync, writeFileSync } from "node:fs";
     const attempts = {};
@@ -49,16 +96,8 @@ test("a stalled registry read retries within the unchanged install deadline", as
     });
     server.listen(0, "127.0.0.1", () => process.stdout.write(String(server.address().port)));
   `,
-      join(fixture, archive.filename),
-      join(root, "requests"),
-    ],
-    { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] },
+    [join(fixture, archive.filename), join(root, "requests")],
   );
-  t.after(async () => {
-    server.kill();
-    await once(server, "exit");
-  });
-  const [port] = await once(server.stdout, "data");
   writeFileSync(
     join(install, "package.json"),
     JSON.stringify({

@@ -14,7 +14,13 @@ export function native(command, args, options = {}) {
   });
   if (result.error || result.status !== 0) {
     const error = new Error(
-      `${command} failed: ${String(result.stderr ?? result.error).slice(0, 2000)}`,
+      `${command} failed (status=${result.status}, signal=${result.signal}): ${[
+        result.error?.message,
+        result.stderr?.slice(-1000),
+        result.stdout?.slice(-1000),
+      ]
+        .filter(Boolean)
+        .join("\n")}`,
     );
     error.status = result.status;
     throw error;

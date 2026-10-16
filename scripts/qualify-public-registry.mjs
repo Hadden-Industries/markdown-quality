@@ -20,6 +20,7 @@ import { verifyReleaseProvenance } from "./provenance.js";
 import { validatePublicationOrigins } from "./publication-origins.js";
 import { waitForRegistryIntegrity } from "./wait-registry-integrity.js";
 import { qualifyRuntime } from "./qualify-runtime.js";
+import { bindRecipientSbom } from "./distribution-sbom.js";
 
 const { values, positionals } = parseArgs({
   options: {
@@ -290,12 +291,30 @@ try {
       });
       // Preserve all native evidence even when findings exist. The separate
       // release security gate admits the audit; a consumer smoke test does not.
+      const nativeSbom = npmCommand(["sbom", "--sbom-format=cyclonedx"], {
+        cwd: install,
+        env: environment,
+      });
+      if (archives)
+        writeFileSync(
+          join(security, `${layout}-native-sbom.cdx.json`),
+          nativeSbom,
+          {
+            flag: "wx",
+          },
+        );
       writeFileSync(
         join(security, `${layout}-sbom.cdx.json`),
-        npmCommand(["sbom", "--sbom-format=cyclonedx"], {
-          cwd: install,
-          env: environment,
-        }),
+        archives
+          ? JSON.stringify(
+              bindRecipientSbom(
+                JSON.parse(nativeSbom),
+                expected,
+                platform,
+                archives,
+              ),
+            ) + "\n"
+          : nativeSbom,
         { flag: "wx" },
       );
       writeFileSync(join(security, `${layout}-package-lock.json`), lockBytes, {

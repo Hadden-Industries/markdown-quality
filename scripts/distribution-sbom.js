@@ -2,6 +2,8 @@
 /** Repository-specific coverage reconciliation after native CycloneDX validation. */
 import assert from "node:assert/strict";
 import { isDeepStrictEqual } from "node:util";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 /** Reconcile every native core component against exact shipped package metadata. */
 export function bindCoreSbom(bom, { archive, inventory }) {
@@ -213,6 +215,32 @@ export function verifyRecipientSbom(bom, release, platform) {
   }
 }
 
+/** Bind npm's local tarball paths to valid file URLs after exact archive checks. */
+export function bindRecipientSbom(bom, release, platform, archives) {
+  verifyRecipientSbom(bom, release, platform);
+  for (const archive of release.archives.filter(
+    ({ name }) => name === "core" || name === platform,
+  )) {
+    const component = bom.components.find(
+      ({ name }) => name === archive.package,
+    );
+    const references = component.externalReferences?.filter(
+      ({ type }) => type === "distribution",
+    );
+    assert.equal(references?.length, 1, "Ambiguous recipient distribution");
+    const path = join(archives, archive.filename);
+    // npm emits its resolved filesystem spec verbatim, including Windows
+    // backslashes. Admit only the exact already-verified local archive path.
+    assert.equal(
+      references[0].url,
+      `file:${path}`,
+      "Recipient distribution is not the transported archive",
+    );
+    references[0].url = pathToFileURL(path).href;
+  }
+  return bom;
+}
+
 /** Require every embedded runtime crate; build-only dependencies are not distribution claims. */
 export function reconcileNativeSbom(bom, embedded) {
   assert.ok(Array.isArray(bom.components));
@@ -307,7 +335,7 @@ export function bindNativeSbom(
     type: "application",
     name: archive.package,
     version: archive.version,
-    purl: `pkg:npm/${archive.package.replace("@", "%40")}@${archive.version}`,
+    purl: `pkg:npm/${archive.package.split("/").map(encodeURIComponent).join("/")}@${encodeURIComponent(archive.version)}`,
     hashes: [{ alg: "SHA-256", content: archive.sha256 }],
     licenses: [{ expression: "AGPL-3.0-only" }],
   });

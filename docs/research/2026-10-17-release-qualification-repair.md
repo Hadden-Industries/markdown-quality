@@ -90,3 +90,54 @@ After the focused repairs, actual packed JSON qualification passed; final full v
 
 The unanchored `__pycache__/` ignore rule covers Python bytecode caches at every depth.
 The observed `scripts/__pycache__/qualify-performance.cpython-315.pyc` was untracked; no committed file needed removal.
+
+## Hosted follow-up: offline bundle acquisition
+
+The first exact-commit manual run, `38973289280` at `994b660ffe163989fec47e0b1ea27edc1f120049`, retained a further Windows Node 24.22.0 failure: native offline `npm ci` in bundle staging exceeded the unchanged 120000 ms deadline (120140 ms observed).
+This is separate from the original stalled registry read; offline acquisition cannot be repaired by network retry settings.
+The staging manifest unnecessarily requested every production dependency, although the archive bundles only the `@eslint/markdown` closure.
+The revised staging manifest requests only that declared root while retaining the original complete producer lockfile, native npm integrity admission, fixed override, disabled scripts and offline mode.
+The final consumer manifest still declares every original runtime dependency; the existing actual archive, root/isolated recipient, audit, SBOM and inventory gates remain mandatory.
+A focused native probe installed 79 packages including KaTeX 0.19.0 in 812 ms; it did not install unrelated ESLint, Prettier or Ajv.
+The new regression test checks that exclusion, the unchanged lock bytes and preservation of the complete final consumer dependencies.
+Hosted qualification of this follow-up remains a separate required result; the earlier failed run is not a pass.
+
+## Hosted follow-up: test lifecycle and SBOM interoperability
+
+The same run stopped older Windows product lanes after the native tests and reached the existing ten-minute suite deadline without reporting the registry fixture result.
+An isolated Node 22.13.0 distribution, verified against the official SHA-256 manifest, passed the stalled-read fixture both alone and during a diagnostic full-suite invocation.
+The hosted hang therefore remains a separate confirmation obligation.
+A minimized child-process probe did establish a cleanup defect: registering an exit listener after the child has already exited leaves cleanup waiting indefinitely.
+The fixture now captures completion immediately, bounds startup to five seconds, reports startup stderr and tests premature exit explicitly.
+The actual install recovery still has its original thirty-second fixture deadline and per-representation stalled-read assertions.
+The normal suite deadline and production install deadline are unchanged.
+The diagnostic full-suite invocation was not full verification: its shorter per-file diagnostic timeout interrupted packaging, and it omitted the approved Python environment; a concurrent source edit also invalidated architecture snapshot identity.
+Only the subsequent frozen-candidate native full profile can establish that result.
+
+The exact-source CodeQL gate correctly rejected one incomplete string-sanitization result in the native package PURL builder.
+The builder now encodes each namespace/name segment and the version with the native URI encoder, retaining slash separators and scoped-package identity.
+This repairs the representation without suppressing the finding or relaxing the zero-result gate; a fresh hosted CodeQL result remains required.
+
+Native npm CycloneDX output copied Windows resolved filesystem specs such as `file:D:\\a\\...` verbatim into distribution URLs.
+The strict CycloneDX 1.5 validator rejected those backslashes.
+Inspection of [npm's native serializer](https://github.com/npm/cli/blob/latest/lib/utils/sbom-cyclonedx.js) confirms that it emits `node.resolved` directly.
+Native probes showed that forward-slash and file-URL input spellings still produce Windows paths; percent-encoded spaces also prevented npm installation.
+The correction therefore leaves npm installation and its raw SBOM intact, then binds only the core and active native archive references to file URLs using Node's `pathToFileURL`.
+Before that conversion, package/version/SHA-512 identity and the exact transported archive path must match; missing, duplicated or substituted references fail.
+This follows the [file URI syntax and encoding boundary](https://www.rfc-editor.org/rfc/rfc8089.html), with no component, license, hash or dependency-edge removal.
+Both failed Windows recipient reports from the hosted run passed native CycloneDX validation after replaying this binding against their exact candidate manifest.
+Native command failures now expose bounded stdout as well as stderr, because CycloneDX writes its validation diagnosis to stdout.
+
+## Hosted performance and artifact retention
+
+Both performance jobs in run `38973289280` passed the unchanged limits and full parity checks.
+The six Linux OwlAPI observations had a maximum of 17290.80 ms and peak process-tree memory of 482848768 bytes; WebVOWL had a maximum of 12656.43 ms and peak memory of 417710080 bytes.
+These are observed finite-sample results, not population percentile estimates.
+The overall release qualification still failed on the independent product, security and distribution gates above.
+
+The owner's artifact question repeats the earlier preference to keep diagnostic text in logs and concise job summaries.
+GitHub supports [artifacts for retained files and job handoff](https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts) and [job summaries for readable results](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary); it does not require a downloadable document for each check.
+This repository's collector does consume exact package archives, qualification records and security/SBOM evidence, so those uses require a file contract.
+However, the Linux performance upload also contained 231389341 bytes of copied OwlAPI/WebVOWL input trees that the collector never reads; it only retains top-level performance files.
+That unnecessary retention should be removed in a scoped evidence-contract follow-up, applying the existing [compact evidence design](../plans/compact-qualification-evidence.md).
+This repair does not redesign artifact retention or replace machine-consumed evidence with log scraping.
