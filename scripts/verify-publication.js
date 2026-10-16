@@ -11,7 +11,10 @@ import {
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { planPublicationOrigins } from "./publication-origins.js";
-import { candidateJobNames } from "./node-matrix.js";
+import {
+  releaseQualificationWorkflow,
+  verifyReleaseQualificationJobs,
+} from "./release-qualification.js";
 
 const repository = "Hadden-Industries/markdown-quality";
 const digest = (bytes, algorithm = "sha256") =>
@@ -20,13 +23,22 @@ const bytes = (path, maximum) =>
   releaseBytes(path, maximum, "Expected bounded regular release input");
 const json = (path) => JSON.parse(bytes(path, 1_048_576).toString("utf8"));
 
-export function verifyCandidateContext(run, context) {
+/** Admit only a completed manual release qualification; ordinary CI is insufficient. */
+export function verifyReleaseQualificationContext(run, context) {
   validatePublicationContext(context);
   assert.match(String(context.runId), /^[1-9]\d{0,15}$/u);
   assert.equal(String(run.id), String(context.runId));
   assert.equal(run.repository.full_name, repository);
-  assert.equal(run.event, "push");
-  assert.equal(run.path, ".github/workflows/candidate.yml");
+  assert.equal(
+    run.event,
+    "workflow_dispatch",
+    "Require manual release qualification",
+  );
+  assert.equal(
+    run.path,
+    releaseQualificationWorkflow,
+    "Require manual release qualification",
+  );
   assert.equal(run.head_branch, "main");
   assert.equal(run.status, "completed");
   assert.equal(run.conclusion, "success");
@@ -48,7 +60,7 @@ export function verifyPublication({
   context,
   previous,
 }) {
-  const candidate = verifyCandidateContext(run, context);
+  const candidate = verifyReleaseQualificationContext(run, context);
   validatePublicationContext(context);
   assert.match(context.runId, /^[1-9]\d{0,15}$/u);
   assert.match(manifestSha, /^[a-f0-9]{64}$/u);
@@ -69,8 +81,8 @@ export function verifyPublication({
   assert.equal(branches.branch_policies[0].type, "branch");
   assert.equal(String(run.id), context.runId);
   assert.equal(run.repository.full_name, repository);
-  assert.equal(run.event, "push");
-  assert.equal(run.path, ".github/workflows/candidate.yml");
+  assert.equal(run.event, "workflow_dispatch");
+  assert.equal(run.path, releaseQualificationWorkflow);
   assert.equal(run.head_branch, "main");
   const artifactSource = candidate.source;
   assert.match(artifactSource, /^[a-f0-9]{40}$/u);
@@ -98,16 +110,7 @@ export function verifyPublication({
     );
     assert.deepEqual(release.runtimePolicy, json(runtimePolicyPath));
   }
-  const expectedJobs = candidateJobNames(
-    release.qualificationMatrix,
-    release.runtimePolicy,
-  );
-  assert.equal(jobs.total_count, expectedJobs.length);
-  assert.equal(jobs.jobs.length, expectedJobs.length);
-  assert.deepEqual(
-    jobs.jobs.map((job) => job.name).sort(),
-    expectedJobs.sort(),
-  );
+  verifyReleaseQualificationJobs(run, jobs, release);
   const metadata = json(join(root, "package.json"));
   assert.match(metadata.version, /^[1-9]\d*\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u);
   assert.equal(metadata.name, "@hadden-industries/markdown-quality");

@@ -794,3 +794,54 @@ Also outside scope: mandatory PRs, recruiting another maintainer solely for appr
 The purpose anchor remains quick ordinary development plus deliberate, verifiable release delivery.
 If a proposed control creates routine development friction without improving an identified release boundary, simplify or replan it.
 If an apparent simplification removes a required gate, provenance check, owner-presence boundary, or recovery guarantee, reject it.
+
+## 16. Implementation record, 2026-10-16
+
+The signed plan/research checkpoint is commit 92fc7a01ae46afbfa17a6ee86ec1419fc5f33c2c, before executable changes.
+The active R2 HISEW execution is 7b2e5aca-3c7d-4c34-bef8-bfa1fbabb0dd.
+This section records implementation observations without replacing the accepted requirements or declaring release completion.
+
+OPEN-010's runtime mismatch was reconciled through the separately authorized maintenance operation.
+The current selected runtime is dev26, release 5e9c179ddb884058731f1b44344b2e3e990ebbd738434f18e4768ba3cb8709e0.
+A real matching Stop hook at 2026-10-16T18:34:39Z bound this session and release and correctly blocked handoff for missing final verification.
+That is integration evidence, not a passing verification receipt.
+SessionStart activation remains unobserved and is not claimed.
+
+The current source keeps publish.yml for stage-only preparation and adds separate manual release-qualification.yml, release-registry.yml, github-release.yml and promote-release.yml boundaries.
+Public qualification and archival are separate runs so the archival writer can require completed terminal registry evidence instead of treating an in-progress caller as completed.
+The owner attaches digest-bound public review and pilot-acceptance records to the signed-tag draft; private substantive reports remain in restricted evidence storage.
+This avoids a self-referential source commit while preserving independent review, SemVer, retention, consumer and restoration decisions.
+Historical schema-1 release evidence remains readable, while new archival writes require the current schema-2 contract.
+
+Native npm 12.2.0 credential-free dry runs accepted each existing frozen tarball with unchanged SHA-512 integrity.
+The dry-run-only force option bypassed the already published version check and is absent from production staging.
+No real stage, owner approval or publication was performed.
+Actual stage provenance and approval retention remain a first-authorized-release obligation under OPEN-001/002.
+
+Syft 1.54.1 and CycloneDX CLI 0.33.1 were pinned by source and actual release-asset hashes, with Apache-2.0/NOTICE review for unmodified analysis-tool use.
+The tools are not redistributed with Markdown Quality.
+Actual PE/ELF scans matched 213 Windows and 212 Linux embedded runtime crates, excluding build-only crates.
+The actual three package inventories passed native CycloneDX validation and hierarchical composition, including component/rights/edge conservation checks.
+Integration exposed and repaired the CLI response-file interpretation of an at-sign group argument and scanner host paths in known file components.
+The complete recipient evidence set still requires actual hosted Windows and Linux runs; local Windows observations are not relabelled as Linux evidence.
+Tool licensing evidence does not claim transitive redistribution clearance for analysis tools that are not shipped.
+
+The fresh clean-recipient audit of the retained 1.0.3 tuple found GHSA-238p-pmpm-9mq7 through KaTeX, with four low-severity package audit entries describing the same advisory chain.
+The existing repository-only override does not remediate consumer resolution.
+The implemented automated release gate refuses findings at every severity; no implicit low-severity waiver is introduced.
+Consumer-wide remediation or a concrete independently reviewed disposition remains necessary before a release can pass that gate.
+This is a release blocker exposed by the new assurance boundary, not a claim that local product tests failed.
+
+Independent consolidated review, final HISEW full verification, exact source delivery, remote configuration readback and an authorized real release rehearsal remain distinct evidence checkpoints.
+Consolidated code review and the native security diff scan completed; the security scan identified an exact-source CodeQL findings gate defect.
+The implementation now rejects any finding in the selected analysis or SARIF instead of using the current main alert state.
+Review also repaired minimum-Node provenance tooling, retained-core continuation, unknown-response archival and omitted-prior-attempt replay admission.
+The final narrow repair review found no remaining defects in its scope; 143 focused release/workflow tests passed.
+The history gate examines every other run regardless of dispatch order, excludes proven effect-free history, and stops for missing effect evidence or an active producer.
+The original staging journal remains unchanged and public qualification supplies a separately bound reconciliation record.
+
+Live GitHub readback confirms read-only default workflow permissions, disabled Actions PR approvals, and exactly main as the deployment branch for npm-publication, github-release and npm-promotion.
+Immutable releases remain enabled.
+npm requested a fresh security-key check before exposing publishing settings; package restrictions and publisher connection changes remain pending that authentication and the accepted first-use prerequisites.
+No npm account/configuration change is claimed from the source implementation or GitHub environment creation.
+The version remains 1.0.3 during implementation; no new package version, release, consumer migration or stable promotion is authorized by this record.

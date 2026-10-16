@@ -5,7 +5,7 @@ import { appendFileSync, lstatSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validatePublicationOrigins } from "./publication-origins.js";
-import { verifyCandidateContext } from "./verify-publication.js";
+import { verifyReleaseQualificationContext } from "./verify-publication.js";
 
 const boundedBytes = (path, maximum = 1_048_576) => releaseBytes(path, maximum);
 const json = (path) => JSON.parse(boundedBytes(path).toString("utf8"));
@@ -38,6 +38,10 @@ function admittedEnvironment(directory, context) {
 
 export function verifyCurrentPublicationRef(currentRef, context) {
   validatePublicationContext(context);
+  assert.ok(
+    ["natives", "core"].includes(context.phase),
+    "Choose an explicit staging phase",
+  );
   assert.equal(currentRef.ref, "refs/heads/main");
   assert.equal(
     currentRef.object.sha,
@@ -53,6 +57,10 @@ export function preparePublicationEnvironment(
   context,
 ) {
   validatePublicationContext(context);
+  assert.ok(
+    ["natives", "core"].includes(context.phase),
+    "Choose an explicit staging phase",
+  );
   assert.match(release.version, /^[1-9]\d*\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u);
   assert.deepEqual(
     release.archives.map((a) => a.name),
@@ -98,7 +106,19 @@ export function preparePublicationEnvironment(
     assert.match(archive.integrity, /^sha512-[A-Za-z0-9+/]{86}==$/u);
     const key = archive.name.replaceAll("-", "_").toUpperCase();
     result[`${key}_INTEGRITY`] = archive.integrity;
-    result[`PUBLISH_${key}`] = String(map.records[index].state === "planned");
+    result[`STAGE_${key}`] = String(
+      map.records[index].state === "planned" &&
+        (context.phase === "core"
+          ? archive.name === "core"
+          : archive.name !== "core"),
+    );
+  }
+  if (context.phase === "core") {
+    assert.ok(recovery, "Core staging requires an explicit continuation");
+    assert.ok(
+      map.records.slice(0, 2).every((record) => record.state === "retained"),
+      "Both native requests must be retained before core staging",
+    );
   }
   return result;
 }
@@ -107,7 +127,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   assert.equal(process.argv.length, 4);
   const context = publicationContext(process.env);
   if (process.argv[2] === "--candidate-context") {
-    const candidate = verifyCandidateContext(
+    const candidate = verifyReleaseQualificationContext(
       json(join(process.argv[3], "run.json")),
       context,
     );

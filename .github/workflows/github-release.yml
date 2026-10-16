@@ -1,0 +1,98 @@
+name: Archive a qualified pilot as an immutable GitHub release
+on:
+  workflow_dispatch:
+    inputs:
+      registry-run:
+        description: Successful complete public registry qualification run
+        required: true
+        type: string
+      registry-attempt:
+        description: Exact successful public qualification attempt
+        required: true
+        type: string
+      manifest-sha256:
+        description: Approved original release manifest digest
+        required: true
+        type: string
+      review-sha256:
+        description: Approved release-review.json digest from the draft
+        required: true
+        type: string
+      acceptance-sha256:
+        description: Approved release-acceptance.json digest including exact pilot and restoration decisions
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: markdown-quality-publication
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash
+env:
+  REGISTRY_RUN: ${{ inputs.registry-run }}
+  REGISTRY_ATTEMPT: ${{ inputs.registry-attempt }}
+  MANIFEST_SHA: ${{ inputs.manifest-sha256 }}
+  REVIEW_SHA: ${{ inputs.review-sha256 }}
+  ACCEPTANCE_SHA: ${{ inputs.acceptance-sha256 }}
+jobs:
+  prepare:
+    if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+      - name: Assemble original archives and closed release evidence inventory
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/collect-release-evidence.js archive-inputs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: archive-inputs-${{ github.run_attempt }}
+          path: |
+            archive-inputs/qualification.json
+            archive-inputs/bundle/
+          if-no-files-found: error
+          retention-days: 90
+  archive:
+    needs: prepare
+    environment: github-release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: archive-inputs-${{ github.run_attempt }}
+          path: archive-inputs
+          digest-mismatch: error
+      - name: Verify full draft and publish immutable pilot archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/github-release.js archive-inputs/qualification.json archive-inputs/bundle archive-journal
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: archive-journal-${{ github.run_attempt }}
+          path: archive-journal/
+          if-no-files-found: error
+          retention-days: 90

@@ -1,0 +1,153 @@
+name: Deliberately promote an immutable pilot to stable
+on:
+  workflow_dispatch:
+    inputs:
+      archive-run:
+        description: Completed immutable GitHub archival run
+        required: true
+        type: string
+      archive-attempt:
+        description: Exact successful archival attempt
+        required: true
+        type: string
+      qualification-sha256:
+        description: Approved qualification.json digest from that archival run
+        required: true
+        type: string
+      prior-npm-version:
+        description: Expected previous coherent latest version; reuse this value during recovery
+        required: true
+        type: string
+      prior-github-release:
+        description: Expected previous GitHub latest release numeric ID; reuse during recovery
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: markdown-quality-publication
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash
+env:
+  ARCHIVE_RUN: ${{ inputs.archive-run }}
+  ARCHIVE_ATTEMPT: ${{ inputs.archive-attempt }}
+  QUALIFICATION_SHA: ${{ inputs.qualification-sha256 }}
+  PRIOR_NPM_VERSION: ${{ inputs.prior-npm-version }}
+  PRIOR_GITHUB_RELEASE: ${{ inputs.prior-github-release }}
+  NPM_CONFIG_IGNORE_SCRIPTS: "true"
+  NODE_AUTH_TOKEN: ""
+  NPM_TOKEN: ""
+  NPM_CONFIG_TOKEN: ""
+  NODE_OPTIONS: ""
+jobs:
+  admit:
+    if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+      - run: node scripts/publication-npm.js isolate
+      - run: node scripts/publication-npm.js acquire
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: archive-inputs-${{ inputs.archive-attempt }}
+          path: archive-inputs
+          run-id: ${{ inputs.archive-run }}
+          github-token: ${{ github.token }}
+          digest-mismatch: error
+      - name: Admit immutable assets, exact acceptances and approved prior labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/promote-release.js admit archive-inputs promotion-admission
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: promotion-admission-${{ github.run_attempt }}
+          path: promotion-admission/
+          if-no-files-found: error
+          retention-days: 90
+  npm:
+    needs: admit
+    environment: npm-promotion
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+      - run: node scripts/publication-npm.js isolate
+      - run: node scripts/publication-npm.js acquire
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: archive-inputs-${{ inputs.archive-attempt }}
+          path: archive-inputs
+          run-id: ${{ inputs.archive-run }}
+          github-token: ${{ github.token }}
+          digest-mismatch: error
+      - name: Move native latest labels first and core last with exact readback
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/promote-release.js npm archive-inputs npm-promotion-journal
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: npm-promotion-journal-${{ github.run_attempt }}
+          path: npm-promotion-journal/
+          if-no-files-found: error
+          retention-days: 90
+  github:
+    needs: npm
+    environment: github-release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+      - run: node scripts/publication-npm.js isolate
+      - run: node scripts/publication-npm.js acquire
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: archive-inputs-${{ inputs.archive-attempt }}
+          path: archive-inputs
+          run-id: ${{ inputs.archive-run }}
+          github-token: ${{ github.token }}
+          digest-mismatch: error
+      - name: Classify the same immutable release and verify the complete cross-service result
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/promote-release.js github archive-inputs github-promotion-journal
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: github-promotion-journal-${{ github.run_attempt }}
+          path: github-promotion-journal/
+          if-no-files-found: error
+          retention-days: 90

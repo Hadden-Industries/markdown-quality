@@ -63,5 +63,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   } else {
     assert.equal(process.argv[2], "acquire");
     acquireHostedNpm(process.env);
+    if (process.env.GITHUB_OUTPUT)
+      appendFileSync(
+        process.env.GITHUB_OUTPUT,
+        `node-executable=${process.execPath}\n`,
+      );
   }
 }

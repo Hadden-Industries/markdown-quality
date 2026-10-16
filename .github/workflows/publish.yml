@@ -1,23 +1,27 @@
-name: Publish qualified public tuple
+name: Stage a qualified release for owner approval
 on:
   workflow_dispatch:
     inputs:
       candidate-run:
-        description: Successful original candidate run on main; recovery preserves its archives
+        description: Successful manual release qualification run on main; continuation preserves its archives
         required: true
         type: string
       manifest-sha256:
         description: Approved original release-manifest SHA-256
         required: true
         type: string
-      distribution-tag:
-        description: Explicitly accepted availability label; latest requires owner stable-release authorization
+      review-sha256:
+        description: Owner-approved release-review.json attached to the signed-tag draft
         required: true
-        default: pilot
+        type: string
+      phase:
+        description: Stage native packages first; core requires completed owner approvals and an explicit continuation
+        required: true
+        default: natives
         type: choice
         options:
-          - pilot
-          - latest
+          - natives
+          - core
       recovery-run:
         description: Optional completed publication run to reconcile without republishing
         required: false
@@ -39,7 +43,8 @@ concurrency:
 env:
   CANDIDATE_RUN: ${{ inputs.candidate-run }}
   MANIFEST_SHA: ${{ inputs.manifest-sha256 }}
-  RELEASE_TAG: ${{ inputs.distribution-tag || 'pilot' }}
+  REVIEW_SHA: ${{ inputs.review-sha256 }}
+  STAGING_PHASE: ${{ inputs.phase }}
   RECOVERY_RUN: ${{ inputs.recovery-run }}
   RECOVERY_ATTEMPT: ${{ inputs.recovery-attempt }}
   RECOVERY_ORIGINS_SHA: ${{ inputs.recovery-origins-sha256 }}
@@ -69,7 +74,10 @@ jobs:
         run: |
           [[ "$CANDIDATE_RUN" =~ ^[1-9][0-9]{0,15}$ ]]
           [[ "$MANIFEST_SHA" =~ ^[a-f0-9]{64}$ ]]
-          [[ "$RELEASE_TAG" == pilot || "$RELEASE_TAG" == latest ]]
+          [[ "$STAGING_PHASE" == natives || "$STAGING_PHASE" == core ]]
+          if [[ "$STAGING_PHASE" == core ]]; then
+            [[ -n "$RECOVERY_RUN" && -n "$RECOVERY_ORIGINS_SHA" ]]
+          fi
           if [[ -n "$RECOVERY_RUN" ]]; then
             [[ "$RECOVERY_RUN" =~ ^[1-9][0-9]{0,15}$ ]]
             [[ "$RECOVERY_ATTEMPT" =~ ^[1-9][0-9]{0,15}$ ]]
@@ -116,6 +124,14 @@ jobs:
           digest-mismatch: error
       - name: Verify approved archives and bind publication origins before any effect
         run: node scripts/verify-publication.js frozen-release "$MANIFEST_SHA" provider
+      - name: Require the owner-created verified source tag before staging
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/verify-release-tag.js frozen-release/release-manifest.json provider
+      - name: Reconcile all prior publication attempts before granting any stage effect
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/publication-history.js frozen-release provider/publication-history.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
@@ -126,7 +142,7 @@ jobs:
             frozen-release/publication-origins.json
             previous-publication/frozen-release/*.json
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 90
   retained:
     needs: admit
     if: inputs.recovery-run != ''
@@ -178,8 +194,8 @@ jobs:
           name: retained-registry-${{ matrix.os }}
           path: retained-qualification.json
           if-no-files-found: error
-          retention-days: 30
-  publish:
+          retention-days: 90
+  stage:
     needs: [admit, retained]
     if: always() && needs.admit.result == 'success' && (needs.retained.result == 'success' || (needs.retained.result == 'skipped' && inputs.recovery-run == '')) && github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
     environment: npm-publication
@@ -217,42 +233,36 @@ jobs:
       - name: Acquire pinned hosted npm from selected Node installation
         shell: bash
         run: node scripts/publication-npm.js acquire
-      - name: Publish Windows package under pilot and verify integrity
-        if: env.PUBLISH_WIN32_X64 == 'true'
+      - name: Stage Windows package under pilot
+        if: env.STAGE_WIN32_X64 == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" > provider/current-ref.json
           node scripts/prepare-publication-environment.js --current-ref provider/current-ref.json
           node scripts/wait-registry-integrity.js --absent @hadden-industries/markdown-quality-win32-x64 "$RELEASE_VERSION"
-          [[ "$RELEASE_TAG" == pilot || "$RELEASE_TAG" == latest ]]
-          npm publish "./frozen-release/hadden-industries-markdown-quality-win32-x64-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag "$RELEASE_TAG" --provenance --registry=https://registry.npmjs.org/
-          node scripts/wait-registry-integrity.js @hadden-industries/markdown-quality-win32-x64 "$RELEASE_VERSION" "$WIN32_X64_INTEGRITY"
-      - name: Publish Linux package under pilot and verify integrity
-        if: env.PUBLISH_LINUX_X64 == 'true'
+          node scripts/stage-release-package.js win32-x64 frozen-release staging-journal
+      - name: Stage Linux package under pilot
+        if: env.STAGE_LINUX_X64 == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" > provider/current-ref.json
           node scripts/prepare-publication-environment.js --current-ref provider/current-ref.json
           node scripts/wait-registry-integrity.js --absent @hadden-industries/markdown-quality-linux-x64 "$RELEASE_VERSION"
-          [[ "$RELEASE_TAG" == pilot || "$RELEASE_TAG" == latest ]]
-          npm publish "./frozen-release/hadden-industries-markdown-quality-linux-x64-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag "$RELEASE_TAG" --provenance --registry=https://registry.npmjs.org/
-          node scripts/wait-registry-integrity.js @hadden-industries/markdown-quality-linux-x64 "$RELEASE_VERSION" "$LINUX_X64_INTEGRITY"
-      - name: Verify both native archives before first core publication
-        if: env.PUBLISH_CORE == 'true'
+          node scripts/stage-release-package.js linux-x64 frozen-release staging-journal
+      - name: Verify both native archives before core staging
+        if: env.STAGE_CORE == 'true'
         run: node scripts/qualify-public-registry.mjs --manifest frozen-release/release-manifest.json --provenance --publication-origins frozen-release/publication-origins.json --publication-source "$GITHUB_SHA" --publication-run "$GITHUB_RUN_ID" --publication-attempt "$GITHUB_RUN_ATTEMPT" --recovery-run "$RECOVERY_RUN" --recovery-attempt "$RECOVERY_ATTEMPT" --recovery-origins-sha256 "$RECOVERY_ORIGINS_SHA" --native-only native-before-core.json
-      - name: Publish coherent core under pilot and verify integrity
-        if: env.PUBLISH_CORE == 'true'
+      - name: Stage coherent core under pilot
+        if: env.STAGE_CORE == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" > provider/current-ref.json
           node scripts/prepare-publication-environment.js --current-ref provider/current-ref.json
           node scripts/wait-registry-integrity.js --absent @hadden-industries/markdown-quality "$RELEASE_VERSION"
-          [[ "$RELEASE_TAG" == pilot || "$RELEASE_TAG" == latest ]]
-          npm publish "./frozen-release/hadden-industries-markdown-quality-$RELEASE_VERSION.tgz" --ignore-scripts --access public --tag "$RELEASE_TAG" --provenance --registry=https://registry.npmjs.org/
-          node scripts/wait-registry-integrity.js @hadden-industries/markdown-quality "$RELEASE_VERSION" "$CORE_INTEGRITY"
+          node scripts/stage-release-package.js core frozen-release staging-journal
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
@@ -262,57 +272,6 @@ jobs:
             frozen-release/release-manifest.json
             frozen-release/publication-origins.json
             native-before-core.json
+            staging-journal/
           if-no-files-found: error
-          retention-days: 30
-  registry:
-    needs: publish
-    if: ${{ !cancelled() && needs.publish.result == 'success' }}
-    permissions:
-      contents: read
-      actions: read
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, ubuntu-24.04]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-          ref: ${{ github.sha }}
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
-        with:
-          node-version: "24.21.0"
-          package-manager-cache: false
-      - name: Select isolated npm configuration
-        shell: bash
-        run: node scripts/publication-npm.js isolate
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
-        with:
-          name: candidate-release
-          path: frozen-release
-          run-id: ${{ inputs.candidate-run }}
-          github-token: ${{ github.token }}
-          digest-mismatch: error
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
-        with:
-          name: publication-admission
-          digest-mismatch: error
-      - name: Revalidate exact admitted origin-map context
-        run: node scripts/prepare-publication-environment.js --environment frozen-release
-      - name: Acquire pinned hosted npm from selected Node installation
-        shell: bash
-        run: node scripts/publication-npm.js acquire
-      - name: Verify anonymous complete tuple bytes, signatures and bound publication origins
-        run: node scripts/qualify-public-registry.mjs --manifest frozen-release/release-manifest.json --provenance --publication-origins frozen-release/publication-origins.json --publication-source "$GITHUB_SHA" --publication-run "$GITHUB_RUN_ID" --publication-attempt "$GITHUB_RUN_ATTEMPT" --recovery-run "$RECOVERY_RUN" --recovery-attempt "$RECOVERY_ATTEMPT" --recovery-origins-sha256 "$RECOVERY_ORIGINS_SHA" registry-qualification.json
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        if: always()
-        with:
-          name: attested-registry-${{ matrix.os }}
-          path: registry-qualification.json
-          if-no-files-found: error
-          retention-days: 30
+          retention-days: 90

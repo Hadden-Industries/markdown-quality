@@ -11,7 +11,8 @@ import {
   verifyPayloads,
   verifyBundle,
 } from "./release-assets.js";
-import { native, gitSource } from "./github-release.js";
+import { native } from "./commands.js";
+import { gitSource } from "./github-release.js";
 
 export function prepareGithubRelease(qualified, input, output, cwd) {
   const names = releaseNames(qualified);

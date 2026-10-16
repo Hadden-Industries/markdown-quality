@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
+import { native } from "./commands.js";
+import { verifyReleaseTag } from "./verify-release-tag.js";
 import {
   repository,
   hash,
@@ -14,24 +15,6 @@ import {
   verifyProvider,
 } from "./release-assets.js";
 
-export function native(command, args, options = {}) {
-  const result = spawnSync(command, args, {
-    encoding: "utf8",
-    timeout: 120_000,
-    maxBuffer: 64 * 1024 * 1024,
-    windowsHide: true,
-    shell: false,
-    ...options,
-  });
-  if (result.error || result.status !== 0) {
-    const error = new Error(
-      `${command} failed: ${String(result.stderr ?? result.error).slice(0, 2000)}`,
-    );
-    error.status = result.status;
-    throw error;
-  }
-  return result.stdout;
-}
 export function gitSource(qualified, cwd) {
   return native(
     "git",
@@ -53,6 +36,11 @@ export async function deliverRelease({
   gh = (args) => native("gh", args),
   registry = verifyRegistry,
 }) {
+  assert.equal(
+    qualified.schemaVersion,
+    2,
+    "Historical release evidence is read-only; current writes require deliberate staged qualification",
+  );
   const tag = `v${qualified.version}`;
   const assets = verifyBundle(qualified, directory, gitSource(qualified, cwd));
   mkdirSync(evidenceDirectory, { recursive: false });
@@ -94,18 +82,12 @@ export async function deliverRelease({
   const api = (path) =>
     JSON.parse(call(["api", `repos/${repository}/${path}`]));
   const checkTag = () => {
-    let object = api(`git/ref/tags/${tag}`).object;
-    for (let depth = 0; object.type === "tag" && depth < 4; depth++) {
-      const annotation = api(`git/tags/${object.sha}`);
-      assert.equal(annotation.tag, tag);
-      object = annotation.object;
-    }
-    assert.equal(object.type, "commit");
-    assert.equal(
-      object.sha,
-      qualified.source,
-      "Version tag differs from package source",
-    );
+    const reference = api(`git/ref/tags/${tag}`);
+    assert.equal(reference.object.type, "tag");
+    verifyReleaseTag(reference, api(`git/tags/${reference.object.sha}`), {
+      version: qualified.version,
+      source: { head: qualified.source },
+    });
   };
   const checkContext = () => {
     assert.equal(

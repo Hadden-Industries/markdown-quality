@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-10-16",
+  "use": "Unmodified standalone runner tools; not redistributed in npm packages",
+  "syft": {
+    "repository": "anchore/syft",
+    "tag": "v1.54.1",
+    "source": "b254e6d92f28c3868a755f62fb3ca8f26e9fee76",
+    "license": "Apache-2.0",
+    "linux-x64": {
+      "asset": "syft_1.54.1_linux_amd64.tar.gz",
+      "sha256": "c069905b391cc4c20a5ba65ad5c10be2a7ba074f8ea6ad203e24d14e303dad47",
+      "executable": "syft"
+    },
+    "win32-x64": {
+      "asset": "syft_1.54.1_windows_amd64.zip",
+      "sha256": "8b56e8285e295e0bbed26eeea9b16ed51c493be97ccdf42dae6326c84fe8e19f",
+      "executable": "syft.exe"
+    }
+  },
+  "cyclonedx": {
+    "repository": "CycloneDX/cyclonedx-cli",
+    "tag": "v0.33.1",
+    "source": "b3cfa4b0edc356dad07e0b6e7ab6da0a94af0246",
+    "license": "Apache-2.0",
+    "linux-x64": {
+      "asset": "cyclonedx-linux-x64",
+      "sha256": "bfc8b2538da86fe239bc53658bbb63c1c8c510a293c1e6891aa5bea5d3c58746",
+      "executable": "cyclonedx-linux-x64"
+    },
+    "win32-x64": {
+      "asset": "cyclonedx-win-x64.exe",
+      "sha256": "9b360974c41a5d612eb026fb5e3bb1fa28e08865f7a4f915665b8bc94bd3bc31",
+      "executable": "cyclonedx-win-x64.exe"
+    }
+  }
+}

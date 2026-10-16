@@ -1,0 +1,10 @@
+{
+  "nativeSource": {
+    "repository": "Hadden-Industries/markdown-quality",
+    "release": "v1.0.3",
+    "filename": "snapper-0.11.9-source.tar.gz",
+    "commit": "407c2beb04607f6ccb421e6f6418dcc00e4c1e94",
+    "sha256": "08cc7533ac70c36c5e32ddcb40a87ecd4ee2d8942065f5dc734f32dd8061bfc4",
+    "scope": "Reuse the verified immutable corresponding source archive for the unchanged native source. This grants no historical publishing authority."
+  }
+}

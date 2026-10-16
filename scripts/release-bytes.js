@@ -2,6 +2,8 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync } from "node:fs";
+export const hash = (bytes, algorithm = "sha256") =>
+  createHash(algorithm).update(bytes).digest("hex");
 /** Release-local bounded acquisition. Runtime identity-aware readers stay separate. */
 export function releaseBytes(path, maximum, message) {
   const stat = lstatSync(path);

@@ -2,21 +2,40 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
+/** Run a bounded native provider/tool command without a shell. */
+export function native(command, args, options = {}) {
+  const result = spawnSync(command, args, {
+    encoding: "utf8",
+    timeout: 120_000,
+    maxBuffer: 64 * 1024 * 1024,
+    windowsHide: true,
+    shell: false,
+    ...options,
+  });
+  if (result.error || result.status !== 0) {
+    const error = new Error(
+      `${command} failed: ${String(result.stderr ?? result.error).slice(0, 2000)}`,
+    );
+    error.status = result.status;
+    throw error;
+  }
+  return result.stdout;
+}
 /** Resolve the npm shipped with the selected Node installation, without PATH lookup. */
-export function npmCliPath() {
+export function npmCliPath(executable = process.execPath) {
   const candidates = [
-    join(dirname(process.execPath), "node_modules/npm/bin/npm-cli.js"),
-    join(dirname(process.execPath), "../lib/node_modules/npm/bin/npm-cli.js"),
+    join(dirname(executable), "node_modules/npm/bin/npm-cli.js"),
+    join(dirname(executable), "../lib/node_modules/npm/bin/npm-cli.js"),
   ];
   const cli = candidates.find(existsSync);
   if (!cli)
     throw new Error("Cannot resolve npm from the selected Node installation.");
   return cli;
 }
-export function npmCommand(args, options = {}) {
-  const cli = npmCliPath();
+export function npmCommand(args, options = {}, executable = process.execPath) {
+  const cli = npmCliPath(executable);
   const started = performance.now();
-  const result = spawnSync(process.execPath, [cli, ...args], {
+  const result = spawnSync(executable, [cli, ...args], {
     encoding: "utf8",
     timeout: 120_000,
     maxBuffer: 8_388_608,

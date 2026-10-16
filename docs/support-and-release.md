@@ -21,7 +21,7 @@ The transported lanes install the same frozen archives produced once on the refe
 Performance measurements remain on the reference runtime.
 The candidate manifest freezes the runtime policy and resolved matrix alongside archive hashes.
 Publication admission requires every matching provider job to succeed for that exact source and run attempt; release evidence retains the snapshot as `candidate.runtimePolicy` and `candidate.matrix`.
-Historical candidates without a matrix retain their original two-platform admission contract.
+Historical candidates without a matrix retain their original two-platform read-only evidence contract; current publishing requires the complete deliberate qualification.
 Only observed passing platform evidence can establish support.
 Use the latest security-patched release in a supported family for ordinary operation; the compatibility minimum is not a security recommendation.
 Published 1.0.3 retains its immutable `>=24.21.0 <25` engine declaration and Node 24.21.0 qualification.
@@ -71,7 +71,7 @@ npm sbom --sbom-format cyclonedx
 The packer emits coordinated archives and a digest-bound release manifest.
 Its core manifest replaces development file dependencies with exact release versions.
 The source lock does not become the consumer lock.
-The JS SBOM must be reconciled with every compiled native/runtime component before release.
+The source JS SBOM is accompanied by a distribution SBOM reconciled against the exact native/runtime components and separate observed recipient resolution inventories.
 An upstream Cargo lock is a superset of features and development inputs and does not prove exact shipped component coverage.
 The original upstream license and per-asset repack identity are retained.
 
@@ -86,48 +86,29 @@ The public alpha.2 archives remain immutable historical delivery evidence and ar
 The packer normalizes the Linux npm member's executable mode with Python tarfile, verifies all member bytes are unchanged, and recomputes the final archive integrity.
 Qualify the exact transported release archives on both platforms, rather than each platform's independently generated package.
 The unpublished private alpha.1 candidate and all rejected attempts remain historical evidence.
-Direct first publication uses explicit public access; a staged placeholder is unnecessary.
-The manual publisher uses npm 12.2.0 in hosted CI and requires all three npm trusted-publisher mappings for this repository, publish.yml and the npm-publication environment.
-That environment must permit exactly the main branch.
-Ordinary publication verifies a successful same-source candidate run, all same-attempt jobs bound by the candidate manifest's runtime matrix, the approved manifest digest and exact frozen archive bytes.
-Historical candidates require `pack` and their two platform consumers.
-Recovery preserves the original candidate's source and archives separately from the current reviewed publishing-control source.
-An admission job without OIDC binds a complete three-package origin map before effects; both platform jobs qualify previously attempted packages before the publisher may run.
-Only a prior planned effect with an explicitly skipped publication step is eligible for first publication; an attempted or unknown outcome must be verified in the registry and cannot become eligible through a 404.
-Each downstream job rehashes its downloaded archives against the admitted manifest.
-The publisher rechecks current main, all three local archive hashes and version absence immediately before each single eligible publication and verifies both native archives before core.
-Its explicit `distribution-tag` dispatch choice accepts only `pilot` or `latest` and defaults to `pilot`; select `latest` only for an owner-authorized stable release.
-Publication step names retain their historical "under pilot" wording because their exact identifiers are required to reconcile earlier interrupted runs; the selected input controls the actual npm label.
-Only the publication job has OIDC issuance permission; no long-lived npm token is supplied.
-Both registry jobs use native npm signature/attestation verification and bind each installed package to its admitted source, workflow, exact publication run and attempt.
-Their explicit non-cancellation and successful-publication condition prevents a skipped recovery ancestor from suppressing final qualification after ordinary publication.
-Successful publication alone does not establish complete registry qualification; retain both actual terminal platform reports.
-Each platform installs and cryptographically verifies its supported native package and core; opposite-platform native archives receive anonymous raw-byte verification, with the combined platform records covering the complete tuple.
-Structural provenance fixtures do not establish cryptographic acceptance.
-The workflow does not move labels on existing packages or grant npm tag-management permission.
-The owner's explicit 1.0.3 stable/latest decision in [plan revision 8](https://github.com/Hadden-Industries/markdown-quality/blob/v1.0.3/docs/plans/implementation-plan.md#1-status-authority-and-purpose) supersedes the pilot-promotion hold for that release only; consumer adoption remains separate.
-GitHub artifacts expire after 30 days, so export the complete frozen source, manifest, archives and verification bundles to the retained evidence store before expiry, for the security policy's maintained-lifetime-plus-three-years floor.
-Public installation needs no registry token, subscription, or OIDC authority.
-Public npm provenance is eligible only through a qualified supported publisher; do not claim it for the local bootstrap.
-Retain attributable source/build/repack evidence and qualify attestations separately.
+The current supported path is the [deliberate release operation](release-operations.md).
+Ordinary direct-main development remains available after local tests.
+A manual release qualification composes fresh product, JSON, architecture, transported matrix, performance, exact-source CodeQL, actual recipient audit and distribution SBOM gates.
+Ordinary CI success alone cannot authorize staging.
 
-Publish native packages first under the explicitly accepted availability label and publish the core only when the tuple is coherent.
-Read back hashes, public visibility, and fresh unauthenticated archive acquisition for every package.
-Qualify root and isolated consumers on both supported platforms from the registry, without credentials.
-Do not perform registry publication while rights, publisher authentication, independent assurance, or platform evidence remains missing.
-A partial publication is not a completed coordinated release, even when individual package labels are visible; preserve its exact outcomes and use the unchanged-version recovery procedure below.
-Changed bytes require a new corrective version.
+The owner prepares a verified signed exact-source tag and a draft with the archive-bound review decisions.
+The stage-only npm connection uses publish.yml and the main-only npm-publication environment.
+Native packages are staged under pilot, inspected and approved by the owner with 2FA, then publicly verified on both platforms before a manual continuation can stage core.
+Core requires another owner approval.
+No long-lived publishing token, direct publish fallback, automatic approval or implicit latest label is used.
 
-For unchanged-version recovery, manually dispatch `publish.yml` with the original `candidate-run` and `manifest-sha256`, plus the terminal prior `recovery-run` and exact `recovery-attempt`.
-The original legacy publication can omit `recovery-origins-sha256` only when its source is the original artifact source and its retained manifest matches exactly.
-For a later recovery, independently approve the prior admission map's SHA-256 and pass it as `recovery-origins-sha256`; never infer expected origins from the attestation being verified.
-Retain the actual dispatch inputs, original candidate/manifest, admission artifact, per-package map, provider attempts/jobs, effect outcomes and both registry reports.
-Use a new manual dispatch rather than blindly rerunning a partial publication.
-After known acceptance, availability polling retries metadata 404 or an installer metadata document whose version map has not yet acquired the target version for at most five minutes with bounded requests; it never invokes publication again.
-The version endpoint, abbreviated installer metadata and full installer metadata share that deadline; every visible target must match the approved name, version and integrity.
-Anonymous qualification repeats this admission before installing; malformed metadata, mismatched bytes and access failures are terminal.
-The publication job is bounded to 30 minutes to accommodate three independent visibility waits and native verification; failed or cancelled jobs require evidence reconciliation, not automatic publication retries.
-An unavailable attempted package, mismatched bytes/origin, non-404 registry failure or unresolved live producer stops delivery until its outcome is established.
+A separate manual public-qualification workflow exercises every frozen runtime lane and both layouts with anonymous acquisition, frozen lock replay and native provenance verification.
+A later manual archival run requires its completed provider evidence and exact consumer/restoration acceptance.
+It verifies the complete draft, publishes an immutable GitHub prerelease and verifies every asset.
+Stable promotion is separately dispatched: native npm latest labels first, core last, then the same GitHub release stable/latest, with final readback across both services.
+The current control source can advance during an owner pause without changing original package bytes, provided the explicit continuation retains and verifies all original identities.
+
+An attempted or unknown staging outcome requires reconciliation; a 404 never authorizes replay.
+Use original run/attempt/manifest/origin identities in a new manual continuation.
+Read bounded native provider state before any repeat label or draft operation.
+Changed package bytes require a new version.
+Release transport artifacts request 90-day retention; export every required record before its actual expiry and retain it for the maintained lifetime plus three years after support ends.
+Historical direct-publish evidence and the owner-authorized 1.0.3 exception remain read-only history and grant no current publishing authority.
 
 For recovery, retain the exact consumer base revision, old manifest and lock, workflows, selected document preimages, and unrelated-file sentinels.
 Restore only migration-owned changes.

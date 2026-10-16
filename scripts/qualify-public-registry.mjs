@@ -37,6 +37,10 @@ const { values, positionals } = parseArgs({
     "native-only": { type: "boolean", default: false },
     "performance-corpora": { type: "string" },
     "performance-output": { type: "string" },
+    "security-output": {
+      type: "string",
+      default: process.env.RELEASE_SECURITY_OUTPUT,
+    },
   },
   allowPositionals: true,
 });
@@ -272,6 +276,32 @@ try {
     );
     const lockBytes = readFileSync(join(install, "package-lock.json"));
     const lock = JSON.parse(lockBytes);
+    if (values["security-output"]) {
+      const security = resolve(values["security-output"]);
+      mkdirSync(security, { recursive: true });
+      // Audit this consumer's full graph: the tool is a devDependency of the
+      // recipient fixture, so --omit=dev would silently exclude the product.
+      const audit = npmCommand(["audit", "--json", "--audit-level=none"], {
+        cwd: install,
+        env: environment,
+      });
+      writeFileSync(join(security, `${layout}-audit.json`), audit, {
+        flag: "wx",
+      });
+      // Preserve all native evidence even when findings exist. The separate
+      // release security gate admits the audit; a consumer smoke test does not.
+      writeFileSync(
+        join(security, `${layout}-sbom.cdx.json`),
+        npmCommand(["sbom", "--sbom-format=cyclonedx"], {
+          cwd: install,
+          env: environment,
+        }),
+        { flag: "wx" },
+      );
+      writeFileSync(join(security, `${layout}-package-lock.json`), lockBytes, {
+        flag: "wx",
+      });
+    }
     const verifyFiles = () => {
       for (const archive of active) {
         const directory = join(install, "node_modules", archive.package);
@@ -308,6 +338,7 @@ try {
         npmCommand(
           ["audit", "signatures", "--json", "--include-attestations"],
           { cwd: install, env: environment },
+          process.env.PROVENANCE_NODE || process.execPath,
         ),
       );
       const verified = verifyReleaseProvenance(audit, active, {

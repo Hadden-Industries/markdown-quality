@@ -15,7 +15,8 @@ import { join } from "node:path";
 import { verifyPublication } from "../scripts/verify-publication.js";
 import { verifyReleaseProvenance } from "../scripts/provenance.js";
 import {
-  publicationSteps,
+  legacyPublicationSteps,
+  stagingSteps,
   validatePublicationOrigins,
   invocation,
 } from "../scripts/publication-origins.js";
@@ -27,6 +28,41 @@ import {
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const source = "a".repeat(40);
 const repository = "Hadden-Industries/markdown-quality";
+// Literal contract fixtures use the declared minimum/reference releases. They
+// intentionally do not call the production gate inventory to build the oracle.
+const runtimePolicy = {
+  schemaVersion: 1,
+  minimums: ["22.13.0", "24.0.0", "26.0.0"],
+  reference: "24.21.0",
+  platforms: ["windows-latest", "ubuntu-24.04"],
+};
+const runtimeMatrix = {
+  os: ["windows-latest", "ubuntu-24.04"],
+  node: ["22.13.0", "24.0.0", "24.21.0", "26.0.0"],
+};
+const releaseJobNames = [
+  "resolve",
+  "product / matrix",
+  "product / strategy",
+  "product / required",
+  ...runtimeMatrix.os.flatMap((os) =>
+    runtimeMatrix.node.flatMap((node) => [
+      `product / probe (${os}, ${node})`,
+      `product / package (${os}, ${node})`,
+    ]),
+  ),
+  "candidate / pack",
+  ...runtimeMatrix.os.flatMap((os) =>
+    runtimeMatrix.node.map((node) =>
+      node === "24.21.0"
+        ? `candidate / consumer (${os})`
+        : `candidate / consumer (${os}, ${node})`,
+    ),
+  ),
+  "security",
+  "distribution",
+  "qualified",
+];
 function fixture(t) {
   const temporary = mkdtempSync(join(tmpdir(), "publication-boundary-"));
   t.after(() => rmSync(temporary, { recursive: true, force: true }));
@@ -78,6 +114,8 @@ function fixture(t) {
   });
   const manifest = {
     version: "1.0.0",
+    qualificationMatrix: structuredClone(runtimeMatrix),
+    runtimePolicy: structuredClone(runtimePolicy),
     source: {
       head: source,
       clean: true,
@@ -101,8 +139,8 @@ function fixture(t) {
     id: 123,
     run_attempt: 1,
     repository: { full_name: repository },
-    event: "push",
-    path: ".github/workflows/candidate.yml",
+    event: "workflow_dispatch",
+    path: ".github/workflows/release-qualification.yml",
     head_branch: "main",
     head_sha: source,
     status: "completed",
@@ -113,12 +151,8 @@ function fixture(t) {
     directory,
     run,
     jobs: {
-      total_count: 3,
-      jobs: [
-        "pack",
-        "consumer (windows-latest)",
-        "consumer (ubuntu-24.04)",
-      ].map((name) => ({
+      total_count: releaseJobNames.length,
+      jobs: releaseJobNames.map((name) => ({
         name,
         head_sha: source,
         status: "completed",
@@ -148,6 +182,7 @@ function fixture(t) {
       runId: "123",
       publicationRun: "456",
       publicationAttempt: "1",
+      phase: "natives",
     },
   };
   serialize();
@@ -157,12 +192,26 @@ test("exact qualified opaque tuple is admitted without extraction or execution",
   const { input } = fixture(t);
   assert.equal(verifyPublication(input).version, "1.0.0");
 });
-test("matrix candidates require every manifest-bound runtime job and retain legacy admission", (t) => {
+test("transported candidate success alone cannot authorize release effects", (t) => {
+  const { input } = fixture(t);
+  input.run.event = "push";
+  input.run.path = ".github/workflows/candidate.yml";
+  assert.equal(input.run.conclusion, "success");
+  assert.equal(input.run.path, ".github/workflows/candidate.yml");
+  assert.throws(
+    () => verifyPublication(input),
+    /manual release qualification/u,
+    "Archive transport does not establish fresh product and security gates",
+  );
+});
+test("release qualification requires every manifest-bound runtime job", (t) => {
   const { input, manifest, serialize } = fixture(t);
   writeFileSync(
     join(input.root, "assets/node-support.json"),
     readFileSync(new URL("../assets/node-support.json", import.meta.url)),
   );
+  delete manifest.qualificationMatrix;
+  serialize();
   assert.throws(
     () => verifyPublication(input),
     "New source cannot omit matrix evidence",
@@ -175,15 +224,6 @@ test("matrix candidates require every manifest-bound runtime job and retain lega
   manifest.runtimePolicy = JSON.parse(
     readFileSync(new URL("../assets/node-support.json", import.meta.url)),
   );
-  for (const os of manifest.qualificationMatrix.os)
-    for (const node of manifest.qualificationMatrix.node.filter(
-      (version) => version !== nodeSupport.reference,
-    ))
-      input.jobs.jobs.push({
-        ...input.jobs.jobs[0],
-        name: `consumer (${os}, ${node})`,
-      });
-  input.jobs.total_count = input.jobs.jobs.length;
   serialize();
   assert.equal(verifyPublication(input).version, "1.0.0");
   const omitted = input.jobs.jobs.pop();
@@ -193,6 +233,27 @@ test("matrix candidates require every manifest-bound runtime job and retain lega
   input.jobs.total_count++;
   assert.throws(() => verifyPublication(input));
 });
+for (const gate of [
+  "security",
+  "distribution",
+  "qualified",
+  "product / required",
+  "product / package (windows-latest, 22.13.0)",
+])
+  test(`release admission rejects omitted, skipped or stale ${gate}`, (t) => {
+    const { input } = fixture(t);
+    const job = input.jobs.jobs.find((item) => item.name === gate);
+    assert.ok(job, "The claimed gate exists in the valid fixture");
+    assert.equal(verifyPublication(input).version, "1.0.0");
+    job.conclusion = "skipped";
+    assert.throws(() => verifyPublication(input));
+    job.conclusion = "success";
+    job.run_attempt = 2;
+    assert.throws(() => verifyPublication(input));
+    input.jobs.jobs = input.jobs.jobs.filter((item) => item !== job);
+    input.jobs.total_count--;
+    assert.throws(() => verifyPublication(input));
+  });
 const mutations = {
   "different repository": ({ input }) => {
     input.run.repository.full_name = "other/project";
@@ -419,7 +480,7 @@ function recoveryFixture(t) {
           run_id: 456,
           run_attempt: 1,
           head_sha: source,
-          steps: publicationSteps.map((name, index) => ({
+          steps: legacyPublicationSteps.map((name, index) => ({
             name,
             status: "completed",
             conclusion: index === 0 ? "failure" : "skipped",
@@ -458,9 +519,9 @@ test("legacy partial publication preserves Windows origin and only plans unattem
     map,
     input.context,
   );
-  assert.equal(env.PUBLISH_WIN32_X64, "false");
-  assert.equal(env.PUBLISH_LINUX_X64, "true");
-  assert.equal(env.PUBLISH_CORE, "true");
+  assert.equal(env.STAGE_WIN32_X64, "false");
+  assert.equal(env.STAGE_LINUX_X64, "true");
+  assert.equal(env.STAGE_CORE, "false");
   assert.equal(env.RELEASE_VERSION, "1.0.0");
 });
 
@@ -615,6 +676,7 @@ test("publication stops if main advances after admission", () => {
     ref: "refs/heads/main",
     workflowRef: `${repository}/.github/workflows/publish.yml@refs/heads/main`,
     head: source,
+    phase: "natives",
   };
   verifyCurrentPublicationRef(
     { ref: "refs/heads/main", object: { sha: source } },
@@ -699,22 +761,22 @@ test("ordinary releases retain strict same-source and common invocation admissio
   assert.throws(() => verifyPublication(input));
 });
 
-test("only the publisher has OIDC and original effect names remain stable with conditional single publishes", () => {
+test("only staging has OIDC; pilot approval and stable promotion remain separate", () => {
   const text = readFileSync(
     new URL("../.github/workflows/publish.yml", import.meta.url),
     "utf8",
   );
-  const publisher = text.slice(
-    text.indexOf("  publish:\n"),
-    text.indexOf("  registry:\n"),
-  );
+  const publisher = text.slice(text.indexOf("  stage:\n"));
   assert.equal((text.match(/id-token: write/gu) || []).length, 1);
   assert.match(publisher, /id-token: write/u);
-  assert.equal((publisher.match(/npm publish /gu) || []).length, 3);
-  for (const name of publicationSteps)
+  assert.equal(
+    (publisher.match(/stage-release-package.js /gu) || []).length,
+    3,
+  );
+  for (const name of stagingSteps)
     assert.ok(publisher.includes(`- name: ${name}\n`));
   for (const key of ["WIN32_X64", "LINUX_X64", "CORE"])
-    assert.ok(publisher.includes(`if: env.PUBLISH_${key} == 'true'`));
+    assert.ok(publisher.includes(`if: env.STAGE_${key} == 'true'`));
   assert.equal(
     (publisher.match(/wait-registry-integrity.js --absent/gu) || []).length,
     3,
@@ -726,32 +788,48 @@ test("only the publisher has OIDC and original effect names remain stable with c
   );
   assert.ok(
     publisher.indexOf("--native-only") <
-      publisher.indexOf("- name: Publish coherent core under pilot"),
+      publisher.indexOf("- name: Stage coherent core under pilot"),
   );
   assert.ok(!text.includes("--tag latest"));
-  assert.match(
-    text,
-    /distribution-tag:\n\s+description: [^\n]+\n\s+required: true\n\s+default: pilot\n\s+type: choice\n\s+options:\n\s+- pilot\n\s+- latest/u,
-  );
-  assert.ok(
-    text.includes("RELEASE_TAG: ${{ inputs.distribution-tag || 'pilot' }}"),
-  );
-  assert.equal(
-    (
-      text.match(
-        /\[\[ "\$RELEASE_TAG" == pilot \|\| "\$RELEASE_TAG" == latest \]\]/gu,
-      ) || []
-    ).length,
-    4,
-  );
-  assert.equal((publisher.match(/--tag "\$RELEASE_TAG"/gu) || []).length, 3);
+  assert.ok(!text.includes("distribution-tag:"));
+  assert.ok(text.includes("STAGING_PHASE: ${{ inputs.phase }}"));
+  assert.ok(!text.includes("npm publish "));
+  assert.ok(!text.includes("npm stage approve"));
+  assert.ok(!text.includes("npm dist-tag"));
   assert.ok(!text.includes("npm pack"));
-  const registry = text.slice(text.indexOf("  registry:\n"));
   assert.ok(
-    registry.includes(
-      "    if: ${{ !cancelled() && needs.publish.result == 'success' }}\n",
-    ),
-    "Registry qualification must survive skipped recovery ancestors, require publication success and honor cancellation",
+    !text.includes("  registry:\n"),
+    "Public qualification requires an explicit continuation after owner approval",
   );
-  assert.ok(!registry.includes("id-token: write"));
+});
+
+test("core staging requires retained native requests and a deliberate continuation", (t) => {
+  const { input, manifest } = recoveryFixture(t);
+  input.context.phase = "core";
+  input.previous.jobs.jobs[0].name = "stage";
+  input.previous.jobs.jobs[0].steps.forEach((step, index) => {
+    step.name = stagingSteps[index];
+  });
+  let map = verifyPublication(input).publicationOrigins;
+  assert.throws(
+    () =>
+      preparePublicationEnvironment(
+        manifest,
+        input.manifestSha,
+        map,
+        input.context,
+      ),
+    /Both native/u,
+  );
+  input.previous.jobs.jobs[0].steps[1].conclusion = "success";
+  map = verifyPublication(input).publicationOrigins;
+  const environment = preparePublicationEnvironment(
+    manifest,
+    input.manifestSha,
+    map,
+    input.context,
+  );
+  assert.equal(environment.STAGE_CORE, "true");
+  assert.equal(environment.STAGE_WIN32_X64, "false");
+  assert.equal(environment.STAGE_LINUX_X64, "false");
 });

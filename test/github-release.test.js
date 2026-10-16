@@ -23,14 +23,12 @@ import {
   verifyQualification,
 } from "../scripts/release-assets.js";
 import { prepareGithubRelease } from "../scripts/prepare-github-release.js";
-import {
-  deliverRelease,
-  native,
-  gitSource,
-} from "../scripts/github-release.js";
+import { native } from "../scripts/commands.js";
+import { deliverRelease, gitSource } from "../scripts/github-release.js";
+import { bindStagingReconciliation } from "../scripts/release-staging-evidence.js";
 
 const cwd = fileURLToPath(new URL("../", import.meta.url));
-function fixture(t) {
+function fixture(t, current = false) {
   const temporary = mkdtempSync(join(tmpdir(), "github-release-test-"));
   t.after(() => rmSync(temporary, { recursive: true, force: true }));
   const input = join(temporary, "input");
@@ -185,6 +183,186 @@ function fixture(t) {
     qualified.materials[name] = hash(
       native("git", ["show", `${source}:${path}`], { cwd, encoding: null }),
     );
+  if (current) {
+    qualified.schemaVersion = 2;
+    const matrix = {
+      os: ["windows-latest", "ubuntu-24.04"],
+      node: ["22.13.0", "24.0.0", "24.21.0", "26.0.0"],
+    };
+    qualified.candidate.matrix = matrix;
+    qualified.candidate.runtimePolicy = nodeSupport;
+    qualified.candidate.workflow =
+      ".github/workflows/release-qualification.yml";
+    qualified.candidate.event = "workflow_dispatch";
+    qualified.candidate.jobs = [
+      "resolve",
+      "product / matrix",
+      "product / strategy",
+      "product / required",
+      ...matrix.os.flatMap((os) =>
+        matrix.node.flatMap((node) => [
+          `product / probe (${os}, ${node})`,
+          `product / package (${os}, ${node})`,
+        ]),
+      ),
+      "candidate / pack",
+      ...matrix.os.flatMap((os) =>
+        matrix.node.map((node) =>
+          node === "24.21.0"
+            ? `candidate / consumer (${os})`
+            : `candidate / consumer (${os}, ${node})`,
+        ),
+      ),
+      "security",
+      "distribution",
+      "qualified",
+    ];
+    qualified.publication.workflow = ".github/workflows/release-registry.yml";
+    qualified.publication.jobs = [
+      "admit",
+      ...matrix.os.flatMap((os) =>
+        matrix.node.map((node) => `registry (${os}, ${node})`),
+      ),
+      "security",
+      "qualified",
+    ];
+    for (const [name, item] of [
+      ["candidate", candidate],
+      ["publication", publication],
+    ]) {
+      item.data = provider(
+        item.expected.run,
+        item.expected.workflow,
+        item.expected.event,
+        item.expected.jobs,
+      ).data;
+      put(`${name}-provider.json`, item.data);
+    }
+    const manifest = JSON.parse(
+      readFileSync(join(input, "release-manifest.json")),
+    );
+    manifest.qualificationMatrix = matrix;
+    manifest.runtimePolicy = nodeSupport;
+    manifest.archives = manifest.archives.map((archive, index) => ({
+      ...archive,
+      name: ["win32-x64", "linux-x64", "core"][index],
+      version: qualified.version,
+    }));
+    qualified.manifestSha256 = put("release-manifest.json", manifest);
+    qualified.originsSha256 = put("publication-origins.json", {
+      version: qualified.version,
+      artifactSource: source,
+      manifestSha: qualified.manifestSha256,
+      candidateRun: "10",
+      records: qualified.origins,
+    });
+    qualified.reports = {};
+    for (const kind of ["candidate", "registry"])
+      for (const os of matrix.os)
+        for (const node of matrix.node) {
+          const name = `${kind}-${os}-${node}.json`;
+          const platform = os === "windows-latest" ? "win32-x64" : "linux-x64";
+          const qualification =
+            kind === "candidate"
+              ? "transported candidate archives"
+              : "public registry";
+          qualified.reports[name] = {
+            platform,
+            qualification,
+            node,
+            sha256: put(name, {
+              version: qualified.version,
+              candidate: source,
+              platform,
+              qualification,
+              node: `v${node}`,
+              passed: true,
+              records: archives,
+            }),
+          };
+        }
+    qualified.evidence = {};
+    for (const [index, archive] of manifest.archives.entries()) {
+      const origin = qualified.origins[index];
+      const subject = {
+        package: archive.package,
+        version: archive.version,
+        sha256: archive.sha256,
+        integrity: archive.integrity,
+        tag: "pilot",
+        origin,
+      };
+      const journal = Buffer.from(
+        ["attempted", "outcome-unknown"]
+          .map((state) => JSON.stringify({ state, ...subject }))
+          .join("\n") + "\n",
+      );
+      const name = `stage-${archive.name}.jsonl`;
+      qualified.evidence[name] = put(name, journal);
+      const reconciliation = `stage-${archive.name}-reconciliation.json`;
+      qualified.evidence[reconciliation] = put(
+        reconciliation,
+        bindStagingReconciliation(journal, archive, origin, qualified),
+      );
+    }
+    for (const name of [
+      "distribution-sbom.cdx.json",
+      "staging-provider.json",
+      "signed-tag.json",
+    ])
+      qualified.evidence[name] = put(name, {});
+    for (const name of [
+      "distribution-evidence.json",
+      "security-evidence.json",
+      "public-security-evidence.json",
+    ])
+      qualified.evidence[name] = put(name, {
+        source,
+        manifestSha256: qualified.manifestSha256,
+        payloads: [],
+      });
+    const decision = {
+      outcome: "accepted",
+      rationale: "Explicit independent fixture review and evidence.",
+      reviewer: "fixture-reviewer",
+      independent: true,
+      subject: "exact public npm pilot",
+      evidence: [
+        { url: "https://example.org/evidence", sha256: "a".repeat(64) },
+      ],
+    };
+    const identity = {
+      schemaVersion: 1,
+      source,
+      version: qualified.version,
+      manifestSha256: qualified.manifestSha256,
+      owner: "maksymshostak",
+      acceptedAt: "2026-10-16T00:00:00Z",
+    };
+    qualified.evidence["release-review.json"] = put("release-review.json", {
+      ...identity,
+      phase: "review",
+      decisions: Object.fromEntries(
+        ["semver", "security", "nativeRights", "retention"].map((name) => [
+          name,
+          decision,
+        ]),
+      ),
+    });
+    qualified.evidence["release-acceptance.json"] = put(
+      "release-acceptance.json",
+      {
+        ...identity,
+        phase: "pilot",
+        reviewSha256: qualified.evidence["release-review.json"],
+        publicQualificationRun: "11",
+        publicQualificationAttempt: "1",
+        decisions: Object.fromEntries(
+          ["owlapi", "webvowl", "restoration"].map((name) => [name, decision]),
+        ),
+      },
+    );
+  }
   const assets = prepareGithubRelease(qualified, input, bundle, cwd);
   const evidenceDirectory = join(temporary, "evidence");
   return {
@@ -254,10 +432,21 @@ function providerAdapter(f, options = {}) {
         return JSON.stringify({ enabled: options.enabled ?? true });
       if (endpoint.startsWith("git/ref/"))
         return JSON.stringify({
+          ref: "refs/tags/v1.0.2",
+          object: {
+            type: "tag",
+            sha: "d".repeat(40),
+          },
+        });
+      if (endpoint.startsWith("git/tags/"))
+        return JSON.stringify({
+          sha: "d".repeat(40),
+          tag: "v1.0.2",
           object: {
             type: "commit",
             sha: options.tagSource ?? f.qualified.source,
           },
+          verification: { verified: true, reason: "valid" },
         });
       if (endpoint.startsWith("actions/runs/")) {
         const data = endpoint.includes("/10/")
@@ -398,7 +587,7 @@ test("qualification rejects path traversal and omitted assurance before preparat
   }
 });
 test("native operation assembles a draft then verifies every immutable asset without npm publication", async (t) => {
-  const f = fixture(t);
+  const f = fixture(t, true);
   const provider = providerAdapter(f);
   const result = await deliverRelease({
     ...f,
@@ -406,10 +595,13 @@ test("native operation assembles a draft then verifies every immutable asset wit
     registry: async () => {},
   });
   assert.equal(result.immutable, true);
-  assert.equal(provider.calls.filter((a) => a[1] === "upload").length, 20);
+  assert.equal(
+    provider.calls.filter((a) => a[1] === "upload").length,
+    f.assets.length,
+  );
   assert.equal(
     provider.calls.filter((a) => a[1] === "verify-asset").length,
-    20,
+    f.assets.length,
   );
   assert.ok(
     !provider.calls.some(
@@ -421,16 +613,19 @@ test("native operation assembles a draft then verifies every immutable asset wit
   );
 });
 test("interrupted partial draft resumes only missing verified assets", async (t) => {
-  const f = fixture(t);
+  const f = fixture(t, true);
   const existing = existingRelease(f);
   existing.assets = existing.assets.slice(0, 7);
   const provider = providerAdapter(f, { existing });
   await deliverRelease({ ...f, gh: provider.gh, registry: async () => {} });
-  assert.equal(provider.calls.filter((a) => a[1] === "upload").length, 13);
+  assert.equal(
+    provider.calls.filter((a) => a[1] === "upload").length,
+    f.assets.length - 7,
+  );
   assert.ok(!provider.calls.some((a) => a[1] === "create"));
 });
 test("published immutable release recovery verifies without repeat external writes", async (t) => {
-  const f = fixture(t);
+  const f = fixture(t, true);
   const provider = providerAdapter(f, { existing: existingRelease(f, false) });
   await deliverRelease({ ...f, gh: provider.gh, registry: async () => {} });
   assert.ok(
@@ -447,7 +642,7 @@ for (const defect of [
   "registry mismatch",
 ])
   test(`operation stops on ${defect} without a successful receipt`, async (t) => {
-    const f = fixture(t);
+    const f = fixture(t, true);
     const options = {};
     if (defect === "disabled immutability") options.enabled = false;
     if (defect === "wrong tag") options.tagSource = "e".repeat(40);

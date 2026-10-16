@@ -94,7 +94,12 @@ export function candidateJobNames(matrix, policy = nodeSupport) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  if (process.argv[2] === "--reference") {
+  if (process.argv[2] === "--frozen") {
+    assert.equal(process.argv.length, 3);
+    const matrix = JSON.parse(process.env.QUALIFICATION_MATRIX);
+    candidateJobNames(matrix);
+    console.log(JSON.stringify(matrix));
+  } else if (process.argv[2] === "--reference") {
     assert.equal(process.argv.length, 3);
     validatePolicy(nodeSupport);
     console.log(nodeSupport.reference);

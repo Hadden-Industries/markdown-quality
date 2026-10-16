@@ -25,5 +25,6 @@ export function publicationContext(env) {
     recoveryRun: env.RECOVERY_RUN,
     recoveryAttempt: env.RECOVERY_ATTEMPT,
     recoveryOriginsSha: env.RECOVERY_ORIGINS_SHA,
+    phase: env.STAGING_PHASE,
   };
 }

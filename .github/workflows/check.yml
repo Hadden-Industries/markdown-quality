@@ -3,6 +3,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
+    inputs:
+      runtimes:
+        description: Matrix frozen by the manual release qualification caller
+        required: true
+        type: string
 permissions:
   contents: read
 defaults:
@@ -23,8 +29,14 @@ jobs:
           node-version: 24.21.0
           package-manager-cache: false
       - id: resolve
+        env:
+          QUALIFICATION_MATRIX: ${{ inputs.runtimes }}
         run: |
-          runtime_matrix=$(node scripts/node-matrix.js)
+          if [[ -n "$QUALIFICATION_MATRIX" ]]; then
+            runtime_matrix=$(node scripts/node-matrix.js --frozen)
+          else
+            runtime_matrix=$(node scripts/node-matrix.js)
+          fi
           echo "matrix=$runtime_matrix" >> "$GITHUB_OUTPUT"
   probe:
     name: probe (${{ matrix.os }}, ${{ matrix.node }})
@@ -141,6 +153,8 @@ jobs:
       - run: npm ci --engine-strict --ignore-scripts --no-audit --no-fund
       - run: python scripts/acquire-native.py
       - run: npm run check:product
+      - name: Enforce module architecture on the tested source
+        run: npm run check:architecture
       - name: Record the actual fully tested lane identity
         # Optional metadata never invalidates successful package tests.
         continue-on-error: true

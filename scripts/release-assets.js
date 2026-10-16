@@ -1,20 +1,26 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { candidateJobNames } from "./node-matrix.js";
+import {
+  releaseQualificationJobNames,
+  releaseQualificationWorkflow,
+} from "./release-qualification.js";
+import { registryJobNames, registryWorkflow } from "./release-qualification.js";
+import { verifyReleaseAcceptance } from "./release-acceptance.js";
+import { bindStagingReconciliation } from "./release-staging-evidence.js";
 
 export const repository = "Hadden-Industries/markdown-quality";
-export const hash = (bytes, algorithm = "sha256") =>
-  createHash(algorithm).update(bytes).digest("hex");
+export { hash } from "./release-bytes.js";
 export const regularBytes = (path, maximum = 64 * 1024 * 1024) =>
   releaseBytes(path, maximum);
 export const readJson = (path) =>
   JSON.parse(regularBytes(path, 16 * 1024 * 1024).toString("utf8"));
 
 export function verifyQualification(qualified) {
-  assert.equal(qualified.schemaVersion, 1);
+  assert.ok([1, 2].includes(qualified.schemaVersion));
+  const current = qualified.schemaVersion === 2;
   assert.match(qualified.version, /^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/u);
   assert.match(qualified.source, /^[a-f0-9]{40}$/u);
   for (const key of ["manifestSha256", "originsSha256"])
@@ -35,12 +41,17 @@ export function verifyQualification(qualified) {
     assert.match(archive.sha256, /^[a-f0-9]{64}$/u);
     assert.match(archive.integrity, /^sha512-[A-Za-z0-9+/]{86}==$/u);
   }
-  assert.deepEqual(Object.keys(qualified.reports).sort(), [
-    "candidate-linux.json",
-    "candidate-windows.json",
-    "registry-linux.json",
-    "registry-windows.json",
-  ]);
+  assert.deepEqual(
+    Object.keys(qualified.reports).sort(),
+    current
+      ? releaseReportNames(qualified.candidate.matrix)
+      : [
+          "candidate-linux.json",
+          "candidate-windows.json",
+          "registry-linux.json",
+          "registry-windows.json",
+        ],
+  );
   assert.deepEqual(Object.keys(qualified.materials).sort(), [
     "LICENSE",
     "THIRD-PARTY-NOTICES.md",
@@ -59,19 +70,21 @@ export function verifyQualification(qualified) {
   for (const [kind, requiredJobs] of [
     [
       "candidate",
-      candidateJobNames(
+      (current ? releaseQualificationJobNames : candidateJobNames)(
         qualified.candidate.matrix,
         qualified.candidate.runtimePolicy,
       ),
     ],
     [
       "publication",
-      [
-        "admit",
-        "publish",
-        "registry (windows-latest)",
-        "registry (ubuntu-24.04)",
-      ],
+      current
+        ? registryJobNames(qualified.candidate.matrix)
+        : [
+            "admit",
+            "publish",
+            "registry (windows-latest)",
+            "registry (ubuntu-24.04)",
+          ],
     ],
   ]) {
     const expected = qualified[kind];
@@ -80,23 +93,59 @@ export function verifyQualification(qualified) {
     assert.match(expected.source, /^[a-f0-9]{40}$/u);
     assert.equal(
       expected.workflow,
-      `.github/workflows/${kind === "candidate" ? "candidate" : "publish"}.yml`,
+      current
+        ? kind === "candidate"
+          ? releaseQualificationWorkflow
+          : registryWorkflow
+        : `.github/workflows/${kind === "candidate" ? "candidate" : "publish"}.yml`,
     );
     assert.equal(
       expected.event,
-      kind === "candidate" ? "push" : "workflow_dispatch",
+      !current && kind === "candidate" ? "push" : "workflow_dispatch",
     );
     assert.equal(new Set(expected.jobs).size, expected.jobs.length);
     for (const job of requiredJobs) assert.ok(expected.jobs.includes(job));
     const permitted = [
       ...requiredJobs,
-      ...(kind === "publication"
+      ...(!current && kind === "publication"
         ? ["retained (windows-latest)", "retained (ubuntu-24.04)"]
         : []),
     ];
     assert.ok(expected.jobs.every((job) => permitted.includes(job)));
   }
   assert.equal(qualified.candidate.source, qualified.source);
+  if (current) {
+    for (const name of [
+      "distribution-sbom.cdx.json",
+      "distribution-evidence.json",
+      "security-evidence.json",
+      "public-security-evidence.json",
+      "staging-provider.json",
+      "signed-tag.json",
+      "release-review.json",
+      "release-acceptance.json",
+      ...["win32-x64", "linux-x64", "core"].flatMap((name) => [
+        `stage-${name}.jsonl`,
+        `stage-${name}-reconciliation.json`,
+      ]),
+    ])
+      assert.ok(qualified.evidence?.[name], `Missing ${name}`);
+    for (const [name, digest] of Object.entries(qualified.evidence)) {
+      assert.match(name, /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/u);
+      assert.match(digest, /^[a-f0-9]{64}$/u);
+    }
+  }
+}
+
+export function releaseReportNames(matrix) {
+  assert.ok(matrix?.os?.length && matrix?.node?.length);
+  return ["candidate", "registry"]
+    .flatMap((kind) =>
+      matrix.os.flatMap((os) =>
+        matrix.node.map((node) => `${kind}-${os}-${node}.json`),
+      ),
+    )
+    .sort();
 }
 
 export function releaseNames(qualified) {
@@ -116,6 +165,7 @@ export function releaseNames(qualified) {
     ...Object.keys(qualified.reports),
     "candidate-provider.json",
     "publication-provider.json",
+    ...Object.keys(qualified.evidence ?? {}),
   ].sort();
 }
 
@@ -138,6 +188,7 @@ export function verifyProvider(provider, expected) {
     assert.equal(matches[0].conclusion, "success");
     assert.equal(String(matches[0].run_id), expected.run);
     assert.equal(String(matches[0].run_attempt), expected.attempt);
+    assert.equal(matches[0].head_sha ?? run.head_sha, expected.source);
   }
 }
 
@@ -196,6 +247,7 @@ export function verifyPayloads(qualified, directory, sourceArchive) {
     assert.equal(report.candidate, qualified.source);
     assert.equal(report.platform, expected.platform);
     assert.equal(report.qualification, expected.qualification);
+    if (expected.node) assert.equal(report.node, `v${expected.node}`);
     assert.equal(
       report.scope,
       undefined,
@@ -224,6 +276,69 @@ export function verifyPayloads(qualified, directory, sourceArchive) {
   );
   for (const [name, sha256] of Object.entries(qualified.materials))
     assert.equal(hash(regularBytes(join(directory, name))), sha256);
+  for (const [name, sha256] of Object.entries(qualified.evidence ?? {}))
+    assert.equal(hash(regularBytes(join(directory, name))), sha256);
+  if (qualified.schemaVersion === 2) {
+    for (const archive of manifest.archives) {
+      const origin = origins.records.find(
+        (entry) => entry.package === archive.package,
+      );
+      assert.deepEqual(
+        readJson(join(directory, `stage-${archive.name}-reconciliation.json`)),
+        bindStagingReconciliation(
+          regularBytes(join(directory, `stage-${archive.name}.jsonl`)),
+          archive,
+          origin,
+          qualified,
+        ),
+        "Staging journal must be bound to the verified public tuple",
+      );
+    }
+    verifyReleaseAcceptance(
+      regularBytes(join(directory, "release-review.json")),
+      qualified.evidence["release-review.json"],
+      manifest,
+      qualified.manifestSha256,
+      "review",
+    );
+    const acceptance = verifyReleaseAcceptance(
+      regularBytes(join(directory, "release-acceptance.json")),
+      qualified.evidence["release-acceptance.json"],
+      manifest,
+      qualified.manifestSha256,
+      "pilot",
+    );
+    assert.equal(
+      acceptance.reviewSha256,
+      qualified.evidence["release-review.json"],
+    );
+    assert.equal(
+      String(acceptance.publicQualificationRun),
+      qualified.publication.run,
+    );
+    assert.equal(
+      String(acceptance.publicQualificationAttempt),
+      qualified.publication.attempt,
+    );
+    for (const name of [
+      "distribution-evidence.json",
+      "security-evidence.json",
+      "public-security-evidence.json",
+    ]) {
+      const evidence = readJson(join(directory, name));
+      assert.equal(evidence.source, qualified.source);
+      assert.equal(evidence.manifestSha256, qualified.manifestSha256);
+    }
+    const distribution = readJson(
+      join(directory, "distribution-evidence.json"),
+    );
+    for (const payload of distribution.payloads)
+      assert.equal(
+        qualified.evidence[payload.name],
+        payload.sha256,
+        "Missing or replaced distribution evidence",
+      );
+  }
   const names = releaseNames(qualified);
   assert.equal(new Set(names).size, names.length);
   return names.map((name) => {
@@ -289,4 +404,4 @@ export function verifyInventory(release, assets, allowMissing = false) {
   return [...missing.values()];
 }
 
-import { releaseBytes, verifyArchiveBytes } from "./release-bytes.js";
+import { hash, releaseBytes, verifyArchiveBytes } from "./release-bytes.js";

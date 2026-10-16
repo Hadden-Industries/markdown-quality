@@ -14,6 +14,48 @@ const source = readFileSync(
   "utf8",
 );
 
+test("release entrypoints are manual and publishing credentials exist only at their effect boundaries", () => {
+  const expectedOidc = ["publish.stage", "promote-release.npm"],
+    expectedWrites = ["github-release.archive", "promote-release.github"];
+  const oidc = [],
+    writes = [];
+  for (const name of [
+    "release-qualification",
+    "publish",
+    "release-registry",
+    "github-release",
+    "promote-release",
+  ]) {
+    const text = readFileSync(
+      new URL(`../.github/workflows/${name}.yml`, import.meta.url),
+      "utf8",
+    );
+    const workflow = yamlValue(parsers.yaml.parse(text));
+    assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
+    assert.equal(workflow.permissions.contents, "read");
+    assert.equal(workflow.permissions["id-token"], undefined);
+    assert.ok(
+      !/npm publish|stage approve|actions-lock|distribution-tag/u.test(text),
+    );
+    for (const [job, spec] of Object.entries(workflow.jobs)) {
+      if (spec.permissions?.["id-token"] === "write")
+        oidc.push(`${name}.${job}`);
+      if (spec.permissions?.contents === "write") writes.push(`${name}.${job}`);
+      if (spec.uses) assert.ok(spec.uses.startsWith("./.github/workflows/"));
+      for (const step of spec.steps ?? []) {
+        if (step.uses && !step.uses.startsWith("./"))
+          assert.match(step.uses, /^[\w-]+\/[\w-]+@[a-f0-9]{40}$/u);
+        if (step.uses?.startsWith("actions/checkout@"))
+          assert.equal(step.with["persist-credentials"], "false");
+        if (step.uses?.startsWith("actions/download-artifact@"))
+          assert.equal(step.with["digest-mismatch"], "error");
+      }
+    }
+  }
+  assert.deepEqual(oidc, expectedOidc);
+  assert.deepEqual(writes, expectedWrites);
+});
+
 // Use the already locked YAML parser; this adapter reads its AST rather than parsing YAML again.
 function yamlValue(node) {
   if (!node) return null;
@@ -57,9 +99,18 @@ test("generated Node bootstrap consumers conform to the canonical tooling refere
     "markdown-quality.qualify",
     "publish.admit",
     "publish.retained",
-    "publish.publish",
-    "publish.registry",
+    "publish.stage",
     "registry.registry",
+    "release-qualification.resolve",
+    "release-qualification.security",
+    "release-qualification.distribution",
+    "release-registry.admit",
+    "release-registry.security",
+    "github-release.prepare",
+    "github-release.archive",
+    "promote-release.admit",
+    "promote-release.npm",
+    "promote-release.github",
   ];
   const actual = [];
   assert.equal(bootstrap.version, nodeSupport.reference);
@@ -69,6 +120,10 @@ test("generated Node bootstrap consumers conform to the canonical tooling refere
     "markdown-quality",
     "publish",
     "registry",
+    "release-qualification",
+    "release-registry",
+    "github-release",
+    "promote-release",
   ]) {
     const workflow = yamlValue(
       parsers.yaml.parse(
@@ -144,7 +199,7 @@ test("a changed admitted Node reference owns candidate names and all performance
     consumer.steps.filter((step) =>
       step.if?.includes("matrix.node == needs.pack.outputs.reference"),
     ).length,
-    4,
+    5,
   );
   assert.equal(
     consumer.steps.filter((step) =>
@@ -159,7 +214,7 @@ test("a changed admitted Node reference owns candidate names and all performance
   );
 });
 
-test("all three npm phases preserve intervening admission and fail closed ordering", () => {
+test("retained verification and staging preserve intervening admission and fail closed ordering", () => {
   const workflow = yamlValue(
     parsers.yaml.parse(
       readFileSync(
@@ -168,7 +223,7 @@ test("all three npm phases preserve intervening admission and fail closed orderi
       ),
     ),
   );
-  for (const id of ["retained", "publish", "registry"]) {
+  for (const id of ["retained", "stage"]) {
     const steps = workflow.jobs[id].steps;
     const isolation = steps.findIndex(
       (step) => step.run === "node scripts/publication-npm.js isolate",
@@ -330,6 +385,16 @@ function govern(text) {
   assert.deepEqual(document.on, {
     push: { branches: ["main"] },
     pull_request: null,
+    workflow_call: {
+      inputs: {
+        runtimes: {
+          description:
+            "Matrix frozen by the manual release qualification caller",
+          required: "true",
+          type: "string",
+        },
+      },
+    },
   });
   assert.deepEqual(document.permissions, { contents: "read" });
   assert.deepEqual(Object.keys(document.jobs), [

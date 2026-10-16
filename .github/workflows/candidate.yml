@@ -3,6 +3,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
+    inputs:
+      runtimes:
+        description: Matrix frozen by the manual release qualification caller
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       trusted-sha:
@@ -17,7 +23,7 @@ permissions:
   contents: read
 jobs:
   pack:
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || inputs.runtimes != ''
     runs-on: windows-latest
     timeout-minutes: 15
     outputs:
@@ -36,8 +42,14 @@ jobs:
       - run: python scripts/acquire-native.py
       - id: resolve
         name: Resolve minimum and latest supported runtimes
+        env:
+          QUALIFICATION_MATRIX: ${{ inputs.runtimes }}
         run: |
-          $runtimeMatrix = node scripts/node-matrix.js
+          if ($env:QUALIFICATION_MATRIX) {
+            $runtimeMatrix = node scripts/node-matrix.js --frozen
+          } else {
+            $runtimeMatrix = node scripts/node-matrix.js
+          }
           if ($LASTEXITCODE -ne 0) { throw "Node release metadata resolution failed" }
           Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "matrix=$runtimeMatrix"
           $reference = node scripts/node-matrix.js --reference
@@ -99,7 +111,16 @@ jobs:
         run: node scripts/qualify-public-registry.mjs --manifest transported-release/release-manifest.json --archives transported-release candidate-qualification.json
       - name: Qualify transported archives and measure reference-runtime performance
         if: matrix.node == needs.pack.outputs.reference
+        env:
+          RELEASE_SECURITY_OUTPUT: ${{ inputs.runtimes != '' && 'recipient-security' || '' }}
         run: node scripts/qualify-public-registry.mjs --manifest transported-release/release-manifest.json --archives transported-release --performance-corpora performance-corpora --performance-output performance-observations candidate-qualification.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && matrix.node == needs.pack.outputs.reference && inputs.runtimes != ''
+        with:
+          name: recipient-${{ matrix.os }}
+          path: recipient-security/
+          if-no-files-found: error
+          retention-days: 90
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.node == needs.pack.outputs.reference && format('candidate-{0}', matrix.os) || format('candidate-{0}-{1}', matrix.os, matrix.node) }}
@@ -114,7 +135,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   shared:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.runtimes == ''
     # The local reference binds the reusable workflow to this exact caller commit.
     # Fixture commits carry reviewed archives/profile; candidate bytes remain data.
     uses: ./.github/workflows/markdown-quality.yml

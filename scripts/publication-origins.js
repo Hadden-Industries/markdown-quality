@@ -2,10 +2,16 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 
-export const publicationSteps = [
+// Immutable historical provider labels are read only during explicit recovery.
+export const legacyPublicationSteps = [
   "Publish Windows package under pilot and verify integrity",
   "Publish Linux package under pilot and verify integrity",
   "Publish coherent core under pilot and verify integrity",
+];
+export const stagingSteps = [
+  "Stage Windows package under pilot",
+  "Stage Linux package under pilot",
+  "Stage coherent core under pilot",
 ];
 const repository = "Hadden-Industries/markdown-quality";
 const keys = (value, expected) => {
@@ -137,9 +143,13 @@ export function planPublicationOrigins({
       jobs.jobs.length,
       "Truncated previous job evidence",
     );
-    const publishJobs = jobs.jobs.filter((job) => job.name === "publish");
-    assert.equal(publishJobs.length, 1);
-    const job = publishJobs[0];
+    const effectJobs = jobs.jobs.filter((job) =>
+      ["stage", "publish"].includes(job.name),
+    );
+    assert.equal(effectJobs.length, 1);
+    const job = effectJobs[0];
+    const effectSteps =
+      job.name === "stage" ? stagingSteps : legacyPublicationSteps;
     assert.equal(job.status, "completed");
     assert.equal(String(job.run_id), recovery.run);
     assert.equal(String(job.run_attempt), recovery.attempt);
@@ -186,7 +196,7 @@ export function planPublicationOrigins({
     for (let index = 0; index < release.archives.length; index++) {
       const record = priorRecords[index];
       const steps = job.steps.filter(
-        (step) => step.name === publicationSteps[index],
+        (step) => step.name === effectSteps[index],
       );
       assert.equal(
         steps.length,
