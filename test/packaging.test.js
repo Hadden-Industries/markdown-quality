@@ -11,12 +11,14 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { packRelease } from "../scripts/pack.js";
 import { npmCommand } from "../scripts/commands.js";
 import { checkLinks } from "../src/analysis.js";
 import { digest } from "../src/contracts.js";
 import { qualifyRuntime } from "../scripts/qualify-runtime.js";
 import { checkArchitecture } from "../scripts/architecture.js";
+import { verifyBundledShipment } from "../scripts/bundled-dependencies.js";
 test("packed root and isolated consumers install without lifecycle scripts and execute offline", (t) => {
   const temp = mkdtempSync(join(tmpdir(), "markdown-quality-install-"));
   t.after(() => rmSync(temp, { recursive: true, force: true }));
@@ -26,6 +28,10 @@ test("packed root and isolated consumers install without lifecycle scripts and e
     (a) => a.name === `${process.platform}-${process.arch}`,
   );
   const core = release.archives.find((a) => a.name === "core");
+  assert.ok(
+    core.files.some((file) => file.path === "node_modules/katex/package.json"),
+    "Recipients must receive the patched KaTeX closure without root overrides",
+  );
   // The real archive is an independent oracle for npm's dry-run admission.
   assert.deepEqual(
     checkArchitecture()
@@ -33,11 +39,7 @@ test("packed root and isolated consumers install without lifecycle scripts and e
       .sort(),
     core.files.map((f) => f.path).sort(),
   );
-  assert.ok(
-    core.files.every(
-      (f) => !f.path.includes("node_modules") && !f.path.includes(".npmrc"),
-    ),
-  );
+  assert.ok(core.files.every((f) => !f.path.includes(".npmrc")));
   assert.ok(core.files.some((file) => file.path === "assets/.editorconfig"));
   assert.ok(
     core.files.every(
@@ -80,6 +82,87 @@ test("packed root and isolated consumers install without lifecycle scripts and e
     );
     const installedMetadata = JSON.parse(
       readFileSync(join(installedCore, "package.json"), "utf8"),
+    );
+    assert.equal(installedMetadata.overrides, undefined);
+    verifyBundledShipment(
+      installedCore,
+      core.files,
+      installedMetadata,
+      release.source.lockSha256,
+    );
+    if (layout === "root") {
+      const bundledFile = core.files.find(({ path }) =>
+        path.endsWith("node_modules/katex/dist/katex.mjs"),
+      );
+      assert.ok(bundledFile);
+      const path = join(installedCore, bundledFile.path);
+      const original = readFileSync(path);
+      const corrupt = Buffer.from(original);
+      corrupt[0] ^= 1;
+      try {
+        writeFileSync(path, corrupt);
+        assert.throws(
+          () =>
+            verifyBundledShipment(
+              installedCore,
+              core.files,
+              installedMetadata,
+              release.source.lockSha256,
+            ),
+          /Bundled file drift/u,
+        );
+      } finally {
+        writeFileSync(path, original);
+      }
+      assert.throws(() =>
+        verifyBundledShipment(
+          installedCore,
+          core.files.filter((file) => file !== bundledFile),
+          installedMetadata,
+          release.source.lockSha256,
+        ),
+      );
+      assert.throws(() =>
+        verifyBundledShipment(
+          installedCore,
+          [
+            ...core.files,
+            { path: "node_modules/unexpected/index.js", size: 1 },
+          ],
+          installedMetadata,
+          release.source.lockSha256,
+        ),
+      );
+      assert.throws(() =>
+        verifyBundledShipment(
+          installedCore,
+          core.files,
+          installedMetadata,
+          "0".repeat(64),
+        ),
+      );
+    }
+    const installedLock = JSON.parse(lockBefore);
+    const katex = Object.entries(installedLock.packages).filter(([path]) =>
+      path.endsWith("node_modules/katex"),
+    );
+    assert.ok(katex.length > 0);
+    assert.ok(katex.every(([, pkg]) => pkg.version === "0.19.0"));
+    npmCommand(["ls", "--all", "--json"], { cwd: install });
+    const securityProbe = spawnSync(
+      process.execPath,
+      [
+        fileURLToPath(
+          new URL("./fixtures/katex-consumer-probe.mjs", import.meta.url),
+        ),
+        installedCore,
+      ],
+      { encoding: "utf8", timeout: 10000, windowsHide: true },
+    );
+    assert.equal(
+      securityProbe.status,
+      0,
+      securityProbe.stdout + securityProbe.stderr,
     );
     assert.equal(
       installedMetadata.dependencies["dependency-cruiser"],
@@ -151,7 +234,9 @@ test("packed root and isolated consumers install without lifecycle scripts and e
         ).length > 0,
       );
     }
-    for (const file of core.files.filter((f) => f.path.endsWith(".md"))) {
+    for (const file of core.files.filter(
+      (f) => !f.path.startsWith("node_modules/") && f.path.endsWith(".md"),
+    )) {
       const text = readFileSync(join(installedCore, file.path), "utf8");
       assert.deepEqual(
         checkLinks(

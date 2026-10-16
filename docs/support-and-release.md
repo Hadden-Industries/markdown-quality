@@ -143,8 +143,24 @@ Preserve third-party license texts and attribution.
 Public registry access does not waive source obligations.
 The repository's original `LICENSE` bytes are verified by the full check.
 
-The consolidated security remediation uses a root-only `micromark-extension-math` override to KaTeX 0.19.0 for producer development and qualification.
-It removes the affected KaTeX resolution from this repository's locked install.
-[npm applies overrides only from the root project](https://docs.npmjs.com/cli/v12/configuring-npm/package-json/#overrides), so installing the packed library without a consumer override can still resolve affected KaTeX through ESLint Markdown.
-This source repair does not remediate that consumer graph or change immutable release 1.0.3.
-Consumer-wide dependency remediation requires a separately accepted dependency/distribution design and a qualified new release.
+The producer uses a root-only `micromark-extension-math` override to KaTeX 0.19.0.
+[npm applies overrides only from the root project](https://docs.npmjs.com/cli/v12/configuring-npm/package-json/#overrides); that alone does not protect a fresh library consumer.
+The authorized qualification repair therefore uses [native bundled dependencies](https://docs.npmjs.com/cli/v12/configuring-npm/package-json/#bundledependencies) to ship ESLint Markdown's complete runtime closure, including the fixed KaTeX version.
+Staging obtains this closure through an offline, script-disabled `npm ci` using the producer manifest, frozen lock and npm's integrity-checked cache.
+It never copies the ambient `node_modules` tree.
+The staged `micromark-extension-math` 3.1.0 manifest declares KaTeX 0.19.0 explicitly; executable upstream source remains unchanged.
+The original root override is removed from the published manifest, and native `npm pack` validates the resulting dependency edges.
+The generated `assets/bundled-dependencies.json` binds the exact files, source lock, original registry identities, retained notices and the single metadata repair.
+Packing and architecture qualification verify that inventory; development tools remain excluded.
+Fresh root and isolated consumers must install without lifecycle scripts or overrides, have a valid native dependency tree, pass malicious-input and legitimate-rendering probes, and reinstall offline from their own frozen lock.
+Release qualification additionally requires the actual installed-recipient audit and distribution SBOM.
+This changes candidate source and packaging only; immutable release 1.0.3 remains unchanged until a separately authorized new version is qualified and released.
+Remove the vendored metadata repair and bundling when a maintained upstream release declares a safe KaTeX range and the same recipient checks pass without them.
+
+The 120-second npm command ceiling remains unchanged.
+Acquisition requests use a 15-second timeout and two native retries, with bounded backoff, so npm's default five-minute request timeout cannot consume the entire command deadline before recovery starts.
+Only npm's idempotent fetch recovery is used; the outer install command is not retried.
+A sustained registry outage still fails qualification.
+The 30-second corpus gate and 512-MiB process-tree budgets also remain unchanged.
+These are measured project acceptance criteria, not durations prescribed by an external standard.
+See the [qualification repair evidence](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/research/2026-10-17-release-qualification-repair.md) for observed failures, limits, diagnosis and validation boundaries.

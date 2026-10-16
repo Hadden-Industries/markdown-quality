@@ -208,6 +208,7 @@ async function analyzeQuality(options = {}, document = null) {
           output: formatted.output,
           elapsedMs,
           precheck: formatted.prechecked ? precheck : undefined,
+          literalExclusions: formatted.literalExclusions,
         })),
         staging?.token,
       );
@@ -317,7 +318,11 @@ async function analyzeQuality(options = {}, document = null) {
           throw error;
         }
         const retainedBytes =
-          item.bytes.length + Buffer.byteLength(formatted.output);
+          item.bytes.length +
+          Buffer.byteLength(formatted.output) +
+          Buffer.byteLength(
+            JSON.stringify(formatted.literalExclusions ?? null),
+          );
         if (
           prepared.length >= 32 ||
           preparedBytes + retainedBytes > 4 * 1024 * 1024 ||

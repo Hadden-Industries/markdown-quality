@@ -1,4 +1,5 @@
 node_modules/
+__pycache__/
 packages/*/bin/
 packages/*/LICENSE
 packages/*/LICENSE.snapper

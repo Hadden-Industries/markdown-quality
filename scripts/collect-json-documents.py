@@ -98,7 +98,8 @@ def collect():
             path = 'dist/json-qualification/' + filename
             source = read_owned(path)
             _, members, inventory, bodies = archive_owner.read_archive_members(
-                ROOT / path, expected_sha256=item['sha256'], package_only=True)
+                ROOT / path, expected_sha256=item['sha256'], package_only=True,
+                core_inventory=item['files'] if item['name'] == 'core' else None)
             expected = {'package/' + entry['path']: entry['sha256'] for entry in item['files']}
             if len(expected) != len(item['files']) or inventory != expected:
                 raise ValueError('Packed membership differs from staged file inventory')

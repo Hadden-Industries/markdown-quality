@@ -14,6 +14,7 @@ import {
 } from "./dependency-graph.js";
 import { stageCore } from "./core-package-stage.js";
 import { npmCommand } from "./commands.js";
+import { verifyBundledShipment } from "./bundled-dependencies.js";
 
 /** Validate native npm membership and source/stage equality without resolving imports again. */
 export function shipmentErrors(root, core, files, graph, metadata) {
@@ -35,8 +36,17 @@ export function shipmentErrors(root, core, files, graph, metadata) {
     if (readOwned(core, path).length !== size)
       throw new Error("Shipment size mismatch");
   }
+  verifyBundledShipment(
+    core,
+    files,
+    metadata,
+    sha256(readOwned(root, "package-lock.json")),
+  );
   const errors = [];
-  const runtime = [...admitted].filter((path) => /\.(js|mjs|cjs)$/u.test(path));
+  const runtime = [...admitted].filter(
+    (path) =>
+      !path.startsWith("node_modules/") && /\.(js|mjs|cjs)$/u.test(path),
+  );
   if (!runtime.length) throw new Error("Empty runtime shipment inventory");
   const modules = new Map(
     graph.modules.map((module) => [module.source, module]),

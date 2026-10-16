@@ -18,6 +18,7 @@ import { digest, metadata } from "../src/contracts.js";
 import { manifest } from "../src/native-tool.js";
 import { nodeSupport, candidateJobNames } from "./node-matrix.js";
 import { stageCore } from "./core-package-stage.js";
+import { verifyBundledShipment } from "./bundled-dependencies.js";
 import { checkGeneratedSchemas } from "./generate-schemas.js";
 import { repositoryPython } from "./python-target.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -67,7 +68,7 @@ export function packRelease(output, qualificationMatrix) {
   const stage = mkdtempSync(join(tmpdir(), "markdown-quality-pack-"));
   try {
     const core = join(stage, "core");
-    const { sourceIdentity } = stageCore(root, core);
+    const { sourceIdentity, metadata: stagedMetadata } = stageCore(root, core);
     const archives = [];
     for (const [name, cwd] of [
       ...Object.keys(manifest.platforms).map((key) => [
@@ -92,6 +93,13 @@ export function packRelease(output, qualificationMatrix) {
       )
         throw new Error("Unexpected npm pack response");
       const [pack] = records;
+      if (name === "core")
+        verifyBundledShipment(
+          core,
+          pack.files,
+          stagedMetadata,
+          sourceIdentity.lockSha256,
+        );
       const path = join(output, pack.filename);
       let executableMode = null;
       if (name === "linux-x64") {

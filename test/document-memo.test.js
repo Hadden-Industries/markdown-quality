@@ -12,6 +12,10 @@ import { formatLayout } from "../src/literal-layout.js";
 import { normalizeTrailingWhitespace } from "../src/whitespace.js";
 import { limits } from "../src/contracts.js";
 import { consumer } from "./helpers.js";
+import {
+  captureLiteralExclusions,
+  checkProseGroup,
+} from "../src/prose-diagnostics.js";
 
 const options = {
   parser: "markdown",
@@ -21,6 +25,48 @@ const options = {
   tabWidth: 2,
   plugins: [],
 };
+
+test("prose filtering reuses the exact parsed bytes and rejects stale bytes or syntax", () => {
+  const text =
+    "+++\nOpaque. Text.\n+++\n\n```text\nLiteral. Text.\n```\n\nProse. Text.\n";
+  const syntax = { frontmatter: "toml" };
+  const memo = createDocumentMemo(syntax);
+  try {
+    memo.parse(text);
+    const snapshot = captureLiteralExclusions(text, syntax, memo);
+    assert.equal(memo.statistics.parses, 1);
+    assert.equal(memo.statistics.parseHits, 1);
+    const reports = [
+      { diagnostics: [2, 6, 9].map((line) => ({ rule: "fused", line })) },
+    ];
+    const check = (source, selected, proof) =>
+      checkProseGroup(
+        { executable: "unused" },
+        [source],
+        null,
+        null,
+        reports,
+        selected,
+        undefined,
+        [proof],
+      );
+    const original = check(text, syntax);
+    assert.deepEqual(original, [[{ rule: "fused", line: 9 }]]);
+    assert.deepEqual(check(text, syntax, structuredClone(snapshot)), original);
+    const changed = text.replace("```text", "Plain").replace("```", "Plain");
+    assert.deepEqual(check(changed, syntax, snapshot), check(changed, syntax));
+    assert.deepEqual(
+      check(text, { frontmatter: false }, snapshot),
+      check(text, { frontmatter: false }),
+    );
+    assert.deepEqual(
+      check(text, syntax, { ...snapshot, lines: [NaN] }),
+      original,
+    );
+  } finally {
+    memo.dispose();
+  }
+});
 
 test("exact document reuse preserves literals/options and fresh physical targets", async (t) => {
   const source = "[Target](target.md)\n\n```text\nvalue  \n```\n";

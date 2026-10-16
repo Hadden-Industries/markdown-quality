@@ -16,6 +16,28 @@ spec.loader.exec_module(module)
 
 
 class PackageModeTests(unittest.TestCase):
+    def test_core_requires_exact_inventory_without_raising_native_member_bound(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'core.tgz'
+            body = b'{}'
+            declared = [{'path': f'node_modules/dependency/{index}.json', 'size': len(body),
+                         'sha256': hashlib.sha256(body).hexdigest()} for index in range(101)]
+            with tarfile.open(path, 'w:gz') as archive:
+                for item in declared:
+                    member = tarfile.TarInfo('package/' + item['path'])
+                    member.size = len(body)
+                    archive.addfile(member, io.BytesIO(body))
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            with self.assertRaisesRegex(ValueError, 'exceeds limits'):
+                module.read_archive_members(path, digest, package_only=True)
+            result = module.read_archive_members(path, digest, package_only=True, core_inventory=declared)
+            self.assertEqual(len(result[1]), 101)
+            for invalid in (declared[:-1], declared + [{**declared[0], 'path': 'absent.json'}],
+                            [{**declared[0], 'sha256': '0' * 64}, *declared[1:]],
+                            [{**declared[0], 'size': 8 * 1024 * 1024 + 1}, *declared[1:]]):
+                with self.assertRaises(ValueError):
+                    module.read_archive_members(path, digest, package_only=True, core_inventory=invalid)
+
     def test_case_colliding_members_are_refused_before_replacement(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'package.tgz'

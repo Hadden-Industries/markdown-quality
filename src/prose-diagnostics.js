@@ -6,8 +6,9 @@
 import { runNative } from "./native-tool.js";
 import { runNativeChecks } from "./native-checks.js";
 import { parse } from "./analysis.js";
+import { digest } from "./contracts.js";
 /** Native prose policy does not own lines consisting entirely of literal content. */
-function literalOnlyLines(text, syntax) {
+function literalOnlyLines(text, syntax, memo) {
   const literal = new Set(),
     prose = new Set();
   function visit(node) {
@@ -32,8 +33,31 @@ function literalOnlyLines(text, syntax) {
     }
     for (const child of node.children ?? []) visit(child);
   }
-  visit(parse(text, syntax));
+  visit(memo ? memo.parse(text) : parse(text, syntax));
   return new Set([...literal].filter((line) => !prose.has(line)));
+}
+
+/** Retain only literal classification from the completed document-local parse. */
+export function captureLiteralExclusions(text, syntax, memo) {
+  return {
+    sha256: digest(text),
+    frontmatter: syntax?.frontmatter ?? "yaml",
+    lines: [...literalOnlyLines(text, syntax, memo)],
+  };
+}
+
+function admittedLiteralLines(text, syntax, snapshot) {
+  if (
+    snapshot?.sha256 === digest(text) &&
+    snapshot.frontmatter === (syntax?.frontmatter ?? "yaml") &&
+    Array.isArray(snapshot.lines) &&
+    snapshot.lines.every(
+      (line) =>
+        Number.isSafeInteger(line) && line > 0 && line <= text.length + 1,
+    )
+  )
+    return new Set(snapshot.lines);
+  return literalOnlyLines(text, syntax);
 }
 // Requalified against 0.11.9. Owner approval: this chat, 2026-10-05.
 // Mirrors OwlAPI's narrow container boundary and continuation recheck approach.
@@ -80,6 +104,7 @@ export function checkProseGroup(
   admittedChecks,
   syntax,
   budgets,
+  literalExclusions,
 ) {
   let checkMilliseconds = 0;
   function check(inputs) {
@@ -126,7 +151,7 @@ export function checkProseGroup(
   }
   const keep = checked.map((entry, index) => {
     const literals = entry.diagnostics.length
-      ? literalOnlyLines(texts[index], syntax)
+      ? admittedLiteralLines(texts[index], syntax, literalExclusions?.[index])
       : new Set();
     return entry.diagnostics.map((d) => !literals.has(d.line));
   });

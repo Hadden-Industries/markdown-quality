@@ -22,9 +22,14 @@ import { hash, readJson } from "./release-assets.js";
 import { verifyArchiveBytes } from "./release-bytes.js";
 import {
   bindNativeSbom,
+  bindCoreSbom,
   reconcileMergedSbom,
   verifyRecipientSbom,
 } from "./distribution-sbom.js";
+import {
+  bundleInventoryPath,
+  verifyBundledShipment,
+} from "./bundled-dependencies.js";
 
 const tools = readJson(new URL("./release-sbom-tools.json", import.meta.url));
 const pacote = createRequire(npmCliPath())("pacote");
@@ -159,43 +164,21 @@ export async function qualifyDistributionSbom(
       validate(raw);
       let bom = readJson(raw);
       if (archive.name === "core") {
-        Object.assign(bom.metadata.component, {
-          type: "application",
-          name: archive.package,
-          version: archive.version,
-          hashes: [{ alg: "SHA-256", content: archive.sha256 }],
-          licenses: [{ expression: "AGPL-3.0-only" }],
+        verifyBundledShipment(
+          extracted,
+          archive.files,
+          readJson(join(extracted, "package.json")),
+          release.source.lockSha256,
+        );
+        const inventory = readJson(join(extracted, bundleInventoryPath));
+        bom = bindCoreSbom(bom, { archive, inventory });
+        coverage.push({
+          package: "core",
+          bundledPackages: inventory.packages.length,
+          bundleInventorySha256: hash(
+            readFileSync(join(extracted, bundleInventoryPath)),
+          ),
         });
-        for (const component of bom.components) {
-          if (component.type === "file") {
-            const metadata = archive.files.find(
-              ({ path }) => path === "package.json",
-            );
-            assert.ok(
-              metadata &&
-                component.hashes.some(
-                  ({ alg, content }) =>
-                    alg === "SHA-256" && content === metadata.sha256,
-                ),
-              "Unmapped core file component",
-            );
-            component.name = "package/package.json";
-          } else {
-            assert.equal(
-              component.name,
-              archive.package,
-              "Unexplained bundled component in core scan",
-            );
-            assert.equal(component.version, archive.version);
-          }
-        }
-        bom.metadata.component.properties = [
-          {
-            name: "markdown-quality:coverage",
-            value:
-              "Files shipped in the core archive. External npm dependencies are described separately as observed consumer resolutions, not bundled code or all future compatible resolutions.",
-          },
-        ];
       } else {
         // Use only the native binary catalog for native coverage; package metadata
         // is supplied from the admitted npm archive below, not guessed by Syft.

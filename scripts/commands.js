@@ -35,7 +35,18 @@ export function npmCliPath(executable = process.execPath) {
 export function npmCommand(args, options = {}, executable = process.execPath) {
   const cli = npmCliPath(executable);
   const started = performance.now();
-  const result = spawnSync(executable, [cli, ...args], {
+  // npm's five-minute per-request default outlives this command's two-minute
+  // deadline. Retry only native idempotent reads, inside the unchanged bound.
+  const acquisition = ["install", "ci"].includes(args[0])
+    ? [
+        "--fetch-timeout=15000",
+        "--fetch-retries=2",
+        "--fetch-retry-factor=2",
+        "--fetch-retry-mintimeout=1000",
+        "--fetch-retry-maxtimeout=4000",
+      ]
+    : [];
+  const result = spawnSync(executable, [cli, ...args, ...acquisition], {
     encoding: "utf8",
     timeout: 120_000,
     maxBuffer: 8_388_608,

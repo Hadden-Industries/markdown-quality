@@ -6,7 +6,10 @@ import { diagnosticBudget, OperationError } from "./contracts.js";
 import { checkTrailingWhitespace } from "./whitespace.js";
 import { checkAdvisories } from "./advisory-diagnostics.js";
 import { createDocumentMemo } from "./document-memo.js";
-import { checkProseGroup } from "./prose-diagnostics.js";
+import {
+  checkProseGroup,
+  captureLiteralExclusions,
+} from "./prose-diagnostics.js";
 import {
   runNativeChecks,
   bindNativeCheck,
@@ -124,6 +127,7 @@ parentPort.on(
           ),
           context.config.syntax,
           context.config.limits,
+          documents.map((document) => document.literalExclusions),
         );
         parentPort.postMessage({ diagnostics });
         return;
@@ -138,6 +142,11 @@ parentPort.on(
       );
       const proposed = mode === "format" ? formatted.output : text;
       const canonical = mode === "format" || formatted.output === text;
+      const literalExclusions = captureLiteralExclusions(
+        formatted.output,
+        context.config.syntax,
+        memo,
+      );
       try {
         const whitespace = checkTrailingWhitespace(
           proposed,
@@ -158,6 +167,7 @@ parentPort.on(
           diagnostics,
           whitespaceCount: whitespace.length,
           prechecked: formatted.prechecked,
+          literalExclusions,
         });
       } catch (error) {
         // Preserve prose-before-lint failure order; no provisional result is admitted.
@@ -165,6 +175,7 @@ parentPort.on(
           output: formatted.output,
           deferredError: reported(error),
           prechecked: formatted.prechecked,
+          literalExclusions,
         });
       }
     } catch (error) {

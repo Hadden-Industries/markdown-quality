@@ -36,8 +36,16 @@ Their terms permit use, modification and distribution subject to retaining those
 The lockfile freezes their exact integrity identities.
 The producer's scoped dependency override resolves KaTeX 0.19.0 and its Commander 15.0.0 dependency.
 Their installed `LICENSE` files retain the original MIT terms and copyright notices: Khan Academy and other contributors (KaTeX), and TJ Holowaychuk (Commander).
-Those terms permit use and redistribution subject to retaining the notices; no upstream source is vendored or modified here.
-The override applies only to the producer root, as described in the [support and release boundary](docs/support-and-release.md).
+Those terms permit use and redistribution subject to retaining the notices.
+The core archive now bundles ESLint Markdown's complete runtime dependency closure, including KaTeX 0.19.0, using npm's native `bundleDependencies` mechanism.
+Each package retains its upstream executable source and original notices.
+The sole vendored modification changes `micromark-extension-math` 3.1.0's `dependencies.katex` declaration from `^0.16.0` to `0.19.0` to address GHSA-238p-pmpm-9mq7 for recipients.
+The generated `assets/bundled-dependencies.json` records original registry URLs and integrity values, package licenses, every shipped file hash, and before/after hashes for that metadata repair.
+The producer override remains a build input and is removed from the published manifest; it is not a recipient security control.
+The `format` 0.2.2 registry archive omits a standalone license text.
+Its original MIT license, copyright 2010-2016 Sami Samhuri, is preserved in [LICENSES/MIT-format.txt](LICENSES/MIT-format.txt), copied unchanged from [upstream commit 0094c51372790ca342da4b90c519edd3380deee1](https://github.com/samsonjs/format/blob/0094c51372790ca342da4b90c519edd3380deee1/License.md).
+The original per-file and readme notices also remain intact.
+See the [support and release boundary](docs/support-and-release.md) for acquisition, verification and removal criteria for this temporary dependency repair.
 Native packages retain `LICENSE.snapper` and a fixed executable/repack component record.
 The AGPL declaration applies to the packaging implementation and does not relabel upstream executable bytes.
 

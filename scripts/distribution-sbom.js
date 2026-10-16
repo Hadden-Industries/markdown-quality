@@ -1,6 +1,115 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Repository-specific coverage reconciliation after native CycloneDX validation. */
 import assert from "node:assert/strict";
+import { isDeepStrictEqual } from "node:util";
+
+/** Reconcile every native core component against exact shipped package metadata. */
+export function bindCoreSbom(bom, { archive, inventory }) {
+  const rootFile = archive.files.find(({ path }) => path === "package.json");
+  assert.ok(rootFile);
+  const expected = [
+    {
+      path: "",
+      name: archive.package,
+      version: archive.version,
+      license: "AGPL-3.0-only",
+      manifestSha256: rootFile.sha256,
+    },
+    ...inventory.packages,
+  ];
+  const seen = new Set(),
+    seenFiles = new Set();
+  for (const component of bom.components) {
+    if (component.type === "file") {
+      const matches = expected.filter((pkg) => {
+        const path = pkg.path ? `${pkg.path}/package.json` : "package.json";
+        return (
+          component.name.replaceAll("\\", "/").endsWith(`/${path}`) &&
+          component.hashes?.some(
+            ({ alg, content }) =>
+              alg === "SHA-256" && content === pkg.manifestSha256,
+          )
+        );
+      });
+      assert.equal(matches.length, 1, "Unmapped core file component");
+      const pkg = matches[0];
+      assert.ok(!seenFiles.has(pkg.path), "Duplicate core file component");
+      seenFiles.add(pkg.path);
+      component.name = `package/${pkg.path ? pkg.path + "/" : ""}package.json`;
+      continue;
+    }
+    assert.equal(component.type, "library", "Unexpected core component type");
+    const locations = component.properties
+      ?.filter(({ name }) => /^syft:location:\d+:path$/u.test(name))
+      .map(({ value }) => value);
+    assert.equal(locations?.length, 1, "Ambiguous core component location");
+    const matches = expected.filter(
+      (pkg) =>
+        locations[0] === `/${pkg.path ? pkg.path + "/" : ""}package.json`,
+    );
+    assert.equal(
+      matches.length,
+      1,
+      "Unexplained bundled component in core scan",
+    );
+    const pkg = matches[0];
+    assert.equal(component.name, pkg.name);
+    assert.equal(component.version, pkg.version);
+    assert.ok(!seen.has(pkg.path), "Duplicate bundled component");
+    seen.add(pkg.path);
+    component.licenses = [{ expression: pkg.license }];
+    if (pkg.path) {
+      component.externalReferences = [
+        ...(component.externalReferences ?? []),
+        {
+          type: "distribution",
+          url: pkg.resolved,
+          comment:
+            "Original registry source archive; declared metadata repair is recorded separately in the shipped bundle inventory.",
+          hashes: [
+            {
+              alg: "SHA-512",
+              content: Buffer.from(
+                pkg.integrity.slice("sha512-".length),
+                "base64",
+              ).toString("hex"),
+            },
+          ],
+        },
+      ];
+      component.properties.push({
+        name: "markdown-quality:shipped-manifest-sha256",
+        value: pkg.manifestSha256,
+      });
+    }
+  }
+  const paths = expected.map(({ path }) => path).sort();
+  assert.deepEqual(
+    [...seen].sort(),
+    paths,
+    "Core scan omitted a shipped package",
+  );
+  assert.deepEqual(
+    [...seenFiles].sort(),
+    paths,
+    "Core scan omitted shipped metadata",
+  );
+  Object.assign(bom.metadata.component, {
+    type: "application",
+    name: archive.package,
+    version: archive.version,
+    hashes: [{ alg: "SHA-256", content: archive.sha256 }],
+    licenses: [{ expression: "AGPL-3.0-only" }],
+    properties: [
+      {
+        name: "markdown-quality:coverage",
+        value:
+          "Exact core archive, including all inventoried bundled npm packages and metadata repairs. External dependencies are separate observed recipient resolutions.",
+      },
+    ],
+  });
+  return bom;
+}
 
 /** Native hierarchical composition must conserve components, rights and graph edges. */
 export function reconcileMergedSbom(merged, inputs) {
@@ -38,7 +147,8 @@ export function reconcileMergedSbom(merged, inputs) {
           item.name === component.name &&
           item.version === component.version &&
           item.purl === component.purl &&
-          item.type === component.type,
+          item.type === component.type &&
+          isDeepStrictEqual(item.properties ?? [], component.properties ?? []),
       );
       assert.equal(
         candidates.length,
