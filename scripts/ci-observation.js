@@ -18,17 +18,6 @@ export function observationEnabled(environment = process.env) {
   return true;
 }
 
-export function observationTimeout(
-  kind,
-  ordinaryMs,
-  environment = process.env,
-) {
-  if (!observationEnabled(environment)) return ordinaryMs;
-  if (kind === "npm-acquisition") return 300_000;
-  if (kind === "node-suite") return 1_800_000;
-  return ordinaryMs;
-}
-
 /** Emit process boundaries even when a synchronous command blocks the event loop. */
 export function observeCommand(command, originalLimitMs, limitMs, facts = {}) {
   if (!observationEnabled()) return () => {};

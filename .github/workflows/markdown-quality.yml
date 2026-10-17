@@ -30,7 +30,7 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     defaults:
       run:
         shell: pwsh
@@ -73,6 +73,7 @@ jobs:
       - name: Acquire immutable producer bootstrap graph
         working-directory: producer
         run: npm ci --ignore-scripts --no-audit --no-fund
+        timeout-minutes: 5
       - id: profile
         name: Read shared trusted runtime/profile declarations
         run: node producer/scripts/shared-qualification.mjs bootstrap

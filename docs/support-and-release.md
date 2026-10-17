@@ -157,10 +157,14 @@ Release qualification additionally requires the actual installed-recipient audit
 This changes candidate source and packaging only; immutable release 1.0.3 remains unchanged until a separately authorized new version is qualified and released.
 Remove the vendored metadata repair and bundling when a maintained upstream release declares a safe KaTeX range and the same recipient checks pass without them.
 
-The 120-second npm command ceiling remains unchanged.
+Production qualification allows five minutes per npm install or ci operation, thirty minutes per Node test suite, and forty-five minutes per enclosing product, candidate or registry qualification job.
+The same shared commands supply these budgets to normal CI and deliberate release qualification, without requiring the diagnostic observation profile.
+Other npm commands retain their two-minute ceiling, and explicit shorter fixture timeouts remain authoritative.
 Acquisition requests use a 15-second timeout and two native retries, with bounded backoff, so npm's default five-minute request timeout cannot consume the entire command deadline before recovery starts.
 Only npm's idempotent fetch recovery is used; the outer install command is not retried.
 A sustained registry outage still fails qualification.
 The 30-second corpus gate and 512-MiB process-tree budgets also remain unchanged.
 These are measured project acceptance criteria, not durations prescribed by an external standard.
+The owner adopted the larger execution budgets after a successful instrumented Windows run left about thirty seconds of headroom under the former ten-minute suite ceiling.
+This decision provides execution headroom; it does not establish that the intermittent installation slowdown is fixed.
 See the [qualification repair evidence](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/research/2026-10-17-release-qualification-repair.md) for observed failures, limits, diagnosis and validation boundaries.

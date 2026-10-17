@@ -130,7 +130,7 @@ jobs:
     name: package (${{ matrix.os }}, ${{ matrix.node }})
     needs: [matrix, strategy]
     if: always() && needs.matrix.result == 'success' && (needs.strategy.result != 'success' || needs.strategy.outputs.reuse != 'true')
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.matrix.outputs.runtimes) }}
@@ -151,6 +151,7 @@ jobs:
           node-version: ${{ matrix.node }}
           package-manager-cache: false
       - run: npm ci --engine-strict --ignore-scripts --no-audit --no-fund
+        timeout-minutes: 5
       - run: python scripts/acquire-native.py
       - run: npm run check:product
       - name: Enforce module architecture on the tested source

@@ -84,7 +84,7 @@ jobs:
   registry:
     needs: admit
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.admit.outputs.runtimes) }}

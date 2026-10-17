@@ -162,8 +162,8 @@ test("isolated npm acquisition binds selected Node and fails on setup or version
   assert.equal(readFileSync(isolation.NPM_CONFIG_USERCONFIG, "utf8"), "");
   assert.equal(
     calls[0].timeout,
-    0,
-    "the hosted job owns the npm acquisition deadline",
+    undefined,
+    "hosted acquisition retains the command's five-minute install budget",
   );
   assert.equal(
     calls[1].timeout,

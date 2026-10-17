@@ -74,3 +74,29 @@ Any further run, permanent budget change, workload redesign, or release qualific
 - [GitHub: skipping workflow runs](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs).
 - [GitHub: manually running a workflow](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
 - [npm: logging and timing](https://docs.npmjs.com/cli/v11/using-npm/logging/).
+
+## Production adoption on 18 October 2026
+
+The preceding sections preserve the original experiment's authority and limits.
+The owner subsequently instructed: "Apply the provisional 5/30/45-minute limits to the prod flow."
+This decision authorizes adopting those execution budgets in production qualification.
+
+The [single observation, run 39078046899](https://github.com/Hadden-Industries/markdown-quality/actions/runs/39078046899), passed on signed source `58813562ca00e8ad2aa0d8ade5b468445ee4a3a2`.
+Its Node suite took 569.733 seconds as measured by its supervisor, with 533 passing tests and three skips.
+The slowest genuine install took 78.867 seconds; offline reinstalls took 48.957 and 49.548 seconds.
+Architecture and JSON checks also passed, and the run uploaded no artifacts.
+The larger deadlines were not needed in this attempt; the intermittent failure was not reproduced.
+
+Continue the existing R2 execution and REQ-003/AC-003 and REQ-010/AC-010 execution-assurance scope with one budget-adoption slice.
+The existing npm command wrapper owns the five-minute install/ci budget and explicit fixture overrides; the verification runner owns the thirty-minute Node-suite budget.
+Hosted npm toolchain acquisition also uses that shared install budget instead of its former job-only deadline.
+Product, candidate, shared and registry qualification jobs receive forty-five minutes, with direct bootstrap npm ci steps bounded at five minutes.
+Remove timeout selection from the observation switch; it now selects diagnostic logging only, retaining the former two- and ten-minute comparison baselines.
+No timeout change selects additional tests, retries, publication effects, performance thresholds, memory limits or skipped assertions.
+The native build workflow and fast admission/publishing control jobs retain their operation-specific deadlines.
+
+Verification uses the existing real-child failure/timeout regressions, workflow invariants, exact-file formatting and linting, one review of the settled delta, and the required local full HISEW profile.
+The external local HISEW invocation retains its separately configured fifteen-minute supervisor; that is not a hosted production-job limit and this change does not alter workflow installation settings.
+Deliver one signed direct-main commit with the normal push matrices skipped, preserving the owner's restriction on additional hosted runs.
+No new remote qualification run or release is authorized by this configuration change.
+Rollback is a reviewed revert of this budget-adoption commit; prior failed and successful run evidence remains intact.

@@ -9,7 +9,7 @@ permissions:
   contents: read
 jobs:
   registry:
-    timeout-minutes: 15
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:

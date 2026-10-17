@@ -5,24 +5,14 @@ import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { consumer } from "./helpers.js";
-import {
-  observationEnabled,
-  observationTimeout,
-} from "../scripts/ci-observation.js";
+import { observationEnabled } from "../scripts/ci-observation.js";
 
 const commands = new URL("../scripts/commands.js", import.meta.url).href;
 const enabled = { MARKDOWN_QUALITY_OBSERVATION: "windows-ci" };
 
-test("observation budgets are explicit and leave ordinary execution unchanged", () => {
+test("observation logging remains explicitly opt-in", () => {
   assert.equal(observationEnabled({}), false);
-  assert.equal(observationTimeout("npm-acquisition", 120_000, {}), 120_000);
-  assert.equal(observationTimeout("node-suite", 600_000, {}), 600_000);
-  assert.equal(
-    observationTimeout("npm-acquisition", 120_000, enabled),
-    300_000,
-  );
-  assert.equal(observationTimeout("node-suite", 600_000, enabled), 1_800_000);
-  assert.equal(observationTimeout("other", 30_000, enabled), 30_000);
+  assert.equal(observationEnabled(enabled), true);
 });
 
 test("hosted observation refuses release workflows and nonmanual events", () => {

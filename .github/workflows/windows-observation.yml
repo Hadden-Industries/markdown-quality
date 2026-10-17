@@ -107,7 +107,7 @@ jobs:
             ""
             "Install: $env:INSTALL_OUTCOME; product: $env:PRODUCT_OUTCOME; architecture: $env:ARCHITECTURE_OUTCOME; JSON: $env:JSON_OUTCOME."
             ""
-            "Provisional limits: 5 minutes per install, 30 minutes per Node suite, 45 minutes for this job."
+            "Production limits: 5 minutes per install, 30 minutes per Node suite, 45 minutes for this job."
             "Native phase timings and original-limit crossings are retained in the job log."
             "This diagnostic run supplies no release qualification receipt or publishing authority."
           ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY

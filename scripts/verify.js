@@ -6,7 +6,7 @@ import { dirname, delimiter } from "node:path";
 import { resolveTool } from "../src/native-tool.js";
 import { digest } from "../src/contracts.js";
 import { pythonProbeArgs, repositoryPython } from "./python-target.js";
-import { observationTimeout, observeCommand } from "./ci-observation.js";
+import { observeCommand } from "./ci-observation.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
 if (
   process.argv.length > 3 ||
@@ -20,15 +20,13 @@ process.env.VIRTUAL_ENV = dirname(dirname(python));
 process.env.PATH = dirname(python) + delimiter + process.env.PATH;
 function node(args) {
   const started = performance.now();
-  const timeout = observationTimeout(
-    args[0] === "--test" ? "node-suite" : "node",
-    600_000,
-  );
+  const timeout = args[0] === "--test" ? 1_800_000 : 600_000;
   const observed =
     args[0] === "--check"
       ? () => {}
       : observeCommand(
           args[0] === "--test" ? "Node test suite" : args.slice(0, 2).join(" "),
+          // Historical baseline for comparing future instrumented observations.
           600_000,
           timeout,
         );

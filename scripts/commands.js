@@ -2,7 +2,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { observationTimeout, observeCommand } from "./ci-observation.js";
+import { observeCommand } from "./ci-observation.js";
 /** Run a bounded native provider/tool command without a shell. */
 export function native(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -43,9 +43,8 @@ export function npmCommand(args, options = {}, executable = process.execPath) {
   const cli = npmCliPath(executable);
   const started = performance.now();
   const installing = ["install", "ci"].includes(args[0]);
-  // npm's five-minute per-request default outlives this command's two-minute
-  // ordinary deadline. Retry only native idempotent reads; observation changes
-  // the process budget without changing this request/retry policy.
+  // Bound individual requests within the five-minute acquisition budget.
+  // Retry only npm's native idempotent reads, never the outer command.
   const acquisition = installing
     ? [
         "--fetch-timeout=15000",
@@ -60,16 +59,14 @@ export function npmCommand(args, options = {}, executable = process.execPath) {
     : [];
   const settings = {
     encoding: "utf8",
-    timeout: observationTimeout(
-      installing ? "npm-acquisition" : "npm",
-      120_000,
-    ),
+    timeout: installing ? 300_000 : 120_000,
     maxBuffer: 8_388_608,
     windowsHide: true,
     ...options,
   };
   const observed = observeCommand(
     `npm ${args[0]}`,
+    // Keep the original diagnostic baseline after production budget adoption.
     options.timeout ?? 120_000,
     settings.timeout,
     {
