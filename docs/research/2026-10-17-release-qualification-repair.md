@@ -165,7 +165,7 @@ Server ownership now ends in the test body's `finally` block, before filesystem 
 A regression observes the real child alive during consumption and gone before a consumer failure is rethrown.
 This repairs a demonstrated lifecycle defect; it does not establish that this defect caused every hosted timeout.
 
-Acquisition commands enable [native npm phase timings](https://docs.npmjs.com/cli/using-npm/config/#timing), retaining only the last 2000 stderr characters on failure.
+Acquisition commands enable [native npm phase timings](https://docs.npmjs.com/cli/using-npm/config/#timing), retaining a bounded 2000-character diagnostic on failure.
 The existing [Node test reporter](https://nodejs.org/download/release/v22.13.0/docs/api/test.html#event-testdequeue) streams dequeue events as well as outcomes, and full verification reports command identity, elapsed time and the native failure code.
 Real subprocess regressions demonstrate diagnostics from a timed-out install and test progress before completion.
 No verbose request/configuration logging, new diagnostic upload, command retry, concurrency reduction or relaxed deadline is introduced.
@@ -177,3 +177,29 @@ Its release manifest matched GitHub's asset SHA-256 `2210119419956431a07cf90c0ce
 Changing only that pin would therefore not repair the routine check.
 The current candidate assertions and historical fixture remain intact; qualifying the newer contract from npm requires a separately authorized matching publication.
 No such publication is authorized by this diagnosis.
+
+## Hosted follow-up: dependency acquisition phases
+
+Manual qualification `39000792105` at `4d5d128cbe03dc17b529d541803da70d4774bc72` retained concrete installation failures instead of an unexplained suite deadline.
+The Windows Node 26.0.0 product suite exited after 539446 ms with two failed fresh installs; its root-consumer install spent 97087 ms in npm's completed dependency-resolution phase before reaching the unchanged 120-second command deadline.
+Its archive preparation took 118519 ms, independent shipment inspection 50914 ms and cleanup 419 ms.
+The Windows reference-consumer job also timed out during installation, before any performance measurement.
+The separate automatic candidate qualification `39000784993` passed on the same commit, while its product workflow retained install failures on Node 22.13.0 and 26.0.0.
+These results establish intermittent acquisition failures, not their underlying network or filesystem cause.
+
+Prior successful Windows product suites on the same earlier commit took 587428 ms on Node 22.13.0 and 328884 ms on Node 24.22.0.
+The ten-minute suite ceiling therefore has little margin in at least one observed successful run.
+A local comparison of the same three packaging tests took 111275 ms concurrently and 143945 ms sequentially; the packed-consumer body changed only from 110907 to 107219 ms.
+No concurrency change was justified by that comparison.
+
+Packed-consumer logs now identify packing, shipment inspection, each installation, runtime qualification and cleanup phase.
+Real child-process probes on Node 22 and 24 demonstrated that native stderr markers reach the reporter while a synchronous child is still running; hosted log timestamps can still batch events, so each completed phase carries its own measured duration.
+An end marker records duration even when the original operation throws; the failure still propagates.
+For npm failures, the diagnostic now keeps the longest completed native timing and up to two of the longest dependency-resolution or extraction phase timings, as well as the remaining stderr tail, within the same 2000-character allocation.
+The summary labels are bounded and JSON-encoded; this best-effort presentation never determines qualification.
+An unfinished phase has no completed duration and cannot be inferred from this summary alone.
+All command, performance, memory, suite and package-admission limits remain unchanged.
+
+The current public metadata still identifies `@eslint/markdown` 8.0.3 and `micromark-extension-math` 3.1.0 as latest, with the latter retaining its vulnerable KaTeX range.
+That read-only check provides no upstream replacement for the disclosed dependency repair.
+Further acquisition diagnosis and successful exact-source hosted qualification remain required; neither a passing sibling run nor local checks replace the failed result.

@@ -62,10 +62,38 @@ export function npmCommand(args, options = {}, executable = process.execPath) {
     windowsHide: true,
     ...options,
   });
-  if (result.error || result.status !== 0)
+  if (result.error || result.status !== 0) {
+    const stderr = result.stderr ?? "";
+    // Retain the expensive completed phases even when later short phases push
+    // them out of the tail. This is diagnostic output, never an admission rule.
+    const timings = [
+      ...stderr.matchAll(
+        /^npm timing ([^\r\n]{1,160}) Completed in (\d{1,12})ms\r?$/gmu,
+      ),
+    ]
+      .map((match) => ({
+        phase: match[1].slice(0, 80),
+        elapsedMs: Number(match[2]),
+      }))
+      .sort((a, b) => b.elapsedMs - a.elapsedMs);
+    const slowest = [
+      ...timings.slice(0, 1),
+      ...timings
+        .filter(
+          (timing) =>
+            timing !== timings[0] &&
+            /^(?:idealTree|reifyNode):/u.test(timing.phase),
+        )
+        .slice(0, 2),
+    ];
+    const summary = slowest.length
+      ? `Completed npm timings (overall and dependency phases): ${JSON.stringify(slowest)}\n`
+      : "";
+    const diagnostic = summary + stderr.slice(-(2000 - summary.length));
     throw new Error(
-      `npm ${args[0]} failed after ${Math.round(performance.now() - started)}ms (status=${result.status}, signal=${result.signal}, error=${result.error?.code ?? "none"}): ${(result.stderr ?? "").slice(-2000)}${result.error ? ` ${result.error.message}` : ""}`,
+      `npm ${args[0]} failed after ${Math.round(performance.now() - started)}ms (status=${result.status}, signal=${result.signal}, error=${result.error?.code ?? "none"}): ${diagnostic}${result.error ? ` ${result.error.message}` : ""}`,
       { cause: result.error },
     );
+  }
   return result.stdout;
 }
