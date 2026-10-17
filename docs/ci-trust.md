@@ -75,6 +75,17 @@ References: [GitHub event trust](https://docs.github.com/en/actions/reference/se
 
 ## Qualification evidence retention
 
+Routine diagnostics belong in job logs and concise job summaries.
+The routine public-registry workflow uses the qualifier's existing JSON stdout and does not upload a duplicate report.
+Candidate and release-registry workflows retain their exact JSON records because the release collector consumes them.
+Package, performance, release-security and distribution qualification append bounded public facts to job summaries only after their gates pass.
+Summaries are presentation, not an input to release admission; no release decision scrapes logs or summary text.
+
+Performance artifacts retain all top-level JSON observations and text driver logs under their existing names and layout.
+The upload omits the copied corpus directories; the release collector never consumed those trees.
+Original receipts still contain the complete corpus manifests and identity checks needed to verify reconstruction.
+Package archives, native original license evidence, distribution and recipient SBOMs, security records, package proof/reuse transfers, and staging/recovery journals keep their existing file contracts and retention periods.
+
 The reusable Markdown workflow uploads compact reports and complete content manifests, not per-sample staged source trees.
 Candidate/trusted commits, archive identities and staged digests remain in original receipts; reconstruction must verify all manifest paths, including hidden inputs.
 See [the compact artifact contract](centralized-contracts.md#compact-hosted-artifacts).

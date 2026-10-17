@@ -141,3 +141,14 @@ This repository's collector does consume exact package archives, qualification r
 However, the Linux performance upload also contained 231389341 bytes of copied OwlAPI/WebVOWL input trees that the collector never reads; it only retains top-level performance files.
 That unnecessary retention should be removed in a scoped evidence-contract follow-up, applying the existing [compact evidence design](../plans/compact-qualification-evidence.md).
 This repair does not redesign artifact retention or replace machine-consumed evidence with log scraping.
+
+## Authorized artifact retention follow-up
+
+The owner subsequently authorized the recommended artifact changes.
+The follow-up selects only top-level performance JSON and text files with native `upload-artifact` path patterns, preserving the collector's existing layout and all current observations and driver logs.
+The routine registry workflow uses its existing log-only invocation, while deliberate release-registry qualification still writes its exact report.
+Concise package, performance, release-security and distribution summaries contain bounded public scalar facts; JSON encoding prevents embedded workflow-command lines or Markdown from becoming active presentation.
+Existing machine-readable package stdout remains unchanged.
+No verification limit, release permission, artifact digest check or release collector is changed.
+Native originals remain retained because they contain original license evidence, not redundant diagnostic output.
+The policy and retained consumers are documented in [CI trust](../ci-trust.md#qualification-evidence-retention); local review and exact-source hosted qualification must independently verify this follow-up.

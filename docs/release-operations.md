@@ -200,6 +200,10 @@ Do not enable `actions.lock`, `gh actions-lock` or Require lockfile.
 
 New release evidence artifacts request 90-day transport retention; ordinary CI artifacts may expire sooner.
 Actions storage is not the release retention policy.
+Human-readable diagnostics use logs and job summaries; summaries do not replace the exact files consumed by release qualification and archival.
+Performance uploads retain their top-level JSON observations and text driver logs, excluding copied corpus trees.
+The routine registry check has no report artifact; deliberate release-registry qualification retains its machine-consumed report.
+Native original license evidence, SBOMs, security records, package archives and recovery journals remain retained.
 Export required raw provider/review/recovery records before expiry.
 Preserve original staging journals even when a request ends with an unknown outcome.
 After owner approval, the complete successful public qualification supplies a separate reconciliation record bound to the journal digest, archive bytes, original invocation and public reports.

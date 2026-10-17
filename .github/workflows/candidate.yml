@@ -131,7 +131,10 @@ jobs:
         if: always() && matrix.node == needs.pack.outputs.reference
         with:
           name: performance-${{ matrix.os }}
-          path: performance-observations/
+          # The release collector consumes top-level reports, not copied corpora.
+          path: |
+            performance-observations/*.json
+            performance-observations/*.txt
           if-no-files-found: error
           retention-days: 30
   shared:

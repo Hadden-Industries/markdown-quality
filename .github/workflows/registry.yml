@@ -23,10 +23,6 @@ jobs:
         with:
           node-version: "24.21.0"
       - name: Qualify anonymous registry tuple and both consumer layouts
-        run: node scripts/qualify-public-registry.mjs --manifest test/registry-alpha.4.json registry-qualification.json
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: registry-${{ matrix.os }}
-          path: registry-qualification.json
-          if-no-files-found: error
-          retention-days: 30
+        # Routine diagnostics have no downstream file consumer. Deliberate
+        # release-registry.yml keeps its exact reports for release collection.
+        run: node scripts/qualify-public-registry.mjs --manifest test/registry-alpha.4.json

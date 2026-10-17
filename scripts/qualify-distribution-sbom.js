@@ -16,6 +16,7 @@ import { createRequire } from "node:module";
 import { tmpdir, homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { reportCiResult } from "./ci-result.js";
 import { npmCliPath } from "./commands.js";
 import { native } from "./commands.js";
 import { hash, readJson } from "./release-assets.js";
@@ -315,9 +316,16 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     [4, 5].includes(process.argv.length),
     "Usage: qualify-distribution-sbom.js ARCHIVES NEW_OUTPUT_DIRECTORY [RECIPIENT_DIRECTORY]",
   );
-  await qualifyDistributionSbom(
+  const evidence = await qualifyDistributionSbom(
     resolve(process.argv[2]),
     resolve(process.argv[3]),
     resolve(process.argv[4] ?? "recipient-security"),
   );
+  reportCiResult("Distribution SBOM qualification", {
+    Status: "passed",
+    Source: evidence.source,
+    Version: evidence.version,
+    "Retained evidence files": evidence.payloads.length,
+    "Manifest SHA256": evidence.manifestSha256,
+  });
 }

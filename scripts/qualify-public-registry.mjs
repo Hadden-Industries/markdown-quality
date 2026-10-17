@@ -21,6 +21,7 @@ import { validatePublicationOrigins } from "./publication-origins.js";
 import { waitForRegistryIntegrity } from "./wait-registry-integrity.js";
 import { qualifyRuntime } from "./qualify-runtime.js";
 import { bindRecipientSbom } from "./distribution-sbom.js";
+import { reportCiResult } from "./ci-result.js";
 
 const { values, positionals } = parseArgs({
   options: {
@@ -464,6 +465,22 @@ try {
         0,
         "Packed performance qualification failed",
       );
+      // Presentation happens after the measured subprocess and its original gates.
+      const performanceReport = JSON.parse(
+        boundedFile(
+          join(resolve(values["performance-output"]), "qualification.json"),
+          64 * 1024 * 1024,
+        ),
+      );
+      for (const [corpus, result] of Object.entries(performanceReport.corpora))
+        reportCiResult("Performance qualification", {
+          Status: "passed",
+          Corpus: corpus,
+          Samples: result.observations.length,
+          "Observed maximum (ms)": result.observedP95Ms,
+          "Peak process tree (bytes)": result.peakTreeBytes,
+          "Complete parity": result.completeDiagnosticAndSelectedSourceParity,
+        });
     }
     records.push({
       layout,
@@ -518,6 +535,22 @@ try {
       JSON.stringify(report, null, 2) + "\n",
       { flag: "wx" },
     );
+  reportCiResult(
+    "Package qualification",
+    {
+      Status: "passed",
+      Mode: report.qualification,
+      Version: report.version,
+      Node: report.node,
+      Platform: report.platform,
+      Source: report.candidate,
+      Layouts: report.records.filter((record) =>
+        Object.hasOwn(record, "layout"),
+      ).length,
+      Provenance: report.provenanceAttestation,
+    },
+    { log: false },
+  );
   process.stdout.write(JSON.stringify(report) + "\n");
 } finally {
   rmSync(temporary, { recursive: true, force: true });

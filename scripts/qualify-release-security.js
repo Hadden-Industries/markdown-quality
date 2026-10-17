@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { native } from "./commands.js";
 import { hash, readJson, repository } from "./release-assets.js";
+import { reportCiResult } from "./ci-result.js";
 
 /** Select the analyses that may satisfy exact-source release security coverage. */
 export function verifyCodeqlAnalyses(analyses, source) {
@@ -178,5 +179,13 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     attempt: process.env.GITHUB_RUN_ATTEMPT,
     scans,
     recipient,
+  });
+  reportCiResult("Release security qualification", {
+    Status: "passed",
+    Source: release.source.head,
+    "CodeQL analyses": selected.length,
+    "Recipient audits": recipient.length,
+    "Reported vulnerabilities": 0,
+    "Manifest SHA256": hash(releaseBytes),
   });
 }
