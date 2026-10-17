@@ -7,6 +7,7 @@ import {
   readFileSync,
   mkdirSync,
   rmSync,
+  writeSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,11 +20,35 @@ import { digest } from "../src/contracts.js";
 import { qualifyRuntime } from "../scripts/qualify-runtime.js";
 import { checkArchitecture } from "../scripts/architecture.js";
 import { verifyBundledShipment } from "../scripts/bundled-dependencies.js";
+
+/** Emit live phase boundaries even while a synchronous child command blocks. */
+function phase(name, operation) {
+  const started = performance.now();
+  writeSync(2, JSON.stringify({ packagingPhase: name, event: "start" }) + "\n");
+  try {
+    return operation();
+  } finally {
+    // End records duration, not success; the original exception still fails the test.
+    writeSync(
+      2,
+      JSON.stringify({
+        packagingPhase: name,
+        event: "end",
+        elapsedMs: Math.round(performance.now() - started),
+      }) + "\n",
+    );
+  }
+}
+
 test("packed root and isolated consumers install without lifecycle scripts and execute offline", (t) => {
   const temp = mkdtempSync(join(tmpdir(), "markdown-quality-install-"));
-  t.after(() => rmSync(temp, { recursive: true, force: true }));
+  t.after(() =>
+    phase("fixture cleanup", () =>
+      rmSync(temp, { recursive: true, force: true }),
+    ),
+  );
   const output = join(temp, "archives"),
-    release = packRelease(output);
+    release = phase("pack archives", () => packRelease(output));
   const native = release.archives.find(
     (a) => a.name === `${process.platform}-${process.arch}`,
   );
@@ -34,7 +59,7 @@ test("packed root and isolated consumers install without lifecycle scripts and e
   );
   // The real archive is an independent oracle for npm's dry-run admission.
   assert.deepEqual(
-    checkArchitecture()
+    phase("inspect shipment", () => checkArchitecture())
       .files.map((f) => f.path)
       .sort(),
     core.files.map((f) => f.path).sort(),
@@ -72,9 +97,11 @@ test("packed root and isolated consumers install without lifecycle scripts and e
     );
     // Fresh acquisition resolves public JS metadata without private credentials.
     // The frozen-lock reinstall and runtime below must work offline.
-    npmCommand(["install", "--ignore-scripts", "--no-audit", "--no-fund"], {
-      cwd: install,
-    });
+    phase(`${layout} install`, () =>
+      npmCommand(["install", "--ignore-scripts", "--no-audit", "--no-fund"], {
+        cwd: install,
+      }),
+    );
     const lockBefore = readFileSync(join(install, "package-lock.json"));
     const installedCore = join(
       install,
@@ -288,15 +315,19 @@ test("packed root and isolated consumers install without lifecycle scripts and e
     );
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.equal(JSON.parse(result.stdout).outcome, "clean");
-    qualifyRuntime(cli, consumer, process.env);
+    phase(`${layout} runtime qualification`, () =>
+      qualifyRuntime(cli, consumer, process.env),
+    );
     assert.deepEqual(
       readFileSync(join(install, "package-lock.json")),
       lockBefore,
     );
     // Second acquisition uses the native frozen lock and executes no lifecycle.
-    npmCommand(
-      ["ci", "--ignore-scripts", "--offline", "--no-audit", "--no-fund"],
-      { cwd: install },
+    phase(`${layout} offline reinstall`, () =>
+      npmCommand(
+        ["ci", "--ignore-scripts", "--offline", "--no-audit", "--no-fund"],
+        { cwd: install },
+      ),
     );
   }
 });
