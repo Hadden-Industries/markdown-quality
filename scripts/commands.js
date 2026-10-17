@@ -2,6 +2,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { observationTimeout, observeCommand } from "./ci-observation.js";
 /** Run a bounded native provider/tool command without a shell. */
 export function native(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -41,9 +42,11 @@ export function npmCliPath(executable = process.execPath) {
 export function npmCommand(args, options = {}, executable = process.execPath) {
   const cli = npmCliPath(executable);
   const started = performance.now();
+  const installing = ["install", "ci"].includes(args[0]);
   // npm's five-minute per-request default outlives this command's two-minute
-  // deadline. Retry only native idempotent reads, inside the unchanged bound.
-  const acquisition = ["install", "ci"].includes(args[0])
+  // ordinary deadline. Retry only native idempotent reads; observation changes
+  // the process budget without changing this request/retry policy.
+  const acquisition = installing
     ? [
         "--fetch-timeout=15000",
         "--fetch-retries=2",
@@ -55,27 +58,49 @@ export function npmCommand(args, options = {}, executable = process.execPath) {
         "--timing",
       ]
     : [];
-  const result = spawnSync(executable, [cli, ...args, ...acquisition], {
+  const settings = {
     encoding: "utf8",
-    timeout: 120_000,
+    timeout: observationTimeout(
+      installing ? "npm-acquisition" : "npm",
+      120_000,
+    ),
     maxBuffer: 8_388_608,
     windowsHide: true,
     ...options,
+  };
+  const observed = observeCommand(
+    `npm ${args[0]}`,
+    options.timeout ?? 120_000,
+    settings.timeout,
+    {
+      executable,
+      cli,
+      cwd: options.cwd ?? process.cwd(),
+    },
+  );
+  const result = spawnSync(
+    executable,
+    [cli, ...args, ...acquisition],
+    settings,
+  );
+  const stderr = result.stderr ?? "";
+  const timings = [
+    ...stderr.matchAll(
+      /^npm timing ([^\r\n]{1,160}) Completed in (\d{1,12})ms\r?$/gmu,
+    ),
+  ]
+    .map((match) => ({
+      phase: match[1].slice(0, 80),
+      elapsedMs: Number(match[2]),
+    }))
+    .sort((a, b) => b.elapsedMs - a.elapsedMs);
+  observed(result, {
+    completedNpmTimings: timings.slice(0, 512),
+    omittedTimingCount: Math.max(0, timings.length - 512),
   });
   if (result.error || result.status !== 0) {
-    const stderr = result.stderr ?? "";
     // Retain the expensive completed phases even when later short phases push
     // them out of the tail. This is diagnostic output, never an admission rule.
-    const timings = [
-      ...stderr.matchAll(
-        /^npm timing ([^\r\n]{1,160}) Completed in (\d{1,12})ms\r?$/gmu,
-      ),
-    ]
-      .map((match) => ({
-        phase: match[1].slice(0, 80),
-        elapsedMs: Number(match[2]),
-      }))
-      .sort((a, b) => b.elapsedMs - a.elapsedMs);
     const slowest = [
       ...timings.slice(0, 1),
       ...timings

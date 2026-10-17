@@ -1,0 +1,113 @@
+name: Observe Windows CI
+on:
+  workflow_dispatch:
+    inputs:
+      expected-sha:
+        description: Exact reviewed diagnostic commit to observe once
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  observe:
+    name: Observe Windows Node 26.12.0
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      MARKDOWN_QUALITY_OBSERVATION: windows-ci
+      OBSERVATION_NODE: "26.12.0"
+      OBSERVATION_EXPECTED_SHA: ${{ inputs.expected-sha }}
+    steps:
+      - name: Bind the observation to its reviewed source
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_SHA -cne $env:OBSERVATION_EXPECTED_SHA) {
+            throw "Observation SHA does not match the reviewed diagnostic commit"
+          }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Record runner and source identity
+        shell: pwsh
+        run: |
+          $machine = Get-CimInstance Win32_ComputerSystem
+          $os = Get-CimInstance Win32_OperatingSystem
+          [ordered]@{
+            source = $env:GITHUB_SHA
+            run = $env:GITHUB_RUN_ID
+            attempt = $env:GITHUB_RUN_ATTEMPT
+            image = $env:ImageOS
+            imageVersion = $env:ImageVersion
+            runner = $env:RUNNER_NAME
+            osVersion = $os.Version
+            logicalProcessors = $machine.NumberOfLogicalProcessors
+            memoryBytes = $machine.TotalPhysicalMemory
+            lockSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath package-lock.json).Hash
+          } | ConvertTo-Json -Compress
+          git rev-parse HEAD 'HEAD^{tree}'
+          if ($LASTEXITCODE -ne 0) { throw "Source identity failed" }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+      - uses: ./.github/actions/setup-python
+      - name: Acquire isolated development sources on the canonical tooling runtime
+        run: npm run install:json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.OBSERVATION_NODE }}
+          package-manager-cache: false
+      - name: Record the actual product toolchain
+        shell: pwsh
+        run: |
+          node --version
+          if ($LASTEXITCODE -ne 0) { throw "Node identity failed" }
+          npm --version
+          if ($LASTEXITCODE -ne 0) { throw "npm identity failed" }
+      - id: install
+        name: Install the producer dependencies with native phase timing
+        timeout-minutes: 5
+        run: npm ci --engine-strict --ignore-scripts --no-audit --no-fund --timing
+      - id: native
+        run: python scripts/acquire-native.py
+      - id: product
+        name: Observe the complete product suite
+        run: npm run check:product
+      - id: architecture
+        name: Observe downstream architecture checks
+        if: ${{ !cancelled() && steps.native.outcome == 'success' }}
+        run: npm run check:architecture
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: ${{ !cancelled() && steps.native.outcome == 'success' }}
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+      - id: json
+        name: Observe downstream JSON checks after product producers
+        if: ${{ !cancelled() && steps.native.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          npm run lint:json:identity
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run check:json
+          exit $LASTEXITCODE
+      - name: Summarize observation without granting release qualification
+        if: always()
+        shell: pwsh
+        env:
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          PRODUCT_OUTCOME: ${{ steps.product.outcome }}
+          ARCHITECTURE_OUTCOME: ${{ steps.architecture.outcome }}
+          JSON_OUTCOME: ${{ steps.json.outcome }}
+        run: |
+          @(
+            "Windows Node 26.12.0 observation of $env:GITHUB_SHA"
+            ""
+            "Install: $env:INSTALL_OUTCOME; product: $env:PRODUCT_OUTCOME; architecture: $env:ARCHITECTURE_OUTCOME; JSON: $env:JSON_OUTCOME."
+            ""
+            "Provisional limits: 5 minutes per install, 30 minutes per Node suite, 45 minutes for this job."
+            "Native phase timings and original-limit crossings are retained in the job log."
+            "This diagnostic run supplies no release qualification receipt or publishing authority."
+          ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY

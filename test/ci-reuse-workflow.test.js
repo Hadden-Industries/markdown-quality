@@ -57,6 +57,57 @@ test("release entrypoints are manual and publishing credentials exist only at th
 });
 
 // Use the already locked YAML parser; this adapter reads its AST rather than parsing YAML again.
+test("Windows observation is one manual read-only lane, outside release qualification", () => {
+  const workflow = yamlValue(
+    parsers.yaml.parse(
+      readFileSync(
+        new URL(
+          "../.github/workflows/windows-observation.yml",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ),
+  );
+  assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
+  assert.deepEqual(workflow.permissions, { contents: "read" });
+  assert.deepEqual(Object.keys(workflow.jobs), ["observe"]);
+  const job = workflow.jobs.observe;
+  assert.equal(job["runs-on"], "windows-latest");
+  assert.equal(job["timeout-minutes"], "45");
+  assert.equal(job.strategy, undefined);
+  assert.equal(job.env.MARKDOWN_QUALITY_OBSERVATION, "windows-ci");
+  assert.equal(job.env.OBSERVATION_NODE, "26.12.0");
+  assert.equal(
+    workflow.on.workflow_dispatch.inputs["expected-sha"].required,
+    "true",
+  );
+  assert.equal(
+    job.steps.find((step) => step.id === "product").run,
+    "npm run check:product",
+  );
+  assert.ok(
+    job.steps.some(
+      (step) => step.with?.["node-version"] === "${{ env.OBSERVATION_NODE }}",
+    ),
+  );
+  for (const step of job.steps) {
+    assert.equal(step["continue-on-error"], undefined);
+    if (step.uses && !step.uses.startsWith("./"))
+      assert.match(step.uses, /@[a-f0-9]{40}$/u);
+    assert.doesNotMatch(step.uses ?? "", /upload-artifact/u);
+    assert.doesNotMatch(
+      step.run ?? "",
+      /npm publish|ci-reuse-command|stage-release|promote-release/u,
+    );
+  }
+  for (const id of ["architecture", "json"])
+    assert.match(
+      job.steps.find((step) => step.id === id).if,
+      /!cancelled\(\).*steps\.native\.outcome == 'success'/u,
+    );
+});
+
 function yamlValue(node) {
   if (!node) return null;
   if (node.value !== undefined) return node.value;
