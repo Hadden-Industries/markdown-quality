@@ -50,6 +50,9 @@ export function npmCommand(args, options = {}, executable = process.execPath) {
         "--fetch-retry-factor=2",
         "--fetch-retry-mintimeout=1000",
         "--fetch-retry-maxtimeout=4000",
+        // Native phase timings make a killed acquisition diagnosable without
+        // enabling verbose request/configuration logging or another upload.
+        "--timing",
       ]
     : [];
   const result = spawnSync(executable, [cli, ...args, ...acquisition], {
@@ -61,7 +64,7 @@ export function npmCommand(args, options = {}, executable = process.execPath) {
   });
   if (result.error || result.status !== 0)
     throw new Error(
-      `npm ${args[0]} failed after ${Math.round(performance.now() - started)}ms (status=${result.status}, signal=${result.signal}, error=${result.error?.code ?? "none"}): ${(result.stderr ?? "").slice(0, 2000)}${result.error ? ` ${result.error.message}` : ""}`,
+      `npm ${args[0]} failed after ${Math.round(performance.now() - started)}ms (status=${result.status}, signal=${result.signal}, error=${result.error?.code ?? "none"}): ${(result.stderr ?? "").slice(-2000)}${result.error ? ` ${result.error.message}` : ""}`,
       { cause: result.error },
     );
   return result.stdout;

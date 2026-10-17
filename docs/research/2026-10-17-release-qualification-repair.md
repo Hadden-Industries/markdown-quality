@@ -152,3 +152,28 @@ Existing machine-readable package stdout remains unchanged.
 No verification limit, release permission, artifact digest check or release collector is changed.
 Native originals remain retained because they contain original license evidence, not redundant diagnostic output.
 The policy and retained consumers are documented in [CI trust](../ci-trust.md#qualification-evidence-retention); local review and exact-source hosted qualification must independently verify this follow-up.
+
+## Continued Windows timeout diagnosis
+
+Manual qualification `38988131831`, at `04b932bc37109a45600d231cfc63ab6f6c812821`, passed all fourteen candidate consumer lanes, both complete performance qualifications, release security and distribution SBOM checks.
+It still failed a Windows Node 26 fresh install at 120023 ms and the Windows Node 22 product suite at its existing ten-minute deadline.
+The bounded errors did not establish which npm phase stalled or which test file held the suite open.
+
+A native Node 22/24 probe demonstrated that a throwing cleanup hook prevents later hooks from running.
+The stalled-registry fixture registered filesystem removal before server shutdown, so a removal failure could leave the server alive.
+Server ownership now ends in the test body's `finally` block, before filesystem cleanup.
+A regression observes the real child alive during consumption and gone before a consumer failure is rethrown.
+This repairs a demonstrated lifecycle defect; it does not establish that this defect caused every hosted timeout.
+
+Acquisition commands enable [native npm phase timings](https://docs.npmjs.com/cli/using-npm/config/#timing), retaining only the last 2000 stderr characters on failure.
+The existing [Node test reporter](https://nodejs.org/download/release/v22.13.0/docs/api/test.html#event-testdequeue) streams dequeue events as well as outcomes, and full verification reports command identity, elapsed time and the native failure code.
+Real subprocess regressions demonstrate diagnostics from a timed-out install and test progress before completion.
+No verbose request/configuration logging, new diagnostic upload, command retry, concurrency reduction or relaxed deadline is introduced.
+The 120-second acquisition, 30-second performance, 512-MiB process-tree, 128-MiB worker and ten-minute suite limits remain unchanged.
+
+Routine public-registry run `38988197733` retained zero artifacts and failed against the historical alpha package's schema-1 contract.
+An anonymous local probe of the current published 1.0.3 tuple also failed the schema-2 assertion.
+Its release manifest matched GitHub's asset SHA-256 `2210119419956431a07cf90c0cebee5c90801448d23184e007f2b29d5ebf86a1`.
+Changing only that pin would therefore not repair the routine check.
+The current candidate assertions and historical fixture remain intact; qualifying the newer contract from npm requires a separately authorized matching publication.
+No such publication is authorized by this diagnosis.

@@ -18,13 +18,29 @@ const python = repositoryPython(root);
 process.env.VIRTUAL_ENV = dirname(dirname(python));
 process.env.PATH = dirname(python) + delimiter + process.env.PATH;
 function node(args) {
+  const started = performance.now();
   const result = spawnSync(process.execPath, args, {
     cwd: root,
     stdio: "inherit",
     timeout: 600_000,
     windowsHide: true,
   });
-  if (result.error || result.status !== 0) process.exit(result.status ?? 2);
+  if (result.error || result.status !== 0) {
+    console.error(
+      "Verification command failed: " +
+        JSON.stringify({
+          command:
+            args[0] === "--test"
+              ? "Node test suite"
+              : args.slice(0, 2).join(" "),
+          elapsedMs: Math.round(performance.now() - started),
+          status: result.status,
+          signal: result.signal,
+          error: result.error?.code ?? null,
+        }),
+    );
+    process.exit(result.status ?? 2);
+  }
 }
 if (
   digest(readFileSync(new URL("../LICENSE", import.meta.url))) !==
@@ -100,6 +116,7 @@ node([
 ]);
 node([
   "--test",
+  "--test-reporter=./scripts/test-outcomes.js",
   ...readdirSync(new URL("../test/", import.meta.url))
     .filter((p) => p.endsWith(".test.js"))
     .map((p) => "test/" + p),
