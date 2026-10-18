@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { execFileSync } from "node:child_process";
-import {
-  mkdtempSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  rmSync,
-} from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { repositoryRoot } from "../scripts/dependency-graph.js";
@@ -14,7 +9,9 @@ import { repositoryRoot } from "../scripts/dependency-graph.js";
 /** Disposable real Git fixture with explicit, independently authored test consumers. */
 export function impactFixture(t, files = {}, relations = []) {
   const root = mkdtempSync(join(tmpdir(), "markdown-quality-impact-test-"));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  t.after(() =>
+    rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }),
+  );
   for (const folder of ["src", "scripts", "test"])
     mkdirSync(join(root, folder));
   const put = (path, content) => {
