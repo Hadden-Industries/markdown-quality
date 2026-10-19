@@ -6,6 +6,6 @@
     "node": ">=24.21.0 <25 || >=26.12.0 <27"
   },
   "devDependencies": {
-    "@hadden-industries/json-quality": "git+https://github.com/Hadden-Industries/json-quality.git#9c6123d86dae29e9ea08f06fb3f935d9d71e33b1"
+    "@hadden-industries/json-quality": "git+https://github.com/Hadden-Industries/json-quality.git#6bae0cfb2f7bdb186f31246eb50ecfb8fdfb74df"
   }
 }

@@ -26,6 +26,7 @@ test("the real canonical inventory includes protected native documents without c
   assert.equal(result.status, 0);
   assert.equal(result.body.status, "passed");
   assert.equal(result.body.operation, "inventory");
+  assert.equal(result.body.schemaVersion, 4);
   assert.equal(result.body.counts.checked, 0);
   assert.equal(result.body.complete, true);
   assert.ok(
@@ -47,6 +48,15 @@ test("the real canonical inventory includes protected native documents without c
         entry.path.includes("/webpki-roots-0.25.4/.cargo_vcs_info.json"),
     ),
   );
+});
+
+test("the repository CLI admits canonical file selection and the capacity bypass", () => {
+  const result = cli(["inventory", "--files", "[]", "--no-capacity-limits"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.body.schemaVersion, 4);
+  assert.equal(result.body.operation, "inventory");
+  assert.deepEqual(result.body.selection.files, []);
+  assert.equal(result.body.counts.checked, 0);
 });
 
 for (const spelling of ["check-format", "format-check", "producers"])

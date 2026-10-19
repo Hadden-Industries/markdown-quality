@@ -1,5 +1,10 @@
 # Shared JSON Quality adoption implementation plan
 
+Consumer interface amendment, 19 October 2026: the current contract is documented in [JSON development checks](../json-quality.md).
+Result schema 4 uses `format` with `check: true`, `check` with `scope: "protected"`, `files`, `formatJsonDocument` and `capacityLimits`, matching the canonical CLI modifiers.
+The earlier separate API operation identities, result schema 3 and dated source pins below describe the original adoption and its historical evidence, not current invocation guidance or new qualification.
+The isolated manifest remains the sole editable source selector; this migration runs only focused checks.
+
 Status: **Accepted for implementation by the owner on 15 October 2026, with the amendments below.**
 Prepared on 14 October 2026 for Hadden Industries Markdown Quality.
 Revised on 15 October 2026 from the completed OwlAPI adoption and its linked delivery evidence.

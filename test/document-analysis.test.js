@@ -5,6 +5,7 @@ import { createDocumentAnalyzer } from "../src/document-analysis.js";
 import { loadConfiguration } from "../src/configuration.js";
 import { resolveTool } from "../src/native-tool.js";
 import { consumer } from "./helpers.js";
+import { createTestNativeStaging } from "./native-staging-helpers.js";
 
 test("group verification cannot renew an exhausted or invalid document deadline", async (t) => {
   const context = loadConfiguration({ root: consumer(t) });
@@ -55,8 +56,7 @@ test("closing analysis rejects pending and queued requests without admitting pro
 
 test("check-first retains quoted-item and continuation verification and shares its budget", async (t) => {
   const root = consumer(t);
-  const { createNativeStaging } = await import("../src/native-staging.js");
-  const staging = createNativeStaging(root);
+  const staging = createTestNativeStaging(root);
   assert.ok(staging);
   const analyzer = createDocumentAnalyzer(
     loadConfiguration({ root }),

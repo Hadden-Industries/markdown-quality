@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import test from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -20,11 +21,12 @@ import {
   writeStagedFile,
   removeStagedFile,
 } from "../src/native-staging.js";
-import { consumer } from "./helpers.js";
+import { consumer, moduleMockExportOption } from "./helpers.js";
+import { createTestNativeStaging } from "./native-staging-helpers.js";
 
 test("owned staging admits 34 known entries and refuses a 35th unknown entry", (t) => {
   for (const extra of [false, true]) {
-    const staging = createNativeStaging(consumer(t));
+    const staging = createTestNativeStaging(consumer(t));
     assert.ok(staging);
     for (let index = 0; index < 32; index++)
       writeStagedFile(staging.token, `input-${index}.md`, "Private.\n");
@@ -56,7 +58,7 @@ test("owned staging admits 34 known entries and refuses a 35th unknown entry", (
 
 test("staging refuses consumer-contained temporary storage and changed configuration", (t) => {
   assert.equal(createNativeStaging(tmpdir()), null);
-  const staging = createNativeStaging(consumer(t));
+  const staging = createTestNativeStaging(consumer(t));
   assert.ok(staging);
   t.after(() => staging.close());
   const config = join(staging.token.path, "snapper-check.toml");
@@ -69,7 +71,7 @@ test("staging refuses consumer-contained temporary storage and changed configura
 });
 
 test("owned identities prevent cleanup from following replacement inputs", (t) => {
-  const staging = createNativeStaging(consumer(t));
+  const staging = createTestNativeStaging(consumer(t));
   assert.ok(staging);
   const file = writeStagedFile(staging.token, "input-0.md", "Private.\n");
   const original = join(staging.token.path, "original.md");
@@ -89,7 +91,7 @@ test("owned identities prevent cleanup from following replacement inputs", (t) =
 });
 
 test("a replaced staging root is rejected without changing the replacement sentinel", (t) => {
-  const staging = createNativeStaging(consumer(t));
+  const staging = createTestNativeStaging(consumer(t));
   assert.ok(staging);
   const moved = staging.token.path + "-retained";
   renameSync(staging.token.path, moved);
@@ -107,7 +109,7 @@ test("a replaced staging root is rejected without changing the replacement senti
 });
 
 test("staged handle device, inode and birth identity remain mandatory for checking and removal", (t) => {
-  const staging = createNativeStaging(consumer(t));
+  const staging = createTestNativeStaging(consumer(t));
   assert.ok(staging);
   t.after(() => staging.close());
   const text = "Private.\n";
@@ -131,3 +133,42 @@ test("staged handle device, inode and birth identity remain mandatory for checki
   removeStagedFile(staging.token, file);
   assert.equal(existsSync(file.path), false);
 });
+
+test(
+  "behavior fixtures tolerate slow Windows access setup while the production deadline still refuses it",
+  {
+    skip: process.platform !== "win32",
+  },
+  () => {
+    const code = `
+    import assert from 'node:assert/strict';
+    import {mock} from 'node:test';
+    import {spawnSync} from 'node:child_process';
+    import {limits} from './src/contracts.js';
+    let delays=0;
+    mock.module('node:child_process',{[${JSON.stringify(moduleMockExportOption)}]:{spawnSync:(exe,args,options)=>{
+      if(exe.toLowerCase().endsWith('whoami.exe')) {
+        delays++;
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,limits.stagingMs+100);
+      }
+      return spawnSync(exe,args,options);
+    }}});
+    const {createNativeStaging}=await import('./src/native-staging.js');
+    const {createTestNativeStaging}=await import('./test/native-staging-helpers.js');
+    assert.equal(createNativeStaging(process.cwd()),null,'Production must retain its bounded fallback.');
+    const staging=createTestNativeStaging(process.cwd());
+    try {assert.ok(staging,'Behavior fixtures must establish real private access after the same delay.');}
+    finally {staging?.close();}
+    assert.equal(delays,2);
+  `;
+    execFileSync(
+      process.execPath,
+      ["--experimental-test-module-mocks", "--input-type=module", "-e", code],
+      {
+        cwd: new URL("../", import.meta.url),
+        timeout: 30_000,
+        windowsHide: true,
+      },
+    );
+  },
+);

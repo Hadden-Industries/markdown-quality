@@ -1,7 +1,7 @@
 # JSON development checks
 
 Markdown Quality uses the public `@hadden-industries/json-quality` package in the private [tooling installation](../tooling/json/package.json).
-Its Git source is pinned to `e5e7c66be14af4445946fbb5cf454d4b4a1b7cf5` and acquired through the package's generated bootstrap and native npm lock.
+Its exact Git source is selected only in that manifest and acquired through the package's generated bootstrap and native npm lock.
 It is development tooling, outside product dependencies, exports and npm contents.
 The package's public API owns discovery, parsing, quality rules, formatting, normalization, budgets, guarded writes and result accounting.
 Repository Python owners supply original admitted compressed/archive bytes and provenance, without implementing a second JSON checker.
@@ -27,6 +27,19 @@ Inventory reports discovery, not a quality pass.
 The canonical formatter check is `format --check`, and protected checking is `check --scope protected` through the repository adapter.
 Unsupported spellings such as `check-format`, `format-check` and `producers` fail rather than silently selecting a different operation.
 The adapter fixes the repository root.
+
+The isolated engine uses result schema 4 and the same operation vocabulary in its CLI and object API.
+Use `runJsonQuality("format", { check: true, files: ["path.json"] })` for presentation verification and `runJsonQuality("check", { scope: "protected" })` for protected documents.
+`--files '["path.json"]'` corresponds to API `files`; normalization also requires an explicit nonempty selection.
+The supplied-document interface is `format --request - --json` or `formatJsonDocument(request, options)`; adding `--check` or `check: true` retains the supplied bytes.
+The former API `check-format` / `check-protected`, `sourcePaths`, CLI `--files-json` / `--stdin-request`, and `processJsonDocument` export are not compatibility aliases.
+These JSON-tool spellings do not change Markdown Quality's own CLI.
+
+Policy and API `capacityLimits` correspond to CLI `--capacity-limits` / `--no-capacity-limits`.
+For example, `npm run check:json -- --files '["package.json"]' --max-file-bytes 67108864 --json` selects one physical file with a finite override.
+`capacityLimits: false` / `--no-capacity-limits` disables every shared engine capacity check while retaining semantic and write safeguards; it cannot be combined with individual capacity overrides.
+The generated bootstrap uses `JSON_QUALITY_CAPACITY_LIMITS` for acquisition overrides and `JSON_QUALITY_CLEANUP` for cleanup retry options.
+Use the installed package's `docs/resource-limits.md` for the complete settings and defaults.
 
 `npm run format:json` and `npm run normalize:json` are explicit guarded writers.
 An invalid included peer blocks the batch before otherwise eligible files are changed.

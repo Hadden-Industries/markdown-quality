@@ -60,6 +60,26 @@ test("native installed payload and generated bootstrap match their exact source"
   });
 });
 
+test("format verification uses canonical API modifiers and preserves selected bytes", async (t) => {
+  const root = await fixture(t);
+  const path = join(root, "selected.json");
+  const original = '{"value":1.00e+2}';
+  writeFileSync(path, original);
+  const result = await runJsonQuality("format", {
+    root,
+    check: true,
+    files: ["selected.json"],
+    capacityLimits: false,
+  });
+  assert.equal(result.schemaVersion, 4);
+  assert.equal(result.operation, "format");
+  assert.equal(result.check, true);
+  assert.equal(result.status, "failed");
+  validateJsonQualityResult(result);
+  assert.deepEqual(result.writes.changed, []);
+  assert.equal(readFileSync(path, "utf8"), original);
+});
+
 test("repository policy keeps release JSON ordinary and preservation limited to verified immutable members", async () => {
   const policy = await readJsonPolicy(
     fileURLToPath(new URL("../../", import.meta.url)),

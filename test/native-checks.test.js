@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { createNativeStaging } from "../src/native-staging.js";
+import { createTestNativeStaging } from "./native-staging-helpers.js";
 import { resolveTool, runNative } from "../src/native-tool.js";
 import { runNativeChecks } from "../src/native-checks.js";
 import { checkProse, checkProseGroup } from "../src/prose-diagnostics.js";
@@ -47,7 +47,7 @@ test("real native groups retain every input's findings and a private config boun
   const root = consumer(t, {
     ".editorconfig": "root = true\n[*]\nmax_line_length = 8\n",
   });
-  const staging = createNativeStaging(root);
+  const staging = createTestNativeStaging(root);
   assert.ok(staging, "The supported host must establish private staging.");
   t.after(() => staging.close());
   const tool = resolveTool();
@@ -78,10 +78,10 @@ test("one admitted group performs one native check rather than per-document laun
       if(args[1].includes('--check'))checks++;
       return native(...args);
     }}});
-    const {createNativeStaging}=await import('./src/native-staging.js');
+    const {createTestNativeStaging}=await import('./test/native-staging-helpers.js');
     const {resolveTool}=await import('./src/native-tool.js');
     const {runNativeChecks}=await import('./src/native-checks.js');
-    const staging=createNativeStaging(process.cwd());
+    const staging=createTestNativeStaging(process.cwd());
     try{runNativeChecks(resolveTool(),['Alpha.\\n','Beta.\\n','Gamma.\\n'],staging.token);}
     finally{staging.close();}
     console.log(JSON.stringify({checks}));
@@ -101,7 +101,7 @@ test("one admitted group performs one native check rather than per-document laun
 });
 
 test("independent list and continuation rechecks preserve real findings and line order", (t) => {
-  const staging = createNativeStaging(consumer(t));
+  const staging = createTestNativeStaging(consumer(t));
   assert.ok(staging);
   t.after(() => staging.close());
   const texts = [
@@ -177,11 +177,11 @@ test("native grouping, report bounds and prose retention enforce independent byt
       groups.push(args.filter(arg=>/input-[0-9]+\\.md$/.test(arg)).length);
       return {status:0,stdout:Buffer.from('[]')};
     }}});
-    const {createNativeStaging}=await import('./src/native-staging.js');
+    const {createTestNativeStaging}=await import('./test/native-staging-helpers.js');
     const {runNativeChecks}=await import('./src/native-checks.js');
     const {checkProseGroup}=await import('./src/prose-diagnostics.js');
     const {limits}=await import('./src/contracts.js');
-    const staging=createNativeStaging(process.cwd()); assert.ok(staging);
+    const staging=createTestNativeStaging(process.cwd()); assert.ok(staging);
     try {
       for(const [count,expected] of [[31,[31]],[32,[32]],[33,[32,1]]]) {
         groups=[]; runNativeChecks({executable:'unused'},Array(count).fill('Stable.\\n'),staging.token);
@@ -222,10 +222,10 @@ test("native protocol and process faults fail once, attribute no guessed results
       if(change)change(result);
       return result;
     }}});
-    const {createNativeStaging}=await import('./src/native-staging.js');
+    const {createTestNativeStaging}=await import('./test/native-staging-helpers.js');
     const {resolveTool}=await import('./src/native-tool.js');
     const {runNativeChecks}=await import('./src/native-checks.js');
-    const staging=createNativeStaging(process.cwd()), tool=resolveTool();
+    const staging=createTestNativeStaging(process.cwd()), tool=resolveTool();
     const rewrite=(fn)=>result=>{
       const reports=JSON.parse(result.stdout);fn(reports,result);
       result.stdout=Buffer.from(JSON.stringify(reports));
