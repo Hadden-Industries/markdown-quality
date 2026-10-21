@@ -60,6 +60,10 @@ Keep the complete `npm test` and `check:full` paths for final assurance.
 Use semantic sentence lines and the existing `authored-gfm@1` policy.
 `format:markdown` and `check:markdown` invoke this source CLI directly; no self-dependency is installed.
 `format` combines `format:code` and guarded Markdown formatting; Prettier's generic invocation excludes Markdown.
+The `prettier` package script declares the generic formatting scope once: the repository root with `.gitignore` and `.prettierignore` boundaries, including every supported file under `.github`.
+`format:code` and `format:code:check` reuse that script with `--write` and `--check`; the full verifier delegates to `format:code:check`.
+`format:check` combines that read-only check with `check:markdown`, matching the two owners used by `format`.
+New workflow files enter both formatting and verification automatically; Markdown and JSON-family exclusions keep their dedicated tools responsible for presentation and guarded writes.
 The checked authored scope is declared in `.markdown-quality.json`, including `.github` Markdown templates; retained review evidence and literal test fixtures remain outside that scope.
 Keep its explicit `ignoreFiles: [".gitignore"]`: Markdown checks must not inherit `.prettierignore`, whose `**/*.md` entry separates generic Prettier ownership from this native Markdown pipeline.
 

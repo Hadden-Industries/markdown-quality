@@ -7,6 +7,7 @@ import { resolveTool } from "../src/native-tool.js";
 import { digest } from "../src/contracts.js";
 import { pythonProbeArgs, repositoryPython } from "./python-target.js";
 import { observeCommand } from "./ci-observation.js";
+import { npmCommand } from "./commands.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
 if (
   process.argv.length > 3 ||
@@ -98,35 +99,11 @@ for (const folder of ["src", "scripts", "test"])
     new URL("../" + folder + "/", import.meta.url),
   ))
     if (/\.(?:js|mjs|cjs)$/u.test(path)) node(["--check", folder + "/" + path]);
-node([
-  "node_modules/prettier/bin/prettier.cjs",
-  "--check",
-  "src",
-  "scripts",
-  "test",
-  "tooling/json/*.mjs",
-  "schemas",
-  "assets",
-  "docs",
-  "package.json",
-  ".markdown-quality.json",
-  ".github/dependabot.yml",
-  ".github/ISSUE_TEMPLATE",
-  ".github/workflows/markdown-quality.yml",
-  ".github/workflows/candidate.yml",
-  ".github/workflows/check.yml",
-  ".github/workflows/release-registry.yml",
-  ".github/workflows/github-release.yml",
-  ".github/workflows/promote-release.yml",
-  ".github/workflows/native.yml",
-  ".github/workflows/publish.yml",
-  ".github/workflows/release-qualification.yml",
-  ".github/workflows/windows-observation.yml",
-  ".github/actions",
-  ".github/bootstrap-node.json",
-  ".dependency-cruiser.json",
-  ".test-impact.json",
-]);
+npmCommand(["run", "format:code:check"], {
+  cwd: root,
+  stdio: "inherit",
+  timeout: 600_000,
+});
 node([
   "--test",
   "--test-reporter=./scripts/test-outcomes.js",

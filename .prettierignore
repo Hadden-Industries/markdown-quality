@@ -8,4 +8,10 @@ test/fixtures/
 
 # The shared JSON Quality engine owns JSON presentation and write admission.
 **/*.json
+**/*.jsonld
+**/*.sarif
+**/*.jsonl
+**/*.ndjson
+**/*.jsonc
+**/*.json5
 
