@@ -13,11 +13,11 @@ packRelease(
   fileURLToPath(new URL("../dist/json-qualification/", import.meta.url)),
   matrix,
 );
-process.exitCode = await runJsonQualityCli(["check"], {
+process.exitCode = await runJsonQualityCli(["check"], () => ({
   root,
   requiredOutputs: [
     "dist/json-qualification/release-manifest.json",
     "dist/json-qualification/source-sbom.cdx.json",
   ],
   nativeProviders: { repositoryEvidence: provideRepositoryJson },
-});
+}));

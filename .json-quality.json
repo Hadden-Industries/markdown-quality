@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "defaults": {
     "formatContract": "prettier-json",
     "allowFormatWrites": true,
@@ -17,12 +17,12 @@
         {
           "pointer": "/licenses/25/used_by/0/crate/authors/1",
           "sha256": "f7a46979f4c152096032b17774ded243fdb9cfe324a381e8a8a4a2a8e32a2cc5",
-          "byteLength": 35
+          "byteLength": "35"
         },
         {
           "pointer": "/crates/92/package/authors/1",
           "sha256": "f7a46979f4c152096032b17774ded243fdb9cfe324a381e8a8a4a2a8e32a2cc5",
-          "byteLength": 35
+          "byteLength": "35"
         }
       ]
     },
@@ -50,10 +50,11 @@
     },
     {
       "paths": [
-        "**/node_modules/**"
+        "node_modules/**",
+        "tooling/json/node_modules/**"
       ],
       "owner": "Repository owner",
-      "reason": "The owner explicitly excludes every npm installation tree; native lock and payload admission remain independently required.",
+      "reason": "Exclude the repository's two npm installation trees, including their nested dependencies; actual archive members remain mandatory native obligations.",
       "exclude": true
     },
     {
@@ -99,12 +100,12 @@
         {
           "pointer": "/licenses/25/used_by/0/crate/authors/1",
           "sha256": "f7a46979f4c152096032b17774ded243fdb9cfe324a381e8a8a4a2a8e32a2cc5",
-          "byteLength": 35
+          "byteLength": "35"
         },
         {
           "pointer": "/crates/92/package/authors/1",
           "sha256": "f7a46979f4c152096032b17774ded243fdb9cfe324a381e8a8a4a2a8e32a2cc5",
-          "byteLength": 35
+          "byteLength": "35"
         }
       ]
     }
@@ -119,6 +120,13 @@
     }
   ],
   "preserveSourcePresentation": [
+    {
+      "paths": [
+        "dist/json-qualification/hadden-industries-markdown-quality-1.0.3.tgz!/package/node_modules/**"
+      ],
+      "owner": "Locked bundled dependency publishers",
+      "reason": "Preserve upstream presentation only after the native archive owner reconciles every packed member with the actual staged file inventory, size and SHA-256. Strict semantic checks remain mandatory."
+    },
     {
       "paths": [
         "packages/linux-x64/MPL-SOURCE.tar.xz!/webpki-roots-0.25.4/.cargo_vcs_info.json",

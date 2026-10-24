@@ -5,31 +5,96 @@ import { fileURLToPath } from "node:url";
 import { readDocument } from "../src/documents.js";
 import { replaceDocument } from "../src/replacement.js";
 import { digest } from "../src/contracts.js";
-import { formatJsonSource } from "../tooling/json/public-api.mjs";
+import {
+  formatJsonSource,
+  JSON_TRANSFORM_CAPABILITIES,
+} from "../tooling/json/public-api.mjs";
 import { provideRepositoryJson } from "./native-json-documents.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const admitted = provideRepositoryJson({ root });
+// The existing 1.66 MB/87,991-value report requires 408,759,816 accounted
+// formatter bytes. This finite owning-writer allowance also leaves room for
+// checked originals/candidates; ordinary JSON checking retains its 32 MiB target.
+const writerMemoryBytes = 536870912;
 const changes = [];
-for (const name of ["owlapi", "webvowl"]) {
-  const path = `test/fixtures/performance-incumbents/${name}.json.gz`;
-  const document = admitted.documents.find(
-    (item) => item.path === `${path}!/${name}.json`,
+const inputs = [];
+const targets = new Map(
+  ["owlapi", "webvowl"].map((name) => {
+    const path = `test/fixtures/performance-incumbents/${name}.json.gz`;
+    return [`${path}!/${name}.json`, path];
+  }),
+);
+const pins = new Map();
+
+/** Exhaust every native phase before writes, retaining only the two explicitly
+ * selected finite writer inputs. Other native payloads remain streamed.
+ */
+async function visitNative(consume, inventory = () => {}) {
+  const supplied = await provideRepositoryJson({ root });
+  try {
+    for await (const ignored of supplied.authorities) void ignored;
+    for await (const entry of supplied.inventory) inventory(entry);
+    for await (const document of supplied.documents) await consume(document);
+  } finally {
+    await supplied.close();
+  }
+}
+await visitNative(
+  async (document) => {
+    const path = targets.get(document.path);
+    if (!path) {
+      for await (const ignored of document.chunks) void ignored;
+      return;
+    }
+    const pin = pins.get(document.path);
+    if (
+      !pin ||
+      BigInt(pin.byteLength) >
+        BigInt(JSON_TRANSFORM_CAPABILITIES.maximumSourceBytes)
+    )
+      throw new Error(
+        "Incumbent exceeds the explicit finite writer capability.",
+      );
+    if (inputs.some((input) => input.path === path))
+      throw new Error("Duplicate incumbent writer input.");
+    const original = readDocument(root, path);
+    if (
+      digest(original.bytes) !== pin.source.sha256 ||
+      String(original.bytes.length) !== pin.source.byteLength ||
+      digest(original.bytes) !== document.source.sha256
+    )
+      throw new Error("Incumbent changed after native admission.");
+    const bytes = Buffer.alloc(Number(pin.byteLength));
+    let offset = 0;
+    for await (const fragment of document.chunks) {
+      if (offset + fragment.length > bytes.length)
+        throw new Error("Incumbent exceeds its admitted identity.");
+      bytes.set(fragment, offset);
+      offset += fragment.length;
+    }
+    if (offset !== bytes.length || digest(bytes) !== pin.sha256)
+      throw new Error("Incumbent body differs from independent inventory.");
+    inputs.push({ path, original, bytes });
+  },
+  (entry) => {
+    if (!targets.has(entry.path)) return;
+    if (pins.has(entry.path)) throw new Error("Duplicate incumbent inventory.");
+    pins.set(entry.path, entry);
+  },
+);
+if (inputs.length !== 2 || pins.size !== 2)
+  throw new Error("Required admitted incumbent is missing.");
+// Close native admission before formatter work so its delivery deadline does
+// not include an unrelated formatter. This is a fixed two-input finite writer.
+for (const input of inputs) {
+  const formatted = await formatJsonSource(
+    new TextDecoder("utf-8", { fatal: true }).decode(input.bytes),
+    { runtimeControls: { managedMemoryTargetBytes: writerMemoryBytes } },
   );
-  if (!document) throw new Error("Required admitted incumbent is missing.");
-  const original = readDocument(root, path);
-  const source = admitted.inventory.find(
-    (item) => item.path === document.path,
-  ).source;
-  if (
-    digest(original.bytes) !== source.sha256 ||
-    original.bytes.length !== source.byteLength
-  )
-    throw new Error("Incumbent changed after native admission.");
-  const formatted = await formatJsonSource(document.bytes.toString("utf8"));
+  input.bytes = undefined;
   changes.push({
-    path,
-    original,
+    path: input.path,
+    original: input.original,
     formatted: gzipSync(Buffer.from(formatted), { level: 9 }),
   });
 }
@@ -55,7 +120,9 @@ try {
   }
   // The existing native owner rechecks the unchanged, independently established
   // semantic oracles; this operation creates no new performance observations.
-  provideRepositoryJson({ root });
+  await visitNative(async (document) => {
+    for await (const ignored of document.chunks) void ignored;
+  });
 } catch (error) {
   console.error(
     "Incumbent presentation stopped; completed paths: " +

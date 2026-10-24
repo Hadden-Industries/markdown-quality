@@ -11,6 +11,9 @@ That job independently executed the pinned historical producer and verified both
 The JSON adoption changed only their presentation through JSON Quality's public source formatter, after native admission and with the original compressed reports retained in external implementation evidence.
 The existing semantic oracle hashes were verified before and after that change without regeneration.
 The owning presentation command is `node scripts/format-performance-incumbents.mjs`; these reports receive ordinary JSON checks and no historical presentation exemption.
+That explicit command uses the shared finite 2 MiB source writer and a separately measured 512 MiB managed workspace for the larger report's 87,991 indexed values.
+It completes native admission before formatting its two inputs, preserves exact numeric spellings and rechecks the original full-result hashes after guarded replacement.
+Ordinary JSON checking retains its 32 MiB managed target and streamed native-member delivery.
 The corresponding frozen public corpus revisions remain declared in `scripts/qualify-performance.py`.
 
 The Windows job in that run aborted in historical baseline analysis before candidate observations.
