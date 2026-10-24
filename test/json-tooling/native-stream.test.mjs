@@ -138,7 +138,7 @@ test("EOF after admitted metadata cannot replace the explicit completion frame",
   writeFileSync(join(directory, "package.json"), '{"type":"module"}\n');
   const collector = join(directory, "scripts/collect-json-documents.py");
   const before = readFileSync(collector, "utf8");
-  const terminal = "    control({'type': 'complete'})";
+  const terminal = '    control({"type": "complete"})';
   assert.equal(
     before.split(terminal).length,
     2,

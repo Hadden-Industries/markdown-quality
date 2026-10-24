@@ -1,7 +1,8 @@
 # JSON development checks
 
 Markdown Quality uses the public `@hadden-industries/json-quality` package in the private [tooling installation](../tooling/json/package.json).
-Its exact Git source is selected only in that manifest and acquired through the package's generated bootstrap and native npm lock.
+Its exact registry version is selected only in that manifest and acquired through the package's generated bootstrap and native npm lock.
+Native npm installs its matching optional platform package.
 It is development tooling, outside product dependencies, exports and npm contents.
 The package's public API owns discovery, parsing, quality rules, formatting, normalization, budgets, guarded writes and streamed completion.
 Repository Python owners supply original admitted compressed/archive bytes and provenance, without implementing a second JSON checker.
