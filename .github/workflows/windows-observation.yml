@@ -87,6 +87,8 @@ jobs:
         if: ${{ !cancelled() && steps.native.outcome == 'success' }}
         shell: pwsh
         run: |
+          npm run qualify:json:packages
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run lint:json:identity
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:json

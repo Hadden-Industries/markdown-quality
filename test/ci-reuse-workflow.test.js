@@ -531,7 +531,7 @@ function govern(text) {
   const jsonCheck = pkg.steps.find(
     (step) =>
       step.run ===
-      "npm run lint:json:identity\nnpm run test:json\nnpm run check:json\n",
+      "npm run qualify:json:packages\nnpm run lint:json:identity\nnpm run test:json\nnpm run check:json\n",
   );
   assert.ok(installJson);
   assert.ok(jsonCheck);

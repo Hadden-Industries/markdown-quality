@@ -169,6 +169,7 @@ jobs:
           package-manager-cache: false
       - name: Require JSON quality on the tooling reference after every product producer
         run: |
+          npm run qualify:json:packages
           npm run lint:json:identity
           npm run test:json
           npm run check:json
