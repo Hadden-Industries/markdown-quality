@@ -50,11 +50,11 @@ export function stageBundledDependencies(root, core, metadata) {
   assert.equal(math.name, "micromark-extension-math");
   assert.equal(math.version, "3.1.0");
   assert.equal(math.dependencies.katex, "^0.16.0");
-  assert.equal(lock.packages["node_modules/katex"].version, "0.19.0");
+  assert.equal(lock.packages["node_modules/katex"].version, "0.19.1");
   assert.deepEqual(metadata.overrides, {
-    "micromark-extension-math": { katex: "0.19.0" },
+    "micromark-extension-math": { katex: "0.19.1" },
   });
-  math.dependencies.katex = "0.19.0";
+  math.dependencies.katex = "0.19.1";
   const after = JSON.stringify(math, null, 2) + "\n";
   writeFileSync(join(core, path), after);
   delete metadata.overrides;
@@ -136,7 +136,7 @@ export function stageBundledDependencies(root, core, metadata) {
   assert.ok(packages.some(({ name }) => name === "@eslint/markdown"));
   assert.ok(
     packages.some(
-      ({ name, version }) => name === "katex" && version === "0.19.0",
+      ({ name, version }) => name === "katex" && version === "0.19.1",
     ),
   );
   const inventory = {
@@ -157,7 +157,7 @@ export function stageBundledDependencies(root, core, metadata) {
         path,
         field: "dependencies.katex",
         before: "^0.16.0",
-        after: "0.19.0",
+        after: "0.19.1",
         originalSha256: sha256(before),
         modifiedSha256: sha256(after),
         reason:

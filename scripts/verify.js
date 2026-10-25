@@ -113,6 +113,9 @@ node([
 ]);
 node(["src/cli.js", "check", "--inventory", "git"]);
 if (!productOnly) {
+  // JSON integration checks admit the actual packed tuple, including its
+  // generated manifests; produce those inputs before the first consumer.
+  node(["scripts/qualify-json-packages.mjs"]);
   node(["scripts/lint-json-identity.mjs"]);
   node([
     "--test",
@@ -120,7 +123,6 @@ if (!productOnly) {
       .filter((path) => path.endsWith(".test.mjs"))
       .map((path) => "test/json-tooling/" + path),
   ]);
-  node(["scripts/qualify-json-packages.mjs"]);
   // Mandatory final JSON result follows every local product/test producer.
   node(["scripts/runRepositoryJsonQuality.mjs", "check"]);
 }

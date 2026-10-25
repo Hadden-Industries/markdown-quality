@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { fixtureCommandTimeoutMs } from "./helpers.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -131,7 +132,7 @@ test("release acquisition rejects growth beyond the caller bound after metadata 
       code,
       join(root, "archive"),
     ],
-    { encoding: "utf8", timeout: 10000, windowsHide: true },
+    { encoding: "utf8", timeout: fixtureCommandTimeoutMs, windowsHide: true },
   );
   assert.equal(result.status, 0, result.stderr);
 });
@@ -224,7 +225,7 @@ test("dependency-free Bash Python target reader agrees with stable finite JS adm
       cwd: root,
       env: { ...process.env, GITHUB_OUTPUT: output },
       encoding: "utf8",
-      timeout: 10000,
+      timeout: fixtureCommandTimeoutMs,
       windowsHide: true,
     });
     assert.ifError(result.error);

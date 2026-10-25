@@ -32,7 +32,7 @@ test("the actual repository satisfies architecture and shipped closure", () => {
     result.files.some(({ path }) => path.startsWith("scripts/")),
     false,
   );
-  assert.match(analyzerIdentity(), /^dependency-cruiser@18\.6\.0$/u);
+  assert.match(analyzerIdentity(), /^dependency-cruiser@18\.7\.0$/u);
 });
 
 function packageFixture(t, files = {}) {
@@ -45,7 +45,7 @@ function packageFixture(t, files = {}) {
       type: "module",
       files: ["src", "assets"],
       exports: { ".": "./src/leaf.js" },
-      devDependencies: { "dependency-cruiser": ">=18.6.0" },
+      devDependencies: { "dependency-cruiser": ">=18.7.0" },
     }),
   );
   fixture.put("assets/tool-manifest.json", '{"platforms":{}}');

@@ -2,6 +2,11 @@
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
+
+// Ordinary fixture commands need scheduling headroom on busy hosted runners.
+// Tests of deadline enforcement keep their own deliberately short limits.
+export const fixtureCommandTimeoutMs = 60_000;
+
 // The exports option arrived in Node 24.15; earlier Node 24 and Node 22 use
 // namedExports. See https://nodejs.org/docs/v24.15.0/api/test.html#mockmodulespecifier-options.
 const [nodeMajor, nodeMinor] = process.versions.node.split(".").map(Number);

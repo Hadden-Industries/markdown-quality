@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { fixtureCommandTimeoutMs } from "./helpers.js";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
@@ -24,7 +25,7 @@ export function impactFixture(t, files = {}, relations = []) {
       name: "impact-fixture",
       private: true,
       type: "module",
-      devDependencies: { "dependency-cruiser": "18.6.0" },
+      devDependencies: { "dependency-cruiser": "18.7.0" },
     }),
   );
   put("package-lock.json", "{}\n");
@@ -63,7 +64,7 @@ export function impactFixture(t, files = {}, relations = []) {
       cwd: root,
       encoding: "utf8",
       windowsHide: true,
-      timeout: 10000,
+      timeout: fixtureCommandTimeoutMs,
     });
   git("init", "--quiet");
   git("add", "--all");

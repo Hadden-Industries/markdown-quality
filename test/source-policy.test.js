@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { fixtureCommandTimeoutMs } from "./helpers.js";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -11,7 +12,7 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 function git(directory, ...args) {
   return execFileSync("git", ["-C", directory, ...args], {
     windowsHide: true,
-    timeout: 10000,
+    timeout: fixtureCommandTimeoutMs,
   });
 }
 function violations(directory) {

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { fixtureCommandTimeoutMs } from "./helpers.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -174,7 +175,7 @@ test("packed root and isolated consumers install without lifecycle scripts and e
       path.endsWith("node_modules/katex"),
     );
     assert.ok(katex.length > 0);
-    assert.ok(katex.every(([, pkg]) => pkg.version === "0.19.0"));
+    assert.ok(katex.every(([, pkg]) => pkg.version === "0.19.1"));
     npmCommand(["ls", "--all", "--json"], { cwd: install });
     const securityProbe = spawnSync(
       process.execPath,
@@ -184,7 +185,7 @@ test("packed root and isolated consumers install without lifecycle scripts and e
         ),
         installedCore,
       ],
-      { encoding: "utf8", timeout: 10000, windowsHide: true },
+      { encoding: "utf8", timeout: fixtureCommandTimeoutMs, windowsHide: true },
     );
     assert.equal(
       securityProbe.status,

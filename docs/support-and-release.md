@@ -143,12 +143,12 @@ Preserve third-party license texts and attribution.
 Public registry access does not waive source obligations.
 The repository's original `LICENSE` bytes are verified by the full check.
 
-The producer uses a root-only `micromark-extension-math` override to KaTeX 0.19.0.
+The producer uses a root-only `micromark-extension-math` override to KaTeX 0.19.1.
 [npm applies overrides only from the root project](https://docs.npmjs.com/cli/v12/configuring-npm/package-json/#overrides); that alone does not protect a fresh library consumer.
 The authorized qualification repair therefore uses [native bundled dependencies](https://docs.npmjs.com/cli/v12/configuring-npm/package-json/#bundledependencies) to ship ESLint Markdown's complete runtime closure, including the fixed KaTeX version.
 Staging obtains this closure through an offline, script-disabled `npm ci` using the producer manifest, frozen lock and npm's integrity-checked cache.
 It never copies the ambient `node_modules` tree.
-The staged `micromark-extension-math` 3.1.0 manifest declares KaTeX 0.19.0 explicitly; executable upstream source remains unchanged.
+The staged `micromark-extension-math` 3.1.0 manifest declares KaTeX 0.19.1 explicitly; executable upstream source remains unchanged.
 The original root override is removed from the published manifest, and native `npm pack` validates the resulting dependency edges.
 The generated `assets/bundled-dependencies.json` binds the exact files, source lock, original registry identities, retained notices and the single metadata repair.
 Packing and architecture qualification verify that inventory; development tools remain excluded.

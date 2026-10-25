@@ -1,6 +1,6 @@
 # Dependency graph and affected JavaScript tests
 
-Markdown Quality uses dependency-cruiser `>=18.6.0`, at the exact lockfile resolution, for development analysis and keeps Node's test runner.
+Markdown Quality uses dependency-cruiser `>=18.7.0`, at the exact lockfile resolution, for development analysis and keeps Node's test runner.
 Full package qualification, the complete JavaScript suite, native checks and Markdown/link inventory remain independent controls.
 The graph describes imports; it does not prove complete behavioral coverage or native/package provenance.
 

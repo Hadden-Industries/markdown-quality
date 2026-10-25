@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { fixtureCommandTimeoutMs } from "./helpers.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -36,7 +37,11 @@ test(
           fileURLToPath(new URL("./windows-job.py", import.meta.url)),
           ...mode,
         ],
-        { encoding: "utf8", timeout: 15000, windowsHide: true },
+        {
+          encoding: "utf8",
+          timeout: fixtureCommandTimeoutMs,
+          windowsHide: true,
+        },
       );
       assert.equal(
         result.status,
