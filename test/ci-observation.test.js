@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { consumer } from "./helpers.js";
+import { consumer, fixtureCommandTimeoutMs } from "./helpers.js";
 import { observationEnabled } from "../scripts/ci-observation.js";
 
 const commands = new URL("../scripts/commands.js", import.meta.url).href;
@@ -57,7 +57,7 @@ function npmChild(t, operation, options = {}, profile = "windows-ci") {
     {
       encoding: "utf8",
       windowsHide: true,
-      timeout: 15_000,
+      timeout: fixtureCommandTimeoutMs,
       env: {
         ...process.env,
         MARKDOWN_QUALITY_OBSERVATION: profile,

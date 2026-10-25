@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { fixtureCommandTimeoutMs } from "./helpers.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { writeFileSync, readFileSync, existsSync } from "node:fs";
@@ -62,7 +63,7 @@ test("logical CLI bounded JSON framing uses the public operation", (t) => {
   const output = spawnSync(
     process.execPath,
     ["src/cli.js", "format", "--stdin-request", "--root", root, "--json"],
-    { input, encoding: "utf8", timeout: 15000 },
+    { input, encoding: "utf8", timeout: fixtureCommandTimeoutMs },
   );
   assert.equal(output.status, 0, output.stdout + output.stderr);
   const result = JSON.parse(output.stdout);
@@ -86,7 +87,7 @@ test("retired commands and incompatible stdin options fail before formatting che
     const result = spawnSync(
       process.execPath,
       ["src/cli.js", ...args, "--root", root, "--json"],
-      { encoding: "utf8", input: "{}", timeout: 15000 },
+      { encoding: "utf8", input: "{}", timeout: fixtureCommandTimeoutMs },
     );
     assert.equal(result.status, 2, result.stdout + result.stderr);
     assert.equal(readFileSync(join(root, "README.md"), "utf8"), original);
@@ -95,7 +96,7 @@ test("retired commands and incompatible stdin options fail before formatting che
     const result = spawnSync(
       process.execPath,
       ["src/qualification-cli.js", command, "--root", root],
-      { encoding: "utf8", timeout: 15000 },
+      { encoding: "utf8", timeout: fixtureCommandTimeoutMs },
     );
     assert.equal(result.status, 2);
   }
@@ -119,7 +120,7 @@ test("malformed provided logical documents cannot fall through to checkout forma
       {
         input: JSON.stringify({ root, mode: "format", document }),
         encoding: "utf8",
-        timeout: 15000,
+        timeout: fixtureCommandTimeoutMs,
       },
     );
     assert.notEqual(worker.status, 0);
@@ -162,7 +163,7 @@ test("CLI installed metadata failures use operational exit without fabricated ve
   const result = spawnSync(
     process.execPath,
     ["--experimental-test-module-mocks", script],
-    { encoding: "utf8", timeout: 15000 },
+    { encoding: "utf8", timeout: fixtureCommandTimeoutMs },
   );
   assert.equal(result.status, 2, result.stderr);
   assert.equal(result.stdout, "");
@@ -184,7 +185,7 @@ test("nested CLI invocations discover the policy root before binding tracked inv
     const execution = spawnSync(process.execPath, [cli, mode, "--json"], {
       cwd: join(root, "docs"),
       encoding: "utf8",
-      timeout: 15000,
+      timeout: fixtureCommandTimeoutMs,
     });
     assert.equal(execution.status, 0, execution.stdout + execution.stderr);
     const report = JSON.parse(execution.stdout);
@@ -224,7 +225,11 @@ test("nested CLI invocations discover the policy root before binding tracked inv
       ".markdown-quality-execution.json",
       "--json",
     ],
-    { cwd: join(root, "docs"), encoding: "utf8", timeout: 15000 },
+    {
+      cwd: join(root, "docs"),
+      encoding: "utf8",
+      timeout: fixtureCommandTimeoutMs,
+    },
   );
   assert.equal(bounded.status, 2);
   assert.equal(JSON.parse(bounded.stdout).errors[0].code, "EXECUTION_TIMEOUT");
@@ -265,7 +270,7 @@ test("execution profile resolves only bounded trusted runtime declarations and f
   const inspected = spawnSync(
     process.execPath,
     ["src/cli.js", "inspect-profile", "--root", root, "--json"],
-    { encoding: "utf8", timeout: 15000 },
+    { encoding: "utf8", timeout: fixtureCommandTimeoutMs },
   );
   assert.equal(inspected.status, 0, inspected.stdout + inspected.stderr);
   assert.deepEqual(JSON.parse(inspected.stdout), resolved);
@@ -288,7 +293,7 @@ test("execution profile resolves only bounded trusted runtime declarations and f
         contentBase64: Buffer.from("Alpha. Beta.\n").toString("base64"),
       }),
       encoding: "utf8",
-      timeout: 15000,
+      timeout: fixtureCommandTimeoutMs,
     },
   );
   assert.equal(logical.status, 0, logical.stdout + logical.stderr);
@@ -310,7 +315,7 @@ test("execution profile resolves only bounded trusted runtime declarations and f
       ".markdown-quality-execution.json",
       "--json",
     ],
-    { encoding: "utf8", timeout: 15000 },
+    { encoding: "utf8", timeout: fixtureCommandTimeoutMs },
   );
   assert.equal(timed.status, 2);
   assert.equal(JSON.parse(timed.stdout).errors[0].code, "EXECUTION_TIMEOUT");
@@ -338,7 +343,7 @@ test("execution profile resolves only bounded trusted runtime declarations and f
 
 test(
   "Linux CLI cancellation disposes its detached checker before reporting failure",
-  { skip: process.platform !== "linux", timeout: 15000 },
+  { skip: process.platform !== "linux", timeout: fixtureCommandTimeoutMs },
   async (t) => {
     const root = consumer(t, { "README.md": "Alpha.\n" });
     const cli = spawn(

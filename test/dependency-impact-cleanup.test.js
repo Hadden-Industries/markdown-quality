@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { fixtureCommandTimeoutMs } from "./helpers.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -49,7 +50,7 @@ test(
   "fixture teardown waits for a Windows cwd lock to be released",
   {
     skip: process.platform !== "win32",
-    timeout: 15000,
+    timeout: fixtureCommandTimeoutMs,
   },
   async (t) => {
     const fixture = await lockedFixture(t);
@@ -72,7 +73,7 @@ test(
   "fixture teardown still reports a Windows directory that remains locked",
   {
     skip: process.platform !== "win32",
-    timeout: 15000,
+    timeout: fixtureCommandTimeoutMs,
   },
   async (t) => {
     const fixture = await lockedFixture(t);

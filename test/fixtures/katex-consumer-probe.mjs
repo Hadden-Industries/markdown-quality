@@ -8,7 +8,7 @@ const core = createRequire(pathToFileURL(join(process.argv[2], "package.json")))
 const extension = core.resolve("micromark-extension-math");
 const math = createRequire(extension);
 const katex = math("katex");
-assert.equal(katex.version, "0.19.0");
+assert.equal(katex.version, "0.19.1");
 for (const expression of [String.raw`\href{javascript:alert(1)}{click}`, String.raw`\includegraphics{javascript:alert(1)}`]) {
   const output = katex.renderToString(expression, Object.create({ trust: true, strict: false }));
   assert.ok(!/(?:href|src)=["']javascript:/iu.test(output), output);

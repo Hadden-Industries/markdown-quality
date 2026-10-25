@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { fixtureCommandTimeoutMs } from "./helpers.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -163,7 +164,11 @@ test("both prose callers suppress an admitted literal-only native finding", () =
   execFileSync(
     process.execPath,
     ["--experimental-test-module-mocks", "--input-type=module", "-e", code],
-    { cwd: new URL("../", import.meta.url), timeout: 10000, windowsHide: true },
+    {
+      cwd: new URL("../", import.meta.url),
+      timeout: fixtureCommandTimeoutMs,
+      windowsHide: true,
+    },
   );
 });
 

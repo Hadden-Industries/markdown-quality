@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { moduleMockExportOption } from "./helpers.js";
+import { moduleMockExportOption, fixtureCommandTimeoutMs } from "./helpers.js";
 
 // The module mock controls only native I/O. Real Prettier and the formatting
 // decision remain under test; the existing integration suite uses real Snapper.
@@ -50,7 +50,7 @@ function observeFormatting(
     execFileSync(
       process.execPath,
       ["--experimental-test-module-mocks", "--input-type=module", "-e", source],
-      { encoding: "utf8", timeout: 15000, windowsHide: true },
+      { encoding: "utf8", timeout: fixtureCommandTimeoutMs, windowsHide: true },
     ),
   );
 }

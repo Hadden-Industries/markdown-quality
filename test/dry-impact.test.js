@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { impactFixture } from "./dependency-impact-helpers.js";
 import { planAffected, runAffected } from "../scripts/affected-tests.js";
-import { consumer } from "./helpers.js";
+import { consumer, fixtureCommandTimeoutMs } from "./helpers.js";
 
 test("shared generator and native resources select and execute the conservative full obligation", async (t) => {
   for (const path of [
@@ -52,7 +52,12 @@ test("native build/freezer importlib loading resolves vocabulary from their own 
       `import importlib.util, pathlib, sys\nroot=pathlib.Path(sys.argv[1])\nfor name in ('build-native','freeze-native'):\n spec=importlib.util.spec_from_file_location(name,root/'scripts'/f'{name}.py')\n module=importlib.util.module_from_spec(spec)\n spec.loader.exec_module(module)\n assert len(module.VOCABULARY['baseMembers']) == 8\n print(name)\n`,
       root,
     ],
-    { cwd, encoding: "utf8", timeout: 10000, windowsHide: true },
+    {
+      cwd,
+      encoding: "utf8",
+      timeout: fixtureCommandTimeoutMs,
+      windowsHide: true,
+    },
   );
   assert.equal(result.status, 0, result.stderr);
   assert.equal(

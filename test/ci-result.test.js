@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { consumer } from "./helpers.js";
+import { consumer, fixtureCommandTimeoutMs } from "./helpers.js";
 
 const moduleUrl = new URL("../scripts/ci-result.js", import.meta.url).href;
 function report(title, facts, summaryPath, log = true) {
@@ -16,7 +16,7 @@ function report(title, facts, summaryPath, log = true) {
       `import {reportCiResult} from ${JSON.stringify(moduleUrl)}; reportCiResult(...JSON.parse(process.argv[1]));`,
       JSON.stringify([title, facts, { summaryPath, log }]),
     ],
-    { encoding: "utf8", timeout: 10000, windowsHide: true },
+    { encoding: "utf8", timeout: fixtureCommandTimeoutMs, windowsHide: true },
   );
 }
 
