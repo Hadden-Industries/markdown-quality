@@ -12,6 +12,7 @@ import { formatLayout } from "../src/literal-layout.js";
 import { normalizeTrailingWhitespace } from "../src/whitespace.js";
 import { limits } from "../src/contracts.js";
 import { consumer } from "./helpers.js";
+import { canonicalizeEmphasis } from "../src/policy-formatting.js";
 import {
   captureLiteralExclusions,
   checkProseGroup,
@@ -25,6 +26,45 @@ const options = {
   tabWidth: 2,
   plugins: [],
 };
+
+test("underscore-free emphasis normalization skips parsing with an active document memo", () => {
+  const memo = createDocumentMemo();
+  try {
+    for (const text of [
+      "",
+      "Plain text.\n",
+      "*emphasis* and **strong**\r\n",
+      "---\ntitle: A\n---\n\n`code` <b>HTML</b>\n",
+    ])
+      assert.equal(canonicalizeEmphasis(text, memo), text);
+    assert.equal(memo.statistics.parses, 0);
+    assert.equal(memo.statistics.parseHits, 0);
+    assert.equal(canonicalizeEmphasis("_emphasis_\n", memo), "*emphasis*\n");
+    assert.equal(memo.statistics.parses, 1);
+    assert.equal(canonicalizeEmphasis("_emphasis_\n", memo), "*emphasis*\n");
+    assert.equal(memo.statistics.parseHits, 1);
+    for (const text of [
+      "`_code_`\n",
+      "\\_escaped\\_\n",
+      "<b data_key='a_b'>HTML</b>\n",
+      "[link](https://example.com/a_b)\n",
+      "__strong__\r\n",
+    ])
+      assert.equal(canonicalizeEmphasis(text, memo), text);
+  } finally {
+    memo.dispose();
+  }
+});
+
+test("emphasis normalization preserves disposed and invalid memo failures", () => {
+  const memo = createDocumentMemo();
+  memo.dispose();
+  for (const text of ["Plain.\n", "_emphasis_\n", ""])
+    assert.throws(() => canonicalizeEmphasis(text, memo), {
+      code: "ANALYSIS_FAILURE",
+    });
+  assert.throws(() => canonicalizeEmphasis("Plain.\n", {}), TypeError);
+});
 
 test("prose filtering reuses the exact parsed bytes and rejects stale bytes or syntax", () => {
   const text =

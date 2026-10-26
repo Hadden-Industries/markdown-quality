@@ -139,9 +139,7 @@ export function checkAdvisories(text, config, memo) {
             );
             continue;
           }
-          const character = String.fromCodePoint(
-            lines[line - 1].codePointAt(column),
-          );
+          const codePoint = lines[line - 1].codePointAt(column);
           length++;
           if (length === 121) {
             report(
@@ -152,7 +150,7 @@ export function checkAdvisories(text, config, memo) {
             );
             break;
           }
-          column += character.length;
+          column += codePoint > 0xffff ? 2 : 1;
         }
       }
     }

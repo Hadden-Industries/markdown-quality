@@ -9,6 +9,9 @@ export function canonicalizePolicy(text, memo) {
 
 /** Normalize emphasis only; structural source edits still require printer layout. */
 export function canonicalizeEmphasis(text, memo) {
+  // Keep invalid/disposed memo failures while skipping an impossible repair.
+  if (!text.includes("_") && (!memo || memo.statistics?.disposed === false))
+    return text;
   return canonicalize(text, memo, true);
 }
 

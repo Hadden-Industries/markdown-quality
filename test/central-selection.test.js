@@ -99,6 +99,28 @@ test("duplicate supplied inventory is rejected consistently before processing", 
   assert.equal(bounded.errors[0].code, "INVALID_INVENTORY");
 });
 
+test("inventory validation preserves missing-member precedence before sorting and byte accounting", async (t) => {
+  const root = consumer(t);
+  for (const invoke of [runQuality, executeQuality]) {
+    const ordered = await invoke({
+      root,
+      mode: "inspect",
+      inventory: ["z-missing.md", "a-missing.md"],
+    });
+    assert.equal(ordered.exitCode, 2);
+    assert.equal(ordered.errors[0].code, "MISSING_DOCUMENT");
+    assert.ok(ordered.errors[0].message.includes("z-missing.md"));
+    const bounded = await invoke({
+      root,
+      mode: "inspect",
+      inventory: ["missing.md"],
+      limits: { selectionBytes: 1 },
+    });
+    assert.equal(bounded.exitCode, 2);
+    assert.equal(bounded.errors[0].code, "MISSING_DOCUMENT");
+  }
+});
+
 test("full Git checkout requests automatically account for tracked pruned domains", async (t) => {
   const root = consumer(t, { "docs/venv/hidden.md": "Alpha.\n" });
   execFileSync("git", ["init", "--quiet", root]);
