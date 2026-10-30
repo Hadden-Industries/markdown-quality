@@ -207,6 +207,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   for (const [name, value] of Object.entries({
     runtimes: JSON.stringify(release.qualificationMatrix),
     reference: release.runtimePolicy.reference,
+    "consumer-npm": release.runtimePolicy.consumerNpm,
     source: release.source.head,
   }))
     appendFileSync(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);

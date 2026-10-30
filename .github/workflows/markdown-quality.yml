@@ -28,9 +28,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-24.04]
+        os:
+          - windows-latest
+          - ubuntu-24.04
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 120
     defaults:
       run:
         shell: pwsh
@@ -42,7 +44,6 @@ jobs:
       MQ_PROFILE: ${{ inputs.profile }}
     steps:
       - name: Validate exact checkout identities
-        # Job context is available at step scope, not in jobs.<job_id>.env.
         env:
           MQ_WORKFLOW_SHA: ${{ job.workflow_sha }}
           MQ_WORKFLOW_REF: ${{ job.workflow_ref }}
@@ -55,35 +56,52 @@ jobs:
           Add-Content -LiteralPath $env:GITHUB_ENV -Value "MQ_WORKFLOW_REPOSITORY=$env:MQ_WORKFLOW_REPOSITORY"
           Add-Content -LiteralPath $env:GITHUB_ENV -Value "MQ_CHECK_RUN_ID=$env:MQ_CHECK_RUN_ID"
           git config --global core.autocrlf false
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
           path: producer
           persist-credentials: false
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: ${{ inputs.trusted-repository }}
           ref: ${{ inputs.trusted-sha }}
           path: trusted
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: "24.21.0"
+          node-version: 24.22.1
       - name: Acquire immutable producer bootstrap graph
+        working-directory: producer
+        shell: bash
+        run: node scripts/qualification-process.js producer-npm
+      - name: Install immutable producer bootstrap graph
         working-directory: producer
         run: npm ci --ignore-scripts --no-audit --no-fund
         timeout-minutes: 5
       - id: profile
         name: Read shared trusted runtime/profile declarations
-        run: node producer/scripts/shared-qualification.mjs bootstrap
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        run: |
+          npm --prefix producer run ci:producer-toolchain
+          if ($LASTEXITCODE -ne 0) { throw 'Producer identity recording failed' }
+          node producer/scripts/shared-qualification.mjs bootstrap
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ steps.profile.outputs.node }}
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ steps.profile.outputs.python }}
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Isolate the trusted Python interpreter
+        shell: bash
+        run: |
+          python -m venv "${{ runner.temp }}/shared-python"
+          echo "VIRTUAL_ENV=${{ runner.temp }}/shared-python" >> "$GITHUB_ENV"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            echo "${{ runner.temp }}/shared-python/Scripts" >> "$GITHUB_PATH"
+          else
+            echo "${{ runner.temp }}/shared-python/bin" >> "$GITHUB_PATH"
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: ${{ inputs.candidate-repository }}
           ref: ${{ inputs.candidate-sha }}
@@ -94,10 +112,10 @@ jobs:
       - name: Package compact qualification evidence
         if: always()
         run: node producer/scripts/package-qualification-evidence.mjs
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - uses: ./producer/.github/actions/upload-evidence
         if: always()
+        timeout-minutes: 5
         with:
           name: shared-markdown-${{ matrix.os }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/shared-markdown-upload/
-          if-no-files-found: error
           retention-days: ${{ inputs.qualification-evidence && 30 || (job.status != 'success' && 14 || 7) }}

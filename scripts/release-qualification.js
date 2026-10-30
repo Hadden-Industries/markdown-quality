@@ -21,17 +21,13 @@ export function releaseQualificationJobNames(matrix, policy) {
   const candidates = candidateJobNames(matrix, policy);
   return [
     "resolve",
-    "product / matrix",
-    "product / strategy",
-    "product / required",
-    ...matrix.os.flatMap((os) =>
-      matrix.node.flatMap((node) => [
-        `product / probe (${os}, ${node})`,
-        `product / package (${os}, ${node})`,
-      ]),
+    "dependencies",
+    "native / Validate win32-x64",
+    "native / Validate linux-x64",
+    ...candidates.map((name) => `product / ${name}`),
+    ...["actions", "javascript-typescript", "python"].map(
+      (language) => `scans / Scan ${language}`,
     ),
-    "candidate / shared",
-    ...candidates.map((name) => `candidate / ${name}`),
     "security",
     "distribution",
     "qualified",
@@ -41,14 +37,11 @@ export function releaseQualificationJobNames(matrix, policy) {
 /** GitHub retains the separate manual-fixture branch as one inactive job. */
 export function verifyReleaseQualificationJob(run, job) {
   assert.equal(job.status, "completed");
-  const inactive = job.name === "candidate / shared";
   assert.equal(
     job.conclusion,
-    inactive ? "skipped" : "success",
+    "success",
     `Unexpected release gate result: ${job.name}`,
   );
-  if (inactive)
-    assert.deepEqual(job.steps, [], "Inactive fixture branch executed steps");
   assert.equal(job.head_sha, run.head_sha);
   assert.equal(job.run_id, run.id);
   assert.equal(job.run_attempt, run.run_attempt);

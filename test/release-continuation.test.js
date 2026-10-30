@@ -11,8 +11,8 @@ function fixture() {
     control = "b".repeat(40),
     manifestSha = "c".repeat(64);
   const matrix = {
-    os: ["windows-latest", "ubuntu-24.04"],
-    node: ["22.13.0", "24.0.0", "24.21.0", "26.0.0"],
+    os: nodeSupport.platforms,
+    node: ["22.13.0", "22.23.4", "24.22.1", "26.13.0"],
   };
   const archives = ["win32-x64", "linux-x64", "core"].map((name) => ({
     name,

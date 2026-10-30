@@ -251,7 +251,7 @@ export async function qualifyDistributionSbom(
     writeFileSync(join(output, "cyclonedx-validation.txt"), validation, {
       flag: "wx",
     });
-    for (const platform of ["windows-latest", "ubuntu-24.04"]) {
+    for (const platform of ["windows-2025", "ubuntu-24.04"]) {
       for (const layout of ["root", "isolated"]) {
         const source = join(
           recipientDirectory,
@@ -262,7 +262,7 @@ export async function qualifyDistributionSbom(
         verifyRecipientSbom(
           readJson(source),
           release,
-          platform === "windows-latest" ? "win32-x64" : "linux-x64",
+          platform.startsWith("windows") ? "win32-x64" : "linux-x64",
         );
         copyFileSync(
           source,

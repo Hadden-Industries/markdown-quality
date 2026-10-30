@@ -84,7 +84,7 @@ test("a real successful offline npm ci retains native phases and both process bo
   assert.equal(result.status, 0, result.stderr);
   assert.equal(events.length, 2);
   assert.equal(events[0].event, "start");
-  assert.equal(events[0].limitMs, 300_000);
+  assert.equal(events[0].limitMs, 1_200_000);
   assert.equal(events[0].originalLimitMs, 120_000);
   assert.equal(events[1].id, events[0].id);
   assert.equal(events[1].event, "end");

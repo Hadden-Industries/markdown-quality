@@ -19,6 +19,8 @@ const args = [
   "--manifest",
   join(directory, "release-manifest.json"),
   "--provenance",
+  "--layout-output",
+  join(directory, "registry-layouts"),
   "--publication-origins",
   join(directory, "publication-origins.json"),
   "--publication-source",

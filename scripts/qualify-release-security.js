@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { native } from "./commands.js";
 import { hash, readJson, repository } from "./release-assets.js";
 import { reportCiResult } from "./ci-result.js";
+import { releaseQualificationWorkflow } from "./release-qualification.js";
 
 /** Select the analyses that may satisfy exact-source release security coverage. */
 export function verifyCodeqlAnalyses(analyses, source) {
@@ -18,8 +19,7 @@ export function verifyCodeqlAnalyses(analyses, source) {
         analysis.commit_sha === source &&
         analysis.ref === "refs/heads/main" &&
         analysis.category === `/language:${language}` &&
-        analysis.analysis_key ===
-          "dynamic/github-code-scanning/codeql:analyze" &&
+        analysis.analysis_key === `${releaseQualificationWorkflow}:codeql` &&
         analysis.tool?.name === "CodeQL",
     );
     assert.ok(matches.length, `Missing exact-source CodeQL ${language}`);
@@ -158,7 +158,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     return scan;
   });
   const recipient = [];
-  for (const platform of ["windows-latest", "ubuntu-24.04"]) {
+  for (const platform of release.runtimePolicy.platforms) {
     for (const layout of ["root", "isolated"]) {
       const name = `${layout}-audit.json`;
       const path = join("recipient-security", `recipient-${platform}`, name);

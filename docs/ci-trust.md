@@ -1,21 +1,30 @@
 # CI trust and acquisition
 
-Package qualification runs the complete current Node/platform matrix on every pull request.
-For a single ordinary same-repository PR merge onto the previous `main` tip, `.github/workflows/check.yml` can reuse that PR's fully executed package qualification.
-Admission independently checks the merged PR, tested Git tree and ordered parents, workflow identity, current resolved Node matrix, concrete Node/npm/Python versions, hosted runner images, successful complete job inventory, source attempt, and retained receipt artifact ID and digest.
-The final `required` job rechecks the original proof after test jobs have been skipped; evidence that changes at that point fails the aggregate rather than granting success.
-The workflow summaries identify `FULL` or `REUSED` and link the original run and attempt.
+Ordinary full qualification starts deliberately when a PR targeting `main` receives `ready_for_review`, or when an operator dispatches `main-qualification.yml` on `main`.
+Opening a ready PR, draft updates and later synchronization do not launch full ordinary qualification.
+Changed heads require another deliberate ready checkpoint; strict required acceptance prevents stale qualification from authorizing a changed tree.
+`ci.yml` freezes one matrix and coordinates the reference producer, runtime consumers, frozen native validation, dependency review/audit and explicit Actions, JavaScript/TypeScript and Python CodeQL scans.
+`CI / acceptance` requires the complete authenticated successful inventory, both installed layouts and reference corpus evidence; skipped or missing obligations fail.
+The producer owns source-wide verification, one authoritative distributed archive tuple and the mandatory final JSON gate.
+Runtime consumers exercise source behavior and the same archive ID on both operating systems.
 
-Absent, expired, foreign, malformed or mismatched proof selects full tests during strategy selection.
-Direct, squash, rebase, forced and multi-merge pushes also run full tests.
-Node release or runner-image changes prevent reuse when the current selected inputs differ.
+On a main push, `main-qualification.yml` only observes hosted platform contracts and decides `REUSED` or `FULL_REQUIRED`.
+Absent, expired, foreign, malformed or mismatched proof produces `FULL_REQUIRED` with a reason and launches no full product tests.
+Direct, squash, rebase, forced and multi-merge pushes likewise require deliberate full qualification.
+Reuse independently checks the ordinary same-repository merge, tree and ordered parents, workflow, current frozen matrix, actual Node/npm/Python, native inputs and original producing attempts.
+Changed mandatory inputs prevent reuse; a new image build within the same declared family does not erase the original image provenance.
+Observer reruns select only their current attempt's host probes.
+Partial reruns without a complete current probe set produce `FULL_REQUIRED`; rerun the host probes to reconsider reuse.
 Only a fully executed PR run can be the proof source; reuse records cannot form a chain.
-Proof and lane JSON are bounded data, acquired through the pinned official artifact actions with digest verification.
+Proof and lane JSON are bounded data, uploaded through a native Actions SDK entry and acquired by immutable artifact ID with provider, size, digest and metadata readback checks.
+Archive extraction rejects redirects, traversal, duplicate paths, linked members and excessive payloads before use.
 GitHub API permissions are read-only; no extra credential or publication authority is granted.
 
-Transported-candidate and performance qualification remain fresh on `main` because their archives and publication contracts bind the exact source commit.
-Package-test reuse does not qualify PR archives for publication or replace reusable consumer, native-build, registry or release evidence.
-The repository's `docs/plans/ci-verification-reuse.md` records the accepted scope and its acceptance criteria.
+Main observation is a reuse decision, not newly executed qualification or release proof.
+Manual `release-qualification.yml` always runs fresh exact-source product, corpus, explicit security, recipient audit and distribution inventory obligations through the common graph.
+It has no publication authority.
+The [convergence plan](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/plans/2026-10-29-github-actions-convergence-implementation-plan.md) supersedes the earlier automatic-CI/reuse design for current source.
+Hosted acceptance and governance activation remain pending until the source is separately pushed and the cutover procedure is authorized and completed.
 
 The package repository, OwlAPI, and WebVOWL are public, as inspected through GitHub on 2026-10-05.
 The owner selected public npm distribution after the private upload was rejected with E402.

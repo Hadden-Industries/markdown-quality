@@ -8,10 +8,11 @@ import { digest } from "../src/contracts.js";
 import { pythonProbeArgs, repositoryPython } from "./python-target.js";
 import { observeCommand } from "./ci-observation.js";
 import { npmCommand } from "./commands.js";
+import { testFiles } from "./verification-suites.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
 if (
   process.argv.length > 3 ||
-  (process.argv[2] && process.argv[2] !== "--product")
+  (process.argv[2] && !["--product", "--runtime"].includes(process.argv[2]))
 )
   throw new Error("Use check:full or check:product.");
 const productOnly = process.argv[2] === "--product";
@@ -55,6 +56,15 @@ function node(args) {
     process.exit(result.status ?? 2);
   }
 }
+if (process.argv[2] === "--runtime") {
+  resolveTool();
+  node([
+    "--test",
+    "--test-reporter=./scripts/test-outcomes.js",
+    ...testFiles(true),
+  ]);
+  process.exit(0);
+}
 if (
   digest(readFileSync(new URL("../LICENSE", import.meta.url))) !==
   "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
@@ -62,6 +72,8 @@ if (
   throw new Error("Original AGPL-3.0-only license bytes changed.");
 resolveTool();
 node(["scripts/project-node-support.js", "--check"]);
+node(["scripts/check-workflows.js"]);
+node(["scripts/check-architecture.js"]);
 const pythonRuntime = spawnSync(python, pythonProbeArgs(), {
   cwd: root,
   stdio: "inherit",
@@ -104,14 +116,15 @@ npmCommand(["run", "format:code:check"], {
   stdio: "inherit",
   timeout: 600_000,
 });
+node(["--test", "--test-reporter=./scripts/test-outcomes.js", ...testFiles()]);
 node([
-  "--test",
-  "--test-reporter=./scripts/test-outcomes.js",
-  ...readdirSync(new URL("../test/", import.meta.url))
-    .filter((p) => p.endsWith(".test.js"))
-    .map((p) => "test/" + p),
+  "src/cli.js",
+  "check",
+  "--inventory",
+  "git",
+  "--diagnostic-level",
+  "warning",
 ]);
-node(["src/cli.js", "check", "--inventory", "git"]);
 if (!productOnly) {
   // JSON integration checks admit the actual packed tuple, including its
   // generated manifests; produce those inputs before the first consumer.

@@ -30,36 +30,24 @@ const source = "a".repeat(40);
 const repository = "Hadden-Industries/markdown-quality";
 // Literal contract fixtures use the declared minimum/reference releases. They
 // intentionally do not call the production gate inventory to build the oracle.
-const runtimePolicy = {
-  schemaVersion: 1,
-  minimums: ["22.13.0", "24.0.0", "26.0.0"],
-  reference: "24.21.0",
-  platforms: ["windows-latest", "ubuntu-24.04"],
-};
+const runtimePolicy = structuredClone(nodeSupport);
 const runtimeMatrix = {
-  os: ["windows-latest", "ubuntu-24.04"],
-  node: ["22.13.0", "24.0.0", "24.21.0", "26.0.0"],
+  os: ["ubuntu-24.04", "windows-2025"],
+  node: ["22.13.0", "22.23.4", "24.22.1", "26.13.0"],
 };
 const releaseJobNames = [
   "resolve",
-  "product / matrix",
-  "product / strategy",
-  "product / required",
+  "dependencies",
+  "native / Validate win32-x64",
+  "native / Validate linux-x64",
+  "product / Reference producer",
   ...runtimeMatrix.os.flatMap((os) =>
-    runtimeMatrix.node.flatMap((node) => [
-      `product / probe (${os}, ${node})`,
-      `product / package (${os}, ${node})`,
-    ]),
+    runtimeMatrix.node.map((node) => `product / Qualify ${os} / Node ${node}`),
   ),
-  "candidate / shared",
-  "candidate / pack",
-  ...runtimeMatrix.os.flatMap((os) =>
-    runtimeMatrix.node.map((node) =>
-      node === "24.21.0"
-        ? `candidate / consumer (${os})`
-        : `candidate / consumer (${os}, ${node})`,
-    ),
-  ),
+  "product / Complete runtime qualification",
+  "scans / Scan actions",
+  "scans / Scan javascript-typescript",
+  "scans / Scan python",
   "security",
   "distribution",
   "qualified",
@@ -194,10 +182,12 @@ test("exact qualified opaque tuple is admitted without extraction or execution",
   const { input } = fixture(t);
   assert.equal(verifyPublication(input).version, "1.0.0");
 });
-test("the hosted inactive fixture branch must be present, skipped and unexecuted", (t) => {
+test("the retired fixture branch cannot enter current release evidence", (t) => {
   const { input } = fixture(t);
-  const job = input.jobs.jobs.find(({ name }) => name === "candidate / shared");
   assert.equal(verifyPublication(input).version, "1.0.0");
+  const job = { ...input.jobs.jobs[0], name: "candidate / shared" };
+  input.jobs.jobs.push(job);
+  input.jobs.total_count++;
   for (const conclusion of ["success", "failure", "cancelled", null]) {
     job.conclusion = conclusion;
     assert.throws(() => verifyPublication(input));
@@ -213,7 +203,7 @@ test("the hosted inactive fixture branch must be present, skipped and unexecuted
   assert.throws(() => verifyPublication(input));
   input.jobs.jobs = input.jobs.jobs.filter((item) => item !== job);
   input.jobs.total_count--;
-  assert.throws(() => verifyPublication(input));
+  assert.equal(verifyPublication(input).version, "1.0.0");
 });
 test("transported candidate success alone cannot authorize release effects", (t) => {
   const { input } = fixture(t);
@@ -240,9 +230,12 @@ test("release qualification requires every manifest-bound runtime job", (t) => {
     "New source cannot omit matrix evidence",
   );
   manifest.qualificationMatrix = qualificationMatrix(
-    [...nodeSupport.minimums, nodeSupport.reference].map((version) => ({
-      version: `v${version}`,
-    })),
+    [nodeSupport.minimum, "22.23.4", nodeSupport.reference, "26.13.0"].map(
+      (version) => ({
+        version: `v${version}`,
+        lts: true,
+      }),
+    ),
   );
   manifest.runtimePolicy = JSON.parse(
     readFileSync(new URL("../assets/node-support.json", import.meta.url)),
@@ -260,8 +253,9 @@ for (const gate of [
   "security",
   "distribution",
   "qualified",
-  "product / required",
-  "product / package (windows-latest, 22.13.0)",
+  "product / Complete runtime qualification",
+  "scans / Scan python",
+  "product / Qualify windows-2025 / Node 22.13.0",
 ])
   test(`release admission rejects omitted, skipped or stale ${gate}`, (t) => {
     const { input } = fixture(t);

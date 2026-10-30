@@ -11,8 +11,9 @@ import { math, mathHtml } from "micromark-extension-math";
 
 test("qualification and publication Actions retain credential and archive boundaries", () => {
   for (const workflow of [
-    "candidate",
-    "check",
+    "qualification",
+    "ci",
+    "security",
     "markdown-quality",
     "native",
     "publish",

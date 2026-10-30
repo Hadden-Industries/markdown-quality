@@ -3,6 +3,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { observeCommand } from "./ci-observation.js";
+import { budgets } from "./qualification-budgets.js";
+import { assertNativeNpmRuntime } from "./consumer-toolchain.js";
 /** Run a bounded native provider/tool command without a shell. */
 export function native(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -22,8 +24,14 @@ export function native(command, args, options = {}) {
       ]
         .filter(Boolean)
         .join("\n")}`,
+      { cause: result.error },
     );
     error.status = result.status;
+    error.code = result.error?.code;
+    // SDK failures end with a compact typed JSON record. Retain a bounded
+    // tail so the caller can classify it without replacing native failure.
+    error.stdout = String(result.stdout ?? "").slice(-8192);
+    error.stderr = String(result.stderr ?? "").slice(-8192);
     throw error;
   }
   return result.stdout;
@@ -40,10 +48,18 @@ export function npmCliPath(executable = process.execPath) {
   return cli;
 }
 export function npmCommand(args, options = {}, executable = process.execPath) {
-  const cli = npmCliPath(executable);
+  const cli =
+    arguments.length < 3 && executable === process.execPath
+      ? (process.env.MARKDOWN_QUALITY_CONSUMER_NPM ??
+        (process.env.MARKDOWN_QUALITY_PRODUCER_NODE === process.execPath
+          ? process.env.MARKDOWN_QUALITY_PRODUCER_NPM
+          : null) ??
+        npmCliPath(executable))
+      : npmCliPath(executable);
+  if (executable === process.execPath) assertNativeNpmRuntime(cli);
   const started = performance.now();
   const installing = ["install", "ci"].includes(args[0]);
-  // Bound individual requests within the five-minute acquisition budget.
+  // Bound individual requests within the tooling acquisition budget.
   // Retry only npm's native idempotent reads, never the outer command.
   const acquisition = installing
     ? [
@@ -59,7 +75,7 @@ export function npmCommand(args, options = {}, executable = process.execPath) {
     : [];
   const settings = {
     encoding: "utf8",
-    timeout: installing ? 300_000 : 120_000,
+    timeout: installing ? budgets.install : budgets.read,
     maxBuffer: 8_388_608,
     windowsHide: true,
     ...options,

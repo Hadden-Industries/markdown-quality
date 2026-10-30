@@ -11,6 +11,7 @@ import {
 import { registryJobNames, registryWorkflow } from "./release-qualification.js";
 import { verifyReleaseAcceptance } from "./release-acceptance.js";
 import { bindStagingReconciliation } from "./release-staging-evidence.js";
+import { validateConsumer } from "./ci-consumer.js";
 
 export const repository = "Hadden-Industries/markdown-quality";
 export { hash } from "./release-bytes.js";
@@ -20,7 +21,11 @@ export const readJson = (path) =>
   JSON.parse(regularBytes(path, 16 * 1024 * 1024).toString("utf8"));
 
 export function verifyQualification(qualified) {
-  assert.ok([1, 2].includes(qualified.schemaVersion));
+  assert.equal(
+    qualified.schemaVersion,
+    2,
+    "Historical qualification cannot authorize current effects",
+  );
   const current = qualified.schemaVersion === 2;
   assert.match(qualified.version, /^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/u);
   assert.match(qualified.source, /^[a-f0-9]{40}$/u);
@@ -247,6 +252,15 @@ export function verifyPayloads(qualified, directory, sourceArchive) {
     const bytes = regularBytes(join(directory, name));
     assert.equal(hash(bytes), expected.sha256);
     const report = JSON.parse(bytes);
+    validateConsumer(report, {
+      source: qualified.source,
+      node: expected.node,
+      os: expected.platform.startsWith("win32")
+        ? "windows-2025"
+        : "ubuntu-24.04",
+      qualification: expected.qualification,
+      policy: qualified.candidate.runtimePolicy,
+    });
     assert.equal(report.passed, true);
     assert.equal(report.version, qualified.version);
     assert.equal(report.candidate, qualified.source);

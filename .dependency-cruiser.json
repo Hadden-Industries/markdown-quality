@@ -69,10 +69,10 @@
       "name": "shared-tooling-stays-independent",
       "severity": "error",
       "from": {
-        "path": "^scripts/(commands|node-matrix|python-target|ci-reuse|declared-targets|release-bytes|publication-context)\\.js$"
+        "path": "^scripts/(commands|node-matrix|python-target|ci-proof|ci-consumer|ci-host|github-evidence|qualification-budgets|consumer-toolchain|declared-targets|release-bytes|publication-context)\\.js$"
       },
       "to": {
-        "path": "^scripts/(pack|ci-reuse-command|release-assets|verify-publication|qualify-public-registry|shared-qualification|verify)\\.(js|mjs)$",
+        "path": "^scripts/(pack|ci-command|release-assets|verify-publication|qualify-public-registry|shared-qualification|verify)\\.(js|mjs)$",
         "reachable": true
       }
     },

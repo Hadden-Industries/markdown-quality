@@ -171,7 +171,7 @@ try {
         );
         const name = `${kind}-${os}-${node}.json`;
         qualified.reports[name] = {
-          platform: os === "windows-latest" ? "win32-x64" : "linux-x64",
+          platform: os.startsWith("windows") ? "win32-x64" : "linux-x64",
           qualification:
             kind === "candidate"
               ? "transported candidate archives"

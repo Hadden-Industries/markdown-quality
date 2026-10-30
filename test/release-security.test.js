@@ -13,7 +13,7 @@ const analyses = () =>
     id: 100 + index,
     ref: "refs/heads/main",
     commit_sha: source,
-    analysis_key: "dynamic/github-code-scanning/codeql:analyze",
+    analysis_key: ".github/workflows/release-qualification.yml:codeql",
     category: `/language:${language}`,
     tool: { name: "CodeQL", version: "2.27.2" },
     error: "",

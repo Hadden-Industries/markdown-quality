@@ -1,0 +1,22 @@
+name: Manual trusted and candidate fixture qualification
+on:
+  workflow_dispatch:
+    inputs:
+      trusted-sha:
+        description: Full commit SHA of the reviewed archive/profile fixture
+        type: string
+        required: true
+      candidate-sha:
+        description: Full commit SHA of the candidate data fixture
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  shared:
+    uses: ./.github/workflows/markdown-quality.yml
+    with:
+      trusted-repository: Hadden-Industries/markdown-quality
+      trusted-sha: ${{ inputs.trusted-sha }}
+      candidate-repository: Hadden-Industries/markdown-quality
+      candidate-sha: ${{ inputs.candidate-sha }}

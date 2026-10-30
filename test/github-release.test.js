@@ -28,7 +28,7 @@ import { deliverRelease, gitSource } from "../scripts/github-release.js";
 import { bindStagingReconciliation } from "../scripts/release-staging-evidence.js";
 
 const cwd = fileURLToPath(new URL("../", import.meta.url));
-function fixture(t, current = false) {
+function fixture(t, current = true) {
   const temporary = mkdtempSync(join(tmpdir(), "github-release-test-"));
   t.after(() => rmSync(temporary, { recursive: true, force: true }));
   const input = join(temporary, "input");
@@ -188,8 +188,8 @@ function fixture(t, current = false) {
   if (current) {
     qualified.schemaVersion = 2;
     const matrix = {
-      os: ["windows-latest", "ubuntu-24.04"],
-      node: ["22.13.0", "24.0.0", "24.21.0", "26.0.0"],
+      os: nodeSupport.platforms,
+      node: ["22.13.0", "22.23.4", "24.22.1", "26.13.0"],
     };
     qualified.candidate.matrix = matrix;
     qualified.candidate.runtimePolicy = nodeSupport;
@@ -198,24 +198,17 @@ function fixture(t, current = false) {
     qualified.candidate.event = "workflow_dispatch";
     qualified.candidate.jobs = [
       "resolve",
-      "product / matrix",
-      "product / strategy",
-      "product / required",
+      "dependencies",
+      "native / Validate win32-x64",
+      "native / Validate linux-x64",
+      "product / Reference producer",
       ...matrix.os.flatMap((os) =>
-        matrix.node.flatMap((node) => [
-          `product / probe (${os}, ${node})`,
-          `product / package (${os}, ${node})`,
-        ]),
+        matrix.node.map((node) => `product / Qualify ${os} / Node ${node}`),
       ),
-      "candidate / shared",
-      "candidate / pack",
-      ...matrix.os.flatMap((os) =>
-        matrix.node.map((node) =>
-          node === "24.21.0"
-            ? `candidate / consumer (${os})`
-            : `candidate / consumer (${os}, ${node})`,
-        ),
-      ),
+      "product / Complete runtime qualification",
+      "scans / Scan actions",
+      "scans / Scan javascript-typescript",
+      "scans / Scan python",
       "security",
       "distribution",
       "qualified",
@@ -264,7 +257,7 @@ function fixture(t, current = false) {
       for (const os of matrix.os)
         for (const node of matrix.node) {
           const name = `${kind}-${os}-${node}.json`;
-          const platform = os === "windows-latest" ? "win32-x64" : "linux-x64";
+          const platform = os.startsWith("windows") ? "win32-x64" : "linux-x64";
           const qualification =
             kind === "candidate"
               ? "transported candidate archives"
@@ -274,13 +267,75 @@ function fixture(t, current = false) {
             qualification,
             node,
             sha256: put(name, {
+              schemaVersion: 1,
+              npm: nodeSupport.consumerNpm,
+              manifestSha256: qualified.manifestSha256,
+              archives: archives.map(({ package: packageName, sha256 }) => ({
+                package: packageName,
+                sha256,
+              })),
+              ...(kind === "candidate" && node === nodeSupport.reference
+                ? {
+                    performance: {
+                      schemaVersion: 1,
+                      python: "3.15.0",
+                      corpora: Object.fromEntries(
+                        ["owlapi", "webvowl"].map((name) => [
+                          name,
+                          {
+                            observations: Array.from({ length: 6 }, () => ({
+                              activeDescendants: 0,
+                            })),
+                            completeDiagnosticAndSelectedSourceParity: true,
+                            observedP95Ms: 1000,
+                            peakTreeBytes: 1234,
+                          },
+                        ]),
+                      ),
+                    },
+                  }
+                : {}),
               version: qualified.version,
               candidate: source,
               platform,
               qualification,
               node: `v${node}`,
               passed: true,
-              records: archives,
+              records: [
+                ...archives,
+                ...["root", "isolated"].map((layout) => {
+                  const record = {
+                    layout,
+                    platform,
+                    installedVersion: qualified.version,
+                    allInstalledFileHashesVerified: true,
+                    frozenTransportedArchiveInstall: kind === "candidate",
+                    offlineFrozenLockReinstall: true,
+                    credentialFreeOfflineRuntime: true,
+                    unchangedDocumentAndConvergentFormatting: true,
+                    lifecycleScripts: "disabled",
+                    lockSha256: "a".repeat(64),
+                    runtimeQualification: { node: "v" + node },
+                  };
+                  return {
+                    ...record,
+                    evidence: {
+                      filename: layout + "-qualification.json",
+                      sha256: createHash("sha256")
+                        .update(
+                          // json-identity-contract: bytes; owner: independent release layout fixture; reason: Bind exact LF layout-file bytes rather than infer semantic equality from serialization.
+                          JSON.stringify({
+                            schemaVersion: 1,
+                            candidate: source,
+                            node: "v" + node,
+                            ...record,
+                          }) + "\n",
+                        )
+                        .digest("hex"),
+                    },
+                  };
+                }),
+              ],
             }),
           };
         }
@@ -382,24 +437,10 @@ function fixture(t, current = false) {
 
 test("matrix release evidence requires all runtime jobs and cannot silently downgrade a bound bundle", (t) => {
   const f = fixture(t);
-  f.qualified.candidate.runtimePolicy = JSON.parse(
-    readFileSync(new URL("../assets/node-support.json", import.meta.url)),
-  );
-  f.qualified.candidate.matrix = qualificationMatrix(
-    [...nodeSupport.minimums, nodeSupport.reference].map((version) => ({
-      version: `v${version}`,
-    })),
-  );
-  f.qualified.candidate.jobs = [
-    "pack",
-    "consumer (windows-latest)",
-    "consumer (ubuntu-24.04)",
-    ...f.qualified.candidate.matrix.os.flatMap((os) =>
-      f.qualified.candidate.matrix.node
-        .filter((node) => node !== nodeSupport.reference)
-        .map((node) => `consumer (${os}, ${node})`),
-    ),
-  ];
+  f.qualified.candidate.runtimePolicy = {
+    ...nodeSupport,
+    producerNpm: { ...nodeSupport.producerNpm, version: "12.2.2" },
+  };
   verifyQualification(f.qualified);
   assert.throws(
     () => verifyBundle(f.qualified, f.directory, gitSource(f.qualified, f.cwd)),
@@ -520,7 +561,7 @@ test("archival binds original source, all tuple bytes and independent native ori
   const f = fixture(t);
   assert.equal(
     verifyBundle(f.qualified, f.directory, gitSource(f.qualified, cwd)).length,
-    20,
+    46,
   );
   const manifest = JSON.parse(
     readFileSync(join(f.directory, "release-evidence-manifest.json")),
@@ -547,7 +588,10 @@ for (const defect of [
     if (defect === "extra file")
       writeFileSync(join(f.directory, "unexpected.txt"), "bad");
     if (defect === "altered report")
-      writeFileSync(join(f.directory, "registry-linux.json"), "{}");
+      writeFileSync(
+        join(f.directory, "registry-ubuntu-24.04-22.13.0.json"),
+        "{}",
+      );
     if (defect === "altered origins")
       writeFileSync(join(f.directory, "publication-origins.json"), "{}");
     const source =

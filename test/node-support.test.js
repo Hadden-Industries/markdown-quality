@@ -1,150 +1,155 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-import { npmCliPath } from "../scripts/commands.js";
 import {
+  qualificationMatrix,
+  validatePolicy,
   nodeSupport,
-  qualificationMatrix as resolveMatrix,
 } from "../scripts/node-matrix.js";
-const semver = createRequire(npmCliPath())("semver");
-// Fixed synthetic release history tests selection independently of future policy edits.
-const syntheticPolicy = {
-  ...nodeSupport,
-  minimums: ["22.13.0", "24.0.0", "26.0.0"],
-  reference: "24.21.0",
-};
-const qualificationMatrix = (releases, policy = syntheticPolicy) =>
-  resolveMatrix(releases, policy);
+import { projectNodeSupport } from "../scripts/project-node-support.js";
+import { npmCliPath } from "../scripts/commands.js";
+import { assertNativeNpmRuntime } from "../scripts/consumer-toolchain.js";
 
+test("consumer qualification refuses an unsupported native npm runtime before execution", () => {
+  const npm = npmCliPath();
+  assert.ok(npm);
+  assert.throws(
+    () => assertNativeNpmRuntime(npm, "0.1.0"),
+    /does not support Node/u,
+  );
+  const admitted = assertNativeNpmRuntime(npm);
+  assert.equal(admitted.modules.length, 4);
+  assert.ok(admitted.modules.every((entry) => typeof entry.node === "string"));
+});
+
+const policy = {
+  schemaVersion: 2,
+  minimum: "22.13.0",
+  testedLtsMajors: [22, 24],
+  preLtsMajors: [],
+  reference: "24.21.0",
+  platforms: ["ubuntu-24.04", "windows-2025"],
+  producerNpm: { version: "12.2.1", range: ">=12.2.1 <13" },
+  consumerNpm: "11.21.1",
+  support: { otherEngineCompatibleReleases: "best-effort" },
+};
 const releases = [
-  { version: "v28.0.0" },
-  { version: "v26.13.0" },
-  { version: "v26.12.0" },
-  { version: "v26.0.0" },
-  { version: "v24.22.0" },
-  { version: "v24.21.0" },
-  { version: "v24.0.0" },
-  { version: "v22.24.0" },
-  { version: "v22.23.3" },
-  { version: "v22.13.0" },
-];
-test("qualification covers supported minima and newer patches without a future-major claim", () => {
-  assert.deepEqual(qualificationMatrix(releases), {
-    os: ["windows-latest", "ubuntu-24.04"],
-    node: [
-      "22.13.0",
-      "22.24.0",
-      "24.0.0",
-      "24.21.0",
-      "24.22.0",
-      "26.0.0",
-      "26.13.0",
-    ],
+  ["26.12.0", false],
+  ["22.13.0", "Jod"],
+  ["22.23.4", "Jod"],
+  ["24.0.0", false],
+  ["24.21.0", "Krypton"],
+  ["24.22.1", "Krypton"],
+  ["27.0.0", false],
+].map(([version, lts]) => ({ version: "v" + version, lts }));
+
+test("matrix has one floor, latest qualified LTS patches and the producer reference", () => {
+  assert.deepEqual(qualificationMatrix(releases, policy), {
+    os: ["ubuntu-24.04", "windows-2025"],
+    node: ["22.13.0", "22.23.4", "24.21.0", "24.22.1"],
   });
-});
-test("minimum/latest equality deduplicates each major while retaining the separate reference", () => {
-  const policy = { ...syntheticPolicy, reference: "24.0.0" };
-  assert.deepEqual(
-    qualificationMatrix(
-      policy.minimums.map((version) => ({ version: `v${version}` })),
-      policy,
-    ).node,
-    ["22.13.0", "24.0.0", "26.0.0"],
+  assert.equal(
+    qualificationMatrix(releases, policy).node.includes("26.12.0"),
+    false,
   );
 });
-test("unordered official metadata selects the newest release with native semver", () => {
-  assert.deepEqual(
-    qualificationMatrix([...releases].reverse()),
-    qualificationMatrix(releases),
-  );
-});
-test("incomplete or invalid release metadata cannot produce successful partial qualification", () => {
-  for (const data of [
+
+test("matrix refuses missing floor/reference/LTS metadata and malformed releases", () => {
+  for (const value of [
     [],
     {},
-    releases.filter((r) => !r.version.startsWith("v22.")),
-    [...releases, { version: "v26.13.0-rc.1" }],
-    [...releases, { version: "26.13.0; invalid" }],
-  ]) {
-    assert.throws(() => qualificationMatrix(data));
-  }
+    [{ version: "v24.0.0" }],
+    [...releases, { version: "v26.13.0-rc.1;invalid" }],
+    releases.filter((r) => r.version !== "v22.13.0"),
+    releases.filter((r) => r.version !== "v24.21.0"),
+    releases.map((r) => ({ ...r, lts: false })),
+  ])
+    assert.throws(() => qualificationMatrix(value, policy));
 });
-test("reference runtime remains qualified when it is neither a minimum nor latest", () => {
-  const policy = {
-    ...syntheticPolicy,
-    minimums: ["22.13.0", "24.0.0", "26.0.0"],
-    reference: "24.21.0",
+
+test("the explicit imminent-LTS selection includes Node 26 before its promotion", () => {
+  const forward = {
+    ...policy,
+    testedLtsMajors: [22, 24, 26],
+    preLtsMajors: [26],
   };
-  const metadata = [
-    "22.13.0",
-    "22.23.3",
-    "24.0.0",
-    "24.21.0",
-    "24.22.0",
-    "26.0.0",
-    "26.12.0",
-  ].map((version) => ({ version: `v${version}` }));
-  assert.deepEqual(qualificationMatrix(metadata, policy).node, [
-    "22.13.0",
-    "22.23.3",
-    "24.0.0",
-    "24.21.0",
-    "24.22.0",
-    "26.0.0",
-    "26.12.0",
-  ]);
-  assert.throws(() =>
+  assert.equal(
+    qualificationMatrix(releases, forward).node.includes("26.12.0"),
+    true,
+  );
+  assert.throws(() => validatePolicy({ ...forward, preLtsMajors: [28] }));
+});
+
+test("valid official prereleases do not become stable lanes or break resolution", () => {
+  assert.deepEqual(
     qualificationMatrix(
-      metadata.filter((release) => release.version !== "v24.21.0"),
+      [
+        ...releases,
+        { version: "v27.0.0-alpha.0.0.0", lts: false },
+        { version: "v24.99.0-rc.1", lts: "Krypton" },
+      ],
       policy,
     ),
+    {
+      os: ["ubuntu-24.04", "windows-2025"],
+      node: ["22.13.0", "22.23.4", "24.21.0", "24.22.1"],
+    },
   );
-  for (const reference of ["22.12.0", "25.0.0", "28.0.0", "24.21.0-rc.1"])
-    assert.throws(() =>
-      qualificationMatrix(metadata, { ...policy, reference }),
-    );
 });
-test("consumer minima satisfy the production graph while the tooling reference satisfies development engines", () => {
-  const metadata = JSON.parse(
-    readFileSync(new URL("../package.json", import.meta.url)),
+
+test("policy validates exact stable versions and an explicit unique LTS list without parity inference", () => {
+  for (const change of [
+    { minimum: "latest" },
+    { minimum: "22.13.0-rc.1" },
+    { testedLtsMajors: [] },
+    { testedLtsMajors: [22, 22] },
+    { testedLtsMajors: ["22", 24] },
+    { reference: "25.0.0" },
+    { reference: "24.21.0-rc.1" },
+    { consumerNpm: "latest" },
+    { producerNpm: { version: "12.2.0", range: "^11" } },
+    { platforms: [] },
+    { support: { otherEngineCompatibleReleases: "unsupported" } },
+  ])
+    assert.throws(() => validatePolicy({ ...policy, ...change }));
+  validatePolicy(nodeSupport);
+  validatePolicy({ ...policy, testedLtsMajors: [22, 24, 27] });
+});
+
+test("floor policy projects metadata and documentation idempotently", () => {
+  const files = {
+    "package.json":
+      JSON.stringify(
+        {
+          name: "fixture",
+          engines: { node: ">=24" },
+          packageManager: "npm@12.2.0",
+          devEngines: {
+            packageManager: {
+              name: "npm",
+              version: ">=12.2.0 <13",
+              onFail: "error",
+            },
+          },
+          dependencies: { x: "1.0.0" },
+        },
+        null,
+        2,
+      ) + "\n",
+    ".node-version": "24.21.0\n",
+    "docs/node-runtime-compatibility.md":
+      "Before\n<!-- node-support:start -->\nold\n<!-- node-support:end -->\nAfter\n",
+  };
+  const projected = projectNodeSupport(files, policy);
+  assert.equal(JSON.parse(projected["package.json"]).engines.node, ">=22.13.0");
+  assert.deepEqual(JSON.parse(projected["package.json"]).dependencies, {
+    x: "1.0.0",
+  });
+  assert.match(
+    projected["docs/node-runtime-compatibility.md"],
+    /Tested LTS families: 22, 24/u,
   );
-  const lock = JSON.parse(
-    readFileSync(new URL("../package-lock.json", import.meta.url)),
-  );
-  const range = metadata.engines.node;
-  assert.equal(lock.packages[""].engines.node, range);
-  assert.equal(
-    range,
-    nodeSupport.minimums.map((minimum) => `^${minimum}`).join(" || "),
-  );
-  for (const minimum of nodeSupport.minimums) {
-    assert.ok(semver.satisfies(minimum, range), `Core rejects ${minimum}`);
-    for (const [path, dependency] of Object.entries(lock.packages)) {
-      if (!dependency.dev && dependency.engines?.node)
-        assert.ok(
-          semver.satisfies(minimum, dependency.engines.node),
-          `${path} rejects ${minimum}`,
-        );
-    }
-  }
-  for (const [path, dependency] of Object.entries(lock.packages))
-    if (dependency.engines?.node)
-      assert.ok(
-        semver.satisfies(nodeSupport.reference, dependency.engines.node),
-        `${path} rejects tooling reference`,
-      );
-  for (const minimum of nodeSupport.minimums) {
-    assert.equal(semver.satisfies(`${minimum}-rc.1`, range), false);
-    assert.equal(semver.satisfies(semver.inc(minimum, "major"), range), false);
-    assert.ok(semver.satisfies(semver.inc(minimum, "patch"), range));
-    const { major, minor, patch } = semver.parse(minimum);
-    if (minor || patch) {
-      const below = patch
-        ? `${major}.${minor}.${patch - 1}`
-        : `${major}.${minor - 1}.999`;
-      assert.equal(semver.satisfies(below, range), false);
-    }
-  }
+  assert.match(projected["docs/node-runtime-compatibility.md"], /^Before\n/u);
+  assert.match(projected["docs/node-runtime-compatibility.md"], /\nAfter\n$/u);
+  assert.deepEqual(projectNodeSupport(projected, policy), projected);
 });

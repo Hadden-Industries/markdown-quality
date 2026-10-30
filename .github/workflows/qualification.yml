@@ -1,0 +1,165 @@
+name: Reusable package qualification
+on:
+  workflow_call:
+    inputs:
+      matrix:
+        type: string
+        required: true
+      emit-proof:
+        type: boolean
+        default: false
+      release-mode:
+        type: boolean
+        default: false
+    outputs:
+      archive-id:
+        description: Immutable authoritative archive tuple
+        value: ${{ jobs.producer.outputs.archive-id }}
+permissions:
+  contents: read
+  actions: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  producer:
+    name: Reference producer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    outputs:
+      archive-id: ${{ steps.archive.outputs.artifact-id }}
+      reference: ${{ steps.policy.outputs.reference }}
+      consumer-npm: ${{ steps.policy.outputs.consumer-npm }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-producer
+      - id: policy
+        env:
+          FROZEN_MATRIX: ${{ inputs.matrix }}
+        run: npm run ci:node-policy
+      - run: python scripts/acquire-native.py
+      - name: Check source, pack once, and validate final generated JSON
+        env:
+          NODE_QUALIFICATION_MATRIX: ${{ inputs.matrix }}
+        run: npm run check:full
+      - id: archive
+        uses: ./.github/actions/upload-evidence
+        timeout-minutes: 5
+        with:
+          name: qualified-producer-${{ github.run_attempt }}
+          path: dist/json-qualification
+          retention-days: ${{ (inputs.release-mode || inputs.emit-proof) && 30 || 1 }}
+  qualification:
+    name: Qualify ${{ matrix.os }} / Node ${{ matrix.node }}
+    needs: producer
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.matrix) }}
+    env:
+      GIT_CONFIG_COUNT: "1"
+      GIT_CONFIG_KEY_0: core.longpaths
+      GIT_CONFIG_VALUE_0: "true"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-producer
+      - name: Provision floor-compatible consumer npm
+        run: node scripts/qualification-process.js consumer-npm "${{ runner.temp }}/consumer-npm"
+      - uses: ./.github/actions/download-evidence
+        timeout-minutes: 15
+        with:
+          artifact-id: ${{ needs.producer.outputs.archive-id }}
+          path: transported-release
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - run: python scripts/acquire-native.py
+      - name: Exercise runtime-sensitive source contracts
+        run: node scripts/verify.js --runtime
+      - name: Acquire full OwlAPI corpus as data
+        if: matrix.node == needs.producer.outputs.reference
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Hadden-Industries/owlapi
+          ref: 073beefb7805130bc0452472d1a9c801471fbaf1
+          path: performance-corpora/owlapi
+          persist-credentials: false
+      - name: Acquire full WebVOWL corpus as data
+        if: matrix.node == needs.producer.outputs.reference
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Hadden-Industries/webvowl
+          ref: b0fe00404eedf12a59084871863500869474bd3a
+          path: performance-corpora/webvowl
+          persist-credentials: false
+      - name: Qualify original archives in root and isolated layouts
+        env:
+          MARKDOWN_QUALITY_CONSUMER_NPM: ${{ runner.temp }}/consumer-npm/node_modules/npm/bin/npm-cli.js
+          RELEASE_SECURITY_OUTPUT: ${{ inputs.release-mode && 'recipient-security' || '' }}
+          PERFORMANCE_ENABLED: ${{ matrix.node == needs.producer.outputs.reference }}
+        run: |
+          args=()
+          if [[ "$PERFORMANCE_ENABLED" == "true" ]]; then
+            args+=(--performance-corpora performance-corpora --performance-output performance-observations)
+          fi
+          node scripts/qualify-public-registry.mjs --manifest transported-release/release-manifest.json --archives transported-release --layout-output candidate-layouts "${args[@]}" candidate-qualification.json
+      - name: Record complete lane evidence
+        id: receipt
+        if: inputs.emit-proof
+        env:
+          CI_OS: ${{ matrix.os }}
+          CI_ARCHIVE_ID: ${{ needs.producer.outputs.archive-id }}
+          MARKDOWN_QUALITY_REPORT: candidate-qualification.json
+          CI_LAYOUT_DIRECTORY: candidate-layouts
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci-command.js lane
+      - if: inputs.emit-proof
+        uses: ./.github/actions/upload-evidence
+        timeout-minutes: 5
+        with:
+          mode: upload
+          path: ${{ steps.receipt.outputs.path }}
+          retention-days: 30
+      - if: inputs.release-mode
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ${{ matrix.node == needs.producer.outputs.reference && format('candidate-{0}', matrix.os) || format('candidate-{0}-{1}', matrix.os, matrix.node) }}
+          path: |
+            candidate-qualification.json
+            candidate-layouts/*.json
+          if-no-files-found: error
+          retention-days: 30
+      - if: inputs.release-mode && matrix.node == needs.producer.outputs.reference
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: recipient-${{ matrix.os }}
+          path: recipient-security
+          if-no-files-found: error
+          retention-days: 30
+      - if: always() && matrix.node == needs.producer.outputs.reference
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: performance-${{ matrix.os }}
+          path: |
+            performance-observations/*.json
+            performance-observations/*.txt
+          if-no-files-found: error
+          retention-days: 30
+  complete:
+    name: Complete runtime qualification
+    needs:
+      - producer
+      - qualification
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: node --input-type=module -e 'import assert from "node:assert/strict"; const n=JSON.parse(process.env.NEEDS_JSON); assert.deepEqual(Object.keys(n).sort(),["producer","qualification"]); for(const j of Object.values(n)) assert.equal(j.result,"success");'

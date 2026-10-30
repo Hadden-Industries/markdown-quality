@@ -1,0 +1,295 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import {
+  appendFileSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+} from "node:fs";
+import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { createRepositoryReader } from "./github-evidence.js";
+import {
+  createReceipt,
+  selectProof,
+  verifyProof,
+  repository,
+  workflow,
+  matrixLanes,
+  requireResults,
+} from "./ci-proof.js";
+import { resolveQualificationMatrix } from "./node-matrix.js";
+import { hostIdentity } from "./ci-host.js";
+import { budgets } from "./qualification-process.js";
+import { artifactLimits } from "./artifact-policy.js";
+import { validateConsumer } from "./ci-consumer.js";
+
+export function gitSnapshot(directory = process.cwd()) {
+  const git = (...args) =>
+    execFileSync("git", args, {
+      cwd: directory,
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: budgets.read,
+      maxBuffer: 2 * 1024 * 1024,
+    }).trim();
+  const headers = git("cat-file", "commit", "HEAD")
+    .split("\n\n")[0]
+    .split("\n");
+  return {
+    commit: git("rev-parse", "HEAD"),
+    tree: git("rev-parse", "HEAD^{tree}"),
+    parents: headers
+      .filter((line) => line.startsWith("parent "))
+      .map((line) => line.slice(7)),
+    workflow: git("rev-parse", `HEAD:${workflow}`),
+  };
+}
+function context() {
+  return {
+    repository: process.env.GITHUB_REPOSITORY,
+    repositoryId: Number(process.env.GITHUB_REPOSITORY_ID),
+    runId: Number(process.env.GITHUB_RUN_ID),
+    runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT),
+    sha: process.env.GITHUB_SHA,
+    eventName: process.env.GITHUB_EVENT_NAME,
+    event: JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH)),
+    snapshot: gitSnapshot(),
+  };
+}
+const hash = (bytes) =>
+  `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+export function publishCiResult(values, summary, environment = process.env) {
+  const entries = Object.entries(values).map(([key, value]) => {
+    assert.match(key, /^[A-Za-z_][A-Za-z0-9_-]*$/u);
+    assert.ok(!/[\r\n]/u.test(String(value)));
+    return `${key}=${value}\n`;
+  });
+  if (environment.GITHUB_OUTPUT)
+    appendFileSync(environment.GITHUB_OUTPUT, entries.join(""));
+  console.log(JSON.stringify({ ...values, summary }));
+  if (environment.GITHUB_STEP_SUMMARY)
+    appendFileSync(environment.GITHUB_STEP_SUMMARY, summary + "\n");
+}
+function reader() {
+  const request = createRepositoryReader({
+    repository,
+    token: process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN,
+  });
+  const historical = new Map();
+  return (path, options) => {
+    if (!/\/attempts\/\d+\/jobs\?/u.test(path)) return request(path, options);
+    if (options?.refresh) historical.delete(path);
+    if (!historical.has(path)) historical.set(path, request(path, options));
+    return historical.get(path);
+  };
+}
+async function artifacts(read, runId, repositoryId) {
+  const inventory = await read(`/actions/runs/${runId}/artifacts?per_page=100`);
+  assert.equal(inventory.total_count, inventory.artifacts.length);
+  assert.ok(inventory.total_count < 100);
+  for (const value of inventory.artifacts) {
+    assert.equal(value.workflow_run.id, runId);
+    assert.equal(value.workflow_run.repository_id, repositoryId);
+  }
+  return inventory.artifacts;
+}
+export async function readRawProof(artifact, read) {
+  assert.equal(artifact.expired, false);
+  assert.match(artifact.digest, /^sha256:[a-f0-9]{64}$/u);
+  assert.ok(
+    artifact.size_in_bytes > 0 &&
+      artifact.size_in_bytes <= artifactLimits.proofBytes,
+  );
+  const bytes = await read(`/actions/artifacts/${artifact.id}/zip`, {
+    raw: true,
+    maximumBytes: artifactLimits.proofBytes,
+  });
+  assert.equal(bytes.length, artifact.size_in_bytes);
+  assert.equal(hash(bytes), artifact.digest, "Artifact digest mismatch");
+  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+}
+function newestRecords(records, key) {
+  const groups = new Map();
+  for (const value of records) {
+    const name = key(value);
+    const prior = groups.get(name);
+    if (!prior || value.runAttempt > prior.runAttempt) groups.set(name, value);
+    else if (value.runAttempt === prior.runAttempt)
+      assert.deepEqual(value, prior, "Conflicting compact receipts");
+  }
+  return [...groups.values()];
+}
+export async function observeQualification({
+  ctx,
+  read,
+  resolveMatrix = resolveQualificationMatrix,
+  environment = process.env,
+  now = Date.now,
+}) {
+  let result, summary;
+  try {
+    const selection = await selectProof({ ctx, read, now: now() });
+    const receipt = await readRawProof(selection.artifact, read);
+    const matrix = await resolveMatrix();
+    matrixLanes(matrix);
+    const inventory = await artifacts(read, ctx.runId, ctx.repositoryId);
+    const hosts = [];
+    for (const artifact of inventory.filter((value) =>
+      new RegExp(
+        `^ci-host-[a-z0-9.-]+-${ctx.runId}-${ctx.runAttempt}\\.json$`,
+        "u",
+      ).test(value.name),
+    )) {
+      const host = await readRawProof(artifact, read);
+      assert.equal(host.runId, ctx.runId);
+      assert.equal(host.runAttempt, ctx.runAttempt);
+      assert.equal(host.repositoryId, ctx.repositoryId);
+      assert.equal(host.commit, ctx.sha);
+      hosts.push(host);
+    }
+    result = await verifyProof({
+      ctx,
+      matrix,
+      hosts,
+      selection,
+      receipt,
+      read,
+      now: now(),
+    });
+    summary =
+      "REUSED: the qualified PR tree, JSON/policy/schema/native/generated inputs, runtime matrix and supported platform contracts match this merge; original runner images remain recorded.";
+  } catch (error) {
+    const reason = String(error.message)
+      .split("\n")[0]
+      .replace(/[^a-zA-Z0-9 .,():_-]/gu, "")
+      .slice(0, 180);
+    result = { mode: "FULL_REQUIRED" };
+    summary = `FULL_REQUIRED: ${reason}. Explicitly dispatch main qualification; no full suite was launched.`;
+  }
+  // Publication errors fail the job; they cannot invalidate verified evidence
+  // or turn a partially published success into a qualification miss.
+  publishCiResult(result, summary, environment);
+  return result;
+}
+async function main(mode) {
+  const ctx = context();
+  assert.equal(ctx.repository, repository);
+  const directory = join(process.env.RUNNER_TEMP, "ci-evidence");
+  mkdirSync(directory, { recursive: true });
+  if (mode === "lane") {
+    const report = JSON.parse(
+      readFileSync(process.env.MARKDOWN_QUALITY_REPORT),
+    );
+    validateConsumer(report, {
+      source: ctx.sha,
+      node: process.versions.node,
+      os: process.env.CI_OS,
+    });
+    for (const record of report.records.filter((value) => value.layout)) {
+      const bytes = readFileSync(
+        join(process.env.CI_LAYOUT_DIRECTORY, record.evidence.filename),
+      );
+      assert.equal(
+        createHash("sha256").update(bytes).digest("hex"),
+        record.evidence.sha256,
+      );
+      const { evidence, ...layout } = record;
+      assert.deepEqual(JSON.parse(bytes), {
+        schemaVersion: 1,
+        candidate: ctx.sha,
+        node: process.version,
+        ...layout,
+      });
+    }
+    const transport = await reader()(
+      `/actions/artifacts/${Number(process.env.CI_ARCHIVE_ID)}`,
+    );
+    assert.equal(transport.expired, false);
+    assert.equal(transport.workflow_run.id, ctx.runId);
+    const record = {
+      schemaVersion: 2,
+      status: "passed",
+      repositoryId: ctx.repositoryId,
+      runId: ctx.runId,
+      runAttempt: ctx.runAttempt,
+      snapshot: ctx.snapshot,
+      lane: { os: process.env.CI_OS, node: process.versions.node },
+      host: { ...hostIdentity(), node: process.versions.node, npm: report.npm },
+      consumer: { ...report, archiveSha256: report.manifestSha256 },
+      transport: Object.fromEntries(
+        ["id", "name", "digest", "size_in_bytes", "workflow_run"].map((key) => [
+          key,
+          transport[key],
+        ]),
+      ),
+    };
+    const path = join(
+      directory,
+      `ci-lane-${record.lane.os}-${record.lane.node}-${ctx.runId}-${ctx.runAttempt}.json`,
+    );
+    writeFileSync(path, JSON.stringify(record) + "\n", { flag: "wx" });
+    publishCiResult(
+      { path },
+      "Packed consumer receipt recorded after all lane assertions.",
+    );
+    return;
+  }
+  const read = reader();
+  if (mode === "record") {
+    if (ctx.eventName === "workflow_dispatch") {
+      assert.equal(process.env.GITHUB_REF, "refs/heads/main");
+      requireResults(JSON.parse(process.env.NEEDS_JSON));
+      publishCiResult(
+        { mode: "FULL" },
+        "FULL: explicit main qualification and all mandatory predecessor graphs succeeded. This record cannot seed PR-result reuse.",
+      );
+      return;
+    }
+    const matrix = JSON.parse(process.env.CI_MATRIX);
+    const inventory = await artifacts(read, ctx.runId, ctx.repositoryId);
+    const records = [];
+    for (const artifact of inventory.filter((value) =>
+      /^ci-lane-[a-z0-9.-]+-\d+-\d+(?:-recovery-[23])?\.json$/u.test(
+        value.name,
+      ),
+    ))
+      records.push(await readRawProof(artifact, read));
+    const receipt = await createReceipt({
+      ctx,
+      matrix,
+      records: newestRecords(
+        records,
+        (value) => `${value.lane?.os}/${value.lane?.node}`,
+      ),
+      needs: JSON.parse(process.env.NEEDS_JSON),
+      read,
+    });
+    if (ctx.event.pull_request.head.repo.id !== ctx.repositoryId) {
+      publishCiResult(
+        { mode: "FULL", reuse: "INELIGIBLE_FORK" },
+        "FULL: approved fork PR qualification and its complete native inventory succeeded. Same-repository main reuse is ineligible; no unused reuse artifact was uploaded.",
+      );
+      return;
+    }
+    const path = join(
+      directory,
+      `ci-proof-${ctx.runId}-${ctx.runAttempt}.json`,
+    );
+    writeFileSync(path, JSON.stringify(receipt) + "\n", { flag: "wx" });
+    publishCiResult(
+      { path, mode: "FULL" },
+      "FULL: every mandatory predecessor, frozen runtime lane and original producing attempt was admitted.",
+    );
+    return;
+  }
+  if (mode === "observe") {
+    await observeQualification({ ctx, read });
+    return;
+  }
+  throw new Error("Expected lane, record or observe");
+}
+if (process.argv[1] === fileURLToPath(import.meta.url))
+  await main(process.argv[2]);

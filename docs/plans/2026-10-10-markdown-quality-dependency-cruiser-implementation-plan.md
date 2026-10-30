@@ -125,8 +125,8 @@ It currently invokes bare `python`.
 Do not execute it during planning or expand this task into repairing Python plumbing.
 Later local Python execution must use the existing `.venv` through the authorized environment; an unavailable prerequisite remains a proof gap.
 
-[check.yml](../../.github/workflows/check.yml) runs `check:full` in package lanes.
-Its `matrix`, `probe`, `strategy`, `package`, and `required` jobs form a closed reuse contract enforced by [ci-reuse.js](../../scripts/ci-reuse.js) and workflow tests.
+[check.yml](https://github.com/Hadden-Industries/markdown-quality/blob/fa1188a867b29bddd0b972a080b7fcd0261bdec3/.github/workflows/check.yml) runs `check:full` in package lanes.
+Its `matrix`, `probe`, `strategy`, `package`, and `required` jobs form a closed reuse contract enforced by [ci-reuse.js](https://github.com/Hadden-Industries/markdown-quality/blob/fa1188a867b29bddd0b972a080b7fcd0261bdec3/scripts/ci-reuse.js) and workflow tests.
 A changed/new job, narrowed lane, or altered receipt is a separate policy proposal.
 
 ## 3. Software selection and native reuse

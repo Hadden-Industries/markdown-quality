@@ -5,7 +5,7 @@
   "type": "module",
   "license": "AGPL-3.0-only",
   "engines": {
-    "node": "^22.13.0 || ^24.0.0 || ^26.0.0"
+    "node": ">=22.13.0"
   },
   "bin": {
     "markdown-quality": "src/cli.js",
@@ -79,7 +79,13 @@
     "lint:json:identity": "node scripts/lint-json-identity.mjs",
     "test:json": "node --test test/json-tooling/*.test.mjs",
     "check:product": "node scripts/verify.js --product",
-    "qualify:json:packages": "node scripts/qualify-json-packages.mjs"
+    "qualify:json:packages": "node scripts/qualify-json-packages.mjs",
+    "check:ci": "node scripts/check-workflows.js",
+    "check:security": "node scripts/dependency-security.js",
+    "ci:node-policy": "node scripts/ci-node-policy.js",
+    "ci:producer-toolchain": "node scripts/qualification-process.js retain",
+    "check:runtime": "node scripts/verify.js --runtime",
+    "governance:inspect": "node scripts/github-governance.js"
   },
   "dependencies": {
     "@eslint/markdown": "8.0.3",
@@ -106,9 +112,19 @@
     "@hadden-industries/markdown-quality-win32-x64": "file:packages/win32-x64"
   },
   "devDependencies": {
-    "dependency-cruiser": ">=18.7.0",
+    "@actions/artifact": "^6.3.1",
     "acorn": ">=8.19.0",
+    "dependency-cruiser": ">=18.7.0",
     "micromark": ">=4.0.3",
-    "micromark-extension-math": ">=3.1.0"
+    "micromark-extension-math": ">=3.1.0",
+    "yaml": "^2.9.1"
+  },
+  "packageManager": "npm@12.2.1",
+  "devEngines": {
+    "packageManager": {
+      "name": "npm",
+      "version": ">=12.2.1 <13",
+      "onFail": "error"
+    }
   }
 }

@@ -1,0 +1,108 @@
+name: CI
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - ready_for_review
+  workflow_call: null
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: deliberate-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  policy:
+    name: Candidate policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    outputs:
+      matrix: ${{ steps.policy.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-producer
+      - name: Check complete workflow and action contracts before fan-out
+        run: npm run check:ci
+      - name: Admit the deliberate request and exact checkout
+        env:
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          REF: ${{ github.ref }}
+          EXPECTED_SHA: ${{ github.sha }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+        run: |
+          node --input-type=module -e 'import assert from "node:assert/strict"; import {execFileSync} from "node:child_process"; const e=process.env; assert.ok(e.EVENT==="pull_request" && e.ACTION==="ready_for_review" && e.DRAFT==="false" || e.EVENT==="workflow_dispatch" && e.REF==="refs/heads/main"); assert.equal(execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim(),e.EXPECTED_SHA);'
+      - id: policy
+        run: npm run ci:node-policy
+  product:
+    name: Product
+    needs: policy
+    uses: ./.github/workflows/qualification.yml
+    with:
+      matrix: ${{ needs.policy.outputs.matrix }}
+      emit-proof: ${{ github.event_name == 'pull_request' }}
+    permissions:
+      contents: read
+      actions: read
+  native:
+    name: Native
+    needs: policy
+    uses: ./.github/workflows/native-qualification.yml
+  dependencies:
+    name: Dependencies
+    needs: policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-producer
+      - name: Reject vulnerable dependency additions
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294
+        with:
+          fail-on-severity: moderate
+          comment-summary-in-pr: never
+      - run: npm run check:security
+  codeql:
+    name: CodeQL
+    needs: policy
+    uses: ./.github/workflows/security.yml
+    permissions:
+      contents: read
+      security-events: write
+  acceptance:
+    name: CI / acceptance
+    if: always()
+    needs:
+      - policy
+      - product
+      - native
+      - dependencies
+      - codeql
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-producer
+      - name: Admit every mandatory result and original producing attempt
+        id: proof
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          CI_MATRIX: ${{ needs.policy.outputs.matrix }}
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci-command.js record
+      - name: Preserve compact independently checked PR proof
+        if: github.event_name == 'pull_request' && steps.proof.outputs.path != ''
+        timeout-minutes: 5
+        uses: ./.github/actions/upload-evidence
+        with:
+          mode: upload
+          path: ${{ steps.proof.outputs.path }}
+          retention-days: 30

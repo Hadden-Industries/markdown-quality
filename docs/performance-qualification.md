@@ -51,7 +51,7 @@ Existing semantic, literal, whitespace, physical local-link and replacement regr
 
 ## Packed and hosted qualification
 
-The [transported candidate workflow](../.github/workflows/candidate.yml) packs one exact tuple and installs those same archives on Windows x64 and glibc Linux x64 in both root and isolated layouts.
+The [reusable qualification workflow](../.github/workflows/qualification.yml) packs one exact tuple and installs those same archives on Windows x64 and glibc Linux x64 in both root and isolated layouts.
 Its full-corpus performance checks use complete public OwlAPI and WebVOWL revisions `073beefb7805130bc0452472d1a9c801471fbaf1` and `b0fe00404eedf12a59084871863500869474bd3a` as data.
 No consumer code, configuration JavaScript, lifecycle scripts or private pilot overlay is executed or published.
 Those public corpora differ from the separately frozen pilot proposals in nine/two metadata paths and one selected OwlAPI Markdown file; the Windows paired evidence above remains a separate workload.

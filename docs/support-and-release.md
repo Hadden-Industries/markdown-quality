@@ -7,16 +7,17 @@ Public release, semver selection, registry qualification and `latest` promotion 
 The [centralized contracts guide](centralized-contracts.md) describes configuration schema 2, result schema 3 and the shared trusted qualification/profile contract.
 Local source tests do not establish hosted Windows/Linux qualification or downstream acceptance of a new tuple.
 
-Development source targets the consumer minima in the [canonical Node policy](https://github.com/Hadden-Industries/markdown-quality/blob/main/assets/node-support.json).
-Other major families, including future majors, are excluded until qualified.
+Development source targets the consumer floor in the [canonical Node policy](https://github.com/Hadden-Industries/markdown-quality/blob/main/assets/node-support.json).
+Other engine-compatible major releases receive best-effort support without a mandatory qualification claim.
 The [runtime compatibility record](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/node-runtime-compatibility.md) explains the lower bounds and distinguishes compatibility from security patch recommendations.
 The qualification matrix covers Node 22/24/26 on Windows x64 and Ubuntu 24.04 x64 with glibc.
-Each workflow resolves the declared minimum and latest stable release of each line from official Node release metadata, collapsing equal versions.
+The coordinator freezes the single `>=22.13.0` floor, latest releases of explicitly tested LTS families and independent reference from official Node metadata.
+Other engine-compatible majors receive best-effort support, subject to dependency engine restrictions.
 It additionally retains the pinned reference even when that version is neither a minimum nor latest.
 It fails rather than silently dropping a missing minimum or reference.
 All lanes run product source checks and real CLI/native consumer probes in root and isolated layouts, with exact formatting bytes, fenced literal preservation, convergence, local-link failure and operational-error contracts.
 Fresh installation and offline lockfile replay enforce package engines.
-The package workflow records the actual product runtime before switching to the reference runtime for the mandatory isolated JSON tooling checks.
+The reference producer owns the mandatory isolated JSON checks; consumer lanes record their own actual Node/npm/Python identities without rerunning producer policy.
 The transported lanes install the same frozen archives produced once on the reference runtime; unchanged native executables are not rebuilt for each Node version.
 Performance measurements remain on the reference runtime.
 The candidate manifest freezes the runtime policy and resolved matrix alongside archive hashes.
@@ -157,7 +158,9 @@ Release qualification additionally requires the actual installed-recipient audit
 This changes candidate source and packaging only; immutable release 1.0.3 remains unchanged until a separately authorized new version is qualified and released.
 Remove the vendored metadata repair and bundling when a maintained upstream release declares a safe KaTeX range and the same recipient checks pass without them.
 
-Production qualification allows five minutes per npm install or ci operation, thirty minutes per Node test suite, and forty-five minutes per enclosing product, candidate or registry qualification job.
+Tooling qualification allows twenty minutes per npm install or ci operation, thirty minutes per Node test suite and up to 120 minutes per enclosing job.
+Evidence uploads have a five-minute step budget; bounded acquisition and extraction have a fifteen-minute collection budget.
+These tooling deadlines do not change the product's public resource ceilings or corpus thresholds.
 The same shared commands supply these budgets to normal CI and deliberate release qualification, without requiring the diagnostic observation profile.
 Other npm commands retain their two-minute ceiling, and explicit shorter fixture timeouts remain authoritative.
 Acquisition requests use a 15-second timeout and two native retries, with bounded backoff, so npm's default five-minute request timeout cannot consume the entire command deadline before recovery starts.

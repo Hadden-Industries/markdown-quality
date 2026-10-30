@@ -170,6 +170,10 @@ Both Windows and Linux jobs retain attributable receipts and failures.
 
 ### Compact hosted artifacts
 
+Current directory bundles are uploaded as `shared-markdown-<os>-<attempt>.zip` through the native Actions SDK.
+The `.zip` suffix preserves native downloader extraction and the existing `artifact-index.json` layout.
+Consumers adopting this workflow revision must select the suffixed artifact name; previously pinned workflow commits retain their original artifact names.
+
 Fresh staging and the local qualifier output remain unchanged.
 After observation, the producer projects evidence into a separate upload directory.
 Successful projections retain original request/window/receipt/stdout/stderr bytes and an `artifact-index.json` (schema1).

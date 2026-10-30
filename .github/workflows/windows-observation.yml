@@ -10,12 +10,11 @@ permissions:
   contents: read
 jobs:
   observe:
-    name: Observe Windows Node 26.12.0
-    runs-on: windows-latest
-    timeout-minutes: 45
+    name: Observe Windows policy reference
+    runs-on: windows-2025
+    timeout-minutes: 120
     env:
       MARKDOWN_QUALITY_OBSERVATION: windows-ci
-      OBSERVATION_NODE: "26.12.0"
       OBSERVATION_EXPECTED_SHA: ${{ inputs.expected-sha }}
     steps:
       - name: Bind the observation to its reviewed source
@@ -24,7 +23,7 @@ jobs:
           if ($env:GITHUB_SHA -cne $env:OBSERVATION_EXPECTED_SHA) {
             throw "Observation SHA does not match the reviewed diagnostic commit"
           }
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       - name: Record runner and source identity
@@ -46,17 +45,13 @@ jobs:
           } | ConvertTo-Json -Compress
           git rev-parse HEAD 'HEAD^{tree}'
           if ($LASTEXITCODE -ne 0) { throw "Source identity failed" }
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 24.21.0
-          package-manager-cache: false
-      - uses: ./.github/actions/setup-python
-      - name: Acquire isolated development sources on the canonical tooling runtime
-        run: npm run install:json
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: ${{ env.OBSERVATION_NODE }}
-          package-manager-cache: false
+      - uses: ./.github/actions/setup-producer
+      - name: Freeze the current declared diagnostic lane
+        shell: pwsh
+        run: |
+          $reference = node scripts/node-matrix.js --reference
+          if ($LASTEXITCODE -ne 0) { throw "Diagnostic policy resolution failed" }
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "OBSERVATION_NODE=$reference"
       - name: Record the actual product toolchain
         shell: pwsh
         run: |
@@ -66,7 +61,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "npm identity failed" }
       - id: install
         name: Install the producer dependencies with native phase timing
-        timeout-minutes: 5
+        timeout-minutes: 20
         run: npm ci --engine-strict --ignore-scripts --no-audit --no-fund --timing
       - id: native
         run: python scripts/acquire-native.py
@@ -77,11 +72,6 @@ jobs:
         name: Observe downstream architecture checks
         if: ${{ !cancelled() && steps.native.outcome == 'success' }}
         run: npm run check:architecture
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: ${{ !cancelled() && steps.native.outcome == 'success' }}
-        with:
-          node-version: 24.21.0
-          package-manager-cache: false
       - id: json
         name: Observe downstream JSON checks after product producers
         if: ${{ !cancelled() && steps.native.outcome == 'success' }}
@@ -105,11 +95,11 @@ jobs:
           JSON_OUTCOME: ${{ steps.json.outcome }}
         run: |
           @(
-            "Windows Node 26.12.0 observation of $env:GITHUB_SHA"
+            "Windows Node $env:OBSERVATION_NODE observation of $env:GITHUB_SHA"
             ""
             "Install: $env:INSTALL_OUTCOME; product: $env:PRODUCT_OUTCOME; architecture: $env:ARCHITECTURE_OUTCOME; JSON: $env:JSON_OUTCOME."
             ""
-            "Production limits: 5 minutes per install, 30 minutes per Node suite, 45 minutes for this job."
+            "Tooling limits: 20 minutes per install, 30 minutes per Node suite, 120 minutes for this job."
             "Native phase timings and original-limit crossings are retained in the job log."
             "This diagnostic run supplies no release qualification receipt or publishing authority."
           ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY

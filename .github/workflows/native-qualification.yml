@@ -1,0 +1,32 @@
+name: Validate the frozen native component
+on:
+  workflow_call: null
+permissions:
+  contents: read
+jobs:
+  validate:
+    name: Validate ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2025
+            platform: win32-x64
+          - os: ubuntu-24.04
+            platform: linux-x64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-producer
+      - run: python scripts/acquire-native.py
+      - name: Validate original native source and rights
+        run: python test/native-evidence.py
+      - name: Validate native archive contracts
+        run: python test/package-archive.py
+      - name: Validate platform text output
+        run: python test/text-output.py
+      - name: Validate native execution and staging
+        run: node --test test/native-checks.test.js test/native-staging.test.js

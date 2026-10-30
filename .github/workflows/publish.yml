@@ -57,7 +57,7 @@ jobs:
   admit:
     if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -65,7 +65,7 @@ jobs:
           ref: ${{ github.sha }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: "24.21.0"
+          node-version: 24.22.1
           package-manager-cache: false
       - name: Inspect exact completed candidate and current default branch
         env:
@@ -107,13 +107,13 @@ jobs:
           persist-credentials: false
           ref: ${{ steps.candidate.outputs.artifact-source }}
           path: artifact-source
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
-        with:
-          name: candidate-release
-          path: frozen-release
-          run-id: ${{ inputs.candidate-run }}
-          github-token: ${{ github.token }}
-          digest-mismatch: error
+      - uses: ./.github/actions/setup-python
+      - name: Acquire the authenticated original qualification archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: node scripts/download-release-archive.js "$CANDIDATE_RUN" "frozen-release"
+        timeout-minutes: 15
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         if: inputs.recovery-run != ''
         with:
@@ -152,9 +152,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-24.04]
+        os:
+          - windows-latest
+          - ubuntu-24.04
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 120
     defaults:
       run:
         shell: bash
@@ -165,18 +167,18 @@ jobs:
           ref: ${{ github.sha }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: "24.21.0"
+          node-version: 24.22.1
           package-manager-cache: false
       - name: Select isolated npm configuration
         shell: bash
         run: node scripts/publication-npm.js isolate
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
-        with:
-          name: candidate-release
-          path: frozen-release
-          run-id: ${{ inputs.candidate-run }}
-          github-token: ${{ github.token }}
-          digest-mismatch: error
+      - uses: ./.github/actions/setup-python
+      - name: Acquire the authenticated original qualification archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: node scripts/download-release-archive.js "$CANDIDATE_RUN" "frozen-release"
+        timeout-minutes: 15
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: publication-admission
@@ -196,11 +198,13 @@ jobs:
           if-no-files-found: error
           retention-days: 90
   stage:
-    needs: [admit, retained]
+    needs:
+      - admit
+      - retained
     if: always() && needs.admit.result == 'success' && (needs.retained.result == 'success' || (needs.retained.result == 'skipped' && inputs.recovery-run == '')) && github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
     environment: npm-publication
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 120
     permissions:
       contents: read
       actions: read
@@ -212,18 +216,18 @@ jobs:
           ref: ${{ github.sha }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: "24.21.0"
+          node-version: 24.22.1
           package-manager-cache: false
       - name: Select isolated npm configuration
         shell: bash
         run: node scripts/publication-npm.js isolate
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
-        with:
-          name: candidate-release
-          path: frozen-release
-          run-id: ${{ inputs.candidate-run }}
-          github-token: ${{ github.token }}
-          digest-mismatch: error
+      - uses: ./.github/actions/setup-python
+      - name: Acquire the authenticated original qualification archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: node scripts/download-release-archive.js "$CANDIDATE_RUN" "frozen-release"
+        timeout-minutes: 15
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: publication-admission

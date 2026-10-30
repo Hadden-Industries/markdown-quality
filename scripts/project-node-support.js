@@ -7,15 +7,25 @@ import { nodeSupport, validatePolicy } from "./node-matrix.js";
 /** Project current declarations only; historical evidence and synthetic policies stay frozen. */
 export function projectNodeSupport(files, policy = nodeSupport) {
   validatePolicy(policy);
-  const range = policy.minimums.map((minimum) => `^${minimum}`).join(" || ");
+  const range = `>=${policy.minimum}`;
   return Object.fromEntries(
     Object.entries(files).map(([path, source]) => {
-      if (path === "package.json" || path === "package-lock.json") {
+      if (path === "package.json") {
         const value = JSON.parse(source);
-        const metadata = path === "package.json" ? value : value.packages[""];
+        const metadata = value;
         metadata.engines.node = range;
+        metadata.packageManager = `npm@${policy.producerNpm.version}`;
+        metadata.devEngines = {
+          packageManager: {
+            name: "npm",
+            version: policy.producerNpm.range,
+            onFail: "error",
+          },
+        };
         return [path, JSON.stringify(value, null, 2) + "\n"];
       }
+      if (path === "package-lock.json") return [path, source];
+      if (path === ".node-version") return [path, policy.reference + "\n"];
       if (path === ".github/bootstrap-node.json")
         return [
           path,
@@ -29,9 +39,10 @@ export function projectNodeSupport(files, policy = nodeSupport) {
         const block = [
           start,
           "",
-          ...policy.minimums.map(
-            (minimum) => `- Node ${minimum.split(".")[0]}: ${minimum}`,
-          ),
+          `Compatibility floor: Node >=${policy.minimum}.`,
+          `Tested LTS families: ${policy.testedLtsMajors.join(", ")}.`,
+          "Other engine-compatible releases receive best-effort compatibility.",
+          `Producer npm: ${policy.producerNpm.version}; consumer npm: ${policy.consumerNpm}.`,
           "",
           `Development/release reference: ${policy.reference}.`,
           "",
@@ -68,6 +79,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const root = new URL("../", import.meta.url);
   const paths = [
     "package.json",
+    ".node-version",
     "package-lock.json",
     ".github/bootstrap-node.json",
     "docs/node-runtime-compatibility.md",
@@ -80,8 +92,13 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   );
   const projected = projectNodeSupport(files);
   const drift = paths.filter((path) => projected[path] !== files[path]);
+  if (
+    JSON.parse(files["package-lock.json"]).packages[""].engines.node !==
+    `>=${nodeSupport.minimum}`
+  )
+    drift.push("package-lock.json (native npm refresh required)");
   if (mode === "--write")
-    for (const path of drift)
+    for (const path of paths.filter((path) => projected[path] !== files[path]))
       writeFileSync(new URL(path, root), projected[path]);
   console.log(JSON.stringify({ mode, drift }));
   if (mode === "--check" && drift.length) process.exitCode = 1;

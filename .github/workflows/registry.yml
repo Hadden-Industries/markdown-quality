@@ -1,28 +1,24 @@
 name: Public registry qualification
 on:
-  push:
-    branches: [main]
-    paths:
-      - test/registry-alpha.4.json
-  workflow_dispatch:
+  workflow_dispatch: null
 permissions:
   contents: read
 jobs:
   registry:
-    timeout-minutes: 45
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-24.04]
+        os:
+          - windows-latest
+          - ubuntu-24.04
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: "24.21.0"
+          node-version: 24.22.1
       - name: Qualify anonymous registry tuple and both consumer layouts
-        # Routine diagnostics have no downstream file consumer. Deliberate
-        # release-registry.yml keeps its exact reports for release collection.
         run: node scripts/qualify-public-registry.mjs --manifest test/registry-alpha.4.json

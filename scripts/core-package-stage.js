@@ -76,6 +76,8 @@ export function stageCore(root, core) {
   );
   const publishable = { ...metadata };
   delete publishable.scripts;
+  delete publishable.packageManager;
+  delete publishable.devEngines;
   publishable.optionalDependencies = Object.fromEntries(
     Object.values(manifest.platforms).map((spec) => [
       spec.package,

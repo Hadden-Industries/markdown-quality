@@ -40,13 +40,14 @@ No daemon waits for owner approval.
 ## Qualify and freeze
 
 Commit the coordinated version, source and lockfile before qualification.
-The manual workflow resolves one minimum/latest/reference matrix and passes it to the existing product and candidate workflows at the same source commit.
+The manual workflow resolves one floor/latest/reference matrix and passes it to `qualification.yml` at the same source commit.
 Release qualification does not reuse the ordinary push-CI shortcut.
 One candidate pack produces the three archives used by every consumer lane.
 Windows and Ubuntu 24.04 exercise root and isolated layouts, installed file hashes, offline lock replay and runtime contracts.
 Performance retains the pinned OwlAPI/WebVOWL corpora and reference-runtime budgets.
 
-Inspect the terminal required jobs and `candidate-release/release-manifest.json`.
+Inspect the terminal required jobs and `release-manifest.json` inside the original `qualified-producer-<producing-attempt>` artifact.
+Cross-run admission locates its original producer execution and acquires the immutable ID and digest; the latest rerun attempt cannot relabel retained production.
 Retain its SHA-256 independently; later dispatches require that digest.
 The source SBOM describes source dependencies.
 The distribution SBOM describes the shipped archives, with native runtime crates reconciled against embedded build inventories and separately scoped recipient SBOMs.
@@ -55,6 +56,9 @@ Native CycloneDX validates the format; repository checks require conservation of
 Rust runtime notices and host-supplied operating-system libraries have explicit coverage boundaries.
 
 The security gate requires exact-source CodeQL analyses for Actions, JavaScript/TypeScript and Python, with native query-pack identities and rule inventory.
+Release analyses must use `.github/workflows/release-qualification.yml:codeql` and their `/language:<language>` categories.
+CodeQL derives this key from the run's owning caller workflow; reusable `security.yml` supplies the scan job but does not become the owning workflow.
+Replacing default CodeQL setup requires the separately authorized coordinated governance cutover; source implementation alone does not activate that switch.
 It refuses failures, warnings, missing analyses and open alerts.
 It audits the installed recipient graph, including the product installed as a development dependency.
 The automatic recipient policy currently requires zero findings at every severity.

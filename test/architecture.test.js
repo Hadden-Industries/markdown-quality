@@ -257,12 +257,12 @@ for (const origin of [
       ),
     );
   });
-for (const origin of ["commands", "node-matrix", "python-target", "ci-reuse"])
+for (const origin of ["commands", "node-matrix", "python-target", "ci-proof"])
   test(`shared tooling ${origin} rejects an indirect command dependency`, (t) => {
     const fixture = impactFixture(t, {
       [`scripts/${origin}.js`]: "import './middle.js';",
-      "scripts/middle.js": "import './ci-reuse-command.js';",
-      "scripts/ci-reuse-command.js": "export {};",
+      "scripts/middle.js": "import './ci-command.js';",
+      "scripts/ci-command.js": "export {};",
     });
     assert.ok(
       captureGraph(fixture.root).summary.violations.some(

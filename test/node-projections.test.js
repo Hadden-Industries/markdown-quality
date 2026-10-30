@@ -23,19 +23,24 @@ test("one policy edit projects engines and bootstrap pins while preserving dynam
   };
   const changed = {
     ...nodeSupport,
-    minimums: ["22.14.1", "24.3.2", "26.1.3"],
+    minimum: "22.14.1",
     reference: "24.8.4",
   };
   const result = projectNodeSupport(source, changed);
   assert.deepEqual(JSON.parse(result["package.json"]), {
-    engines: { node: "^22.14.1 || ^24.3.2 || ^26.1.3", npm: ">=12" },
+    engines: { node: ">=22.14.1", npm: ">=12" },
     name: "sentinel",
+    packageManager: `npm@${nodeSupport.producerNpm.version}`,
+    devEngines: {
+      packageManager: {
+        name: "npm",
+        version: nodeSupport.producerNpm.range,
+        onFail: "error",
+      },
+    },
   });
   const lock = JSON.parse(result["package-lock.json"]);
-  assert.equal(
-    lock.packages[""].engines.node,
-    "^22.14.1 || ^24.3.2 || ^26.1.3",
-  );
+  assert.equal(lock.packages[""].engines.node, "old");
   assert.equal(lock.packages.dependency.engines.node, "historical");
   assert.equal(
     JSON.parse(result[".github/bootstrap-node.json"]).version,
@@ -57,7 +62,7 @@ test("current npm metadata and workflow pins are checked projections", () => {
     "package-lock.json",
     ".github/bootstrap-node.json",
     "docs/node-runtime-compatibility.md",
-    ...["check", "candidate", "publish", "registry", "markdown-quality"].map(
+    ...["ci", "qualification", "publish", "registry", "markdown-quality"].map(
       (name) => `.github/workflows/${name}.yml`,
     ),
   ];

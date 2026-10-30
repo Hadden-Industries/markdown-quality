@@ -22,6 +22,7 @@ import { waitForRegistryIntegrity } from "./wait-registry-integrity.js";
 import { qualifyRuntime } from "./qualify-runtime.js";
 import { bindRecipientSbom } from "./distribution-sbom.js";
 import { reportCiResult } from "./ci-result.js";
+import { repositoryPython, supportsPython } from "./python-target.js";
 
 const { values, positionals } = parseArgs({
   options: {
@@ -39,6 +40,7 @@ const { values, positionals } = parseArgs({
     "native-only": { type: "boolean", default: false },
     "performance-corpora": { type: "string" },
     "performance-output": { type: "string" },
+    "layout-output": { type: "string" },
     "security-output": {
       type: "string",
       default: process.env.RELEASE_SECURITY_OUTPUT,
@@ -140,6 +142,11 @@ assert.ok(
   "Transported archives have no registry attestations",
 );
 const records = [];
+let performanceEvidence;
+const layoutOutput = values["layout-output"]
+  ? resolve(values["layout-output"])
+  : null;
+if (layoutOutput) mkdirSync(layoutOutput);
 const provenanceRecords = [];
 const platform = `${process.platform}-${process.arch}`;
 assert.ok(["win32-x64", "linux-x64"].includes(platform));
@@ -442,8 +449,25 @@ try {
     verifyFiles();
     if (includesCore) run("check");
     if (includesCore && layout === "root" && values["performance-corpora"]) {
+      const python = repositoryPython();
+      const probe = spawnSync(
+        python,
+        ["-c", "import platform; print(platform.python_version())"],
+        {
+          encoding: "utf8",
+          timeout: 30000,
+          maxBuffer: 1024,
+          windowsHide: true,
+        },
+      );
+      assert.equal(probe.status, 0, "Corpus Python identity probe failed");
+      const actualPython = probe.stdout.trim();
+      assert.ok(
+        supportsPython(actualPython),
+        "Corpus Python is outside the approved stable policy",
+      );
       const observed = spawnSync(
-        "python",
+        python,
         [
           fileURLToPath(new URL("./qualify-performance.py", import.meta.url)),
           "--node",
@@ -466,12 +490,41 @@ try {
         "Packed performance qualification failed",
       );
       // Presentation happens after the measured subprocess and its original gates.
-      const performanceReport = JSON.parse(
-        boundedFile(
-          join(resolve(values["performance-output"]), "qualification.json"),
-          64 * 1024 * 1024,
-        ),
+      const performanceBytes = boundedFile(
+        join(resolve(values["performance-output"]), "qualification.json"),
+        64 * 1024 * 1024,
       );
+      const performanceReport = JSON.parse(performanceBytes);
+      performanceEvidence = {
+        schemaVersion: performanceReport.schemaVersion,
+        python: actualPython,
+        reportSha256: digest(performanceBytes),
+        corpora: Object.fromEntries(
+          Object.entries(performanceReport.corpora).map(([name, result]) => [
+            name,
+            {
+              completeDiagnosticAndSelectedSourceParity:
+                result.completeDiagnosticAndSelectedSourceParity,
+              observedP95Ms: result.observedP95Ms,
+              peakTreeBytes: result.peakTreeBytes,
+              manifestSha256: result.manifest.sha256,
+              observations: result.observations.map(
+                ({
+                  elapsedMs,
+                  peakTreeBytes,
+                  activeDescendants,
+                  resultSha256,
+                }) => ({
+                  elapsedMs,
+                  peakTreeBytes,
+                  activeDescendants,
+                  resultSha256,
+                }),
+              ),
+            },
+          ]),
+        ),
+      };
       for (const [corpus, result] of Object.entries(performanceReport.corpora))
         reportCiResult("Performance qualification", {
           Status: "passed",
@@ -482,7 +535,7 @@ try {
           "Complete parity": result.completeDiagnosticAndSelectedSourceParity,
         });
     }
-    records.push({
+    const layoutRecord = {
       layout,
       platform,
       installedVersion: expected.version,
@@ -499,7 +552,21 @@ try {
             runtimeQualification,
           }
         : { scope: "Retained native package only; no core CLI runtime claim" }),
-    });
+    };
+    if (layoutOutput) {
+      const filename = `${layout}-qualification.json`;
+      const bytes = Buffer.from(
+        JSON.stringify({
+          schemaVersion: 1,
+          candidate: source,
+          node: process.version,
+          ...layoutRecord,
+        }) + "\n",
+      );
+      writeFileSync(join(layoutOutput, filename), bytes, { flag: "wx" });
+      layoutRecord.evidence = { filename, sha256: digest(bytes) };
+    }
+    records.push(layoutRecord);
   }
   const report = {
     schemaVersion: 1,
@@ -520,6 +587,13 @@ try {
       : {}),
     version: expected.version,
     node: process.version,
+    npm: npmCommand(["--version"]).trim(),
+    manifestSha256: digest(manifestBytes),
+    archives: expected.archives.map(({ package: packageName, sha256 }) => ({
+      package: packageName,
+      sha256,
+    })),
+    ...(performanceEvidence ? { performance: performanceEvidence } : {}),
     platform,
     passed: true,
     observedAt: new Date().toISOString(),

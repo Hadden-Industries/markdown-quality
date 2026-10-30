@@ -1,0 +1,22 @@
+name: Set up the reference producer
+description: Install policy-owned Node and npm, repository Python, and isolated JSON tooling
+runs:
+  using: composite
+  steps:
+    - uses: ./.github/actions/setup-python
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version-file: .node-version
+        package-manager-cache: false
+    - name: Select the pinned producer npm
+      shell: bash
+      run: node scripts/qualification-process.js producer-npm
+    - name: Install frozen producer dependencies
+      shell: bash
+      run: npm ci --ignore-scripts --no-audit --no-fund
+    - name: Install the isolated JSON development toolchain
+      shell: bash
+      run: npm run install:json
+    - name: Retain producer executable identities
+      shell: bash
+      run: npm run ci:producer-toolchain

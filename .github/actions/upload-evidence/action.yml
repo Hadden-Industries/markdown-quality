@@ -1,0 +1,20 @@
+name: Upload admitted evidence
+description: Bounded SDK transport and reconciliation of a named-consumer bundle
+inputs:
+  name:
+    description: Stable original-attempt name; directory bundles receive a .zip suffix for native downloaders
+  mode:
+    default: bundle
+    description: Bundle a directory or upload one compact proof file
+  path:
+    required: true
+    description: Explicit owned directory of admitted product/evidence bytes
+  retention-days:
+    required: true
+    description: Consumer-specific retention
+outputs:
+  artifact-id:
+    description: Immutable admitted artifact ID
+runs:
+  using: node24
+  main: action.mjs
