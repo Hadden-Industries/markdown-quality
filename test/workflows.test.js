@@ -188,17 +188,16 @@ test("manual diagnostics and fixture qualification cannot masquerade as full CI"
       "candidate.yml",
     ),
   );
+  const nodes = [nodeSupport.minimum, "24.22.1", nodeSupport.reference];
   assert.deepEqual(
     candidateJobNames({
       os: nodeSupport.platforms,
-      node: [nodeSupport.minimum, nodeSupport.reference, "26.13.0"],
+      node: nodes,
     }),
     [
       "Reference producer",
       ...nodeSupport.platforms.flatMap((os) =>
-        [nodeSupport.minimum, nodeSupport.reference, "26.13.0"].map(
-          (node) => `Qualify ${os} / Node ${node}`,
-        ),
+        nodes.map((node) => `Qualify ${os} / Node ${node}`),
       ),
       "Complete runtime qualification",
     ],

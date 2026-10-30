@@ -19,6 +19,6 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: 24.22.1
+          node-version: 26.13.0
       - name: Qualify anonymous registry tuple and both consumer layouts
         run: node scripts/qualify-public-registry.mjs --manifest test/registry-alpha.4.json

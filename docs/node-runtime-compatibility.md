@@ -14,7 +14,7 @@ Tested LTS families: 22, 24, 26.
 Other engine-compatible releases receive best-effort compatibility.
 Producer npm: 12.2.1; consumer npm: 11.21.1.
 
-Development/release reference: 24.22.1.
+Development/release reference: 26.13.0.
 
 <!-- node-support:end -->
 
