@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { parse } from "yaml";
-import { nodeSupport, candidateJobNames } from "../scripts/node-matrix.js";
+import { candidateJobNames } from "../scripts/node-matrix.js";
 import { testFiles } from "../scripts/verification-suites.js";
+import { nodeMatrixFixture } from "./node-matrix-fixture.js";
 const text = (path) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const workflow = (name) => parse(text(`.github/workflows/${name}.yml`));
@@ -188,20 +189,14 @@ test("manual diagnostics and fixture qualification cannot masquerade as full CI"
       "candidate.yml",
     ),
   );
-  const nodes = [nodeSupport.minimum, "24.22.1", nodeSupport.reference];
-  assert.deepEqual(
-    candidateJobNames({
-      os: nodeSupport.platforms,
-      node: nodes,
-    }),
-    [
-      "Reference producer",
-      ...nodeSupport.platforms.flatMap((os) =>
-        nodes.map((node) => `Qualify ${os} / Node ${node}`),
-      ),
-      "Complete runtime qualification",
-    ],
-  );
+  const matrix = nodeMatrixFixture();
+  assert.deepEqual(candidateJobNames(matrix), [
+    "Reference producer",
+    ...matrix.os.flatMap((os) =>
+      matrix.node.map((node) => `Qualify ${os} / Node ${node}`),
+    ),
+    "Complete runtime qualification",
+  ]);
 });
 
 test("public trusted workflow retains its data-only inputs and evidence retention", () => {

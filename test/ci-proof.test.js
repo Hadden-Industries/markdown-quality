@@ -20,6 +20,7 @@ import {
 import { nodeSupport } from "../scripts/node-matrix.js";
 import { pythonVersion } from "../scripts/ci-host.js";
 import { budgets } from "../scripts/qualification-budgets.js";
+import { nodeMatrixFixture } from "./node-matrix-fixture.js";
 
 const noWait = async () => {};
 
@@ -27,10 +28,7 @@ const sha = (character) => character.repeat(40);
 function fixture(attempt = 1, fork = false) {
   const now = Date.parse("2026-10-27T12:00:00Z"),
     repo = { id: 11, full_name: repository, default_branch: "main" };
-  const matrix = {
-    os: [...nodeSupport.platforms],
-    node: [nodeSupport.minimum, "22.23.4", "24.22.1", nodeSupport.reference],
-  };
+  const matrix = nodeMatrixFixture();
   const snapshot = {
     commit: sha("1"),
     tree: sha("2"),
