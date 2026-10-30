@@ -294,22 +294,15 @@ try {
         encoding: null,
       }),
     );
-  const decisions = join(scratch, "decisions");
+  assert.ok(
+    process.env.RELEASE_DECISIONS_DIRECTORY,
+    "Protected draft decision snapshot is required",
+  );
+  const decisions = resolve(process.env.RELEASE_DECISIONS_DIRECTORY);
   for (const [name, digest, phase] of [
     ["release-review.json", process.env.REVIEW_SHA, "review"],
     ["release-acceptance.json", process.env.ACCEPTANCE_SHA, "pilot"],
   ]) {
-    native("gh", [
-      "release",
-      "download",
-      `v${release.version}`,
-      "--repo",
-      repository,
-      "--pattern",
-      name,
-      "--dir",
-      decisions,
-    ]);
     const bytes = regularBytes(join(decisions, name));
     verifyReleaseAcceptance(
       bytes,

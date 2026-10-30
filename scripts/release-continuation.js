@@ -79,7 +79,13 @@ export function verifyStagingContinuation({
     stage.run,
     stage.jobs,
     ".github/workflows/publish.yml",
-    ["admit", "retained (windows-latest)", "retained (ubuntu-24.04)", "stage"],
+    [
+      "admit",
+      "review",
+      "retained (windows-latest)",
+      "retained (ubuntu-24.04)",
+      "stage",
+    ],
   );
   validatePublicationOrigins(
     map,

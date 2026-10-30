@@ -92,6 +92,7 @@ function fixture() {
     ),
     stage: provider(11, ".github/workflows/publish.yml", control, [
       "admit",
+      "review",
       "retained (windows-latest)",
       "retained (ubuntu-24.04)",
       "stage",
@@ -122,6 +123,9 @@ test("ordinary CI, skipped gates, missing core requests and substituted origins 
         ({ name }) => name === "stage",
       ).steps[0].conclusion = "skipped"),
     (f) => (f.stage.jobs.jobs[1].head_sha = "f".repeat(40)),
+    (f) =>
+      (f.stage.jobs.jobs.find(({ name }) => name === "review").conclusion =
+        "skipped"),
     (f) => (f.originsSha = "e".repeat(64)),
     (f) => (f.stage.run.status = "in_progress"),
   ]) {

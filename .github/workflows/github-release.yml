@@ -38,10 +38,43 @@ env:
   REVIEW_SHA: ${{ inputs.review-sha256 }}
   ACCEPTANCE_SHA: ${{ inputs.acceptance-sha256 }}
 jobs:
+  decisions:
+    if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
+    environment: github-release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: write
+      actions: read
+    outputs:
+      artifact-id: ${{ steps.decisions.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Read exact owner decisions with protected draft visibility
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/read-release-decisions.js release-decisions
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        id: decisions
+        if: always()
+        with:
+          name: release-decisions-${{ github.run_attempt }}
+          path: release-decisions/
+          if-no-files-found: error
+          retention-days: 90
   prepare:
+    needs: decisions
     if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    outputs:
+      artifact-id: ${{ steps.inputs.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -51,11 +84,18 @@ jobs:
         with:
           node-version: 26.13.0
           package-manager-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          artifact-ids: ${{ needs.decisions.outputs.artifact-id }}
+          path: release-decisions
+          digest-mismatch: error
       - name: Assemble original archives and closed release evidence inventory
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_DECISIONS_DIRECTORY: release-decisions
         run: node scripts/collect-release-evidence.js archive-inputs
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        id: inputs
         with:
           name: archive-inputs-${{ github.run_attempt }}
           path: |
@@ -71,6 +111,7 @@ jobs:
     permissions:
       contents: write
       actions: read
+      attestations: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -82,7 +123,7 @@ jobs:
           package-manager-cache: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
-          name: archive-inputs-${{ github.run_attempt }}
+          artifact-ids: ${{ needs.prepare.outputs.artifact-id }}
           path: archive-inputs
           digest-mismatch: error
       - name: Verify full draft and publish immutable pilot archive

@@ -79,8 +79,23 @@ Hosted admission requires GitHub signature verification to report `verified: tru
 
 Create a draft prerelease for the existing tag with latest disabled.
 Attach `release-review.json` after reviewing its public contents.
-Staging reads this draft without release-write permission and binds the record to the independently supplied `review-sha256` input.
+Read-only staging admission verifies the signed source tag without accessing the draft.
+The separate `review` job uses the existing protected `github-release` role to read the live draft and binds its exact decision bytes to the independently supplied `review-sha256` input.
+Staging requires that job to succeed and retains the same decision in its native publication artifact.
 This avoids committing a self-referential approval file that would change the source being approved.
+
+GitHub draft visibility requires push access, even when the operation only reads.
+Before archival, the protected `decisions` job similarly reads the exact review and pilot acceptances.
+It transfers those two digest-bound files to read-only preparation, which validates them again against the original manifest.
+Archival recovery also accepts those exact files from the already published immutable prerelease; staging still requires a draft.
+Both archival transfers use their producer's immutable artifact ID, including when failed jobs are rerun in a later attempt.
+Draft access is never inferred from public tag visibility or a hidden draft's absence.
+
+Publication jobs deliberately use built-in Node facilities and the qualified native npm installation without installing the project's dependency graph.
+Producer-only tests load their command modules with all project package imports denied; a future dependency leak must fail before a candidate is released.
+The existing request journals, immutable original archives, source/controller distinction and unknown-outcome refusal remain authoritative.
+After immutable publication, archival observes attestation indexing within the existing bounded read budget while rechecking the tag, release and assets.
+Native release verification runs once after readiness; cryptographic failures remain terminal, and publication is never retried by the observer.
 
 The record contains:
 

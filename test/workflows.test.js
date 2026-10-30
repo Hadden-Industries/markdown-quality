@@ -10,6 +10,24 @@ const text = (path) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const workflow = (name) => parse(text(`.github/workflows/${name}.yml`));
 
+test("read-only release preparation cannot depend on draft visibility", () => {
+  const publish = workflow("publish");
+  const tag = publish.jobs.admit.steps.find((step) =>
+    step.run?.startsWith("node scripts/verify-release-tag.js"),
+  );
+  assert.ok(
+    tag.run.endsWith("--tag-only"),
+    "Read-only admission must not fetch draft decisions",
+  );
+  assert.equal(publish.jobs.review.permissions.contents, "write");
+  assert.equal(publish.jobs.review.environment, "github-release");
+  assert.ok(publish.jobs.stage.needs.includes("review"));
+  const archive = workflow("github-release");
+  assert.equal(archive.jobs.decisions.permissions.contents, "write");
+  assert.equal(archive.jobs.decisions.environment, "github-release");
+  assert.equal(archive.jobs.prepare.needs, "decisions");
+});
+
 test("release credentials stay separated from qualification and each other", () => {
   const oidc = [],
     writes = [];
@@ -32,7 +50,9 @@ test("release credentials stay separated from qualification and each other", () 
   assert.deepEqual(oidc.sort(), ["promote-release.npm", "publish.stage"]);
   assert.deepEqual(writes.sort(), [
     "github-release.archive",
+    "github-release.decisions",
     "promote-release.github",
+    "publish.review",
   ]);
   assert.equal(workflow("publish").jobs.stage.environment, "npm-publication");
   assert.notEqual(

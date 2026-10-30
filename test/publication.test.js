@@ -230,12 +230,10 @@ test("release qualification requires every manifest-bound runtime job", (t) => {
     "New source cannot omit matrix evidence",
   );
   manifest.qualificationMatrix = qualificationMatrix(
-    [nodeSupport.minimum, "22.23.4", nodeSupport.reference, "26.13.0"].map(
-      (version) => ({
-        version: `v${version}`,
-        lts: true,
-      }),
-    ),
+    runtimeMatrix.node.map((version) => ({
+      version: `v${version}`,
+      lts: true,
+    })),
   );
   manifest.runtimePolicy = JSON.parse(
     readFileSync(new URL("../assets/node-support.json", import.meta.url)),

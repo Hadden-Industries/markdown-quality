@@ -501,6 +501,8 @@ function providerAdapter(f, options = {}) {
         );
       }
       if (endpoint === "releases/20") return JSON.stringify(release);
+      if (endpoint.startsWith("attestations/sha1%3A"))
+        return JSON.stringify({ attestations: [{ bundle: {} }] });
       throw new Error("Unexpected API fixture endpoint: " + endpoint);
     }
     const action = args[1];
@@ -686,6 +688,7 @@ for (const defect of [
   "corrupt draft bytes",
   "nonimmutable publication",
   "failed asset attestation",
+  "failed release attestation",
   "registry mismatch",
 ])
   test(`operation stops on ${defect} without a successful receipt`, async (t) => {
@@ -699,6 +702,8 @@ for (const defect of [
     if (defect === "nonimmutable publication") options.publishImmutable = false;
     if (defect === "failed asset attestation")
       options.fail = (args) => args[1] === "verify-asset";
+    if (defect === "failed release attestation")
+      options.fail = (args) => args[1] === "verify";
     const provider = providerAdapter(f, options);
     await assert.rejects(
       deliverRelease({
@@ -726,4 +731,15 @@ for (const defect of [
       );
     if (defect === "corrupt draft bytes")
       assert.ok(!provider.calls.some((a) => a[1] === "edit"));
+    if (defect === "failed release attestation") {
+      assert.equal(
+        provider.calls.filter((args) => args[1] === "verify").length,
+        1,
+      );
+      assert.equal(
+        provider.calls.filter((args) => args[1] === "edit").length,
+        1,
+      );
+      assert.equal(provider.release.immutable, true);
+    }
   });

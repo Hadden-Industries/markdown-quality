@@ -1,7 +1,87 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Admit explicit owner decisions about the exact release; never infer them from passing CI. */
 import assert from "node:assert/strict";
-import { hash } from "./release-bytes.js";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { hash, releaseBytes } from "./release-bytes.js";
+import { native } from "./commands.js";
+
+/** Only the protected GitHub role can observe draft decisions. */
+export function readDraftDecisions(
+  release,
+  manifestSha,
+  decisions,
+  {
+    repository,
+    gh = (args) => native("gh", args),
+    allowImmutablePrerelease = false,
+  },
+) {
+  assert.equal(repository, "Hadden-Industries/markdown-quality");
+  const draft = JSON.parse(
+    gh([
+      "release",
+      "view",
+      `v${release.version}`,
+      "--repo",
+      repository,
+      "--json",
+      "isDraft,isPrerelease,tagName",
+    ]),
+  );
+  assert.equal(draft.isPrerelease, true);
+  assert.equal(draft.tagName, `v${release.version}`);
+  if (draft.isDraft !== true) {
+    assert.equal(
+      allowImmutablePrerelease,
+      true,
+      "Staging requires a live draft",
+    );
+    assert.equal(draft.isDraft, false);
+    const published = JSON.parse(
+      gh(["api", `repos/${repository}/releases/tags/v${release.version}`]),
+    );
+    assert.equal(published.tag_name, `v${release.version}`);
+    assert.equal(published.draft, false);
+    assert.equal(
+      published.immutable,
+      true,
+      "Archival recovery requires the immutable release",
+    );
+    assert.equal(published.prerelease, true);
+  }
+  const scratch = mkdtempSync(join(tmpdir(), "markdown-quality-decisions-"));
+  try {
+    return new Map(
+      decisions.map(({ name, digest, phase }) => {
+        assert.equal(
+          name,
+          phase === "review"
+            ? "release-review.json"
+            : "release-acceptance.json",
+        );
+        assert.ok(["review", "pilot"].includes(phase));
+        gh([
+          "release",
+          "download",
+          `v${release.version}`,
+          "--repo",
+          repository,
+          "--pattern",
+          name,
+          "--dir",
+          scratch,
+        ]);
+        const bytes = releaseBytes(join(scratch, name), 16 * 1024 * 1024);
+        verifyReleaseAcceptance(bytes, digest, release, manifestSha, phase);
+        return [name, bytes];
+      }),
+    );
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
+}
 
 export const reviewDecisions = [
   "semver",

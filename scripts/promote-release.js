@@ -153,7 +153,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     archival.run,
     archival.jobs,
     ".github/workflows/github-release.yml",
-    ["prepare", "archive"],
+    ["decisions", "prepare", "archive"],
   );
   mkdirSync(output);
   const record = (event) =>

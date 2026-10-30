@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { native } from "./commands.js";
 import { verifyReleaseTag } from "./verify-release-tag.js";
+import { waitForReleaseAttestation } from "./release-attestation.js";
 import {
   repository,
   hash,
@@ -33,7 +34,7 @@ export async function deliverRelease({
   directory,
   evidenceDirectory,
   cwd,
-  gh = (args) => native("gh", args),
+  gh = (args, options) => native("gh", args, options),
   registry = verifyRegistry,
 }) {
   assert.equal(
@@ -46,7 +47,7 @@ export async function deliverRelease({
   mkdirSync(evidenceDirectory, { recursive: false });
   const journal = join(evidenceDirectory, "effects.jsonl");
   let sequence = 0;
-  const call = (args) => {
+  const call = (args, options) => {
     const id = ++sequence;
     appendFileSync(
       journal,
@@ -54,7 +55,7 @@ export async function deliverRelease({
       { flush: true },
     );
     try {
-      const text = gh(args);
+      const text = gh(args, options);
       writeFileSync(join(evidenceDirectory, `${id}.txt`), text, { flag: "wx" });
       appendFileSync(
         journal,
@@ -88,6 +89,7 @@ export async function deliverRelease({
       version: qualified.version,
       source: { head: qualified.source },
     });
+    return reference;
   };
   const checkContext = () => {
     assert.equal(
@@ -221,7 +223,14 @@ export async function deliverRelease({
   assert.equal(release.prerelease, true);
   assert.equal(release.immutable, true, "Published release is not immutable");
   verifyInventory(release, assets);
-  checkTag();
+  const reference = checkTag();
+  await waitForReleaseAttestation(
+    qualified,
+    release,
+    assets,
+    reference.object.sha,
+    { gh: call },
+  );
   call(["release", "verify", tag, "--repo", repository, "--format", "json"]);
   for (const asset of assets) {
     assert.equal(hash(regularBytes(join(directory, asset.name))), asset.sha256);
