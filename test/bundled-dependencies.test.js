@@ -13,7 +13,7 @@ test("bundle acquisition installs only its declared closure while preserving rec
     readFileSync(join(repositoryRoot, "package.json")),
   );
   const { metadata } = stageCore(repositoryRoot, core);
-  for (const name of ["eslint", "prettier", "ajv", "dependency-cruiser"])
+  for (const name of ["prettier", "ajv", "dependency-cruiser"])
     assert.equal(existsSync(join(core, "node_modules", name)), false, name);
   assert.equal(
     JSON.parse(readFileSync(join(core, "node_modules/katex/package.json")))
@@ -25,6 +25,24 @@ test("bundle acquisition installs only its declared closure while preserving rec
     readFileSync(join(repositoryRoot, "package-lock.json")),
   );
   assert.deepEqual(metadata.dependencies, producer.dependencies);
+  assert.equal(
+    JSON.parse(readFileSync(join(core, "node_modules/eslint/package.json")))
+      .dependencies.minimatch,
+    producer.overrides.minimatch,
+  );
+  assert.equal(
+    JSON.parse(
+      readFileSync(
+        join(core, "node_modules/@eslint/config-array/package.json"),
+      ),
+    ).dependencies.minimatch,
+    producer.overrides.minimatch,
+  );
+  assert.equal(
+    JSON.parse(readFileSync(join(core, "node_modules/minimatch/package.json")))
+      .version,
+    producer.overrides.minimatch,
+  );
   assert.deepEqual(metadata.bundleDependencies, producer.bundleDependencies);
   assert.equal(metadata.overrides, undefined);
 });

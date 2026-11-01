@@ -89,7 +89,7 @@
   "dependencies": {
     "@eslint/markdown": "8.0.3",
     "ajv": "8.20.0",
-    "eslint": "10.13.0",
+    "eslint": "10.14.0",
     "mdast-util-from-markdown": "2.1.0",
     "mdast-util-frontmatter": "2.0.1",
     "mdast-util-gfm": "3.1.0",
@@ -99,12 +99,15 @@
     "prettier": "3.9.10"
   },
   "overrides": {
+    "glob": "14.0.3",
+    "minimatch": "11.0.3",
     "micromark-extension-math": {
       "katex": "0.19.1"
     }
   },
   "bundleDependencies": [
-    "@eslint/markdown"
+    "@eslint/markdown",
+    "eslint"
   ],
   "optionalDependencies": {
     "@hadden-industries/markdown-quality-linux-x64": "file:packages/linux-x64",

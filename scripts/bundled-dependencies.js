@@ -6,11 +6,57 @@ import { npmCommand } from "./commands.js";
 import { readOwned, safePath, sha256, limits } from "./dependency-graph.js";
 
 export const bundleInventoryPath = "assets/bundled-dependencies.json";
+const bundleRoots = ["@eslint/markdown", "eslint"];
+const supplementalNotices = [
+  {
+    name: "esrecurse",
+    version: "4.3.0",
+    license: "BSD-2-Clause",
+    path: "node_modules/esrecurse/README.md",
+    source: "https://registry.npmjs.org/esrecurse/-/esrecurse-4.3.0.tgz",
+    sha256: "a7007c78c9d9da690ef6cdb0e7a3427d05832edb00abd1f5a9882700d73be4ad",
+  },
+  {
+    name: "imurmurhash",
+    version: "0.1.4",
+    license: "MIT",
+    path: "node_modules/imurmurhash/README.md",
+    source: "https://registry.npmjs.org/imurmurhash/-/imurmurhash-0.1.4.tgz",
+    sha256: "4491517f7deb68d0b2a3bb590e785e276a60f12448447a9650d0bd50161a101c",
+  },
+  {
+    name: "natural-compare",
+    version: "1.4.0",
+    license: "MIT",
+    path: "LICENSES/MIT-natural-compare.txt",
+    source:
+      "https://github.com/litejs/natural-compare-lite/blob/a8e1e32c85713ba7d079445207a808ce6f4852f9/LICENSE",
+    sha256: "033fcce721de31e5acebd6754b7661d6f8e0ebe0af01dee2e56ffbd5c089ff96",
+  },
+  {
+    name: "format",
+    version: "0.2.2",
+    license: "MIT",
+    path: "LICENSES/MIT-format.txt",
+    source:
+      "https://github.com/samsonjs/format/blob/0094c51372790ca342da4b90c519edd3380deee1/License.md",
+    sha256: "0b2c94863590ca2aed327e89642b7e74b1608ec423bfec1d8f1beba2945fc4ba",
+  },
+  {
+    name: "@humanfs/types",
+    version: "0.15.0",
+    license: "Apache-2.0",
+    path: "node_modules/@humanfs/node/LICENSE",
+    source:
+      "https://github.com/humanwhocodes/humanfs/blob/85069f193cbacc371c3beb649ce746f8c5a493be/packages/node/LICENSE",
+    sha256: "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+  },
+];
 
 /** Build from npm's integrity-checked lock/cache, never an ambient installed tree. */
 export function stageBundledDependencies(root, core, metadata) {
   if (!metadata.bundleDependencies) return;
-  assert.deepEqual(metadata.bundleDependencies, ["@eslint/markdown"]);
+  assert.deepEqual(metadata.bundleDependencies, bundleRoots);
   const lockBytes = readOwned(root, "package-lock.json");
   const lock = JSON.parse(lockBytes);
   // The original lock remains npm's integrity authority. Limit this temporary
@@ -41,22 +87,64 @@ export function stageBundledDependencies(root, core, metadata) {
     { cwd: core },
   );
 
-  // npm deliberately rejects bundling a root-only override. Make the one
-  // dependency declaration truthful in this disclosed vendored copy instead.
+  // npm deliberately rejects bundling root-only overrides. Make each repaired
+  // dependency declaration truthful in the disclosed vendored copy instead.
   // No third-party executable source changes; retain its original MIT notice.
-  const path = "node_modules/micromark-extension-math/package.json";
-  const before = readOwned(core, path);
-  const math = JSON.parse(before);
-  assert.equal(math.name, "micromark-extension-math");
-  assert.equal(math.version, "3.1.0");
-  assert.equal(math.dependencies.katex, "^0.16.0");
-  assert.equal(lock.packages["node_modules/katex"].version, "0.19.1");
-  assert.deepEqual(metadata.overrides, {
-    "micromark-extension-math": { katex: "0.19.1" },
+  assert.deepEqual(Object.keys(metadata.overrides).sort(), [
+    "glob",
+    "micromark-extension-math",
+    "minimatch",
+  ]);
+  const repairs = [
+    {
+      name: "micromark-extension-math",
+      version: "3.1.0",
+      dependency: "katex",
+      before: "^0.16.0",
+      after: metadata.overrides["micromark-extension-math"].katex,
+      reason: "GHSA-238p-pmpm-9mq7",
+    },
+    {
+      name: "eslint",
+      version: metadata.dependencies.eslint,
+      dependency: "minimatch",
+      before: "^10.2.6",
+      after: metadata.overrides.minimatch,
+      reason: "GHSA-g3hv-75wg-m249",
+    },
+    {
+      name: "@eslint/config-array",
+      version: lock.packages["node_modules/@eslint/config-array"].version,
+      dependency: "minimatch",
+      before: "^10.2.4",
+      after: metadata.overrides.minimatch,
+      reason: "GHSA-g3hv-75wg-m249",
+    },
+  ].map((repair) => {
+    const path = `node_modules/${repair.name}/package.json`;
+    const before = readOwned(core, path);
+    const value = JSON.parse(before);
+    assert.equal(value.name, repair.name);
+    assert.equal(value.version, repair.version);
+    assert.equal(value.dependencies[repair.dependency], repair.before);
+    assert.equal(
+      lock.packages[`node_modules/${repair.dependency}`].version,
+      repair.after,
+    );
+    value.dependencies[repair.dependency] = repair.after;
+    const after = JSON.stringify(value, null, 2) + "\n";
+    writeFileSync(join(core, path), after);
+    return {
+      path,
+      field: `dependencies.${repair.dependency}`,
+      before: repair.before,
+      after: repair.after,
+      originalSha256: sha256(before),
+      modifiedSha256: sha256(after),
+      reason:
+        repair.reason + "; producer overrides do not constrain recipients",
+    };
   });
-  math.dependencies.katex = "0.19.1";
-  const after = JSON.stringify(math, null, 2) + "\n";
-  writeFileSync(join(core, path), after);
   delete metadata.overrides;
   writeFileSync(
     join(core, "package.json"),
@@ -113,13 +201,17 @@ export function stageBundledDependencies(root, core, metadata) {
             ),
         )
         .map(({ path }) => path);
-      if (installed.name === "format" && installed.version === "0.2.2") {
-        assert.equal(license, "MIT");
+      const supplemental = supplementalNotices.find(
+        ({ name, version }) =>
+          name === installed.name && version === installed.version,
+      );
+      if (supplemental) {
+        assert.equal(license, supplemental.license);
         assert.equal(
-          sha256(readOwned(core, "LICENSES/MIT-format.txt")),
-          "0b2c94863590ca2aed327e89642b7e74b1608ec423bfec1d8f1beba2945fc4ba",
+          sha256(readOwned(core, supplemental.path)),
+          supplemental.sha256,
         );
-        notices.push("LICENSES/MIT-format.txt");
+        notices.push(supplemental.path);
       }
       assert.ok(notices.length > 0, `Missing bundled license: ${location}`);
       return {
@@ -145,25 +237,8 @@ export function stageBundledDependencies(root, core, metadata) {
     sourceLockSha256: sha256(lockBytes),
     acquisition:
       "Declared bundle roots only; npm ci --offline --ignore-scripts --omit=dev --omit=optional with the unchanged producer lock; native integrity admission",
-    supplementalNotice: {
-      path: "LICENSES/MIT-format.txt",
-      source:
-        "https://github.com/samsonjs/format/blob/0094c51372790ca342da4b90c519edd3380deee1/License.md",
-      sha256:
-        "0b2c94863590ca2aed327e89642b7e74b1608ec423bfec1d8f1beba2945fc4ba",
-    },
-    repairs: [
-      {
-        path,
-        field: "dependencies.katex",
-        before: "^0.16.0",
-        after: "0.19.1",
-        originalSha256: sha256(before),
-        modifiedSha256: sha256(after),
-        reason:
-          "GHSA-238p-pmpm-9mq7; producer overrides do not constrain recipients",
-      },
-    ],
+    supplementalNotices,
+    repairs,
     packages,
     files,
   };
@@ -182,7 +257,7 @@ export function verifyBundledShipment(core, files, metadata, lockSha256) {
   }
   const inventory = JSON.parse(readOwned(core, bundleInventoryPath));
   assert.equal(inventory.schemaVersion, 1);
-  assert.deepEqual(metadata.bundleDependencies, ["@eslint/markdown"]);
+  assert.deepEqual(metadata.bundleDependencies, bundleRoots);
   assert.deepEqual(inventory.roots, metadata.bundleDependencies);
   assert.equal(inventory.sourceLockSha256, lockSha256);
   assert.ok(
@@ -211,10 +286,8 @@ export function verifyBundledShipment(core, files, metadata, lockSha256) {
     for (const notice of pkg.notices)
       assert.ok(readOwned(core, notice).length > 0);
   }
-  assert.equal(
-    sha256(readOwned(core, inventory.supplementalNotice.path)),
-    inventory.supplementalNotice.sha256,
-  );
+  for (const notice of inventory.supplementalNotices)
+    assert.equal(sha256(readOwned(core, notice.path)), notice.sha256);
   for (const repair of inventory.repairs)
     assert.equal(sha256(readOwned(core, repair.path)), repair.modifiedSha256);
 }

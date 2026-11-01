@@ -176,7 +176,15 @@ test("packed root and isolated consumers install without lifecycle scripts and e
     );
     assert.ok(katex.length > 0);
     assert.ok(katex.every(([, pkg]) => pkg.version === "0.19.1"));
+    const minimatch = Object.entries(installedLock.packages).filter(([path]) =>
+      path.endsWith("node_modules/minimatch"),
+    );
+    assert.ok(minimatch.length > 0);
+    assert.ok(minimatch.every(([, pkg]) => pkg.version === "11.0.3"));
     npmCommand(["ls", "--all", "--json"], { cwd: install });
+    npmCommand(["audit", "--omit=dev", "--audit-level=moderate"], {
+      cwd: install,
+    });
     const securityProbe = spawnSync(
       process.execPath,
       [

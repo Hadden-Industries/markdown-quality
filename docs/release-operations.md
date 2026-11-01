@@ -68,7 +68,9 @@ Public artifacts retain query identities, scan digests and bounded alert disposi
 
 The 2026-10-16 integration probe detected GHSA-238p-pmpm-9mq7 in the clean recipient graph through KaTeX.
 The root-only development override does not fix that graph.
-The release gate remains closed until the dependency or an explicitly reviewed disposition is resolved.
+Candidate packaging now bundles KaTeX 0.19.1 and minimatch 11.0.3 with disclosed dependency-metadata repairs; clean root and isolated recipient installs must retain those versions and pass their own audit.
+The producer also overrides development-only glob to 14.0.3.
+The release gate still requires fresh qualification of the actual candidate tuple.
 That frozen 1.0.3 probe does not qualify a future release.
 
 ## Review, signed tag and draft

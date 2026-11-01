@@ -144,19 +144,19 @@ Preserve third-party license texts and attribution.
 Public registry access does not waive source obligations.
 The repository's original `LICENSE` bytes are verified by the full check.
 
-The producer uses a root-only `micromark-extension-math` override to KaTeX 0.19.1.
+The producer overrides KaTeX to 0.19.1, glob to 14.0.3 and minimatch to 11.0.3 to resolve known dependency advisories.
 [npm applies overrides only from the root project](https://docs.npmjs.com/cli/v12/configuring-npm/package-json/#overrides); that alone does not protect a fresh library consumer.
-The authorized qualification repair therefore uses [native bundled dependencies](https://docs.npmjs.com/cli/v12/configuring-npm/package-json/#bundledependencies) to ship ESLint Markdown's complete runtime closure, including the fixed KaTeX version.
+The qualification repair therefore uses [native bundled dependencies](https://docs.npmjs.com/cli/v12/configuring-npm/package-json/#bundledependencies) to ship ESLint Markdown's and ESLint's complete runtime closures, including the fixed KaTeX and minimatch versions.
 Staging obtains this closure through an offline, script-disabled `npm ci` using the producer manifest, frozen lock and npm's integrity-checked cache.
 It never copies the ambient `node_modules` tree.
-The staged `micromark-extension-math` 3.1.0 manifest declares KaTeX 0.19.1 explicitly; executable upstream source remains unchanged.
+The staged `micromark-extension-math` 3.1.0 manifest declares KaTeX 0.19.1 explicitly, and ESLint 10.14.0 and `@eslint/config-array` 0.23.5 explicitly declare minimatch 11.0.3; executable upstream source remains unchanged.
 The original root override is removed from the published manifest, and native `npm pack` validates the resulting dependency edges.
-The generated `assets/bundled-dependencies.json` binds the exact files, source lock, original registry identities, retained notices and the single metadata repair.
+The generated `assets/bundled-dependencies.json` binds the exact files, source lock, original registry identities, retained notices and those metadata repairs.
 Packing and architecture qualification verify that inventory; development tools remain excluded.
 Fresh root and isolated consumers must install without lifecycle scripts or overrides, have a valid native dependency tree, pass malicious-input and legitimate-rendering probes, and reinstall offline from their own frozen lock.
 Release qualification additionally requires the actual installed-recipient audit and distribution SBOM.
 This changes candidate source and packaging only; immutable release 1.0.3 remains unchanged until a separately authorized new version is qualified and released.
-Remove the vendored metadata repair and bundling when a maintained upstream release declares a safe KaTeX range and the same recipient checks pass without them.
+Remove each vendored metadata repair when maintained upstream releases declare safe dependency ranges and the same recipient checks pass without it; remove bundling when all repairs are unnecessary.
 
 Tooling qualification allows twenty minutes per npm install or ci operation, thirty minutes per Node test suite and up to 120 minutes per enclosing job.
 Evidence uploads have a five-minute step budget; bounded acquisition and extraction have a fifteen-minute collection budget.
