@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "8981607b484dd123b5e4bec00dd6415e5725aff9",
+  "lockSha256": "c28fc3a43c1bcf9e7b793f2ab1801b93a5e93789d05db0ea09b634b9f4b73722",
+  "manifestSha256": "372dd5fcf8e6f18a949b319944b01c9155431958d6ca323c4545421f4b3d0beb",
+  "rust": "1.99.1",
+  "rustSourceCommit": "58cf8f9c35b355199727627d07ae34a4e2846d67",
+  "rustRuntimeLicenseInputs": [
+    {
+      "path": "LICENSE-MIT",
+      "url": "https://raw.githubusercontent.com/rust-lang/rust/58cf8f9c35b355199727627d07ae34a4e2846d67/LICENSE-MIT",
+      "sha256": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1"
+    },
+    {
+      "path": "LICENSE-APACHE",
+      "url": "https://raw.githubusercontent.com/rust-lang/rust/58cf8f9c35b355199727627d07ae34a4e2846d67/LICENSE-APACHE",
+      "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+    },
+    {
+      "path": "LICENSES/Unicode-3.0.txt",
+      "url": "https://raw.githubusercontent.com/rust-lang/rust/58cf8f9c35b355199727627d07ae34a4e2846d67/LICENSES/Unicode-3.0.txt",
+      "sha256": "f5062c9a188d81dfe66b56db4182dcf9e4b17c0d9b0d311a8e20b3a1b075c443"
+    }
+  ],
+  "profile": "dist",
+  "features": [
+    "cli",
+    "neural",
+    "lsp",
+    "watch",
+    "pandoc",
+    "treesitter",
+    "mcp"
+  ],
+  "auditExtractor": {
+    "url": "https://static.crates.io/crates/rust-audit-info/rust-audit-info-0.5.4.crate",
+    "sha256": "4691a1a98b31dc5c7b55a2968628c79ed035b1fad6b3b3849d872244e04bcf83",
+    "sourceCommit": "17fc93a92a952cc5e715bc51afc25e11049d7036"
+  },
+  "tools": {
+    "win32-x64": {
+      "target": "x86_64-pc-windows-msvc",
+      "cargo-auditable": {
+        "url": "https://github.com/rust-secure-code/cargo-auditable/releases/download/v0.7.7/cargo-auditable-x86_64-pc-windows-msvc.zip",
+        "sha256": "717ba2d3ed7997c501e9987ee7c94bebf9d7219b18b185a03009420ec7029c7d"
+      },
+      "cargo-about": {
+        "url": "https://github.com/EmbarkStudios/cargo-about/releases/download/0.9.3/cargo-about-0.9.3-x86_64-pc-windows-msvc.tar.gz",
+        "sha256": "9e2942533ef1c592c4a70bdb384cae1550a3f5fc9ae40379b6662e3d2f16fe02"
+      }
+    },
+    "linux-x64": {
+      "target": "x86_64-unknown-linux-gnu",
+      "cargo-auditable": {
+        "url": "https://github.com/rust-secure-code/cargo-auditable/releases/download/v0.7.7/cargo-auditable-x86_64-unknown-linux-gnu.tar.xz",
+        "sha256": "4c8d3b08c3c34e9f2333367224dbbfb4aab68067698b43de59fe19aded3416dd"
+      },
+      "cargo-about": {
+        "url": "https://github.com/EmbarkStudios/cargo-about/releases/download/0.9.3/cargo-about-0.9.3-x86_64-unknown-linux-musl.tar.gz",
+        "sha256": "3ad1e94ea1e63d69d1961f4fb15ccbbe9575d906111f96d2cb4dce6df48f71b4"
+      }
+    }
+  },
+  "snapperVersion": "0.11.10"
+}

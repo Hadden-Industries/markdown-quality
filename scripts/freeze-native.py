@@ -8,6 +8,7 @@ import hashlib
 import io
 import json
 import pathlib
+import re
 import sys
 import tarfile
 import zipfile
@@ -38,10 +39,21 @@ def read_authored_json(path):
     return data
 
 
-def freeze(inputs, output, run_id, workflow_commit, release_url, rights_path=None):
+def freeze(inputs, output, run_id, workflow_commit, release_url, rights_path=None,
+           config_path=None):
     manifest = json.loads(read_authored_json(ROOT / 'assets/tool-manifest.json'))
-    build_bytes = read_authored_json(ROOT / 'assets/native-build.json')
+    build_bytes = read_authored_json(config_path or ROOT / 'assets/native-build.json')
     build = json.loads(build_bytes)
+    version = build.get('snapperVersion', manifest['snapperVersion'])
+    legacy_config = (sha(build_bytes) == manifest['build']['configSha256']
+                     and build['sourceCommit'] == manifest['source']['commit']
+                     and version == manifest['snapperVersion'])
+    if 'snapperVersion' in build or build['sourceCommit'] != manifest['source']['commit']:
+        version = build.get('snapperVersion', '')
+        if not re.fullmatch(r'\d+\.\d+\.\d+', version):
+            raise ValueError('Changed native source requires an explicit Snapper version')
+        manifest['snapperVersion'] = version
+        manifest['source'].update(commit=build['sourceCommit'], tag='v' + version)
     manifest['schemaVersion'] = 2
     manifest['build'] = {'runId': run_id, 'workflowCommit': workflow_commit,
                          'rights': 'pending independent reconciliation', 'configSha256': sha(build_bytes)}
@@ -64,6 +76,10 @@ def freeze(inputs, output, run_id, workflow_commit, release_url, rights_path=Non
         binary_name = pathlib.PurePosixPath(spec['executable']).name
         evidence_bytes = {name: read(directory / name) for name in (*FILES, binary_name)}
         evidence = json.loads(evidence_bytes['build-evidence.json'])
+        if (evidence.get('configSha256') != sha(build_bytes)
+                or evidence.get('snapperVersion') != version):
+            if not (legacy_config and 'configSha256' not in evidence and 'snapperVersion' not in evidence):
+                raise ValueError('Hosted build configuration/version mismatch: ' + key)
         if (str(evidence['githubRun']) != str(run_id) or evidence['workflowCommit'] != workflow_commit
                 or evidence['source'] != build['sourceCommit'] or evidence['lockSha256'] != build['lockSha256']
                 or evidence['manifestSha256'] != build['manifestSha256']
@@ -147,5 +163,7 @@ if __name__ == '__main__':
     parser.add_argument('--release-url', required=True)
     parser.add_argument('--rights', type=pathlib.Path,
                         help='Separate reviewed original-notice supplement; does not grant approval')
+    parser.add_argument('--config', type=pathlib.Path, default=ROOT / 'assets/native-build.json',
+                        help='Exact build input used by the hosted run; accepted manifest remains unchanged')
     args = parser.parse_args()
-    print(json.dumps(freeze(args.inputs, args.output, args.run_id, args.workflow_commit, args.release_url, args.rights)))
+    print(json.dumps(freeze(args.inputs, args.output, args.run_id, args.workflow_commit, args.release_url, args.rights, args.config)))
