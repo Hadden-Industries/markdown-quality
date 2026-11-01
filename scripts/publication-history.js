@@ -1,51 +1,52 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Read native provider history before granting any new staging effect. */
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+  appendFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { native } from "./commands.js";
 import { hash } from "./release-bytes.js";
 import { legacyPublicationSteps, stagingSteps } from "./publication-origins.js";
+import {
+  publicationContext,
+  validatePublicationContext,
+} from "./publication-context.js";
+import { preparePublicationEnvironment } from "./prepare-publication-environment.js";
+import {
+  attemptedPublicationJobs,
+  readPublicationAttempts,
+  verifyFirstStagingAttempt,
+} from "./publication-attempts.js";
+import { downloadPublicationArtifact } from "./publication-artifact.js";
+
+export { attemptedPublicationJobs } from "./publication-attempts.js";
 
 const repository = "Hadden-Industries/markdown-quality";
-const effectNames = new Set([...legacyPublicationSteps, ...stagingSteps]);
-export function attemptedPublicationJobs(jobs) {
-  assert.equal(
-    jobs.total_count,
-    jobs.jobs.length,
-    "Truncated publication history",
-  );
-  return jobs.jobs.filter((job) => {
-    if (
-      !["stage", "publish"].includes(job.name) ||
-      job.conclusion === "skipped"
-    )
-      return false;
-    if (job.status === "queued" && !job.steps?.length) return false;
-    assert.ok(Array.isArray(job.steps), "Missing publication step history");
-    const names = job.name === "stage" ? stagingSteps : legacyPublicationSteps;
-    for (const name of names)
-      assert.equal(
-        job.steps.filter((step) => step.name === name).length,
-        1,
-        "Incomplete publication step history",
-      );
-    return job.steps.some(
-      (step) => effectNames.has(step.name) && step.conclusion !== "skipped",
-    );
-  });
-}
-
 export function verifyPublicationHistory(release, map, history) {
-  assert.equal(
-    String(map.attempt),
-    "1",
-    "Use a new dispatch; never rerun a staging workflow",
+  assert.match(String(map.attempt), /^[1-9]\d{0,15}$/u);
+  const current = history.filter(
+    ({ run }) => String(run.id) === String(map.run),
   );
+  assert.equal(
+    current.length,
+    1,
+    "Missing current publication attempt history",
+  );
+  verifyFirstStagingAttempt(current[0], {
+    publicationRun: map.run,
+    publicationAttempt: map.attempt,
+    head: map.controlSource,
+  });
   for (const entry of history) {
     const { run, jobs, manifestBytes, originsBytes } = entry;
+    if (String(run.id) === String(map.run)) continue;
     assert.ok(
       ["completed", "queued"].includes(run.status),
       "Another publication may still execute effects",
@@ -132,9 +133,10 @@ export function verifyPublicationHistory(release, map, history) {
   }
 }
 
-export function readPublicationHistory(
+export async function readPublicationHistory(
   currentRun,
   gh = (args) => native("gh", args),
+  download = downloadPublicationArtifact,
 ) {
   const pages = JSON.parse(
     gh([
@@ -155,49 +157,57 @@ export function readPublicationHistory(
   assert.ok(current, "Current run absent from native history");
   const scratch = mkdtempSync(join(tmpdir(), "publication-history-"));
   try {
-    return runs
-      .filter((run) => String(run.id) !== String(currentRun))
-      .map((run) => {
-        const pages = JSON.parse(
-          gh([
-            "api",
-            `repos/${repository}/actions/runs/${run.id}/jobs?filter=all&per_page=100`,
-            "--paginate",
-            "--slurp",
-          ]),
+    const history = [];
+    for (const listed of runs) {
+      const observed = readPublicationAttempts(listed.id, undefined, gh);
+      assert.equal(observed.run.head_sha, listed.head_sha);
+      assert.equal(
+        observed.run.run_attempt,
+        listed.run_attempt,
+        "Publication history changed during collection",
+      );
+      const { run } = observed;
+      const entry = { ...observed };
+      if (String(run.id) === String(currentRun)) {
+        history.push(entry);
+        continue;
+      }
+      for (const attempt of observed.attempts)
+        attemptedPublicationJobs(attempt.jobs);
+      const effects = observed.executions.filter(
+        (job) =>
+          attemptedPublicationJobs({ total_count: 1, jobs: [job] }).length,
+      );
+      // Keep every distinct possible write, even when a newer job failed before writing.
+      entry.jobs = { total_count: effects.length, jobs: effects };
+      if (effects.length) {
+        assert.equal(run.head_branch, "main", "Historical writes require main");
+        const directory = join(scratch, String(run.id));
+        assert.equal(
+          effects.length,
+          1,
+          "Multiple publication executions require reconciliation",
         );
-        const jobs = {
-          total_count: pages[0].total_count,
-          jobs: pages.flatMap((page) => page.jobs),
-        };
-        const entry = { run, jobs };
-        if (attemptedPublicationJobs(jobs).length) {
-          const directory = join(scratch, String(run.id));
-          gh([
-            "run",
-            "download",
-            String(run.id),
-            "--repo",
-            repository,
-            "--name",
-            "publication-source-and-manifest",
-            "--dir",
-            directory,
-          ]);
-          entry.manifestBytes = readFileSync(
-            join(directory, "frozen-release/release-manifest.json"),
+        await download({
+          run,
+          attempt: effects[0].run_attempt,
+          destination: directory,
+        });
+        entry.manifestBytes = readFileSync(
+          join(directory, "frozen-release/release-manifest.json"),
+        );
+        // Historical direct publications may predate origin maps.
+        try {
+          entry.originsBytes = readFileSync(
+            join(directory, "frozen-release/publication-origins.json"),
           );
-          // Historical direct publications may predate origin maps.
-          try {
-            entry.originsBytes = readFileSync(
-              join(directory, "frozen-release/publication-origins.json"),
-            );
-          } catch (error) {
-            if (error.code !== "ENOENT") throw error;
-          }
+        } catch (error) {
+          if (error.code !== "ENOENT") throw error;
         }
-        return entry;
-      });
+      }
+      history.push(entry);
+    }
+    return history;
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
@@ -205,42 +215,119 @@ export function readPublicationHistory(
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   assert.equal(process.argv.length, 4);
-  const [directory, output] = process.argv
-    .slice(2)
-    .map((path) => resolve(path));
-  const release = JSON.parse(
-    readFileSync(join(directory, "release-manifest.json")),
+  if (process.argv[2] === "--admit-attempt") {
+    const directory = resolve(process.argv[3]);
+    const bytes = readFileSync(join(directory, "release-manifest.json"));
+    assert.equal(hash(bytes), process.env.MANIFEST_SHA);
+    const release = JSON.parse(bytes);
+    const originalBytes = readFileSync(
+      join(directory, "publication-origins.json"),
+    );
+    assert.ok(["stage", "retained"].includes(process.env.GITHUB_JOB));
+    const context = {
+      ...publicationContext(process.env),
+      job: process.env.GITHUB_JOB,
+    };
+    const history = await readPublicationHistory(context.publicationRun);
+    const map = admitStagingAttempt({
+      release,
+      map: JSON.parse(originalBytes),
+      manifestSha: hash(bytes),
+      context,
+      history,
+    });
+    writeFileSync("provider/admission-origins.json", originalBytes, {
+      flag: "wx",
+    });
+    writeFileSync(
+      "provider/staging-history.json",
+      JSON.stringify(history, null, 2) + "\n",
+      { flag: "wx" },
+    );
+    assert.deepEqual(
+      readFileSync(join(directory, "publication-origins.json")),
+      originalBytes,
+    );
+    writeFileSync(
+      join(directory, "publication-origins.json"),
+      JSON.stringify(map, null, 2) + "\n",
+    );
+    assert.ok(process.env.GITHUB_OUTPUT);
+    appendFileSync(process.env.GITHUB_OUTPUT, "admitted=true\n");
+  } else {
+    const [directory, output] = process.argv
+      .slice(2)
+      .map((path) => resolve(path));
+    const release = JSON.parse(
+      readFileSync(join(directory, "release-manifest.json")),
+    );
+    const map = JSON.parse(
+      readFileSync(join(directory, "publication-origins.json")),
+    );
+    assert.equal(map.run, process.env.GITHUB_RUN_ID);
+    assert.equal(map.attempt, process.env.GITHUB_RUN_ATTEMPT);
+    const history = await readPublicationHistory(map.run);
+    verifyPublicationHistory(release, map, history);
+    writeFileSync(
+      output,
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          run: map.run,
+          attempt: map.attempt,
+          manifestSha256: hash(
+            readFileSync(join(directory, "release-manifest.json")),
+          ),
+          originsSha256: hash(
+            readFileSync(join(directory, "publication-origins.json")),
+          ),
+          history: history.map(
+            ({ run, jobs, attempts, manifestBytes, originsBytes }) => ({
+              run,
+              jobs,
+              attempts,
+              manifestSha256: manifestBytes ? hash(manifestBytes) : null,
+              originsSha256: originsBytes ? hash(originsBytes) : null,
+            }),
+          ),
+        },
+        null,
+        2,
+      ) + "\n",
+      { flag: "wx" },
+    );
+  }
+}
+
+/** Rebind only never-attempted requests; retained package origins stay immutable. */
+export function admitStagingAttempt({
+  release,
+  map,
+  manifestSha,
+  context,
+  history,
+}) {
+  validatePublicationContext(context);
+  const current = history.filter(
+    ({ run }) => String(run.id) === String(context.publicationRun),
   );
-  const map = JSON.parse(
-    readFileSync(join(directory, "publication-origins.json")),
+  assert.equal(
+    current.length,
+    1,
+    "Missing current publication attempt history",
   );
-  assert.equal(map.run, process.env.GITHUB_RUN_ID);
-  assert.equal(map.attempt, process.env.GITHUB_RUN_ATTEMPT);
-  const history = readPublicationHistory(map.run);
-  verifyPublicationHistory(release, map, history);
-  writeFileSync(
-    output,
-    JSON.stringify(
-      {
-        schemaVersion: 1,
-        run: map.run,
-        attempt: map.attempt,
-        manifestSha256: hash(
-          readFileSync(join(directory, "release-manifest.json")),
-        ),
-        originsSha256: hash(
-          readFileSync(join(directory, "publication-origins.json")),
-        ),
-        history: history.map(({ run, jobs, manifestBytes, originsBytes }) => ({
-          run,
-          jobs,
-          manifestSha256: manifestBytes ? hash(manifestBytes) : null,
-          originsSha256: originsBytes ? hash(originsBytes) : null,
-        })),
-      },
-      null,
-      2,
-    ) + "\n",
-    { flag: "wx" },
-  );
+  verifyFirstStagingAttempt(current[0], context);
+  assert.ok(Number(map.attempt) <= Number(context.publicationAttempt));
+  preparePublicationEnvironment(release, manifestSha, map, {
+    ...context,
+    publicationAttempt: map.attempt,
+  });
+  const admitted = structuredClone(map);
+  admitted.attempt = String(context.publicationAttempt);
+  for (const record of admitted.records)
+    if (record.state === "planned") record.attempt = admitted.attempt;
+  preparePublicationEnvironment(release, manifestSha, admitted, context);
+  // A retained admission can predate another dispatch: refresh cross-run history too.
+  verifyPublicationHistory(release, admitted, history);
+  return admitted;
 }

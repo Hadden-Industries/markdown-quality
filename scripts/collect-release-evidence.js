@@ -28,6 +28,7 @@ import { registryWorkflow, registryJobNames } from "./release-qualification.js";
 import { prepareGithubRelease } from "./prepare-github-release.js";
 import { verifyReleaseAcceptance } from "./release-acceptance.js";
 import { bindStagingReconciliation } from "./release-staging-evidence.js";
+import { downloadPublicationArtifact } from "./publication-artifact.js";
 
 assert.equal(
   process.argv.length,
@@ -228,7 +229,16 @@ try {
     const archive = release.archives.find(
       ({ package: packageName }) => packageName === origin.package,
     );
-    const staged = download(origin.run, "publication-source-and-manifest");
+    const staged = join(scratch, `staging-${origin.run}-${origin.attempt}`);
+    if (!downloaded.has(staged)) {
+      const provider = readProvider(origin.run, origin.attempt);
+      await downloadPublicationArtifact({
+        run: provider.run,
+        attempt: origin.attempt,
+        destination: staged,
+      });
+      downloaded.set(staged, true);
+    }
     const journal = regularBytes(
       join(staged, "staging-journal", `${archive.name}.jsonl`),
     );

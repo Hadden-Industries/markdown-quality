@@ -58,6 +58,8 @@ jobs:
     if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    outputs:
+      artifact-id: ${{ steps.admission.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -114,14 +116,12 @@ jobs:
         shell: bash
         run: node scripts/download-release-archive.js "$CANDIDATE_RUN" "frozen-release"
         timeout-minutes: 15
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      - name: Acquire the original prior staging attempt
         if: inputs.recovery-run != ''
-        with:
-          name: publication-source-and-manifest
-          path: previous-publication
-          run-id: ${{ inputs.recovery-run }}
-          github-token: ${{ github.token }}
-          digest-mismatch: error
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/publication-artifact.js "$RECOVERY_RUN" "$RECOVERY_ATTEMPT" previous-publication
+        timeout-minutes: 15
       - name: Verify approved archives and bind publication origins before any effect
         run: node scripts/verify-publication.js frozen-release "$MANIFEST_SHA" provider
       - name: Require the owner-created verified source tag before staging
@@ -132,10 +132,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/publication-history.js frozen-release provider/publication-history.json
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      - id: admission
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
-          name: publication-admission
+          name: publication-admission-${{ github.run_attempt }}
           path: |
             provider/*.json
             frozen-release/release-manifest.json
@@ -148,6 +149,8 @@ jobs:
     environment: github-release
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    outputs:
+      artifact-id: ${{ steps.review.outputs.artifact-id }}
     permissions:
       contents: write
       actions: read
@@ -162,16 +165,18 @@ jobs:
           package-manager-cache: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
-          name: publication-admission
+          artifact-ids: ${{ needs.admit.outputs.artifact-id }}
+          merge-multiple: true
           digest-mismatch: error
       - name: Verify the live draft and exact owner review with draft visibility
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/verify-release-tag.js frozen-release/release-manifest.json provider
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      - id: review
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
-          name: publication-review
+          name: publication-review-${{ github.run_attempt }}
           path: provider/release-review.json
           if-no-files-found: error
           retention-days: 90
@@ -213,8 +218,14 @@ jobs:
         timeout-minutes: 15
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
-          name: publication-admission
+          artifact-ids: ${{ needs.admit.outputs.artifact-id }}
+          merge-multiple: true
           digest-mismatch: error
+      - name: Authenticate this attempt before rebinding never-attempted origins
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/publication-history.js --admit-attempt frozen-release
+        timeout-minutes: 5
       - name: Revalidate exact admitted origin-map context
         run: node scripts/prepare-publication-environment.js --environment frozen-release
       - name: Acquire pinned hosted npm from selected Node installation
@@ -225,7 +236,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
-          name: retained-registry-${{ matrix.os }}
+          name: retained-registry-${{ matrix.os }}-${{ github.run_attempt }}
           path: retained-qualification.json
           if-no-files-found: error
           retention-days: 90
@@ -263,20 +274,28 @@ jobs:
         timeout-minutes: 15
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
-          name: publication-admission
+          artifact-ids: ${{ needs.admit.outputs.artifact-id }}
+          merge-multiple: true
           digest-mismatch: error
-      - name: Revalidate exact admitted origin-map context
-        run: node scripts/prepare-publication-environment.js --environment frozen-release
       - name: Acquire pinned hosted npm from selected Node installation
         shell: bash
         run: node scripts/publication-npm.js acquire
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
-          name: publication-review
+          artifact-ids: ${{ needs.review.outputs.artifact-id }}
+          merge-multiple: true
           path: provider
           digest-mismatch: error
+      - id: staging_history
+        name: Authenticate this attempt before any staging write
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/publication-history.js --admit-attempt frozen-release
+        timeout-minutes: 5
+      - name: Revalidate exact admitted origin-map context
+        run: node scripts/prepare-publication-environment.js --environment frozen-release
       - name: Stage Windows package under pilot
-        if: env.STAGE_WIN32_X64 == 'true'
+        if: steps.staging_history.outputs.admitted == 'true' && env.STAGE_WIN32_X64 == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -285,7 +304,7 @@ jobs:
           node scripts/wait-registry-integrity.js --absent @hadden-industries/markdown-quality-win32-x64 "$RELEASE_VERSION"
           node scripts/stage-release-package.js win32-x64 frozen-release staging-journal
       - name: Stage Linux package under pilot
-        if: env.STAGE_LINUX_X64 == 'true'
+        if: steps.staging_history.outputs.admitted == 'true' && env.STAGE_LINUX_X64 == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -294,10 +313,10 @@ jobs:
           node scripts/wait-registry-integrity.js --absent @hadden-industries/markdown-quality-linux-x64 "$RELEASE_VERSION"
           node scripts/stage-release-package.js linux-x64 frozen-release staging-journal
       - name: Verify both native archives before core staging
-        if: env.STAGE_CORE == 'true'
+        if: steps.staging_history.outputs.admitted == 'true' && env.STAGE_CORE == 'true'
         run: node scripts/qualify-public-registry.mjs --manifest frozen-release/release-manifest.json --provenance --publication-origins frozen-release/publication-origins.json --publication-source "$GITHUB_SHA" --publication-run "$GITHUB_RUN_ID" --publication-attempt "$GITHUB_RUN_ATTEMPT" --recovery-run "$RECOVERY_RUN" --recovery-attempt "$RECOVERY_ATTEMPT" --recovery-origins-sha256 "$RECOVERY_ORIGINS_SHA" --native-only native-before-core.json
       - name: Stage coherent core under pilot
-        if: env.STAGE_CORE == 'true'
+        if: steps.staging_history.outputs.admitted == 'true' && env.STAGE_CORE == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -308,7 +327,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
-          name: publication-source-and-manifest
+          name: publication-source-and-manifest-${{ github.run_attempt }}
           path: |
             provider/*.json
             frozen-release/release-manifest.json

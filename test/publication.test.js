@@ -791,7 +791,11 @@ test("only staging has OIDC; pilot approval and stable promotion remain separate
   for (const name of stagingSteps)
     assert.ok(publisher.includes(`- name: ${name}\n`));
   for (const key of ["WIN32_X64", "LINUX_X64", "CORE"])
-    assert.ok(publisher.includes(`if: env.STAGE_${key} == 'true'`));
+    assert.ok(
+      publisher.includes(
+        `if: steps.staging_history.outputs.admitted == 'true' && env.STAGE_${key} == 'true'`,
+      ),
+    );
   assert.equal(
     (publisher.match(/wait-registry-integrity.js --absent/gu) || []).length,
     3,

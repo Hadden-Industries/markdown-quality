@@ -134,7 +134,8 @@ It uses pinned npm 12.2.0, isolated configuration, disabled lifecycle scripts, e
 It invokes `npm stage publish` once per eligible frozen archive.
 Staging does not run direct publication, automated stage approval, rebuilding or latest promotion.
 
-Retain `publication-source-and-manifest`, especially the manifest, origin map and per-package staging journals.
+Retain `publication-source-and-manifest-ATTEMPT`, especially the manifest, origin map and per-package staging journals.
+The resolver selects the actual staging attempt's immutable artifact and verifies its provider identity and digest; the unsuffixed name remains readable for historical releases.
 The journal records intent before the request, returned stage identity and integrity, or an unknown outcome.
 A green staging run means owner action is pending.
 Use native npm inspection/download and compare the exact version, stage identity and bytes before 2FA approval.
@@ -148,6 +149,15 @@ An unknown request or unavailable attempted version never becomes eligible merel
 Inspect native npm stage state and prior provider evidence first.
 A rejected stage permanently consumes its version under npm's rules; rejected or changed bytes require a new coordinated version.
 Origins distinguish original package source from a later reviewed continuation-control commit.
+
+A workflow retry may make its first staging request after upstream or pre-write failure.
+Admission reads complete, bounded, attempt-specific provider inventories, authenticates the unchanged controller and rechecks all prior dispatches immediately before staging.
+Only when every earlier write step was skipped or the publisher never ran can planned origins move to the current attempt.
+The original admission bytes remain retained, and previously retained package sources, runs and attempts never change.
+Successful prerequisites copied into a partial rerun keep their original execution identities; a newer failed prerequisite cannot be hidden by an older success.
+Any possible prior request requires explicit recovery and exact registry/provenance reconciliation, even if a fresh public registry read returns 404.
+Missing, contradictory, cancelled or incomplete write evidence never grants retry authority.
+Attempt-specific uploads and producer artifact IDs preserve admission and owner-review snapshots across retries without overwriting earlier evidence.
 
 ## Public qualification and immutable archival
 

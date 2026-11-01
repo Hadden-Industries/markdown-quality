@@ -64,13 +64,11 @@ jobs:
         shell: bash
         run: node scripts/download-release-archive.js "$CANDIDATE_RUN" "frozen-release"
         timeout-minutes: 15
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
-        with:
-          name: publication-source-and-manifest
-          path: previous-stage
-          run-id: ${{ inputs.staging-run }}
-          github-token: ${{ github.token }}
-          digest-mismatch: error
+      - name: Acquire the original staging attempt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/publication-artifact.js "$STAGING_RUN" "$STAGING_ATTEMPT" previous-stage
+        timeout-minutes: 15
       - id: admit
         name: Reconcile completed stage and original qualified identities
         env:

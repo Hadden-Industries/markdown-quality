@@ -22,6 +22,7 @@ const producerOnly = new Set([
   "packaging",
   "packed-qualification",
   "publication",
+  "publication-attempts",
   "python-runtime",
   "registry-readback",
   "release-continuation",
