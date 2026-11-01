@@ -2,7 +2,7 @@
 /** Qualify JSON from the actual staged/packed tuple before transporting archives. */
 import { fileURLToPath } from "node:url";
 import { packRelease } from "./pack.js";
-import { runJsonQualityCli } from "../tooling/json/public-api.mjs";
+import { runJsonQualityCli } from "@hadden-industries/json-quality";
 import { provideRepositoryJson } from "./native-json-documents.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));

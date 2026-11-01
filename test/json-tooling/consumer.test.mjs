@@ -12,22 +12,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { fileURLToPath } from "node:url";
 import {
   openJsonRepositorySession,
   formatJsonValue,
   validateJsonQualityEvent,
-  verifyJsonQualityInstallation,
   admitJsonPolicy,
   jsonContract,
-} from "../../tooling/json/public-api.mjs";
+} from "@hadden-industries/json-quality";
 
 async function fixture(t, extra = {}) {
   const root = mkdtempSync(join(tmpdir(), "markdown-json-consumer-"));
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const policy = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     defaults: {
       formatContract: "prettier-json",
       allowFormatWrites: true,
@@ -35,7 +33,7 @@ async function fixture(t, extra = {}) {
     },
     exceptions: [
       {
-        paths: ["node_modules/**", "tooling/json/node_modules/**"],
+        paths: ["node_modules/**", "tooling/*/node_modules/**"],
         owner: "Repository owner",
         reason: "Repository npm installations are excluded",
         exclude: true,
@@ -66,18 +64,6 @@ async function checked(root, options = {}) {
     await session.close();
   }
 }
-
-test("native installed payload and generated bootstrap match their exact source", async () => {
-  await verifyJsonQualityInstallation({
-    toolingRoot: fileURLToPath(new URL("../../tooling/json/", import.meta.url)),
-    bootstrapPath: fileURLToPath(
-      new URL(
-        "../../scripts/installRepositoryQualityTools.mjs",
-        import.meta.url,
-      ),
-    ),
-  });
-});
 
 test("complete read-only verification checks presentation and preserves original numeric bytes", async (t) => {
   const root = await fixture(t),
@@ -122,7 +108,7 @@ test("repository policy keeps release JSON ordinary and preservation limited to 
     policy.exceptions
       .filter((rule) => rule.exclude)
       .flatMap((rule) => rule.paths),
-    ["node_modules/**", "tooling/json/node_modules/**"],
+    ["node_modules/**", "tooling/*/node_modules/**"],
   );
   for (const path of [
     "node_modules/a/node_modules/b/package.json",

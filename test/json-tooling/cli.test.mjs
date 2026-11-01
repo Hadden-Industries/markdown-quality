@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { validateJsonQualityEvent } from "../../tooling/json/public-api.mjs";
+import { validateJsonQualityEvent } from "@hadden-industries/json-quality";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 function cli(args) {

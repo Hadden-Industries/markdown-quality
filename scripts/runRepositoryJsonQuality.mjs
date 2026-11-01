@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import {
   openJsonRepositorySession,
   runJsonQualityCli,
-} from "../tooling/json/public-api.mjs";
+} from "@hadden-industries/json-quality";
 import { provideRepositoryJson } from "./native-json-documents.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));

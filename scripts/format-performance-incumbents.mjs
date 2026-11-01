@@ -8,7 +8,7 @@ import { digest } from "../src/contracts.js";
 import {
   formatJsonSource,
   JSON_TRANSFORM_CAPABILITIES,
-} from "../tooling/json/public-api.mjs";
+} from "@hadden-industries/json-quality";
 import { provideRepositoryJson } from "./native-json-documents.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));

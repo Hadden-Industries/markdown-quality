@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** This tooling-only guard supplements independently owned JSON identity tests. */
-import { jsonQualityEslint } from "./public-api.mjs";
+import jsonQualityEslint from "@hadden-industries/json-quality/eslint";
 
 export default [
   {

@@ -1,8 +1,8 @@
 # JSON development checks
 
-Markdown Quality uses the public `@hadden-industries/json-quality` package in the private [tooling installation](../tooling/json/package.json).
-Its exact registry version is selected only in that manifest and acquired through the package's generated bootstrap and native npm lock.
-Native npm installs its matching optional platform package.
+Markdown Quality declares `@hadden-industries/json-quality` as an ordinary `>=1.0.0-rc.2` devDependency in the root [package.json](../package.json).
+Root `npm ci --ignore-scripts` installs it and its matching optional platform package using the root npm lockfile.
+Npm owns dependency resolution and package integrity, as it does for the other development dependencies.
 It is development tooling, outside product dependencies, exports and npm contents.
 The package's public API owns discovery, parsing, quality rules, formatting, normalization, budgets, guarded writes and streamed completion.
 Repository Python owners supply original admitted compressed/archive bytes and provenance, without implementing a second JSON checker.
@@ -14,7 +14,7 @@ The ten root runtime dependencies were checked against npm's current latest tags
 The source-only adoption does not republish immutable npm 1.0.3.
 
 ```sh
-npm run install:json
+npm ci --ignore-scripts
 npm run inspect:json -- --json
 npm run check:json
 npm run lint:json:identity
@@ -26,7 +26,7 @@ npm run qualify:json:packages
 The retired `inventory`, `lint`, `check-format`, `format-check` and `producers` operations fail without aliases.
 The adapter fixes the repository root.
 
-The isolated engine uses configuration/event cohort 2 and newline-delimited events with `--json`.
+The engine uses configuration/event cohort 3 and newline-delimited events with `--json`.
 The adapter's `openRepositoryJsonSession()` streams `events()`; consume the final `execution-terminal` and close the session in `finally`.
 Whole-document aggregate results and request/response envelopes are retired.
 Supplied bytes use `openJsonSourceSession()` with a trusted source opener and source contract.
@@ -38,18 +38,17 @@ Policy and API `capacityLimits` correspond to CLI `--capacity-limits` / `--no-ca
 For example, `npm run check:json -- --max-file-bytes 67108864 --json` checks the complete scope with a finite source-admission override.
 `capacityLimits: false` / `--no-capacity-limits` removes admission ceilings while preserving finite runtime controls, quality rules and write safeguards; it cannot be combined with individual admission overrides.
 The ordinary managed-memory target remains 32 MiB, with separate finite scratch, nesting, elapsed-time and concurrency controls.
-The generated bootstrap uses `JSON_QUALITY_CAPACITY_LIMITS` for acquisition overrides and `JSON_QUALITY_CLEANUP` for cleanup retry options.
 Use the installed package's `docs/resource-limits.md` for the complete settings and defaults.
 
 `npm run format:json` and `npm run normalize:json` are explicit guarded writers.
 An invalid included peer blocks the batch before otherwise eligible files are changed.
 Native locks, provenance authorities and original archive members remain protected from generic writes.
 Repairs belong in their actual producer, followed by re-admission and quality checking.
-The source identity lint uses the isolated public ESLint rule; semantic object comparisons use structural equality, while the established candidate digest retains its explicitly documented ordered encoding.
+The source identity lint imports the public ESLint rule directly; semantic object comparisons use structural equality, while the established candidate digest retains its explicitly documented ordered encoding.
 
 ## Scope and exact preservation
 
-The owner's directory exclusions cover the root and `tooling/json` npm installation trees, including their nested dependencies.
+The owner's directory exclusion covers npm installation trees, including nested dependencies.
 Archive member identities use their archive path and remain mandatory even when their member name contains `node_modules`.
 Hidden, ignored, untracked, generated, repository-administrative and newly added JSON remains in scope elsewhere.
 Repository-owned tracked installation JSON remains checked and write-protected rather than disappearing behind that exclusion.

@@ -70,7 +70,6 @@
     "check:markdown": "node src/cli.js check --root . --inventory git",
     "graph:dependencies": "node scripts/dependency-graph.js",
     "check:architecture": "node scripts/check-architecture.js",
-    "install:json": "node scripts/installRepositoryQualityTools.mjs json",
     "check:json": "node scripts/runRepositoryJsonQuality.mjs check",
     "inspect:json": "node scripts/runRepositoryJsonQuality.mjs check",
     "format:json": "node scripts/runRepositoryJsonQuality.mjs format",
@@ -113,6 +112,7 @@
   },
   "devDependencies": {
     "@actions/artifact": "^6.3.1",
+    "@hadden-industries/json-quality": ">=1.0.0-rc.2",
     "acorn": ">=8.19.0",
     "dependency-cruiser": ">=18.7.0",
     "micromark": ">=4.0.3",

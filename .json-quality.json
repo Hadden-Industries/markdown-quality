@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "defaults": {
     "formatContract": "prettier-json",
     "allowFormatWrites": true,
@@ -51,16 +51,15 @@
     {
       "paths": [
         "node_modules/**",
-        "tooling/json/node_modules/**"
+        "tooling/*/node_modules/**"
       ],
       "owner": "Repository owner",
-      "reason": "Exclude the repository's two npm installation trees, including their nested dependencies; actual archive members remain mandatory native obligations.",
+      "reason": "Exclude npm installation trees, including nested dependencies; actual archive members remain mandatory native obligations.",
       "exclude": true
     },
     {
       "paths": [
-        "package-lock.json",
-        "tooling/json/package-lock.json"
+        "package-lock.json"
       ],
       "owner": "Native npm lock writer",
       "reason": "npm owns lock bytes and its exact root package key.",

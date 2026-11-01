@@ -14,7 +14,6 @@ Do not assume an unreleased source qualification changes an installed npm releas
 
 ```sh
 npm ci --ignore-scripts
-npm run install:json
 # Use the repository .venv interpreter, or the explicitly activated CI environment.
 .venv/bin/python scripts/acquire-native.py
 npm run check:markdown
@@ -74,11 +73,11 @@ Review any actual formatting diff and rerun the check for convergence.
 
 ## JSON ownership
 
-Use the isolated, source-locked JSON Quality package through `npm run install:json` on supported Node 24 or 26.
+Root `npm ci --ignore-scripts` installs JSON Quality as an ordinary `>=1.0.0-rc.2` devDependency on the supported development runtime.
 Follow [JSON development checks](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/json-quality.md) for complete discovery, protected native evidence, real package qualification and guarded formatting.
-Generic Prettier excludes JSON; `npm run check:full` composes product checks, source identity lint, isolated consumer tests, actual packed JSON and the final complete-root JSON check.
+Generic Prettier excludes JSON; `npm run check:full` composes product checks, source identity lint, consumer tests, actual packed JSON and the final complete-root JSON check.
 `check:product` retains the product suite on Node 22 and future declared product runtimes; it does not claim JSON-tool qualification there.
-Architecture inspection still needs the isolated package's source installation, acquired beforehand on the reference tooling runtime.
+Architecture inspection uses the root development dependencies installed on the reference tooling runtime.
 
 ## Proposals and release boundaries
 

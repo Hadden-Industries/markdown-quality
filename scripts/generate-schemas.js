@@ -81,7 +81,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     assert.equal(process.argv[2], "--write", "Use --check or --write");
     // Writing is a supported-tooling-runtime operation; product schema checks
     // and imports remain dependency-free on every public product runtime.
-    const { formatJsonValue } = await import("../tooling/json/public-api.mjs");
+    const { formatJsonValue } = await import("@hadden-industries/json-quality");
     for (const [name, value] of Object.entries(schemaProjections()))
       writeFileSync(
         join(root, "schemas", `${name}.schema.json`),

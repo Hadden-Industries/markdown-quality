@@ -299,14 +299,6 @@
       "fixture": "test/dry-impact.test.js conservative full fallback seeded failure"
     },
     {
-      "id": "json-acquisition",
-      "dependency": "scripts/installRepositoryQualityTools.mjs",
-      "consumer": "tooling/json/public-api.mjs",
-      "kind": "spawn",
-      "evidence": "Explicit JSON adoption process/resource input",
-      "fixture": "test/json-tooling/consumer.test.mjs and conservative full fallback"
-    },
-    {
       "id": "json-policy",
       "dependency": ".json-quality.json",
       "consumer": "scripts/runRepositoryJsonQuality.mjs",

@@ -11,7 +11,7 @@ Isolated JSON tooling runs on its own supported reference runtime after the prod
 
 ## JSON adoption candidate on 2026-10-15
 
-The source integrates the isolated public JSON Quality engine, complete native/archive admission, guarded source formatting, serialization identity lint and mandatory product/package/CI gates.
+The source integrates the public JSON Quality engine as a root devDependency, complete native/archive admission, guarded source formatting, serialization identity lint and mandatory product/package/CI gates.
 That adoption selected a Node 26 minimum of 26.12.0, superseded by the compatibility qualification above; all ten root runtime dependencies already matched npm's latest versions at the 15 October registry lookup.
 Both repository release JSON documents receive ordinary checks, with no directory-wide historical exemption.
 The [JSON development guide](json-quality.md) records the exact original MPL member preservation and producer ownership.

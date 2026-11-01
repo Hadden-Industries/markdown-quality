@@ -1,5 +1,5 @@
 name: Set up the reference producer
-description: Install policy-owned Node and npm, repository Python, and isolated JSON tooling
+description: Install policy-owned Node and npm, repository Python, and repository dependencies
 runs:
   using: composite
   steps:
@@ -14,9 +14,6 @@ runs:
     - name: Install frozen producer dependencies
       shell: bash
       run: npm ci --ignore-scripts --no-audit --no-fund
-    - name: Install the isolated JSON development toolchain
-      shell: bash
-      run: npm run install:json
     - name: Retain producer executable identities
       shell: bash
       run: npm run ci:producer-toolchain
