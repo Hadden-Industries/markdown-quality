@@ -31,7 +31,7 @@ const supplementalNotices = [
     path: "LICENSES/MIT-natural-compare.txt",
     source:
       "https://github.com/litejs/natural-compare-lite/blob/a8e1e32c85713ba7d079445207a808ce6f4852f9/LICENSE",
-    sha256: "033fcce721de31e5acebd6754b7661d6f8e0ebe0af01dee2e56ffbd5c089ff96",
+    sha256: "353fe762ba595bf1ffe786acf0f5984bb164205901d74f258af195fc8228c67d",
   },
   {
     name: "format",
