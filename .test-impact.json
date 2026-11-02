@@ -35,6 +35,14 @@
   ],
   "relations": [
     {
+      "id": "codeql-approval-model",
+      "dependency": ".github/codeql/",
+      "consumer": "scripts/check-codeql-model.js",
+      "kind": "resource",
+      "evidence": "Native query inventory parity, compilation and protected approval regression fixtures",
+      "fixture": "test/codeql-model.test.js and Security / Validate Actions approval model"
+    },
+    {
       "id": "formatting-generated-formatting",
       "dependency": "src/formatting.js",
       "consumer": "test/formatting.test.js",

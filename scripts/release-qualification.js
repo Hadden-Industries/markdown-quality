@@ -25,6 +25,7 @@ export function releaseQualificationJobNames(matrix, policy) {
     "native / Validate win32-x64",
     "native / Validate linux-x64",
     ...candidates.map((name) => `product / ${name}`),
+    "scans / Validate Actions approval model",
     ...["actions", "javascript-typescript", "python"].map(
       (language) => `scans / Scan ${language}`,
     ),

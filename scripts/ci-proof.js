@@ -27,6 +27,7 @@ export function jobNames(matrix) {
   return [
     "Candidate policy",
     "Dependencies",
+    "CodeQL / Validate Actions approval model",
     "CodeQL / Scan actions",
     "CodeQL / Scan javascript-typescript",
     "CodeQL / Scan python",

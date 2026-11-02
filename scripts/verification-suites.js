@@ -8,6 +8,7 @@ const producerOnly = new Set([
   "ci-observation",
   "ci-result",
   "ci-consumer",
+  "codeql-model",
   "dependency-graph",
   "dependency-impact-cleanup",
   "distribution-sbom",

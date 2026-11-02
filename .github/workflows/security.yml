@@ -7,8 +7,27 @@ on:
 permissions:
   contents: read
 jobs:
+  model:
+    name: Validate Actions approval model
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-producer
+      - uses: github/codeql-action/setup-codeql@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
+        id: tools
+        with:
+          languages: actions
+      - name: Preserve native rules and test approval boundaries
+        env:
+          CODEQL: ${{ steps.tools.outputs.codeql-path }}
+          MODEL_TEMP: ${{ runner.temp }}
+        run: node scripts/check-codeql-model.js "$CODEQL" "$MODEL_TEMP"
   codeql:
     name: Scan ${{ matrix.language }}
+    needs: model
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     strategy:
@@ -29,6 +48,7 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: none
+          config-file: ${{ matrix.language == 'actions' && './.github/codeql/actions-config.yml' || '' }}
       - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         with:
           category: /language:${{ matrix.language }}

@@ -43,6 +43,7 @@ const releaseJobNames = [
   ),
   "product / Complete runtime qualification",
   "scans / Scan actions",
+  "scans / Validate Actions approval model",
   "scans / Scan javascript-typescript",
   "scans / Scan python",
   "security",
@@ -251,6 +252,7 @@ for (const gate of [
   "product / Complete runtime qualification",
   "scans / Scan python",
   `product / Qualify ${runtimeMatrix.os[0]} / Node ${nodeSupport.minimum}`,
+  "scans / Validate Actions approval model",
 ])
   test(`release admission rejects omitted, skipped or stale ${gate}`, (t) => {
     const { input } = fixture(t);

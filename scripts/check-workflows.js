@@ -80,6 +80,24 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
       `./.github/workflows/${name}`,
       read(`.github/workflows/${name}`),
     );
+  const security = workflows.get("./.github/workflows/security.yml");
+  assert.equal(security.jobs.codeql.needs, "model");
+  assert.equal(security.jobs.model.name, "Validate Actions approval model");
+  assert.ok(
+    security.jobs.model.steps.some(
+      (step) =>
+        step.run ===
+          'node scripts/check-codeql-model.js "$CODEQL" "$MODEL_TEMP"' &&
+        !step.if &&
+        !step["continue-on-error"],
+    ),
+  );
+  assert.equal(
+    security.jobs.codeql.steps.find((step) =>
+      step.uses?.includes("codeql-action/init@"),
+    )?.with?.["config-file"],
+    "${{ matrix.language == 'actions' && './.github/codeql/actions-config.yml' || '' }}",
+  );
   const shared = workflows.get("./.github/workflows/markdown-quality.yml");
   assert.equal(shared.jobs.qualify.needs, "request");
   assert.equal(
