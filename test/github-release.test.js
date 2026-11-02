@@ -26,6 +26,7 @@ import { prepareGithubRelease } from "../scripts/prepare-github-release.js";
 import { native } from "../scripts/commands.js";
 import { deliverRelease, gitSource } from "../scripts/github-release.js";
 import { bindStagingReconciliation } from "../scripts/release-staging-evidence.js";
+import { pythonTarget } from "../scripts/python-target.js";
 
 const cwd = fileURLToPath(new URL("../", import.meta.url));
 function fixture(t, current = true) {
@@ -278,7 +279,7 @@ function fixture(t, current = true) {
                 ? {
                     performance: {
                       schemaVersion: 1,
-                      python: "3.15.0",
+                      python: pythonTarget(),
                       corpora: Object.fromEntries(
                         ["owlapi", "webvowl"].map((name) => [
                           name,
