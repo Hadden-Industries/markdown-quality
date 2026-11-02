@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { parse, stringify } from "yaml";
 
 /** Generate deliberately unsafe workflows only outside the analyzed checkout. */
 export function prepareCodeqlModelTests(pack, output) {
@@ -12,10 +13,51 @@ export function prepareCodeqlModelTests(pack, output) {
   const fixture = (name) =>
     readFileSync(join(pack, "fixtures", name + ".yml.fixture"), "utf8");
   const base = fixture("shared");
+  // Keep an exact production-shaped positive case alongside isolated mutations.
+  const production = parse(
+    readFileSync(join(pack, "../../workflows/markdown-quality.yml"), "utf8"),
+  );
+  const steps = production.jobs.qualify.steps;
+  const checkout = steps.find((step) => step.with?.path === "trusted");
+  const upload = steps.find(
+    (step) => step.uses === "./producer/.github/actions/upload-evidence",
+  );
+  assert.ok(checkout && upload);
+  checkout.id = "trusted";
+  upload.id = "upload";
   const guard =
     "      - id: admission\n        run: node producer/scripts/shared-qualification-admission.js verify\n";
   const cases = [
     { name: "approved", expected: "protected", edits: [] },
+    {
+      name: "repository_workflow",
+      expected: "protected",
+      edits: [],
+      source: stringify(production),
+      caller: readFileSync(
+        join(pack, "../../workflows/qualification-fixture.yml"),
+        "utf8",
+      ),
+    },
+    {
+      name: "mapped_environment",
+      expected: "protected",
+      edits: [
+        [
+          "    environment: markdown-quality-trusted-qualification\n",
+          "    environment:\n      name: markdown-quality-trusted-qualification\n      url: https://github.com/example/repository/actions/runs/1\n",
+        ],
+      ],
+    },
+    {
+      name: "empty_mapped_environment",
+      edits: [
+        [
+          "    environment: markdown-quality-trusted-qualification\n",
+          "    environment:\n      name: ''\n",
+        ],
+      ],
+    },
     {
       name: "checkout_after_failed_admission",
       edits: [
@@ -173,7 +215,7 @@ export function prepareCodeqlModelTests(pack, output) {
     { name: "missing_request", edits: [["    needs: request\n", ""]] },
   ];
   for (const fixtureCase of cases) {
-    let source = base;
+    let source = fixtureCase.source ?? base;
     for (const [before, after, all = false] of fixtureCase.edits) {
       const count = source.split(before).length - 1;
       assert.ok(
@@ -188,7 +230,7 @@ export function prepareCodeqlModelTests(pack, output) {
     mkdirSync(join(directory, ".github/workflows"), { recursive: true });
     writeFileSync(
       join(directory, ".github/workflows/caller.yml"),
-      fixture("caller"),
+      fixtureCase.caller ?? fixture("caller"),
     );
     writeFileSync(
       join(directory, ".github/workflows/markdown-quality.yml"),

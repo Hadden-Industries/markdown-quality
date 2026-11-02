@@ -7,6 +7,23 @@
 import actions
 import codeql.actions.security.ControlChecks
 private import codeql.actions.ast.internal.Ast as Internal
+private import codeql.actions.ast.internal.Yaml as InternalYaml
+
+private predicate hasDeclaredEnvironment(Job job) {
+  exists(InternalYaml::YamlString name |
+    (
+      name = job.(Internal::JobImpl).getNode().lookup("environment")
+      or
+      name =
+        job.(Internal::JobImpl)
+            .getNode()
+            .lookup("environment")
+            .(InternalYaml::YamlMapping)
+            .lookup("name")
+    ) and
+    name.getValue().trim() != ""
+  )
+}
 
 bindingset[scalar, expression]
 private predicate exactExpression(string scalar, string expression) {
@@ -52,7 +69,7 @@ class QualificationAdmission extends ControlCheck instanceof Run {
     not exists(this.(Internal::RunImpl).getNode().lookup("continue-on-error")) and
     this.(Run).getWorkingDirectory() = "GITHUB_WORKSPACE/" and
     not exists(this.getInScopeDefaultValue("run", "working-directory")) and
-    exists(this.getEnclosingJob().getEnvironment()) and
+    hasDeclaredEnvironment(this.getEnclosingJob()) and
     immutableProducerBefore(this.(Run)) and
     reviewedInputs(this.(Run)) and
     exists(LocalJob request, Run summary |

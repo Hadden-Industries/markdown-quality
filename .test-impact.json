@@ -35,6 +35,22 @@
   ],
   "relations": [
     {
+      "id": "codeql-production-workflow-fixture",
+      "dependency": ".github/workflows/markdown-quality.yml",
+      "consumer": "scripts/codeql-model-fixtures.js",
+      "kind": "resource",
+      "evidence": "The native positive fixture reads the actual shared workflow, including environment and input syntax",
+      "fixture": "Security / Validate Actions approval model repository_workflow"
+    },
+    {
+      "id": "codeql-production-caller-fixture",
+      "dependency": ".github/workflows/qualification-fixture.yml",
+      "consumer": "scripts/codeql-model-fixtures.js",
+      "kind": "resource",
+      "evidence": "The native positive fixture reads the actual manual caller and reusable workflow pairing",
+      "fixture": "Security / Validate Actions approval model repository_workflow"
+    },
+    {
       "id": "codeql-approval-model",
       "dependency": ".github/codeql/",
       "consumer": "scripts/check-codeql-model.js",
