@@ -8,6 +8,60 @@ import { consumer } from "./helpers.js";
 import { createRequire } from "node:module";
 import { micromark } from "micromark";
 import { math, mathHtml } from "micromark-extension-math";
+import { spawnSync } from "node:child_process";
+
+test("minimatch remains above the independent advisory floor in the lock and ESLint consumers", () => {
+  const lock = JSON.parse(
+    readFileSync(new URL("../package-lock.json", import.meta.url)),
+  );
+  const versions = Object.entries(lock.packages)
+    .filter(([path]) => path.endsWith("node_modules/minimatch"))
+    .map(([, value]) => value.version);
+  assert.ok(versions.length > 0);
+  const requireEslint = createRequire(import.meta.resolve("eslint"));
+  const requireConfig = createRequire(
+    requireEslint.resolve("@eslint/config-array"),
+  );
+  for (const require of [requireEslint, requireConfig])
+    versions.push(
+      JSON.parse(readFileSync(require.resolve("minimatch/package.json")))
+        .version,
+    );
+  for (const version of versions) {
+    assert.match(version, /^\d+\.\d+\.\d+$/u);
+    const [major, minor, patch] = version.split(".").map(Number);
+    assert.ok(
+      major > 11 || (major === 11 && (minor > 0 || patch >= 1)),
+      version,
+    );
+  }
+});
+
+test("minimatch bounds globparts amplification and preserves ordinary level-two matching", () => {
+  const program = `
+    const assert = require('node:assert/strict');
+    const {Minimatch} = require(process.argv[1]);
+    const optimizationLevel = 2;
+    const pattern = Array(30).fill('**/../a/b').join('/');
+    assert.equal(new Minimatch(pattern, {optimizationLevel, braceExpandMax: 64}).set.length, 64);
+    const ordinary = new Minimatch('**/../a/b/**/../c/d', {optimizationLevel});
+    assert.equal(ordinary.set.length, 4);
+    assert.equal(ordinary.match('../a/b/../c/d'), true);
+    assert.equal(ordinary.match('x/a/b/y/c/d'), true);
+    const alternate = new Minimatch('{x,*}/{0..999}', {optimizationLevel});
+    assert.equal(alternate.set.length, 2000);
+    assert.equal(alternate.match('x/5'), true);
+    assert.equal(alternate.match('.y/5'), false);
+  `;
+  const requireEslint = createRequire(import.meta.resolve("eslint"));
+  const result = spawnSync(
+    process.execPath,
+    ["-e", program, requireEslint.resolve("minimatch")],
+    { encoding: "utf8", timeout: 10000, windowsHide: true },
+  );
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stderr);
+});
 
 test("qualification and publication Actions retain credential and archive boundaries", () => {
   for (const workflow of [

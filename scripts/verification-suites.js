@@ -31,6 +31,7 @@ const producerOnly = new Set([
   "release-staging",
   "release-runtime",
   "source-policy",
+  "shared-qualification-admission",
   "test-outcomes",
   "ci-proof",
   "evidence-transport",

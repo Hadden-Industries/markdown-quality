@@ -9,6 +9,13 @@ import { readExecutionProfile } from "../src/execution-profile.js";
 import { safePath } from "../src/configuration.js";
 import { digest, fail } from "../src/contracts.js";
 import { npmCommand } from "./commands.js";
+import { admitSharedQualification } from "./shared-qualification-admission.js";
+
+if (process.argv[2] === "run") {
+  await admitSharedQualification();
+  delete process.env.GH_TOKEN;
+  delete process.env.GITHUB_TOKEN;
+}
 
 const trustedRoot = resolve(process.env.MQ_TRUSTED_ROOT);
 const profile = readExecutionProfile({

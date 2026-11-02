@@ -160,6 +160,11 @@ The required sample count and nearest-rank observed p95 derive from the same pro
 Call `.github/workflows/markdown-quality.yml` at the full SHA of the qualified producer revision.
 It accepts trusted/candidate repository and full SHA inputs plus the profile path.
 Its immutable actions acquire separate trusted/candidate checkouts without persisted credentials.
+The caller grants `contents: read` and `actions: read` and configures the `markdown-quality-trusted-qualification` environment with required owner reviewers and administrator bypass disabled.
+The request job shows the exact trusted repository/SHA/profile, candidate identity and paired producer before either platform job can start.
+The reviewer must inspect the profile's locked core/native archive graph: approval authorizes executing that trusted graph, while candidate content remains data only.
+The driver checks the live protection rules and this run's native approval history before acquisition/import; a missing or automatically created unprotected environment fails closed.
+Each caller repository owns its reviewers; the environment supplies no publication authority and needs no secrets.
 The producer-owned bootstrap reader supplies the exact Node/Python values to setup actions; callers do not duplicate budgets in workflow inputs.
 The trusted toolchain must already contain the latest-commit artifact tuple paired with that called workflow SHA.
 The workflow uses GitHub's `job.workflow_*` fields for its own repository/ref/SHA and retains caller identity separately.

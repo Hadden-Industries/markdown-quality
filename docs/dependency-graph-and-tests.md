@@ -47,6 +47,9 @@ flowchart LR
   accepted["assets/native-build.json"] --> native["Controlled native build and freeze"]
   next["scripts/native-build-next.json"] --> native
   native --> candidate["Candidate artifacts awaiting separate qualification"]
+  request["Exact trusted repository, SHA, profile and producer"] --> approval["Protected owner approval"]
+  approval --> shared["Shared trusted graph execution"]
+  data["Candidate repository data"] --> shared
 ```
 
 ## Enforce architecture and inspect focused reports
