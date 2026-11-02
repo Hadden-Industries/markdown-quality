@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { npmCommand } from "./commands.js";
+import { producerNpmCommand } from "./commands.js";
 import { readOwned, safePath, sha256, limits } from "./dependency-graph.js";
 
 export const bundleInventoryPath = "assets/bundled-dependencies.json";
@@ -74,7 +74,7 @@ export function stageBundledDependencies(root, core, metadata) {
   delete acquisition.bundleDependencies;
   writeFileSync(join(core, "package.json"), JSON.stringify(acquisition) + "\n");
   writeFileSync(join(core, "package-lock.json"), lockBytes);
-  npmCommand(
+  producerNpmCommand(
     [
       "ci",
       "--offline",
@@ -151,7 +151,7 @@ export function stageBundledDependencies(root, core, metadata) {
     JSON.stringify(metadata, null, 2) + "\n",
   );
   const response = JSON.parse(
-    npmCommand(["pack", "--dry-run", "--json", "--ignore-scripts"], {
+    producerNpmCommand(["pack", "--dry-run", "--json", "--ignore-scripts"], {
       cwd: core,
     }),
   );

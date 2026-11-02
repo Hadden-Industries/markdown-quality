@@ -78,7 +78,21 @@ test("one producer owns packing and both ordinary and release qualification use 
     "${{ needs.producer.outputs.archive-id }}",
   );
   const steps = q.jobs.qualification.steps;
-  assert.ok(steps.some((s) => s.run === "node scripts/verify.js --runtime"));
+  const runtime = steps.find(
+    (s) => s.run === "node scripts/verify.js --runtime",
+  );
+  assert.ok(runtime);
+  assert.equal(
+    runtime.env.MARKDOWN_QUALITY_CONSUMER_NPM,
+    "${{ runner.temp }}/consumer-npm/node_modules/npm/bin/npm-cli.js",
+  );
+  const acquireNpm = steps.find(
+    (s) => s.name === "Provision floor-compatible consumer npm",
+  );
+  assert.equal(
+    acquireNpm.env.CONSUMER_NPM,
+    "${{ needs.producer.outputs.consumer-npm }}",
+  );
   const consumer = steps.find(
     (s) => s.name === "Qualify original archives in root and isolated layouts",
   );
@@ -230,6 +244,11 @@ test("public trusted workflow retains its data-only inputs and evidence retentio
   ])
     assert.ok(shared.on.workflow_call.inputs[input]);
   const steps = shared.jobs.qualify.steps;
+  const bootstrap = steps.find((step) =>
+    step.uses?.startsWith("actions/setup-node@"),
+  );
+  assert.equal(bootstrap.with["node-version-file"], "producer/.node-version");
+  assert.equal(bootstrap.with["node-version"], undefined);
   assert.ok(
     steps.some(
       (s) => s.run === "node producer/scripts/shared-qualification.mjs run",

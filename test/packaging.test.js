@@ -15,7 +15,11 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { packRelease } from "../scripts/pack.js";
-import { npmCommand } from "../scripts/commands.js";
+import {
+  native as nativeCommand,
+  npmCommand,
+  producerToolchain,
+} from "../scripts/commands.js";
 import { checkLinks } from "../src/analysis.js";
 import { digest } from "../src/contracts.js";
 import { qualifyRuntime } from "../scripts/qualify-runtime.js";
@@ -50,6 +54,15 @@ test("packed root and isolated consumers install without lifecycle scripts and e
   );
   const output = join(temp, "archives"),
     release = phase("pack archives", () => packRelease(output));
+  const producer = producerToolchain();
+  assert.equal(
+    release.build.npm,
+    nativeCommand(producer.executable, [producer.cli, "--version"]).trim(),
+  );
+  assert.equal(
+    release.build.node,
+    nativeCommand(producer.executable, ["--version"]).trim(),
+  );
   const native = release.archives.find(
     (a) => a.name === `${process.platform}-${process.arch}`,
   );

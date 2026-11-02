@@ -12,7 +12,15 @@ test("bundle acquisition installs only its declared closure while preserving rec
   const producer = JSON.parse(
     readFileSync(join(repositoryRoot, "package.json")),
   );
-  const { metadata } = stageCore(repositoryRoot, core);
+  const before = process.env.MARKDOWN_QUALITY_CONSUMER_NPM;
+  let metadata;
+  try {
+    process.env.MARKDOWN_QUALITY_CONSUMER_NPM = "missing-consumer-npm-cli.js";
+    ({ metadata } = stageCore(repositoryRoot, core));
+  } finally {
+    if (before === undefined) delete process.env.MARKDOWN_QUALITY_CONSUMER_NPM;
+    else process.env.MARKDOWN_QUALITY_CONSUMER_NPM = before;
+  }
   for (const name of ["prettier", "ajv", "dependency-cruiser"])
     assert.equal(existsSync(join(core, "node_modules", name)), false, name);
   assert.equal(

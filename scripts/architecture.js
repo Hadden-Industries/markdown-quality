@@ -13,7 +13,7 @@ import {
   limits,
 } from "./dependency-graph.js";
 import { stageCore } from "./core-package-stage.js";
-import { npmCommand } from "./commands.js";
+import { producerNpmCommand } from "./commands.js";
 import { verifyBundledShipment } from "./bundled-dependencies.js";
 
 /** Validate native npm membership and source/stage equality without resolving imports again. */
@@ -80,7 +80,7 @@ export function checkArchitecture(root = repositoryRoot) {
     const core = join(stage, "core");
     const { metadata, sourceIdentity } = stageCore(root, core);
     const response = JSON.parse(
-      npmCommand(["pack", "--dry-run", "--json", "--ignore-scripts"], {
+      producerNpmCommand(["pack", "--dry-run", "--json", "--ignore-scripts"], {
         cwd: core,
       }),
     );

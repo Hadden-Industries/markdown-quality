@@ -6,7 +6,7 @@ import { once } from "node:events";
 import { writeFileSync, readFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { consumer } from "./helpers.js";
-import { npmCommand } from "../scripts/commands.js";
+import { npmCommand, producerNpmCommand } from "../scripts/commands.js";
 
 /** Own the server until consumption finishes, before test filesystem cleanup. */
 async function withFixtureServer(source, args, consume) {
@@ -141,7 +141,9 @@ test("a stalled registry read retries within the unchanged install deadline", as
     JSON.stringify({ name: "mq-network-fixture", version: "1.0.0" }),
   );
   const packed = JSON.parse(
-    npmCommand(["pack", "--json", "--ignore-scripts"], { cwd: fixture }),
+    producerNpmCommand(["pack", "--json", "--ignore-scripts"], {
+      cwd: fixture,
+    }),
   );
   const archive = (Array.isArray(packed) ? packed : Object.values(packed))[0];
   await withFixtureServer(

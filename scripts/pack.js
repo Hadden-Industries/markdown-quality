@@ -13,7 +13,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { npmCommand } from "./commands.js";
+import { native, producerNpmCommand, producerToolchain } from "./commands.js";
 import { digest, metadata } from "../src/contracts.js";
 import { manifest } from "../src/native-tool.js";
 import { nodeSupport, candidateJobNames } from "./node-matrix.js";
@@ -78,7 +78,7 @@ export function packRelease(output, qualificationMatrix) {
       ["core", core],
     ]) {
       const response = JSON.parse(
-        npmCommand(
+        producerNpmCommand(
           ["pack", "--ignore-scripts", "--json", "--pack-destination", output],
           { cwd },
         ),
@@ -150,7 +150,7 @@ export function packRelease(output, qualificationMatrix) {
       });
     }
     const sbom = JSON.parse(
-      npmCommand(
+      producerNpmCommand(
         [
           "sbom",
           "--sbom-format",
@@ -174,8 +174,8 @@ export function packRelease(output, qualificationMatrix) {
         ...sourceIdentity,
       },
       build: {
-        node: process.version,
-        npm: npmCommand(["--version"]).trim(),
+        node: native(producerToolchain().executable, ["--version"]).trim(),
+        npm: producerNpmCommand(["--version"]).trim(),
         platform: process.platform,
         arch: process.arch,
         lifecycleScripts: "disabled",
