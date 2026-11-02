@@ -62,6 +62,10 @@ The checking process must not inherit checkout write credentials, npm configurat
 Trusted policy review is required for any change to required scope or exclusions.
 
 The owner accepted a manual trusted-run boundary for the two pilots on 2026-10-05.
+Shared qualification now additionally requires owner approval of its exact request through the protected `markdown-quality-trusted-qualification` environment before the trusted graph executes.
+Required reviewers and disabled administrator bypass are checked live, together with this workflow run's approval history; a named but unprotected environment does not authorize execution.
+The [Actions analysis model](https://github.com/Hadden-Industries/markdown-quality/blob/main/.github/codeql/README.md) recognizes this exact admission sequence for manual workflows while preserving the native rule inventory and unchanged zero-result release gates.
+The request summary identifies the reviewed trusted commit/profile and paired producer, plus the candidate commit; changing those inputs creates a new workflow run requiring approval.
 GitHub required checks select a name/context and App identity, not a workflow revision or event.
 App 15368 identifies GitHub Actions, including candidate-controlled jobs.
 Preserve OwlAPI's `CI / required` and WebVOWL's `WebVOWL application`, `Dependency review`, and `CodeQL gate` required checks.

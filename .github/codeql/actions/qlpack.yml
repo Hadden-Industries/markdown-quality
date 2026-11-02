@@ -1,0 +1,9 @@
+name: hadden-industries/markdown-quality-actions-queries
+version: 0.0.1
+library: false
+extractor: actions
+dependencies:
+  codeql/actions-all: 0.7.0
+  codeql/actions-queries: 0.6.38
+defaultSuiteFile: actions.qls
+tests: tests

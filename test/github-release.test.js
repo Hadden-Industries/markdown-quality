@@ -206,6 +206,7 @@ function fixture(t, current = true) {
       ),
       "product / Complete runtime qualification",
       "scans / Scan actions",
+      "scans / Validate Actions approval model",
       "scans / Scan javascript-typescript",
       "scans / Scan python",
       "security",

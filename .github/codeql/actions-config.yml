@@ -1,0 +1,4 @@
+name: Full native Actions suite with verified qualification admission
+disable-default-queries: true
+queries:
+  - uses: ./.github/codeql/actions/actions.qls

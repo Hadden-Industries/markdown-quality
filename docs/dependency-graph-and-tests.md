@@ -47,6 +47,12 @@ flowchart LR
   accepted["assets/native-build.json"] --> native["Controlled native build and freeze"]
   next["scripts/native-build-next.json"] --> native
   native --> candidate["Candidate artifacts awaiting separate qualification"]
+  request["Exact trusted repository, SHA, profile and producer"] --> approval["Protected owner approval"]
+  approval --> shared["Shared trusted graph execution"]
+  data["Candidate repository data"] --> shared
+  model["Actions approval model and stock queries"] --> modeltest["Native QL fixtures and rule parity"]
+  modeltest --> scans["Three required CodeQL language scans"]
+  scans --> release["Zero raw findings release gate"]
 ```
 
 ## Enforce architecture and inspect focused reports

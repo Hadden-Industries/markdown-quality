@@ -1,0 +1,60 @@
+name: Shared qualification model fixture
+on:
+  workflow_call:
+    inputs:
+      trusted-sha:
+        type: string
+        required: true
+      candidate-sha:
+        type: string
+        required: true
+      trusted-repository:
+        type: string
+        required: true
+      candidate-repository:
+        type: string
+        required: true
+      profile:
+        type: string
+        required: true
+permissions:
+  contents: read
+env:
+  MQ_TRUSTED_SHA: ${{ inputs.trusted-sha }}
+  MQ_TRUSTED_REPOSITORY: ${{ inputs.trusted-repository }}
+  MQ_CANDIDATE_SHA: ${{ inputs.candidate-sha }}
+  MQ_CANDIDATE_REPOSITORY: ${{ inputs.candidate-repository }}
+  MQ_PROFILE: ${{ inputs.profile }}
+jobs:
+  request:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: producer
+          persist-credentials: false
+      - run: node producer/scripts/shared-qualification-admission.js request
+  qualify:
+    needs: request
+    environment: markdown-quality-trusted-qualification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: producer
+          persist-credentials: false
+      - id: admission
+        run: node producer/scripts/shared-qualification-admission.js verify
+      - id: trusted
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ inputs.trusted-repository }}
+          ref: ${{ inputs.trusted-sha }}
+          path: trusted
+          persist-credentials: false
+      - id: upload
+        uses: ./producer/.github/actions/upload-evidence

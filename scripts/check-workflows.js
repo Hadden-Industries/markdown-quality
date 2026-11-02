@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseDocument } from "yaml";
 import { budgets } from "./qualification-budgets.js";
+import { qualificationEnvironment } from "./shared-qualification-admission.js";
 
 const repository = fileURLToPath(new URL("../", import.meta.url));
 const transferBudgets = new Map([
@@ -79,6 +80,55 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
       `./.github/workflows/${name}`,
       read(`.github/workflows/${name}`),
     );
+  const security = workflows.get("./.github/workflows/security.yml");
+  assert.equal(security.jobs.codeql.needs, "model");
+  assert.equal(security.jobs.model.name, "Validate Actions approval model");
+  assert.ok(
+    security.jobs.model.steps.some(
+      (step) =>
+        step.run ===
+          'node scripts/check-codeql-model.js "$CODEQL" "$MODEL_TEMP"' &&
+        !step.if &&
+        !step["continue-on-error"],
+    ),
+  );
+  assert.equal(
+    security.jobs.codeql.steps.find((step) =>
+      step.uses?.includes("codeql-action/init@"),
+    )?.with?.["config-file"],
+    "${{ matrix.language == 'actions' && './.github/codeql/actions-config.yml' || '' }}",
+  );
+  const shared = workflows.get("./.github/workflows/markdown-quality.yml");
+  assert.equal(shared.jobs.qualify.needs, "request");
+  assert.equal(
+    shared.jobs.qualify.environment?.name,
+    qualificationEnvironment,
+    "Shared qualification must require owner approval before checkout execution",
+  );
+  const sharedSteps = shared.jobs.qualify.steps;
+  const approval = sharedSteps.findIndex(
+    (step) =>
+      step.run ===
+      "node producer/scripts/shared-qualification-admission.js verify",
+  );
+  const trusted = sharedSteps.findIndex(
+    (step) => step.with?.path === "trusted",
+  );
+  assert.ok(
+    approval >= 0 && approval < trusted,
+    "Live approval protection must be checked before caller-selected checkouts",
+  );
+  assert.ok(
+    shared.jobs.request.steps.some(
+      (step) =>
+        step.run ===
+        "node producer/scripts/shared-qualification-admission.js request",
+    ),
+  );
+  for (const job of Object.values(shared.jobs))
+    for (const step of job.steps ?? [])
+      if (step.uses?.startsWith("actions/setup-node@"))
+        assert.equal(step.with?.["package-manager-cache"], false);
   function inputs(path, supplied, declared = {}) {
     for (const key of Object.keys(supplied ?? {}))
       assert.ok(

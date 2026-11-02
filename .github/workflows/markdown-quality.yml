@@ -23,8 +23,41 @@ on:
         default: false
 permissions:
   contents: read
+  actions: read
+env:
+  MQ_TRUSTED_REPOSITORY: ${{ inputs.trusted-repository }}
+  MQ_CANDIDATE_REPOSITORY: ${{ inputs.candidate-repository }}
+  MQ_TRUSTED_ROOT: ${{ github.workspace }}/trusted
+  MQ_CANDIDATE_ROOT: ${{ github.workspace }}/candidate
+  MQ_TRUSTED_SHA: ${{ inputs.trusted-sha }}
+  MQ_CANDIDATE_SHA: ${{ inputs.candidate-sha }}
+  MQ_PROFILE: ${{ inputs.profile }}
 jobs:
+  request:
+    name: Review exact trusted qualification request
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: producer
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: producer/.node-version
+          package-manager-cache: false
+      - name: Show immutable inputs before owner approval
+        env:
+          MQ_WORKFLOW_SHA: ${{ job.workflow_sha }}
+          MQ_WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
+        run: node producer/scripts/shared-qualification-admission.js request
   qualify:
+    needs: request
+    environment:
+      name: markdown-quality-trusted-qualification
+      url: ${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}
     strategy:
       fail-fast: false
       matrix:
@@ -36,12 +69,6 @@ jobs:
     defaults:
       run:
         shell: pwsh
-    env:
-      MQ_TRUSTED_ROOT: ${{ github.workspace }}/trusted
-      MQ_CANDIDATE_ROOT: ${{ github.workspace }}/candidate
-      MQ_TRUSTED_SHA: ${{ inputs.trusted-sha }}
-      MQ_CANDIDATE_SHA: ${{ inputs.candidate-sha }}
-      MQ_PROFILE: ${{ inputs.profile }}
     steps:
       - name: Validate exact checkout identities
         env:
@@ -62,15 +89,10 @@ jobs:
           ref: ${{ job.workflow_sha }}
           path: producer
           persist-credentials: false
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          repository: ${{ inputs.trusted-repository }}
-          ref: ${{ inputs.trusted-sha }}
-          path: trusted
-          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version-file: producer/.node-version
+          package-manager-cache: false
       - name: Acquire immutable producer bootstrap graph
         working-directory: producer
         shell: bash
@@ -79,6 +101,16 @@ jobs:
         working-directory: producer
         run: npm ci --ignore-scripts --no-audit --no-fund
         timeout-minutes: 5
+      - name: Verify required reviewers and this run's owner approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node producer/scripts/shared-qualification-admission.js verify
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ inputs.trusted-repository }}
+          ref: ${{ inputs.trusted-sha }}
+          path: trusted
+          persist-credentials: false
       - id: profile
         name: Read shared trusted runtime/profile declarations
         run: |
@@ -88,6 +120,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ steps.profile.outputs.node }}
+          package-manager-cache: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ steps.profile.outputs.python }}
@@ -108,6 +141,8 @@ jobs:
           path: candidate
           persist-credentials: false
       - name: Acquire trusted graph and qualify candidate data
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: node producer/scripts/shared-qualification.mjs run
       - name: Package compact qualification evidence
         if: always()

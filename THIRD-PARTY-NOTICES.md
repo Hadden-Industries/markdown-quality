@@ -30,6 +30,8 @@ The exact developer dependency graph and its integrity identities are frozen in 
 Acorn 8.19.0 is explicitly declared for the conservative syntax guard; its installed MIT notice credits the contributors listed in its AUTHORS file.
 micromark 4.0.3 and micromark-extension-math 3.1.0 are explicitly declared for security regression tests; their installed MIT notices credit Titus Wormer.
 Developer scripts and analyzer code are excluded from consumer archives and runtime dependencies; packed development metadata can remain visible.
+The development-only Actions cache-poisoning query copies GitHub CodeQL at commit `a1575b98a8cc19bcfa7bb6cb41be688cb3dae65c` under its original MIT terms, retained in `.github/codeql/actions/LICENSE-MIT.txt`.
+Its stock query metadata and body are unchanged except for importing the repository's approval model; the complete stock rule inventory remains mandatory.
 This personal development adoption does not claim organizational rights clearance or change the package's AGPL-3.0-only terms.
 The directly adopted front-matter extensions retain their original MIT copyright and permission notices in their installed `license` files.
 Their terms permit use, modification and distribution subject to retaining those notices; this implementation imports them without vendoring or changing their source.

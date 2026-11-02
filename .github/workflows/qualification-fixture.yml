@@ -12,6 +12,7 @@ on:
         required: true
 permissions:
   contents: read
+  actions: read
 jobs:
   shared:
     uses: ./.github/workflows/markdown-quality.yml
