@@ -32,17 +32,28 @@ jobs:
         run: git config --global core.autocrlf false
       - uses: ./.github/actions/setup-python
       - name: Inspect selected build input
-        id: build-input
         env:
           BUILD_CONFIG: ${{ inputs.build-config }}
-        run: python scripts/build-native.py --config "$BUILD_CONFIG" --describe-config --github-output "$GITHUB_OUTPUT"
+        run: python scripts/build-native.py --config "$BUILD_CONFIG" --describe-config
         shell: bash
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      # native-source-checkouts:start
+      - name: Check out native source for assets/native-build.json
+        if: inputs.build-config == 'assets/native-build.json'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: TurtleTech-ehf/snapper
-          ref: ${{ steps.build-input.outputs.source-commit }}
+          ref: 407c2beb04607f6ccb421e6f6418dcc00e4c1e94
           path: native-source
           persist-credentials: false
+      - name: Check out native source for scripts/native-build-next.json
+        if: inputs.build-config == 'scripts/native-build-next.json'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: TurtleTech-ehf/snapper
+          ref: 8981607b484dd123b5e4bec00dd6415e5725aff9
+          path: native-source
+          persist-credentials: false
+      # native-source-checkouts:end
       - name: Build frozen source and collect rights evidence
         env:
           BUILD_CONFIG: ${{ inputs.build-config }}

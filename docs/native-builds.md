@@ -15,9 +15,11 @@ Direct probes of the verified 0.11.10 Windows release still reproduce that failu
 The [workflow](../.github/workflows/native.yml) runs on Windows 2022 x64 and Ubuntu 24.04 x64 with a 60-minute job limit.
 It uses pinned Actions, read-only repository access, and no registry secrets or OIDC authority.
 It runs only by explicit dispatch, with a choice of the accepted or next-build input.
-The workflow describes that exact input before checking out its validated upstream commit and passes the same input to the builder.
+The workflow describes that exact input, selects its reviewed literal checkout pin, and passes the same input to the builder.
+Those conditional checkout steps are checked projections of the build configurations, so no runtime output or dispatch value supplies an upstream revision.
+After an approved build-input change, run `python scripts/build-native.py --write-workflow`; `--check-workflow` and the native evidence suite reject drift.
 `python scripts/build-native.py --config scripts/native-build-next.json --describe-config` inspects its identity locally without acquiring tools or enabling a local build.
-Publishing these workflow inputs and dispatching hosted builds require separate authority; the current dependency refresh authorizes neither.
+Dispatching hosted native builds, adopting their output, and publishing replacement native artifacts require separate authority; source publication and PR CI do not perform those actions.
 
 The build preserves the upstream default features and `dist` profile.
 It compiles the native executable with cargo-auditable 0.7.7 and extracts the embedded dependency graph using the checksum-pinned rust-audit-info 0.5.4 crate and its packaged lock.

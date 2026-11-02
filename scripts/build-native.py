@@ -58,6 +58,33 @@ def describe_config(name):
     return value, {'config': name, 'sourceCommit': value['sourceCommit'], 'configSha256': digest(data)}
 
 
+def project_native_workflow(source):
+    """Expose the reviewed source allowlist as literal, checked checkout pins."""
+    start = '      # native-source-checkouts:start\n'
+    end = '      # native-source-checkouts:end\n'
+    if source.count(start) != 1 or source.count(end) != 1:
+        raise ValueError('Missing or ambiguous native checkout projection markers')
+    prefix, _, remaining = source.partition(start)
+    if end not in remaining:
+        raise ValueError('Native checkout projection markers are out of order')
+    _, _, suffix = remaining.partition(end)
+    checkout = re.search(r'(?m)^      - uses: (actions/checkout@[0-9a-f]{40})$', prefix)
+    if checkout is None:
+        raise ValueError('Missing pinned repository checkout action')
+    steps = []
+    for name in BUILD_CONFIGS:
+        config, _ = describe_config(name)
+        steps.append(f'      - name: Check out native source for {name}\n'
+                     f"        if: inputs.build-config == '{name}'\n"
+                     f'        uses: {checkout.group(1)}\n'
+                     '        with:\n'
+                     '          repository: TurtleTech-ehf/snapper\n'
+                     f"          ref: {config['sourceCommit']}\n"
+                     '          path: native-source\n'
+                     '          persist-credentials: false\n')
+    return prefix + start + ''.join(steps) + end + suffix
+
+
 def serialize_cargo_notices(path, facts=None, raw_evidence=None):
     """Repair cargo-about's repeated boolean doctest fields, refusing ambiguity.
 
@@ -215,7 +242,10 @@ def main():
     sys.stdout.reconfigure(encoding='utf-8', newline='\n')
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', choices=BUILD_CONFIGS, default=BUILD_CONFIGS[0])
-    parser.add_argument('--describe-config', action='store_true')
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument('--describe-config', action='store_true')
+    modes.add_argument('--check-workflow', action='store_true')
+    modes.add_argument('--write-workflow', action='store_true')
     parser.add_argument('--github-output', type=pathlib.Path,
                         help='Write validated checkout identity for --describe-config')
     parser.add_argument('--platform', choices=CONFIG['tools'])
@@ -224,6 +254,18 @@ def main():
     parser.add_argument('--raw-evidence', type=pathlib.Path,
                         help='Retain original cargo-about bytes outside recipient output')
     args = parser.parse_args()
+    if args.github_output and not args.describe_config:
+        parser.error('--github-output requires --describe-config')
+    if args.check_workflow or args.write_workflow:
+        path = ROOT / '.github/workflows/native.yml'
+        source = read(path, 100_000).decode('utf-8')
+        projected = project_native_workflow(source)
+        if args.check_workflow and projected != source:
+            raise ValueError('Native checkout pins drifted; run build-native.py --write-workflow')
+        if args.write_workflow and projected != source:
+            path.write_bytes(projected.encode('utf-8'))
+        print(json.dumps({'workflow': '.github/workflows/native.yml', 'changed': projected != source}))
+        return
     CONFIG, identity = describe_config(args.config)
     if args.describe_config:
         if args.github_output:

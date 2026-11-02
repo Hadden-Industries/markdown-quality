@@ -6,6 +6,7 @@ import io
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -25,6 +26,55 @@ freeze_spec.loader.exec_module(freezer)
 
 
 class BuildConfigurationTests(unittest.TestCase):
+    def test_workflow_uses_only_the_literal_reviewed_source_pins(self):
+        path = ROOT / '.github/workflows/native.yml'
+        source = path.read_text(encoding='utf-8')
+        self.assertEqual(builder.project_native_workflow(source), source)
+        self.assertEqual(re.findall(r'(?m)^          ref: (.+)$', source),
+                         [json.loads((ROOT / name).read_bytes())['sourceCommit']
+                          for name in builder.BUILD_CONFIGS])
+        self.assertEqual(re.findall(r"(?m)^        if: inputs.build-config == '([^']+)'$", source),
+                         list(builder.BUILD_CONFIGS))
+        self.assertNotIn('steps.build-input.outputs', source)
+
+    def test_changed_configuration_projects_a_new_pin_and_preserves_the_surrounding_workflow(self):
+        source = (ROOT / '.github/workflows/native.yml').read_text(encoding='utf-8')
+        with tempfile.TemporaryDirectory() as temporary:
+            base = pathlib.Path(temporary)
+            for name in builder.BUILD_CONFIGS:
+                path = base / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                value = json.loads((ROOT / name).read_bytes())
+                if name == builder.BUILD_CONFIGS[1]:
+                    value['sourceCommit'] = 'a' * 40
+                path.write_bytes(json.dumps(value).encode('utf-8'))
+            with patch.object(builder, 'ROOT', base):
+                projected = builder.project_native_workflow(source)
+                self.assertIn('          ref: ' + 'a' * 40 + '\n', projected)
+                self.assertNotEqual(source, projected)
+                self.assertEqual(builder.project_native_workflow(projected), projected)
+            for marker, index in [('      # native-source-checkouts:start\n', 0),
+                                  ('      # native-source-checkouts:end\n', 1)]:
+                self.assertEqual(source.split(marker)[index], projected.split(marker)[index])
+            self.assertNotIn('\r', projected)
+
+    def test_missing_or_ambiguous_workflow_markers_fail_closed(self):
+        source = (ROOT / '.github/workflows/native.yml').read_text(encoding='utf-8')
+        marker = '      # native-source-checkouts:start\n'
+        for value in (source.replace(marker, ''), source.replace(marker, marker + marker)):
+            with self.assertRaisesRegex(ValueError, 'projection markers'):
+                builder.project_native_workflow(value)
+
+    def test_workflow_check_mode_does_not_require_a_hosted_builder_or_change_source(self):
+        path = ROOT / '.github/workflows/native.yml'
+        before = path.read_bytes()
+        result = subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/build-native.py'),
+                                 '--check-workflow'], env={**os.environ, 'GITHUB_ACTIONS': 'false'},
+                                capture_output=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(json.loads(result.stdout)['changed'])
+        self.assertEqual(path.read_bytes(), before)
+
     def test_describe_candidate_locally_binds_checkout_to_the_authored_bytes(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = pathlib.Path(temporary) / 'github-output'
