@@ -14,6 +14,7 @@ import {
   readPublicationHistory,
 } from "../scripts/publication-history.js";
 import { stagingSteps } from "../scripts/publication-origins.js";
+import { publicationHistoryFixture } from "./publication-history-fixture.js";
 
 test("an unsigned source tag cannot authorize staging", () => {
   const release = { version: "2.0.0", source: { head: "a".repeat(40) } };
@@ -177,6 +178,8 @@ test("new dispatches cannot omit prior requests, replace bytes or reuse stale co
   };
   const map = {
     attempt: "1",
+    run: "11",
+    controlSource: "b".repeat(40),
     records: release.archives.map(({ package: name }) => ({
       package: name,
       source: "b".repeat(40),
@@ -208,7 +211,9 @@ test("new dispatches cannot omit prior requests, replace bytes or reuse stale co
       conclusion: "failure",
     })),
   };
+  const current = publicationHistoryFixture(1);
   const history = [
+    current,
     {
       run,
       jobs: { total_count: 1, jobs: [job] },
@@ -230,13 +235,10 @@ test("new dispatches cannot omit prior requests, replace bytes or reuse stale co
     );
   }
   assert.throws(
-    () => verifyPublicationHistory(release, { ...map, attempt: "2" }, history),
-    /never rerun/u,
-  );
-  assert.throws(
     () =>
       verifyPublicationHistory(release, map, [
-        { ...history[0], manifestBytes: null },
+        current,
+        { ...history[1], manifestBytes: null },
       ]),
     /Missing prior/u,
   );
@@ -245,17 +247,20 @@ test("new dispatches cannot omit prior requests, replace bytes or reuse stale co
     /Truncated/u,
   );
   verifyPublicationHistory(release, map, [
+    current,
     {
       run: { ...run, event: "push", head_branch: "old-branch" },
       jobs: { total_count: 0, jobs: [] },
     },
   ]);
   verifyPublicationHistory(release, map, [
+    current,
     { run: { ...run, status: "queued" }, jobs: { total_count: 0, jobs: [] } },
   ]);
   assert.throws(
     () =>
       verifyPublicationHistory(release, map, [
+        current,
         {
           run: { ...run, status: "in_progress" },
           jobs: { total_count: 0, jobs: [] },
@@ -282,8 +287,8 @@ test("new dispatches cannot omit prior requests, replace bytes or reuse stale co
   );
 });
 
-test("native workflow inventory must be complete before any history can authorize effects", () => {
-  assert.throws(
+test("native workflow inventory must be complete before any history can authorize effects", async () => {
+  await assert.rejects(
     () =>
       readPublicationHistory("11", () =>
         JSON.stringify([
@@ -294,28 +299,35 @@ test("native workflow inventory must be complete before any history can authoriz
   );
 });
 
-test("history includes later dispatches because concurrency does not guarantee dispatch order", () => {
+test("history includes later dispatches because concurrency does not guarantee dispatch order", async () => {
   const calls = [];
-  const history = readPublicationHistory("11", (args) => {
+  const current = publicationHistoryFixture(1);
+  const later = { ...current.run, id: 12, status: "queued" };
+  const history = await readPublicationHistory("11", (args) => {
     calls.push(args);
     if (args[1].includes("workflows/publish.yml/runs"))
       return JSON.stringify([
         {
           total_count: 2,
           workflow_runs: [
-            { id: 11, run_number: 2 },
-            { id: 12, run_number: 3 },
+            { ...current.run, run_number: 2 },
+            { ...later, run_number: 3 },
           ],
         },
       ]);
-    assert.ok(args[1].includes("runs/12/jobs?filter=all"));
-    return JSON.stringify([{ total_count: 0, jobs: [] }]);
+    if (args[1].includes("/jobs?"))
+      return JSON.stringify({ total_count: 0, jobs: [] });
+    return JSON.stringify(args[1].endsWith("/12") ? later : current.run);
   });
   assert.deepEqual(
     history.map(({ run }) => run.id),
-    [12],
+    [11, 12],
   );
-  assert.equal(calls.length, 2);
+  assert.ok(
+    calls
+      .filter((args) => args[1].includes("/jobs?"))
+      .every((args) => args[1].includes("/attempts/1/jobs?per_page=100")),
+  );
 });
 
 test("public consumer lanes keep their Node runtime while provenance uses compatible pinned tooling", () => {

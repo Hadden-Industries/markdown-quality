@@ -22,6 +22,11 @@ import {
 } from "./publication-origins.js";
 import { verifyArchiveBytes } from "./release-bytes.js";
 import { verifyReleaseTag } from "./verify-release-tag.js";
+import {
+  authenticatePublicationAttempts,
+  readPublicationAttempts,
+  publicationWorkflow,
+} from "./publication-attempts.js";
 
 export function requireManualControl(env, workflow) {
   assert.equal(env.GITHUB_REPOSITORY, repository);
@@ -34,7 +39,7 @@ export function requireManualControl(env, workflow) {
   assert.match(env.GITHUB_SHA, /^[a-f0-9]{40}$/u);
 }
 
-export function providerFor(run, jobs, workflow, names) {
+export function providerFor(run, jobs, workflow, names, attempts) {
   const expected = {
     run: String(run.id),
     attempt: String(run.run_attempt),
@@ -43,7 +48,26 @@ export function providerFor(run, jobs, workflow, names) {
     event: "workflow_dispatch",
     jobs: names,
   };
-  verifyProvider({ run, jobs }, expected);
+  if (workflow === publicationWorkflow && attempts) {
+    const observed = authenticatePublicationAttempts(run, attempts);
+    assert.equal(run.head_branch, "main");
+    assert.equal(run.event, expected.event);
+    assert.deepEqual(
+      jobs,
+      observed.jobs,
+      "Staging jobs differ from authenticated attempt history",
+    );
+    assert.equal(run.status, "completed");
+    assert.equal(run.conclusion, "success");
+    for (const job of jobs.jobs) {
+      assert.equal(job.status, "completed");
+      assert.equal(
+        job.conclusion,
+        "success",
+        "The latest prerequisite execution must succeed",
+      );
+    }
+  } else verifyProvider({ run, jobs }, expected);
   assert.deepEqual(
     jobs.jobs.map(({ name }) => name).sort(),
     [...names].sort(),
@@ -86,6 +110,7 @@ export function verifyStagingContinuation({
       "retained (ubuntu-24.04)",
       "stage",
     ],
+    stage.attempts,
   );
   validatePublicationOrigins(
     map,
@@ -137,6 +162,8 @@ export function readProvider(
   const path = `repos/${repository}/actions/runs/${runId}${attempt ? `/attempts/${attempt}` : ""}`;
   const run = JSON.parse(gh(["api", path]));
   assert.equal(String(run.id), String(runId));
+  if (run.path === publicationWorkflow)
+    return readPublicationAttempts(runId, attempt, gh);
   const jobs = JSON.parse(
     gh([
       "api",

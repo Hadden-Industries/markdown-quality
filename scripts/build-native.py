@@ -24,6 +24,7 @@ import zipfile
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 VOCABULARY = json.loads((pathlib.Path(__file__).resolve().parent / 'native-evidence-contract.json').read_text(encoding='utf-8'))
 CONFIG = json.loads((ROOT / 'assets/native-build.json').read_text(encoding='utf-8'))
+BUILD_CONFIGS = ('assets/native-build.json', 'scripts/native-build-next.json')
 MAX_TEXT = 32_000_000
 
 
@@ -37,6 +38,51 @@ def read(path, limit=MAX_TEXT):
     if len(data) > limit:
         raise ValueError('Input exceeds evidence bound: ' + str(path))
     return data
+
+
+def describe_config(name):
+    """Inspect an authored build input without acquiring tools or changing selection."""
+    if name not in BUILD_CONFIGS:
+        raise ValueError('Unknown native build configuration')
+    path = ROOT / name
+    if any(p.is_symlink() for p in (path, path.parent)):
+        raise ValueError('Linked native build configuration')
+    data = read(path, 100_000)
+    if b'\r' in data:
+        raise ValueError('Authored build configuration must use LF before hashing')
+    value = json.loads(data)
+    if value.get('schemaVersion') != 1 or not re.fullmatch(r'[0-9a-f]{40}', value.get('sourceCommit', '')):
+        raise ValueError('Invalid native build configuration identity')
+    if name == BUILD_CONFIGS[1] and not re.fullmatch(r'\d+\.\d+\.\d+', value.get('snapperVersion', '')):
+        raise ValueError('Candidate build must declare its Snapper version')
+    return value, {'config': name, 'sourceCommit': value['sourceCommit'], 'configSha256': digest(data)}
+
+
+def project_native_workflow(source):
+    """Expose the reviewed source allowlist as literal, checked checkout pins."""
+    start = '      # native-source-checkouts:start\n'
+    end = '      # native-source-checkouts:end\n'
+    if source.count(start) != 1 or source.count(end) != 1:
+        raise ValueError('Missing or ambiguous native checkout projection markers')
+    prefix, _, remaining = source.partition(start)
+    if end not in remaining:
+        raise ValueError('Native checkout projection markers are out of order')
+    _, _, suffix = remaining.partition(end)
+    checkout = re.search(r'(?m)^      - uses: (actions/checkout@[0-9a-f]{40})$', prefix)
+    if checkout is None:
+        raise ValueError('Missing pinned repository checkout action')
+    steps = []
+    for name in BUILD_CONFIGS:
+        config, _ = describe_config(name)
+        steps.append(f'      - name: Check out native source for {name}\n'
+                     f"        if: inputs.build-config == '{name}'\n"
+                     f'        uses: {checkout.group(1)}\n'
+                     '        with:\n'
+                     '          repository: TurtleTech-ehf/snapper\n'
+                     f"          ref: {config['sourceCommit']}\n"
+                     '          path: native-source\n'
+                     '          persist-credentials: false\n')
+    return prefix + start + ''.join(steps) + end + suffix
 
 
 def serialize_cargo_notices(path, facts=None, raw_evidence=None):
@@ -192,14 +238,43 @@ def registry_source(package, locked):
 
 def main():
     """Produce a controlled build with LF authored text and original-byte inventories."""
+    global CONFIG
     sys.stdout.reconfigure(encoding='utf-8', newline='\n')
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--platform', choices=CONFIG['tools'], required=True)
-    parser.add_argument('--source', type=pathlib.Path, required=True)
-    parser.add_argument('--output', type=pathlib.Path, required=True)
+    parser.add_argument('--config', choices=BUILD_CONFIGS, default=BUILD_CONFIGS[0])
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument('--describe-config', action='store_true')
+    modes.add_argument('--check-workflow', action='store_true')
+    modes.add_argument('--write-workflow', action='store_true')
+    parser.add_argument('--github-output', type=pathlib.Path,
+                        help='Write validated checkout identity for --describe-config')
+    parser.add_argument('--platform', choices=CONFIG['tools'])
+    parser.add_argument('--source', type=pathlib.Path)
+    parser.add_argument('--output', type=pathlib.Path)
     parser.add_argument('--raw-evidence', type=pathlib.Path,
                         help='Retain original cargo-about bytes outside recipient output')
     args = parser.parse_args()
+    if args.github_output and not args.describe_config:
+        parser.error('--github-output requires --describe-config')
+    if args.check_workflow or args.write_workflow:
+        path = ROOT / '.github/workflows/native.yml'
+        source = read(path, 100_000).decode('utf-8')
+        projected = project_native_workflow(source)
+        if args.check_workflow and projected != source:
+            raise ValueError('Native checkout pins drifted; run build-native.py --write-workflow')
+        if args.write_workflow and projected != source:
+            path.write_bytes(projected.encode('utf-8'))
+        print(json.dumps({'workflow': '.github/workflows/native.yml', 'changed': projected != source}))
+        return
+    CONFIG, identity = describe_config(args.config)
+    if args.describe_config:
+        if args.github_output:
+            with args.github_output.open('a', encoding='utf-8', newline='\n') as stream:
+                stream.write('source-commit=' + identity['sourceCommit'] + '\n')
+        print(json.dumps(identity))
+        return
+    if args.github_output or not all((args.platform, args.source, args.output)):
+        parser.error('Build mode requires --platform, --source and --output; --github-output is describe-only')
     if os.environ.get('GITHUB_ACTIONS') != 'true':
         raise ValueError('This procedure is restricted to hosted CI')
     source, output = args.source.resolve(), args.output.resolve()
@@ -210,6 +285,9 @@ def main():
         if digest(read(source / filename)) != CONFIG[field]:
             raise ValueError('Frozen source identity mismatch: ' + filename)
     source_manifest = tomllib.loads(read(source / 'Cargo.toml').decode())
+    snapper_version = source_manifest['package']['version']
+    if CONFIG.get('snapperVersion', snapper_version) != snapper_version:
+        raise ValueError('Declared Snapper version differs from frozen source')
     if source_manifest['features']['default'] != CONFIG['features']:
         raise ValueError('Declared feature set differs from frozen source defaults')
     locked = {(p['name'], p['version'], p.get('source')): p
@@ -272,7 +350,7 @@ def main():
                     info = tarfile.TarInfo(package['name'] + '-' + package['version'] + '/' + path.relative_to(base).as_posix())
                     info.size, info.mode, info.mtime = len(data), 0o644, 0
                     archive.addfile(info, io.BytesIO(data))
-    notice_sections = ['Third-party notices for controlled Snapper 0.11.9 build.\n'
+    notice_sections = [f'Third-party notices for controlled Snapper {snapper_version} build.\n'
                        'Conservative coverage includes build-only dependencies; this does not relicense components.\n'
                        'Unmodified webpki-roots 0.25.4 source is provided in MPL-SOURCE.tar.xz under MPL-2.0.\n'
                        'The wrapper remains AGPL-3.0-only; original native component licenses remain applicable.']
@@ -343,6 +421,7 @@ def main():
         raise ValueError('Unexpected native build evidence inventory')
     # Absolute runner paths are not part of the recipient inventory.
     save('build-evidence.json', {'schemaVersion': 1, 'status': 'pending independent rights review and platform qualification',
+         'configSha256': identity['configSha256'], 'snapperVersion': snapper_version,
          'source': CONFIG['sourceCommit'], 'lockSha256': CONFIG['lockSha256'],
          'manifestSha256': CONFIG['manifestSha256'], 'rust': toolchain,
          'target': target, 'profile': CONFIG['profile'], 'features': CONFIG['features'],

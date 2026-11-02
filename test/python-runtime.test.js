@@ -35,5 +35,6 @@ for (const [version, releaselevel] of [
     assert.equal(result.status, 1, result.stdout + result.stderr);
     assert.ok(
       result.stderr.includes(`Stable Python ${minimum} or newer is required`),
+      result.stdout + result.stderr,
     );
   });

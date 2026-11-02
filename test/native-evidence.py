@@ -4,7 +4,10 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 import pathlib
+import re
+import subprocess
 import sys
 import tempfile
 import tarfile
@@ -20,6 +23,100 @@ spec.loader.exec_module(builder)
 freeze_spec = importlib.util.spec_from_file_location('native_freezer', ROOT / 'scripts/freeze-native.py')
 freezer = importlib.util.module_from_spec(freeze_spec)
 freeze_spec.loader.exec_module(freezer)
+
+
+class BuildConfigurationTests(unittest.TestCase):
+    def test_workflow_uses_only_the_literal_reviewed_source_pins(self):
+        path = ROOT / '.github/workflows/native.yml'
+        source = path.read_text(encoding='utf-8')
+        self.assertEqual(builder.project_native_workflow(source), source)
+        self.assertEqual(re.findall(r'(?m)^          ref: (.+)$', source),
+                         [json.loads((ROOT / name).read_bytes())['sourceCommit']
+                          for name in builder.BUILD_CONFIGS])
+        self.assertEqual(re.findall(r"(?m)^        if: inputs.build-config == '([^']+)'$", source),
+                         list(builder.BUILD_CONFIGS))
+        self.assertNotIn('steps.build-input.outputs', source)
+
+    def test_changed_configuration_projects_a_new_pin_and_preserves_the_surrounding_workflow(self):
+        source = (ROOT / '.github/workflows/native.yml').read_text(encoding='utf-8')
+        with tempfile.TemporaryDirectory() as temporary:
+            base = pathlib.Path(temporary)
+            for name in builder.BUILD_CONFIGS:
+                path = base / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                value = json.loads((ROOT / name).read_bytes())
+                if name == builder.BUILD_CONFIGS[1]:
+                    value['sourceCommit'] = 'a' * 40
+                path.write_bytes(json.dumps(value).encode('utf-8'))
+            with patch.object(builder, 'ROOT', base):
+                projected = builder.project_native_workflow(source)
+                self.assertIn('          ref: ' + 'a' * 40 + '\n', projected)
+                self.assertNotEqual(source, projected)
+                self.assertEqual(builder.project_native_workflow(projected), projected)
+            for marker, index in [('      # native-source-checkouts:start\n', 0),
+                                  ('      # native-source-checkouts:end\n', 1)]:
+                self.assertEqual(source.split(marker)[index], projected.split(marker)[index])
+            self.assertNotIn('\r', projected)
+
+    def test_missing_or_ambiguous_workflow_markers_fail_closed(self):
+        source = (ROOT / '.github/workflows/native.yml').read_text(encoding='utf-8')
+        marker = '      # native-source-checkouts:start\n'
+        for value in (source.replace(marker, ''), source.replace(marker, marker + marker)):
+            with self.assertRaisesRegex(ValueError, 'projection markers'):
+                builder.project_native_workflow(value)
+
+    def test_workflow_check_mode_does_not_require_a_hosted_builder_or_change_source(self):
+        path = ROOT / '.github/workflows/native.yml'
+        before = path.read_bytes()
+        result = subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/build-native.py'),
+                                 '--check-workflow'], env={**os.environ, 'GITHUB_ACTIONS': 'false'},
+                                capture_output=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(json.loads(result.stdout)['changed'])
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_describe_candidate_locally_binds_checkout_to_the_authored_bytes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = pathlib.Path(temporary) / 'github-output'
+            result = subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/build-native.py'),
+                                     '--config', 'scripts/native-build-next.json', '--describe-config',
+                                     '--github-output', str(path)],
+                                    env={**os.environ, 'GITHUB_ACTIONS': 'false'},
+                                    capture_output=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            identity = json.loads(result.stdout)
+            candidate = (ROOT / identity['config']).read_bytes()
+            self.assertEqual(identity['configSha256'], builder.digest(candidate))
+            self.assertEqual(identity['sourceCommit'], json.loads(candidate)['sourceCommit'])
+            self.assertEqual(path.read_bytes(), ('source-commit=' + identity['sourceCommit'] + '\n').encode())
+
+    def test_candidate_selection_does_not_enable_local_build_or_create_output(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = pathlib.Path(temporary) / 'output'
+            result = subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/build-native.py'),
+                                     '--config', 'scripts/native-build-next.json', '--platform', 'win32-x64',
+                                     '--source', temporary, '--output', str(output)],
+                                    env={**os.environ, 'GITHUB_ACTIONS': 'false'},
+                                    capture_output=True, timeout=10)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(b'restricted to hosted CI', result.stderr)
+            self.assertFalse(output.exists())
+
+    def test_unknown_config_and_unsafe_checkout_identity_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'Unknown native build'):
+            builder.describe_config('../unowned.json')
+        candidate = json.loads((ROOT / 'scripts/native-build-next.json').read_bytes())
+        with tempfile.TemporaryDirectory() as temporary:
+            base = pathlib.Path(temporary)
+            (base / 'scripts').mkdir()
+            path = base / 'scripts/native-build-next.json'
+            for field, value in [('sourceCommit', 'main\nunsafe=value'), ('snapperVersion', '')]:
+                path.write_bytes(json.dumps({**candidate, field: value}).encode())
+                with patch.object(builder, 'ROOT', base), self.assertRaises(ValueError):
+                    builder.describe_config('scripts/native-build-next.json')
+            path.write_bytes(json.dumps(candidate, indent=2).replace('\n', '\r\n').encode())
+            with patch.object(builder, 'ROOT', base), self.assertRaisesRegex(ValueError, 'must use LF'):
+                builder.describe_config('scripts/native-build-next.json')
 
 
 class CargoNoticesTests(unittest.TestCase):
@@ -172,7 +269,43 @@ class RegistryCacheTests(unittest.TestCase):
 
 
 class ArtifactBindingTests(unittest.TestCase):
-    def inputs(self, directory):
+    def test_selected_candidate_changes_output_identity_without_relabeling_accepted_inputs(self):
+        config_path = ROOT / 'scripts/native-build-next.json'
+        config = json.loads(config_path.read_bytes())
+        accepted_path = ROOT / 'assets/tool-manifest.json'
+        accepted = accepted_path.read_bytes()
+        with tempfile.TemporaryDirectory() as temporary:
+            base = pathlib.Path(temporary)
+            with patch.object(builder, 'CONFIG', config):
+                self.inputs(base, config_path)
+            with self.assertRaisesRegex(ValueError, 'configuration/version mismatch'):
+                freezer.freeze(base, base / 'wrong-config', '123', 'f' * 40,
+                               'https://fixture.invalid/release')
+            result = freezer.freeze(base, base / 'candidate', '123', 'f' * 40,
+                                    'https://fixture.invalid/release', config_path=config_path)
+            self.assertEqual(result['snapperVersion'], config['snapperVersion'])
+            self.assertEqual(result['source']['commit'], config['sourceCommit'])
+            self.assertEqual(result['source']['tag'], 'v' + config['snapperVersion'])
+            self.assertEqual(result['build']['configSha256'], freezer.sha(config_path.read_bytes()))
+            self.assertEqual(result['build']['rights'], 'pending independent reconciliation')
+            self.assertEqual(accepted_path.read_bytes(), accepted)
+
+    def test_configuration_edited_after_build_cannot_relabel_or_refreeze_artifacts(self):
+        config_path = ROOT / 'scripts/native-build-next.json'
+        config = json.loads(config_path.read_bytes())
+        with tempfile.TemporaryDirectory() as temporary:
+            base = pathlib.Path(temporary)
+            with patch.object(builder, 'CONFIG', config):
+                self.inputs(base, config_path)
+            changed = base / 'changed-config.json'
+            for field, value in [('snapperVersion', '99.0.0'), ('rustSourceCommit', '0' * 40)]:
+                with self.subTest(field=field):
+                    changed.write_bytes(json.dumps({**config, field: value}).encode())
+                    with self.assertRaisesRegex(ValueError, 'configuration/version mismatch'):
+                        freezer.freeze(base, base / field, '123', 'f' * 40,
+                                       'https://fixture.invalid/release', config_path=changed)
+
+    def inputs(self, directory, config_path=None):
         for key, config in builder.CONFIG['tools'].items():
             platform = directory / ('native-' + key)
             platform.mkdir()
@@ -192,6 +325,9 @@ class ArtifactBindingTests(unittest.TestCase):
                         'rustRuntimeLicenseInputs': builder.CONFIG['rustRuntimeLicenseInputs'],
                         'tools': {name: {'archive': config[name]} for name in ('cargo-about', 'cargo-auditable')},
                         'binarySha256': binary_hash, 'files': {name: freezer.sha(value) for name, value in data.items()}}
+            if config_path is not None:
+                evidence.update(configSha256=freezer.sha(config_path.read_bytes()),
+                                snapperVersion=builder.CONFIG['snapperVersion'])
             data['build-evidence.json'] = json.dumps(evidence).encode()
             for name, value in data.items():
                 (platform / name).write_bytes(value)

@@ -45,8 +45,8 @@ For development and proposals, read [Contributing](CONTRIBUTING.md) and the [Cod
 Report vulnerabilities through the private channel in the [security policy](SECURITY.md).
 
 Reference builds use the Node reference declared in [node-support.json](https://github.com/Hadden-Industries/markdown-quality/blob/main/assets/node-support.json) and an existing stable Python interpreter at least as new as [.python-version](https://github.com/Hadden-Industries/markdown-quality/blob/main/.python-version) for asset preparation.
-Source compatibility is Node `>=22.13.0`; other engine-compatible releases receive best-effort support.
-Deliberate CI qualifies the floor, latest tested Node 22/24/26 releases and independent producer reference on Windows 2025 x64 and Ubuntu 24.04 x64.
+Source compatibility follows the minimum in the Node policy; other engine-compatible releases receive best-effort support.
+Deliberate CI qualifies that floor, the latest declared LTS releases and the independent producer reference on the policy's supported platforms.
 See the [support policy](docs/support-and-release.md) for exact minima and the distinction between development compatibility and published releases.
 Ordinary checks and logical-document operations need no Python interpreter.
 Trusted candidate qualification additionally needs the Python version declared in its accepted execution profile.

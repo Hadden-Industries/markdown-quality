@@ -68,7 +68,9 @@ Public artifacts retain query identities, scan digests and bounded alert disposi
 
 The 2026-10-16 integration probe detected GHSA-238p-pmpm-9mq7 in the clean recipient graph through KaTeX.
 The root-only development override does not fix that graph.
-The release gate remains closed until the dependency or an explicitly reviewed disposition is resolved.
+Candidate packaging bundles the KaTeX and minimatch versions selected by the [producer overrides](https://github.com/Hadden-Industries/markdown-quality/blob/main/package.json), with disclosed dependency-metadata repairs; clean root and isolated recipient installs must retain those versions and pass their own audit.
+The producer also selects a patched development-only glob through those overrides.
+The release gate still requires fresh qualification of the actual candidate tuple.
 That frozen 1.0.3 probe does not qualify a future release.
 
 ## Review, signed tag and draft
@@ -130,11 +132,12 @@ Independent technical assurance may come from the configured review provider; it
 ## Staging and owner approval
 
 Only the `stage` job in `publish.yml` can request npm OIDC, through the main-only `npm-publication` environment.
-It uses pinned npm 12.2.0, isolated configuration, disabled lifecycle scripts, explicit public access, explicit `pilot`, and provenance.
+It uses the producer npm version from [node-support.json](../assets/node-support.json), isolated configuration, disabled lifecycle scripts, explicit public access, explicit `pilot`, and provenance.
 It invokes `npm stage publish` once per eligible frozen archive.
 Staging does not run direct publication, automated stage approval, rebuilding or latest promotion.
 
-Retain `publication-source-and-manifest`, especially the manifest, origin map and per-package staging journals.
+Retain `publication-source-and-manifest-ATTEMPT`, especially the manifest, origin map and per-package staging journals.
+The resolver selects the actual staging attempt's immutable artifact and verifies its provider identity and digest; the unsuffixed name remains readable for historical releases.
 The journal records intent before the request, returned stage identity and integrity, or an unknown outcome.
 A green staging run means owner action is pending.
 Use native npm inspection/download and compare the exact version, stage identity and bytes before 2FA approval.
@@ -148,6 +151,15 @@ An unknown request or unavailable attempted version never becomes eligible merel
 Inspect native npm stage state and prior provider evidence first.
 A rejected stage permanently consumes its version under npm's rules; rejected or changed bytes require a new coordinated version.
 Origins distinguish original package source from a later reviewed continuation-control commit.
+
+A workflow retry may make its first staging request after upstream or pre-write failure.
+Admission reads complete, bounded, attempt-specific provider inventories, authenticates the unchanged controller and rechecks all prior dispatches immediately before staging.
+Only when every earlier write step was skipped or the publisher never ran can planned origins move to the current attempt.
+The original admission bytes remain retained, and previously retained package sources, runs and attempts never change.
+Successful prerequisites copied into a partial rerun keep their original execution identities; a newer failed prerequisite cannot be hidden by an older success.
+Any possible prior request requires explicit recovery and exact registry/provenance reconciliation, even if a fresh public registry read returns 404.
+Missing, contradictory, cancelled or incomplete write evidence never grants retry authority.
+Attempt-specific uploads and producer artifact IDs preserve admission and owner-review snapshots across retries without overwriting earlier evidence.
 
 ## Public qualification and immutable archival
 

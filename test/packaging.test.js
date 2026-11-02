@@ -15,9 +15,13 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { packRelease } from "../scripts/pack.js";
-import { npmCommand } from "../scripts/commands.js";
+import {
+  native as nativeCommand,
+  npmCommand,
+  producerToolchain,
+} from "../scripts/commands.js";
 import { checkLinks } from "../src/analysis.js";
-import { digest } from "../src/contracts.js";
+import { digest, metadata as producerMetadata } from "../src/contracts.js";
 import { qualifyRuntime } from "../scripts/qualify-runtime.js";
 import { checkArchitecture } from "../scripts/architecture.js";
 import { verifyBundledShipment } from "../scripts/bundled-dependencies.js";
@@ -50,6 +54,15 @@ test("packed root and isolated consumers install without lifecycle scripts and e
   );
   const output = join(temp, "archives"),
     release = phase("pack archives", () => packRelease(output));
+  const producer = producerToolchain();
+  assert.equal(
+    release.build.npm,
+    nativeCommand(producer.executable, [producer.cli, "--version"]).trim(),
+  );
+  assert.equal(
+    release.build.node,
+    nativeCommand(producer.executable, ["--version"]).trim(),
+  );
   const native = release.archives.find(
     (a) => a.name === `${process.platform}-${process.arch}`,
   );
@@ -175,8 +188,26 @@ test("packed root and isolated consumers install without lifecycle scripts and e
       path.endsWith("node_modules/katex"),
     );
     assert.ok(katex.length > 0);
-    assert.ok(katex.every(([, pkg]) => pkg.version === "0.19.1"));
+    assert.ok(
+      katex.every(
+        ([, pkg]) =>
+          pkg.version ===
+          producerMetadata.overrides["micromark-extension-math"].katex,
+      ),
+    );
+    const minimatch = Object.entries(installedLock.packages).filter(([path]) =>
+      path.endsWith("node_modules/minimatch"),
+    );
+    assert.ok(minimatch.length > 0);
+    assert.ok(
+      minimatch.every(
+        ([, pkg]) => pkg.version === producerMetadata.overrides.minimatch,
+      ),
+    );
     npmCommand(["ls", "--all", "--json"], { cwd: install });
+    npmCommand(["audit", "--omit=dev", "--audit-level=moderate"], {
+      cwd: install,
+    });
     const securityProbe = spawnSync(
       process.execPath,
       [
@@ -184,6 +215,7 @@ test("packed root and isolated consumers install without lifecycle scripts and e
           new URL("./fixtures/katex-consumer-probe.mjs", import.meta.url),
         ),
         installedCore,
+        producerMetadata.overrides["micromark-extension-math"].katex,
       ],
       { encoding: "utf8", timeout: fixtureCommandTimeoutMs, windowsHide: true },
     );

@@ -119,7 +119,8 @@ class TextOutputTests(unittest.TestCase):
             cache = root / 'registry/cache/index-fixture/webpki-roots-0.25.4.crate'
             cache.parent.mkdir(parents=True)
             cache.write_bytes(b'original crate archive')
-            (source / 'Cargo.toml').write_bytes(('[features]\ndefault = ' + json.dumps(config['features']) + '\n').encode())
+            config['snapperVersion'] = '99.0.0'
+            (source / 'Cargo.toml').write_bytes(('[package]\nversion = "99.0.0"\n[features]\ndefault = ' + json.dumps(config['features']) + '\n').encode())
             (source / 'Cargo.lock').write_bytes(('[[package]]\nname = "webpki-roots"\nversion = "0.25.4"\n'
                                                'source = "registry+fixture"\nchecksum = "' + builder.digest(cache.read_bytes()) + '"\n').encode())
             (source / 'LICENSE').write_bytes(original)
@@ -131,6 +132,8 @@ class TextOutputTests(unittest.TestCase):
             runtime.write_bytes(original)
             config['rustRuntimeLicenseInputs'] = [{'path': 'LICENSE', 'url': 'https://fixture.invalid/license',
                                                  'sha256': builder.digest(original)}]
+            (root / 'assets').mkdir()
+            (root / 'assets/native-build.json').write_bytes(json.dumps(config).encode('utf-8'))
             binary = source / 'target' / target / config['profile'] / 'snapper-fmt.exe'
             binary.parent.mkdir(parents=True)
             binary.write_bytes(b'fixture binary')
@@ -157,7 +160,8 @@ class TextOutputTests(unittest.TestCase):
             # An explicit hostile host stream proves the producer selects LF.
             stream = io.TextIOWrapper(stream_bytes, encoding='utf-8', newline='\r\n')
             argv = ['build-native.py', '--platform', 'win32-x64', '--source', str(source), '--output', str(output)]
-            with patch.object(builder, 'CONFIG', config), patch.object(builder, 'run', fixture_command), \
+            with patch.object(builder, 'ROOT', root), patch.object(builder, 'CONFIG', config), \
+                    patch.object(builder, 'run', fixture_command), \
                     patch.object(builder, 'acquire_extractor', return_value=config['auditExtractor']), \
                     patch.object(builder, 'acquire_tool', side_effect=lambda name, spec, directory, suffix: {'archive': spec}), \
                     patch.object(builder.urllib.request, 'urlopen', side_effect=lambda *args, **kwargs: io.BytesIO(original)), \
@@ -172,6 +176,7 @@ class TextOutputTests(unittest.TestCase):
                     self.assert_lf((output / name).read_bytes())
                 notices = (output / 'THIRD-PARTY-NOTICES.txt').read_bytes()
                 self.assert_lf(notices)
+                self.assertIn(b'controlled Snapper 99.0.0 build.', notices)
                 self.assertIn(rendered, notices)
                 inventory = json.loads((output / 'component-inventory.json').read_bytes())
                 record = inventory['packages'][0]['notices'][0]
@@ -180,6 +185,8 @@ class TextOutputTests(unittest.TestCase):
                 self.assertEqual((output / 'LICENSE.snapper').read_bytes(), original)
                 self.assertEqual((output / 'COPYRIGHT-library.html').read_bytes(), original)
                 evidence = json.loads((output / 'build-evidence.json').read_bytes())
+                self.assertEqual(evidence['snapperVersion'], '99.0.0')
+                self.assertEqual(evidence['configSha256'], builder.digest((root / 'assets/native-build.json').read_bytes()))
                 for name, identity in evidence['files'].items():
                     self.assertEqual(hashlib.sha256((output / name).read_bytes()).hexdigest(), identity)
                 self.assert_lf(stream_bytes.getvalue())

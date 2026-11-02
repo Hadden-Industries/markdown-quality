@@ -3,6 +3,21 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { nodeSupport, validatePolicy } from "./node-matrix.js";
+const root = new URL("../", import.meta.url);
+
+/** One inventory for both projection and its regression guard. */
+export function nodeSupportProjectionPaths() {
+  return [
+    "package.json",
+    ".node-version",
+    "package-lock.json",
+    ".github/bootstrap-node.json",
+    "docs/node-runtime-compatibility.md",
+    ...readdirSync(new URL(".github/workflows/", root))
+      .filter((path) => path.endsWith(".yml"))
+      .map((path) => `.github/workflows/${path}`),
+  ];
+}
 
 /** Project current declarations only; historical evidence and synthetic policies stay frozen. */
 export function projectNodeSupport(files, policy = nodeSupport) {
@@ -76,17 +91,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   assert.equal(process.argv.length, 3, "Use --check or --write");
   const mode = process.argv[2];
   assert.ok(["--check", "--write"].includes(mode));
-  const root = new URL("../", import.meta.url);
-  const paths = [
-    "package.json",
-    ".node-version",
-    "package-lock.json",
-    ".github/bootstrap-node.json",
-    "docs/node-runtime-compatibility.md",
-    ...readdirSync(new URL(".github/workflows/", root))
-      .filter((path) => path.endsWith(".yml"))
-      .map((path) => `.github/workflows/${path}`),
-  ];
+  const paths = nodeSupportProjectionPaths();
   const files = Object.fromEntries(
     paths.map((path) => [path, readFileSync(new URL(path, root), "utf8")]),
   );

@@ -69,6 +69,8 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-producer
       - name: Provision floor-compatible consumer npm
+        env:
+          CONSUMER_NPM: ${{ needs.producer.outputs.consumer-npm }}
         run: node scripts/qualification-process.js consumer-npm "${{ runner.temp }}/consumer-npm"
       - uses: ./.github/actions/download-evidence
         timeout-minutes: 15
@@ -81,6 +83,8 @@ jobs:
           package-manager-cache: false
       - run: python scripts/acquire-native.py
       - name: Exercise runtime-sensitive source contracts
+        env:
+          MARKDOWN_QUALITY_CONSUMER_NPM: ${{ runner.temp }}/consumer-npm/node_modules/npm/bin/npm-cli.js
         run: node scripts/verify.js --runtime
       - name: Acquire full OwlAPI corpus as data
         if: matrix.node == needs.producer.outputs.reference

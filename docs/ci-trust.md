@@ -48,6 +48,9 @@ They install with lifecycle scripts disabled and qualify both OS targets.
 The separately dispatched publisher grants OIDC issuance only to its main-restricted npm-publication job.
 Its exact candidate/source/manifest gate precedes public pilot publication; registry qualification remains credential-free and latest promotion remains separately gated.
 Packed-consumer tests acquire public JavaScript dependencies before testing offline frozen-lock reinstallation and runtime execution.
+Packing, bundled-dependency acquisition, source SBOM generation and shipment inspection use the retained producer Node/npm pair even when invoked from a consumer lane.
+Fixture archives follow that same producer route; consumer installation, dependency-tree checks and runtime tests retain the separately provisioned floor-compatible npm.
+CI passes the frozen consumer npm version into acquisition and selects that CLI for runtime-sensitive source tests as well as installed-package qualification.
 The source lock acquisition alone does not populate metadata for a fresh consumer install.
 It cannot serve as evidence that a pilot's private access works.
 

@@ -1,6 +1,15 @@
 name: Controlled native build
 on:
-  workflow_dispatch: null
+  workflow_dispatch:
+    inputs:
+      build-config:
+        description: Frozen build input; candidate output requires separate qualification
+        type: choice
+        required: true
+        default: scripts/native-build-next.json
+        options:
+          - scripts/native-build-next.json
+          - assets/native-build.json
 permissions:
   contents: read
 jobs:
@@ -21,15 +30,35 @@ jobs:
           persist-credentials: false
       - name: Preserve frozen upstream source bytes
         run: git config --global core.autocrlf false
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: ./.github/actions/setup-python
+      - name: Inspect selected build input
+        env:
+          BUILD_CONFIG: ${{ inputs.build-config }}
+        run: python scripts/build-native.py --config "$BUILD_CONFIG" --describe-config
+        shell: bash
+      # native-source-checkouts:start
+      - name: Check out native source for assets/native-build.json
+        if: inputs.build-config == 'assets/native-build.json'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: TurtleTech-ehf/snapper
           ref: 407c2beb04607f6ccb421e6f6418dcc00e4c1e94
           path: native-source
           persist-credentials: false
-      - uses: ./.github/actions/setup-python
+      - name: Check out native source for scripts/native-build-next.json
+        if: inputs.build-config == 'scripts/native-build-next.json'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: TurtleTech-ehf/snapper
+          ref: 8981607b484dd123b5e4bec00dd6415e5725aff9
+          path: native-source
+          persist-credentials: false
+      # native-source-checkouts:end
       - name: Build frozen source and collect rights evidence
-        run: python scripts/build-native.py --platform ${{ matrix.platform }} --source native-source --output native-output --raw-evidence "${{ runner.temp }}/native-originals/cargo-${{ matrix.platform }}.json"
+        env:
+          BUILD_CONFIG: ${{ inputs.build-config }}
+        shell: bash
+        run: python scripts/build-native.py --config "$BUILD_CONFIG" --platform ${{ matrix.platform }} --source native-source --output native-output --raw-evidence "${{ runner.temp }}/native-originals/cargo-${{ matrix.platform }}.json"
       - name: Retain original cargo-about bytes separately from recipient files
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

@@ -1,6 +1,6 @@
 # Dependency graph and affected JavaScript tests
 
-Markdown Quality uses dependency-cruiser `>=18.7.0`, at the exact lockfile resolution, for development analysis and keeps Node's test runner.
+Markdown Quality uses the development-only dependency-cruiser declaration in `package.json`, at the exact lockfile resolution, and keeps Node's test runner.
 Full package qualification, the complete JavaScript suite, native checks and Markdown/link inventory remain independent controls.
 The graph describes imports; it does not prove complete behavioral coverage or native/package provenance.
 
@@ -28,6 +28,26 @@ Retain accepted proof and required failures; dispose of exploratory bundles when
 Existing bundles are never overwritten.
 Reports contain local source identities and paths: inspect them before sharing.
 No cache or recurring publication is configured.
+
+## Producer, consumer and native input relationships
+
+This view describes declared tooling inputs and artifact flow, separately from parsed JavaScript imports.
+The generated declared-relation table reads `.test-impact.json`; its endpoints must exist, including native configuration and Python verification processes.
+Versions remain owned by their policy files.
+
+```mermaid
+flowchart LR
+  policy["assets/node-support.json"] --> producer["Retained producer Node/npm"]
+  policy --> consumer["Matrix Node and consumer npm"]
+  policy --> publisher["Publisher npm acquisition"]
+  producer --> packing["Core staging, packing and shipment inventory"]
+  packing --> archives["Immutable package archives"]
+  archives --> consumer
+  consumer --> checks["Runtime and installed-consumer checks"]
+  accepted["assets/native-build.json"] --> native["Controlled native build and freeze"]
+  next["scripts/native-build-next.json"] --> native
+  native --> candidate["Candidate artifacts awaiting separate qualification"]
+```
 
 ## Enforce architecture and inspect focused reports
 

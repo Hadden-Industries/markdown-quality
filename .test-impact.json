@@ -275,17 +275,17 @@
       "fixture": "test/dry-impact.test.js conservative full fallback seeded failure"
     },
     {
-      "id": "python-action-test",
+      "id": "python-action-contract",
       "dependency": ".github/actions/setup-python/",
-      "consumer": "test/ci-reuse-workflow.test.js",
+      "consumer": "scripts/check-workflows.js",
       "kind": "resource",
-      "evidence": "Explicit DRY build/data/process input consumed at this boundary",
+      "evidence": "Workflow validation reads every local composite action declaration",
       "fixture": "test/dry-impact.test.js conservative full fallback seeded failure"
     },
     {
-      "id": "bootstrap-node-test",
+      "id": "bootstrap-node-projection",
       "dependency": ".github/bootstrap-node.json",
-      "consumer": "test/ci-reuse-workflow.test.js",
+      "consumer": "scripts/project-node-support.js",
       "kind": "resource",
       "evidence": "Explicit DRY build/data/process input consumed at this boundary",
       "fixture": "test/dry-impact.test.js conservative full fallback seeded failure"
@@ -321,6 +321,38 @@
       "kind": "resource",
       "evidence": "Explicit JSON adoption process/resource input",
       "fixture": "test/json-tooling/consumer.test.mjs and conservative full fallback"
+    },
+    {
+      "id": "native-next-build",
+      "dependency": "scripts/native-build-next.json",
+      "consumer": "scripts/build-native.py",
+      "kind": "resource",
+      "evidence": "Selected candidate input owns the hosted build source, toolchain and helper checksums",
+      "fixture": "test/native-evidence.py configuration selection; test/dry-impact.test.js conservative full fallback"
+    },
+    {
+      "id": "native-next-freeze",
+      "dependency": "scripts/native-build-next.json",
+      "consumer": "scripts/freeze-native.py",
+      "kind": "resource",
+      "evidence": "Candidate freezing verifies exact selected configuration and version against hosted evidence",
+      "fixture": "test/native-evidence.py changed build configuration rejection"
+    },
+    {
+      "id": "native-evidence-process",
+      "dependency": "test/native-evidence.py",
+      "consumer": "scripts/verify.js",
+      "kind": "spawn",
+      "evidence": "Full verification launches the native provenance and configuration regression suite",
+      "fixture": "test/native-evidence.py"
+    },
+    {
+      "id": "text-output-process",
+      "dependency": "test/text-output.py",
+      "consumer": "scripts/verify.js",
+      "kind": "spawn",
+      "evidence": "Full verification launches physical text and producer evidence serialization checks",
+      "fixture": "test/text-output.py"
     }
   ]
 }

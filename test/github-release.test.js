@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import test from "node:test";
 import assert from "node:assert/strict";
-import { nodeSupport, qualificationMatrix } from "../scripts/node-matrix.js";
+import { nodeSupport } from "../scripts/node-matrix.js";
+import { nodeMatrixFixture, nextPatchVersion } from "./node-matrix-fixture.js";
 import { createHash } from "node:crypto";
 import {
   mkdtempSync,
@@ -26,6 +27,7 @@ import { prepareGithubRelease } from "../scripts/prepare-github-release.js";
 import { native } from "../scripts/commands.js";
 import { deliverRelease, gitSource } from "../scripts/github-release.js";
 import { bindStagingReconciliation } from "../scripts/release-staging-evidence.js";
+import { pythonTarget } from "../scripts/python-target.js";
 
 const cwd = fileURLToPath(new URL("../", import.meta.url));
 function fixture(t, current = true) {
@@ -187,10 +189,7 @@ function fixture(t, current = true) {
     );
   if (current) {
     qualified.schemaVersion = 2;
-    const matrix = {
-      os: nodeSupport.platforms,
-      node: ["22.13.0", "22.23.4", "24.22.1", "26.13.0"],
-    };
+    const matrix = nodeMatrixFixture();
     qualified.candidate.matrix = matrix;
     qualified.candidate.runtimePolicy = nodeSupport;
     qualified.candidate.workflow =
@@ -278,7 +277,7 @@ function fixture(t, current = true) {
                 ? {
                     performance: {
                       schemaVersion: 1,
-                      python: "3.15.0",
+                      python: pythonTarget(),
                       corpora: Object.fromEntries(
                         ["owlapi", "webvowl"].map((name) => [
                           name,
@@ -439,7 +438,10 @@ test("matrix release evidence requires all runtime jobs and cannot silently down
   const f = fixture(t);
   f.qualified.candidate.runtimePolicy = {
     ...nodeSupport,
-    producerNpm: { ...nodeSupport.producerNpm, version: "12.2.2" },
+    producerNpm: {
+      ...nodeSupport.producerNpm,
+      version: nextPatchVersion(nodeSupport.producerNpm.version),
+    },
   };
   verifyQualification(f.qualified);
   assert.throws(
@@ -589,11 +591,13 @@ for (const defect of [
     if (defect === "wrong source") q.source = "e".repeat(40);
     if (defect === "extra file")
       writeFileSync(join(f.directory, "unexpected.txt"), "bad");
-    if (defect === "altered report")
-      writeFileSync(
-        join(f.directory, "registry-ubuntu-24.04-22.13.0.json"),
-        "{}",
+    if (defect === "altered report") {
+      const report = Object.keys(q.reports).find((name) =>
+        name.startsWith("registry-"),
       );
+      assert.ok(report, "The report to corrupt exists in the valid fixture");
+      writeFileSync(join(f.directory, report), "{}");
+    }
     if (defect === "altered origins")
       writeFileSync(join(f.directory, "publication-origins.json"), "{}");
     const source =

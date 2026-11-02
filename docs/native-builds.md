@@ -6,10 +6,20 @@ Snapper and its dependencies retain their own licenses and attribution.
 The owned pipeline does not install Rust in the local development environment.
 
 The [build manifest](../assets/native-build.json) pins the source commit, Cargo input hashes, Rust toolchain, default feature set, profile, targets, and helper archive hashes.
+It remains the frozen input for the accepted Snapper 0.11.9 artifacts.
+The separate [next-build input](../scripts/native-build-next.json) prepares Snapper 0.11.10, Rust 1.99.1 and cargo-about 0.9.3; cargo-auditable 0.7.7 and rust-audit-info 0.5.4 remain current.
+These candidate inputs do not update shipped binaries, existing rights evidence or acquisition URLs.
+Snapper 0.11.10 still contains [issue 530](https://github.com/TurtleTech-ehf/snapper/issues/530): Markdown slash pairs, intraword underscores and plus signs can hide sentence boundaries and produce a false clean check.
+The fix in [PR 531](https://github.com/TurtleTech-ehf/snapper/pull/531) merged on 26 October, after the [0.11.10 release](https://github.com/TurtleTech-ehf/snapper/releases/tag/v0.11.10) on 11 October.
+Direct probes of the verified 0.11.10 Windows release still reproduce that failure; a plain-text control detects the fused sentences.
 The [workflow](../.github/workflows/native.yml) runs on Windows 2022 x64 and Ubuntu 24.04 x64 with a 60-minute job limit.
 It uses pinned Actions, read-only repository access, and no registry secrets or OIDC authority.
-Only the implementation branch's native build changes trigger it automatically.
-Explicit dispatch becomes available when GitHub registers the workflow on the default branch.
+It runs only by explicit dispatch, with a choice of the accepted or next-build input.
+The workflow describes that exact input, selects its reviewed literal checkout pin, and passes the same input to the builder.
+Those conditional checkout steps are checked projections of the build configurations, so no runtime output or dispatch value supplies an upstream revision.
+After an approved build-input change, run `python scripts/build-native.py --write-workflow`; `--check-workflow` and the native evidence suite reject drift.
+`python scripts/build-native.py --config scripts/native-build-next.json --describe-config` inspects its identity locally without acquiring tools or enabling a local build.
+Dispatching hosted native builds, adopting their output, and publishing replacement native artifacts require separate authority; source publication and PR CI do not perform those actions.
 
 The build preserves the upstream default features and `dist` profile.
 It compiles the native executable with cargo-auditable 0.7.7 and extracts the embedded dependency graph using the checksum-pinned rust-audit-info 0.5.4 crate and its packaged lock.
@@ -20,7 +30,7 @@ Rust's source revision and runtime license texts are checksum-pinned separately.
 No upstream installer script runs.
 
 The embedded stable-Cargo graph is conservative and does not prove exact linker reachability.
-The builder separately retains target-filtered Cargo component metadata, original nested license and notice files, cargo-about 0.9.2 output, and the toolchain's official `COPYRIGHT-library.html`.
+The builder separately retains target-filtered Cargo component metadata, original nested license and notice files, the selected cargo-about tool's output, and the toolchain's official `COPYRIGHT-library.html`.
 This includes native C and grammar notices found in crate source trees, and Rust standard-library material outside the application Cargo graph.
 Build-only dependencies may appear in the conservative notices.
 Registry source archives are checked against Cargo.lock in Cargo's ordinary cache.
@@ -35,6 +45,10 @@ This implements the recipient source notice and availability required by [Mozill
 
 Each hosted artifact binds its executable, notice files, inventory, and embedded metadata by SHA-256 to the source, toolchain, target, workflow commit, and run.
 The freeze script checks those identities and creates deterministic acquisition archives.
+New build evidence includes the verified Snapper version and exact build-configuration digest; freezing checks both before assigning the candidate version.
+Only the accepted historical configuration can use old evidence without those fields.
+For the next-build run, supply `--config scripts/native-build-next.json` to `scripts/freeze-native.py` so its candidate manifest binds the new source, version and configuration bytes.
+Omitting that option retains the accepted build input and rejects evidence from a different source.
 It emits a candidate manifest without approving rights or mutating the accepted manifest.
 Independent review must reconcile native code, embedded data, Rust runtime, and system linkage before private release.
 Cargo-about can supply generic license text when a crate omits its original license file.

@@ -12,7 +12,7 @@ That policy text retains CC BY-SA 4.0, its attribution and the indicated changes
 | Direct runtime dependency       | Version | Declared license                  |
 | ------------------------------- | ------- | --------------------------------- |
 | Prettier                        | 3.9.10  | MIT                               |
-| ESLint                          | 10.12.0 | MIT                               |
+| ESLint                          | 10.14.0 | MIT                               |
 | ESLint Markdown                 | 8.0.3   | MIT                               |
 | Ajv                             | 8.20.0  | MIT                               |
 | mdast-util-from-markdown        | 2.1.0   | MIT                               |
@@ -24,7 +24,7 @@ That policy text retains CC BY-SA 4.0, its attribution and the indicated changes
 | Snapper upstream executable     | 0.11.9  | MIT, Copyright 2026 Rohit Goswami |
 
 Installed npm packages retain their upstream license files.
-Development analysis uses dependency-cruiser 18.6.0 under MIT, copyright 2016-2026 Sander Verweij.
+Development analysis uses dependency-cruiser 18.7.0 under MIT, copyright 2016-2026 Sander Verweij.
 Its installed `LICENSE` retains the original permission and copyright notice; no analyzer source is vendored or modified.
 The exact developer dependency graph and its integrity identities are frozen in the lockfile, and installed transitive components retain their own upstream notices.
 Acorn 8.19.0 is explicitly declared for the conservative syntax guard; its installed MIT notice credits the contributors listed in its AUTHORS file.
@@ -34,17 +34,22 @@ This personal development adoption does not claim organizational rights clearanc
 The directly adopted front-matter extensions retain their original MIT copyright and permission notices in their installed `license` files.
 Their terms permit use, modification and distribution subject to retaining those notices; this implementation imports them without vendoring or changing their source.
 The lockfile freezes their exact integrity identities.
-The producer's scoped dependency override resolves KaTeX 0.19.0 and its Commander 15.0.0 dependency.
+The producer's scoped dependency override resolves KaTeX 0.19.1 and its Commander 15.0.0 dependency.
 Their installed `LICENSE` files retain the original MIT terms and copyright notices: Khan Academy and other contributors (KaTeX), and TJ Holowaychuk (Commander).
 Those terms permit use and redistribution subject to retaining the notices.
-The core archive now bundles ESLint Markdown's complete runtime dependency closure, including KaTeX 0.19.0, using npm's native `bundleDependencies` mechanism.
+The core archive bundles ESLint Markdown's and ESLint's complete runtime dependency closures, including KaTeX 0.19.1 and minimatch 11.0.3, using npm's native `bundleDependencies` mechanism.
 Each package retains its upstream executable source and original notices.
-The sole vendored modification changes `micromark-extension-math` 3.1.0's `dependencies.katex` declaration from `^0.16.0` to `0.19.0` to address GHSA-238p-pmpm-9mq7 for recipients.
-The generated `assets/bundled-dependencies.json` records original registry URLs and integrity values, package licenses, every shipped file hash, and before/after hashes for that metadata repair.
+Vendored metadata repairs change `micromark-extension-math` 3.1.0's `dependencies.katex` declaration from `^0.16.0` to `0.19.1` for GHSA-238p-pmpm-9mq7, and ESLint 10.14.0's and `@eslint/config-array` 0.23.5's `dependencies.minimatch` declarations from `^10.2.6` and `^10.2.4` respectively to `11.0.3` for GHSA-g3hv-75wg-m249.
+The generated `assets/bundled-dependencies.json` records original registry URLs and integrity values, package licenses, every shipped file hash, and before/after hashes for those metadata repairs.
 The producer override remains a build input and is removed from the published manifest; it is not a recipient security control.
 The `format` 0.2.2 registry archive omits a standalone license text.
 Its original MIT license, copyright 2010-2016 Sami Samhuri, is preserved in [LICENSES/MIT-format.txt](LICENSES/MIT-format.txt), copied unchanged from [upstream commit 0094c51372790ca342da4b90c519edd3380deee1](https://github.com/samsonjs/format/blob/0094c51372790ca342da4b90c519edd3380deee1/License.md).
 The original per-file and readme notices also remain intact.
+The `@humanfs/types` 0.15.0 archive declares Apache-2.0 but omits a standalone license text.
+Its original author and readme notices remain intact; the bundle inventory binds the unchanged Apache-2.0 text shipped with sibling `@humanfs/node`, verified against [humanfs commit 85069f193cbacc371c3beb649ce746f8c5a493be](https://github.com/humanwhocodes/humanfs/blob/85069f193cbacc371c3beb649ce746f8c5a493be/packages/node/LICENSE).
+The `esrecurse` 4.3.0 and `imurmurhash` 0.1.4 readmes contain their complete BSD-2-Clause and MIT terms respectively; the bundle inventory binds those unchanged notices.
+The `natural-compare` 1.4.0 readme retains copyright 2012-2015 Lauri Rooden and its MIT declaration.
+The complete original MIT terms are preserved in [LICENSES/MIT-natural-compare.txt](LICENSES/MIT-natural-compare.txt), copied unchanged from [upstream commit a8e1e32c85713ba7d079445207a808ce6f4852f9](https://github.com/litejs/natural-compare-lite/blob/a8e1e32c85713ba7d079445207a808ce6f4852f9/LICENSE).
 See the [support and release boundary](docs/support-and-release.md) for acquisition, verification and removal criteria for this temporary dependency repair.
 Native packages retain `LICENSE.snapper` and a fixed executable/repack component record.
 The AGPL declaration applies to the packaging implementation and does not relabel upstream executable bytes.

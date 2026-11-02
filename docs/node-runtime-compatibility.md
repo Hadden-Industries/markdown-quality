@@ -34,7 +34,7 @@ The original created-file handle identity protects cleanup against replacement, 
 Descriptors close on validation failure as well as successful observations.
 These observations detect changes; they do not lock files or promise an atomic filesystem snapshot.
 The packed consumer corpus also exercises multi-document native batch staging, so a single-document pass cannot hide this incompatibility.
-The published source engine range is exactly `>=22.13.0`, including other compatible major releases on a best-effort basis.
+The published source engine range follows the minimum in the canonical policy, including other compatible major releases on a best-effort basis.
 Only the policy's explicit tested families receive mandatory qualification; dependency engine restrictions can still prevent installation on a best-effort release such as Node 23.
 
 ## CI and tooling

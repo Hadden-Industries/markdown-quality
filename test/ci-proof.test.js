@@ -20,9 +20,10 @@ import {
 import { nodeSupport } from "../scripts/node-matrix.js";
 import { pythonVersion } from "../scripts/ci-host.js";
 import { budgets } from "../scripts/qualification-budgets.js";
-import { nodeMatrixFixture } from "./node-matrix-fixture.js";
+import { nodeMatrixFixture, nextPatchVersion } from "./node-matrix-fixture.js";
 
 const noWait = async () => {};
+const newerPythonVersion = nextPatchVersion(pythonVersion);
 
 const sha = (character) => character.repeat(40);
 function fixture(attempt = 1, fork = false) {
@@ -386,7 +387,7 @@ test("observer reruns ignore prior host attempts and partial probes remain FULL_
 });
 
 test("corpus evidence cannot omit or substitute the recorded Python interpreter", async () => {
-  for (const invalid of [undefined, "0.1.0", "3.15.1"]) {
+  for (const invalid of [undefined, "0.1.0", newerPythonVersion]) {
     const f = fixture();
     f.records.find(
       (record) => record.lane.node === nodeSupport.reference,
@@ -612,7 +613,7 @@ test("platform, runtime and image provenance remain mandatory for reuse", async 
   for (const [field, invalid] of [
     ["os", "Linux"],
     ["architecture", "ARM64"],
-    ["python", "3.15.2"],
+    ["python", newerPythonVersion],
     ["image", "win22"],
     ["imageVersion", undefined],
     ["imageVersion", "unobserved"],
@@ -625,9 +626,9 @@ test("platform, runtime and image provenance remain mandatory for reuse", async 
   for (const [field, invalid] of [
     ["os", "Windows"],
     ["architecture", "ARM64"],
-    ["python", "3.15.2"],
-    ["node", "26.10.0"],
-    ["npm", "12.2.1"],
+    ["python", newerPythonVersion],
+    ["node", nextPatchVersion(nodeSupport.minimum)],
+    ["npm", nextPatchVersion(nodeSupport.consumerNpm)],
     ["image", "ubuntu22"],
     ["image", "ubuntu24-slim"],
     ["imageVersion", undefined],

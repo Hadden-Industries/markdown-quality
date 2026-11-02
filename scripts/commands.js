@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, isAbsolute } from "node:path";
 import { observeCommand } from "./ci-observation.js";
 import { budgets } from "./qualification-budgets.js";
 import { assertNativeNpmRuntime } from "./consumer-toolchain.js";
@@ -57,6 +57,37 @@ export function npmCommand(args, options = {}, executable = process.execPath) {
         npmCliPath(executable))
       : npmCliPath(executable);
   if (executable === process.execPath) assertNativeNpmRuntime(cli);
+  return runNpm(executable, cli, args, options);
+}
+
+/** Producer work retains its paired Node/npm even inside a consumer lane. */
+export function producerToolchain(environment = process.env) {
+  const executable = environment.MARKDOWN_QUALITY_PRODUCER_NODE;
+  const cli = environment.MARKDOWN_QUALITY_PRODUCER_NPM;
+  if (executable === undefined && cli === undefined)
+    return { executable: process.execPath, cli: npmCliPath() };
+  if (
+    typeof executable !== "string" ||
+    typeof cli !== "string" ||
+    !isAbsolute(executable) ||
+    !isAbsolute(cli) ||
+    /[\r\n]/u.test(executable + cli)
+  )
+    throw new Error("Producer Node and npm must be a complete absolute pair.");
+  return { executable, cli };
+}
+
+export function producerNpmCommand(args, options = {}) {
+  const { executable, cli } = producerToolchain();
+  const version =
+    executable === process.execPath
+      ? process.versions.node
+      : native(executable, ["-p", "process.versions.node"]).trim();
+  assertNativeNpmRuntime(cli, version);
+  return runNpm(executable, cli, args, options);
+}
+
+function runNpm(executable, cli, args, options) {
   const started = performance.now();
   const installing = ["install", "ci"].includes(args[0]);
   // Bound individual requests within the tooling acquisition budget.

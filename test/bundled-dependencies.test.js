@@ -12,19 +12,45 @@ test("bundle acquisition installs only its declared closure while preserving rec
   const producer = JSON.parse(
     readFileSync(join(repositoryRoot, "package.json")),
   );
-  const { metadata } = stageCore(repositoryRoot, core);
-  for (const name of ["eslint", "prettier", "ajv", "dependency-cruiser"])
+  const before = process.env.MARKDOWN_QUALITY_CONSUMER_NPM;
+  let metadata;
+  try {
+    process.env.MARKDOWN_QUALITY_CONSUMER_NPM = "missing-consumer-npm-cli.js";
+    ({ metadata } = stageCore(repositoryRoot, core));
+  } finally {
+    if (before === undefined) delete process.env.MARKDOWN_QUALITY_CONSUMER_NPM;
+    else process.env.MARKDOWN_QUALITY_CONSUMER_NPM = before;
+  }
+  for (const name of ["prettier", "ajv", "dependency-cruiser"])
     assert.equal(existsSync(join(core, "node_modules", name)), false, name);
   assert.equal(
     JSON.parse(readFileSync(join(core, "node_modules/katex/package.json")))
       .version,
-    "0.19.1",
+    producer.overrides["micromark-extension-math"].katex,
   );
   assert.deepEqual(
     readFileSync(join(core, "package-lock.json")),
     readFileSync(join(repositoryRoot, "package-lock.json")),
   );
   assert.deepEqual(metadata.dependencies, producer.dependencies);
+  assert.equal(
+    JSON.parse(readFileSync(join(core, "node_modules/eslint/package.json")))
+      .dependencies.minimatch,
+    producer.overrides.minimatch,
+  );
+  assert.equal(
+    JSON.parse(
+      readFileSync(
+        join(core, "node_modules/@eslint/config-array/package.json"),
+      ),
+    ).dependencies.minimatch,
+    producer.overrides.minimatch,
+  );
+  assert.equal(
+    JSON.parse(readFileSync(join(core, "node_modules/minimatch/package.json")))
+      .version,
+    producer.overrides.minimatch,
+  );
   assert.deepEqual(metadata.bundleDependencies, producer.bundleDependencies);
   assert.equal(metadata.overrides, undefined);
 });

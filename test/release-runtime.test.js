@@ -411,6 +411,9 @@ test("publication commands load without project-installed packages while retaini
     "verify-publication",
     "github-evidence",
     "collect-release-evidence",
+    "publication-history",
+    "publication-attempts",
+    "publication-artifact",
   ];
   const result = spawnSync(
     process.execPath,
@@ -475,7 +478,9 @@ test("workflow contracts reject draft-permission, dependency-order and snapshot 
       "publish.yml",
       (doc) => {
         doc.jobs.stage.steps.find(
-          (step) => step.with?.name === "publication-review",
+          (step) =>
+            step.with?.["artifact-ids"] ===
+            "${{ needs.review.outputs.artifact-id }}",
         ).with["digest-mismatch"] = "warn";
       },
     ],

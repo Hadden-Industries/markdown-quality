@@ -182,11 +182,99 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
   assert.ok(
     publication.jobs.stage.steps.some(
       (step) =>
-        step.with?.name === "publication-review" &&
+        step.with?.["artifact-ids"] ===
+          "${{ needs.review.outputs.artifact-id }}" &&
+        step.with?.["merge-multiple"] === true &&
         step.with.path === "provider" &&
         step.with["digest-mismatch"] === "error",
     ),
     "Staging must retain the exact review snapshot",
+  );
+  for (const [role, id] of [
+    ["admit", "admission"],
+    ["review", "review"],
+  ]) {
+    const job = publication.jobs[role];
+    assert.equal(
+      job.outputs?.["artifact-id"],
+      `\${{ steps.${id}.outputs.artifact-id }}`,
+    );
+    const upload = job.steps.filter((step) => step.id === id);
+    assert.equal(upload.length, 1, "Missing publication artifact producer");
+    assert.equal(
+      upload[0].with?.name,
+      `publication-${id === "admission" ? "admission" : "review"}-\${{ github.run_attempt }}`,
+    );
+  }
+  for (const role of ["review", "retained", "stage"]) {
+    const transfers = publication.jobs[role].steps.filter((step) =>
+      step.uses?.startsWith("actions/download-artifact@"),
+    );
+    assert.ok(
+      transfers.some(
+        (step) =>
+          step.with?.["artifact-ids"] ===
+            "${{ needs.admit.outputs.artifact-id }}" &&
+          step.with?.["merge-multiple"] === true,
+      ),
+      "Publication must consume the original admission artifact ID",
+    );
+    assert.ok(
+      transfers.every((step) => !step.with?.name),
+      "Publication downloads must retain original producer IDs",
+    );
+  }
+  const stageSteps = publication.jobs.stage.steps;
+  const guards = stageSteps.filter((step) => step.id === "staging_history");
+  assert.equal(guards.length, 1, "Missing publication attempt admission");
+  const guard = guards[0];
+  assert.equal(
+    guard.run,
+    "node scripts/publication-history.js --admit-attempt frozen-release",
+  );
+  assert.equal(
+    guard.if,
+    undefined,
+    "Publication history admission must be unconditional",
+  );
+  assert.equal(
+    guard["continue-on-error"],
+    undefined,
+    "Publication history cannot soft-fail",
+  );
+  assert.equal(guard["working-directory"], undefined);
+  assert.deepEqual(guard.env, { GH_TOKEN: "${{ github.token }}" });
+  for (const [name, key] of [
+    ["Stage Windows package under pilot", "WIN32_X64"],
+    ["Stage Linux package under pilot", "LINUX_X64"],
+    ["Stage coherent core under pilot", "CORE"],
+  ]) {
+    const writes = stageSteps.filter((step) => step.name === name);
+    assert.equal(writes.length, 1);
+    assert.ok(
+      stageSteps.indexOf(guard) < stageSteps.indexOf(writes[0]),
+      "History admission must precede every staging write",
+    );
+    assert.equal(
+      writes[0].if,
+      `steps.staging_history.outputs.admitted == 'true' && env.STAGE_${key} == 'true'`,
+    );
+  }
+  const retained = publication.jobs.retained.steps;
+  assert.equal(
+    retained.at(-1).with?.name,
+    "retained-registry-${{ matrix.os }}-${{ github.run_attempt }}",
+  );
+  assert.ok(
+    retained.some(
+      (step) =>
+        step.run === guard.run && !step.if && !step["continue-on-error"],
+    ),
+    "Retained qualification must authenticate the current controller attempt",
+  );
+  assert.equal(
+    stageSteps.at(-1).with?.name,
+    "publication-source-and-manifest-${{ github.run_attempt }}",
   );
   assert.equal(archival.jobs.prepare.needs, "decisions");
   assert.ok(
