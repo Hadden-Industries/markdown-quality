@@ -123,9 +123,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
         JSON.stringify(request, null, 2) +
         "\n```\n",
     );
-    console.log(JSON.stringify(request));
+    console.log("Trusted qualification request is ready for owner review.");
   } else {
     assert.equal(process.argv[2], "verify");
-    console.log(JSON.stringify(await admitSharedQualification()));
+    await admitSharedQualification();
+    console.log("Owner-approved shared qualification admitted.");
   }
 }
