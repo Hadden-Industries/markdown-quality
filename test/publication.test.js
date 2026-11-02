@@ -2,6 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { nodeSupport, qualificationMatrix } from "../scripts/node-matrix.js";
+import { nodeMatrixFixture } from "./node-matrix-fixture.js";
 import {
   mkdtempSync,
   mkdirSync,
@@ -28,13 +29,9 @@ import {
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const source = "a".repeat(40);
 const repository = "Hadden-Industries/markdown-quality";
-// Literal contract fixtures use the declared minimum/reference releases. They
-// intentionally do not call the production gate inventory to build the oracle.
+// Policy-derived fixture versions keep the independently authored gate-name oracle.
 const runtimePolicy = structuredClone(nodeSupport);
-const runtimeMatrix = {
-  os: ["ubuntu-24.04", "windows-2025"],
-  node: ["22.13.0", "22.23.4", "24.22.1", "26.13.0"],
-};
+const runtimeMatrix = nodeMatrixFixture(runtimePolicy);
 const releaseJobNames = [
   "resolve",
   "dependencies",
@@ -253,7 +250,7 @@ for (const gate of [
   "qualified",
   "product / Complete runtime qualification",
   "scans / Scan python",
-  "product / Qualify windows-2025 / Node 22.13.0",
+  `product / Qualify ${runtimeMatrix.os[0]} / Node ${nodeSupport.minimum}`,
 ])
   test(`release admission rejects omitted, skipped or stale ${gate}`, (t) => {
     const { input } = fixture(t);

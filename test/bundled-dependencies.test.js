@@ -26,7 +26,7 @@ test("bundle acquisition installs only its declared closure while preserving rec
   assert.equal(
     JSON.parse(readFileSync(join(core, "node_modules/katex/package.json")))
       .version,
-    "0.19.1",
+    producer.overrides["micromark-extension-math"].katex,
   );
   assert.deepEqual(
     readFileSync(join(core, "package-lock.json")),

@@ -2,8 +2,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { projectNodeSupport } from "../scripts/project-node-support.js";
+import {
+  projectNodeSupport,
+  nodeSupportProjectionPaths,
+} from "../scripts/project-node-support.js";
 import { nodeSupport } from "../scripts/node-matrix.js";
+import { hostedNpmVersion } from "../scripts/publication-npm.js";
 
 test("one policy edit projects engines and bootstrap pins while preserving dynamic selections and unrelated values", () => {
   const source = {
@@ -56,16 +60,8 @@ test("one policy edit projects engines and bootstrap pins while preserving dynam
   );
 });
 
-test("current npm metadata and workflow pins are checked projections", () => {
-  const paths = [
-    "package.json",
-    "package-lock.json",
-    ".github/bootstrap-node.json",
-    "docs/node-runtime-compatibility.md",
-    ...["ci", "qualification", "publish", "registry", "markdown-quality"].map(
-      (name) => `.github/workflows/${name}.yml`,
-    ),
-  ];
+test("all current runtime declarations and publisher npm follow their policy", () => {
+  const paths = nodeSupportProjectionPaths();
   const source = Object.fromEntries(
     paths.map((path) => [
       path,
@@ -77,4 +73,5 @@ test("current npm metadata and workflow pins are checked projections", () => {
     source,
     "Run npm run sync:node after editing assets/node-support.json",
   );
+  assert.equal(hostedNpmVersion, nodeSupport.producerNpm.version);
 });

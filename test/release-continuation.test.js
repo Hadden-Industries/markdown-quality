@@ -5,15 +5,13 @@ import { verifyStagingContinuation } from "../scripts/release-continuation.js";
 import { releaseQualificationJobNames } from "../scripts/release-qualification.js";
 import { hash } from "../scripts/release-bytes.js";
 import { nodeSupport } from "../scripts/node-matrix.js";
+import { nodeMatrixFixture } from "./node-matrix-fixture.js";
 
 function fixture() {
   const source = "a".repeat(40),
     control = "b".repeat(40),
     manifestSha = "c".repeat(64);
-  const matrix = {
-    os: nodeSupport.platforms,
-    node: ["22.13.0", "22.23.4", "24.22.1", "26.13.0"],
-  };
+  const matrix = nodeMatrixFixture();
   const archives = ["win32-x64", "linux-x64", "core"].map((name) => ({
     name,
     package:

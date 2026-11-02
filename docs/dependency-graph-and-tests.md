@@ -1,6 +1,6 @@
 # Dependency graph and affected JavaScript tests
 
-Markdown Quality uses dependency-cruiser `>=18.7.0`, at the exact lockfile resolution, for development analysis and keeps Node's test runner.
+Markdown Quality uses the development-only dependency-cruiser declaration in `package.json`, at the exact lockfile resolution, and keeps Node's test runner.
 Full package qualification, the complete JavaScript suite, native checks and Markdown/link inventory remain independent controls.
 The graph describes imports; it does not prove complete behavioral coverage or native/package provenance.
 
@@ -39,6 +39,7 @@ Versions remain owned by their policy files.
 flowchart LR
   policy["assets/node-support.json"] --> producer["Retained producer Node/npm"]
   policy --> consumer["Matrix Node and consumer npm"]
+  policy --> publisher["Publisher npm acquisition"]
   producer --> packing["Core staging, packing and shipment inventory"]
   packing --> archives["Immutable package archives"]
   archives --> consumer

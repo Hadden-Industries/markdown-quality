@@ -24,7 +24,9 @@ import {
   npmIsolation,
   acquireHostedNpm,
   selectedNodePrefix,
+  hostedNpmVersion,
 } from "../scripts/publication-npm.js";
+import { nextPatchVersion } from "./node-matrix-fixture.js";
 import { pythonTarget } from "../scripts/python-target.js";
 test("metadata decoding preserves supplied target shapes without path classification", () => {
   for (const [metadata, expected] of [
@@ -147,12 +149,12 @@ test("isolated npm acquisition binds selected Node and fails on setup or version
   const calls = [];
   acquireHostedNpm(env, (args, options) => {
     calls.push({ args, env: options.env, timeout: options.timeout });
-    return args[0] === "--version" ? "12.2.0\n" : "";
+    return args[0] === "--version" ? hostedNpmVersion + "\n" : "";
   });
   assert.deepEqual(calls[0].args, [
     "install",
     "--global",
-    "npm@12.2.0",
+    `npm@${hostedNpmVersion}`,
     "--prefix",
     selectedNodePrefix(process.execPath, process.platform),
     "--ignore-scripts",
@@ -184,7 +186,7 @@ test("isolated npm acquisition binds selected Node and fails on setup or version
     /acquisition failed/u,
   );
   assert.throws(
-    () => acquireHostedNpm(env, () => "12.1.0"),
+    () => acquireHostedNpm(env, () => nextPatchVersion(hostedNpmVersion)),
     /version mismatch/u,
   );
 });

@@ -95,13 +95,14 @@ export function stageBundledDependencies(root, core, metadata) {
     "micromark-extension-math",
     "minimatch",
   ]);
+  const selectedKaTeX = metadata.overrides["micromark-extension-math"].katex;
   const repairs = [
     {
       name: "micromark-extension-math",
       version: "3.1.0",
       dependency: "katex",
       before: "^0.16.0",
-      after: metadata.overrides["micromark-extension-math"].katex,
+      after: selectedKaTeX,
       reason: "GHSA-238p-pmpm-9mq7",
     },
     {
@@ -228,7 +229,7 @@ export function stageBundledDependencies(root, core, metadata) {
   assert.ok(packages.some(({ name }) => name === "@eslint/markdown"));
   assert.ok(
     packages.some(
-      ({ name, version }) => name === "katex" && version === "0.19.1",
+      ({ name, version }) => name === "katex" && version === selectedKaTeX,
     ),
   );
   const inventory = {

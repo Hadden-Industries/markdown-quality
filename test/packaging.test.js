@@ -21,7 +21,7 @@ import {
   producerToolchain,
 } from "../scripts/commands.js";
 import { checkLinks } from "../src/analysis.js";
-import { digest } from "../src/contracts.js";
+import { digest, metadata as producerMetadata } from "../src/contracts.js";
 import { qualifyRuntime } from "../scripts/qualify-runtime.js";
 import { checkArchitecture } from "../scripts/architecture.js";
 import { verifyBundledShipment } from "../scripts/bundled-dependencies.js";
@@ -188,12 +188,22 @@ test("packed root and isolated consumers install without lifecycle scripts and e
       path.endsWith("node_modules/katex"),
     );
     assert.ok(katex.length > 0);
-    assert.ok(katex.every(([, pkg]) => pkg.version === "0.19.1"));
+    assert.ok(
+      katex.every(
+        ([, pkg]) =>
+          pkg.version ===
+          producerMetadata.overrides["micromark-extension-math"].katex,
+      ),
+    );
     const minimatch = Object.entries(installedLock.packages).filter(([path]) =>
       path.endsWith("node_modules/minimatch"),
     );
     assert.ok(minimatch.length > 0);
-    assert.ok(minimatch.every(([, pkg]) => pkg.version === "11.0.3"));
+    assert.ok(
+      minimatch.every(
+        ([, pkg]) => pkg.version === producerMetadata.overrides.minimatch,
+      ),
+    );
     npmCommand(["ls", "--all", "--json"], { cwd: install });
     npmCommand(["audit", "--omit=dev", "--audit-level=moderate"], {
       cwd: install,
@@ -205,6 +215,7 @@ test("packed root and isolated consumers install without lifecycle scripts and e
           new URL("./fixtures/katex-consumer-probe.mjs", import.meta.url),
         ),
         installedCore,
+        producerMetadata.overrides["micromark-extension-math"].katex,
       ],
       { encoding: "utf8", timeout: fixtureCommandTimeoutMs, windowsHide: true },
     );

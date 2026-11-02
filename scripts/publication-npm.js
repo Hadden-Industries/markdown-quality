@@ -4,7 +4,8 @@ import { appendFileSync, closeSync, openSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { npmCommand } from "./commands.js";
-export const hostedNpmVersion = "12.2.0";
+import nodeSupport from "../assets/node-support.json" with { type: "json" };
+export const hostedNpmVersion = nodeSupport.producerNpm.version;
 export const selectedNodePrefix = (executable, platform) =>
   platform === "win32"
     ? dirname(executable)

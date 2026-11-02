@@ -20,12 +20,10 @@ import {
 import { nodeSupport } from "../scripts/node-matrix.js";
 import { pythonVersion } from "../scripts/ci-host.js";
 import { budgets } from "../scripts/qualification-budgets.js";
-import { nodeMatrixFixture } from "./node-matrix-fixture.js";
+import { nodeMatrixFixture, nextPatchVersion } from "./node-matrix-fixture.js";
 
 const noWait = async () => {};
-const newerPythonVersion = pythonVersion.replace(/\d+$/u, (patch) =>
-  String(Number(patch) + 1),
-);
+const newerPythonVersion = nextPatchVersion(pythonVersion);
 
 const sha = (character) => character.repeat(40);
 function fixture(attempt = 1, fork = false) {
@@ -629,8 +627,8 @@ test("platform, runtime and image provenance remain mandatory for reuse", async 
     ["os", "Windows"],
     ["architecture", "ARM64"],
     ["python", newerPythonVersion],
-    ["node", "26.10.0"],
-    ["npm", "12.2.1"],
+    ["node", nextPatchVersion(nodeSupport.minimum)],
+    ["npm", nextPatchVersion(nodeSupport.consumerNpm)],
     ["image", "ubuntu22"],
     ["image", "ubuntu24-slim"],
     ["imageVersion", undefined],

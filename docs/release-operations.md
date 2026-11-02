@@ -68,8 +68,8 @@ Public artifacts retain query identities, scan digests and bounded alert disposi
 
 The 2026-10-16 integration probe detected GHSA-238p-pmpm-9mq7 in the clean recipient graph through KaTeX.
 The root-only development override does not fix that graph.
-Candidate packaging now bundles KaTeX 0.19.1 and minimatch 11.0.3 with disclosed dependency-metadata repairs; clean root and isolated recipient installs must retain those versions and pass their own audit.
-The producer also overrides development-only glob to 14.0.3.
+Candidate packaging bundles the KaTeX and minimatch versions selected by the [producer overrides](https://github.com/Hadden-Industries/markdown-quality/blob/main/package.json), with disclosed dependency-metadata repairs; clean root and isolated recipient installs must retain those versions and pass their own audit.
+The producer also selects a patched development-only glob through those overrides.
 The release gate still requires fresh qualification of the actual candidate tuple.
 That frozen 1.0.3 probe does not qualify a future release.
 
@@ -132,7 +132,7 @@ Independent technical assurance may come from the configured review provider; it
 ## Staging and owner approval
 
 Only the `stage` job in `publish.yml` can request npm OIDC, through the main-only `npm-publication` environment.
-It uses pinned npm 12.2.0, isolated configuration, disabled lifecycle scripts, explicit public access, explicit `pilot`, and provenance.
+It uses the producer npm version from [node-support.json](../assets/node-support.json), isolated configuration, disabled lifecycle scripts, explicit public access, explicit `pilot`, and provenance.
 It invokes `npm stage publish` once per eligible frozen archive.
 Staging does not run direct publication, automated stage approval, rebuilding or latest promotion.
 

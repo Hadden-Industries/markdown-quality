@@ -2,7 +2,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { captureGraph } from "../scripts/dependency-graph.js";
-import { impactFixture } from "./dependency-impact-helpers.js";
+import {
+  impactFixture,
+  analyzerDependency,
+} from "./dependency-impact-helpers.js";
 import { checkArchitecture, shipmentErrors } from "../scripts/architecture.js";
 import { stageCore } from "../scripts/core-package-stage.js";
 import {
@@ -32,7 +35,10 @@ test("the actual repository satisfies architecture and shipped closure", () => {
     result.files.some(({ path }) => path.startsWith("scripts/")),
     false,
   );
-  assert.match(analyzerIdentity(), /^dependency-cruiser@18\.7\.0$/u);
+  const locked = JSON.parse(
+    readFileSync(join(repositoryRoot, "package-lock.json")),
+  ).packages["node_modules/dependency-cruiser"];
+  assert.equal(analyzerIdentity(), `dependency-cruiser@${locked.version}`);
 });
 
 function packageFixture(t, files = {}) {
@@ -45,7 +51,7 @@ function packageFixture(t, files = {}) {
       type: "module",
       files: ["src", "assets"],
       exports: { ".": "./src/leaf.js" },
-      devDependencies: { "dependency-cruiser": ">=18.7.0" },
+      devDependencies: { "dependency-cruiser": analyzerDependency },
     }),
   );
   fixture.put("assets/tool-manifest.json", '{"platforms":{}}');

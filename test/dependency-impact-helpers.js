@@ -6,6 +6,9 @@ import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { repositoryRoot } from "../scripts/dependency-graph.js";
+export const analyzerDependency = JSON.parse(
+  readFileSync(join(repositoryRoot, "package.json")),
+).devDependencies["dependency-cruiser"];
 
 /** Disposable real Git fixture with explicit, independently authored test consumers. */
 export function impactFixture(t, files = {}, relations = []) {
@@ -25,7 +28,7 @@ export function impactFixture(t, files = {}, relations = []) {
       name: "impact-fixture",
       private: true,
       type: "module",
-      devDependencies: { "dependency-cruiser": "18.7.0" },
+      devDependencies: { "dependency-cruiser": analyzerDependency },
     }),
   );
   put("package-lock.json", "{}\n");
