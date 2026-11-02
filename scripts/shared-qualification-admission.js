@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import assert from "node:assert/strict";
 import { appendFileSync } from "node:fs";
+import { posix } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRepositoryReader } from "./github-evidence.js";
 
@@ -25,7 +26,8 @@ export function qualificationRequest(environment = process.env) {
   assert.ok(
     !/[\u0000-\u001f\u007f\\:]/u.test(profile) && !profile.startsWith("/"),
   );
-  assert.ok(!profile.split("/").some((part) => [".", ".."].includes(part)));
+  const normalizedProfile = posix.normalize(profile);
+  assert.ok(normalizedProfile !== ".." && !normalizedProfile.startsWith("../"));
   const runId = Number(environment.GITHUB_RUN_ID);
   assert.ok(Number.isSafeInteger(runId) && runId > 0);
   return {

@@ -116,6 +116,15 @@ test("invalid or mutable request identities cannot enter the approval record", (
     );
 });
 
+test("contained profile aliases and Unicode names retain their exact reviewed input", () => {
+  const profile = "./révision/../profil.json";
+  assert.equal(
+    qualificationRequest({ ...requestEnvironment, MQ_PROFILE: profile })
+      .profile,
+    profile,
+  );
+});
+
 test("request summary is available without installing or checking out caller code", (t) => {
   const output = join(consumer(t), "summary.md");
   const result = spawnSync(
