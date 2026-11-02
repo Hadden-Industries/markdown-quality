@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -9,11 +9,23 @@ import { impactFixture } from "./dependency-impact-helpers.js";
 import { planAffected, runAffected } from "../scripts/affected-tests.js";
 import { consumer, fixtureCommandTimeoutMs } from "./helpers.js";
 
+test("declared dependency relations refer to existing repository endpoints", () => {
+  const root = fileURLToPath(new URL("../", import.meta.url));
+  const policy = JSON.parse(readFileSync(join(root, ".test-impact.json")));
+  for (const relation of policy.relations)
+    for (const field of ["dependency", "consumer"])
+      assert.ok(
+        existsSync(join(root, relation[field])),
+        `${relation.id}: missing ${field} ${relation[field]}`,
+      );
+});
+
 test("shared generator and native resources select and execute the conservative full obligation", async (t) => {
   for (const path of [
     "scripts/schema-sources/configuration.json",
     "scripts/windows-job-source.py",
     "scripts/native-evidence-contract.json",
+    "scripts/native-build-next.json",
     "scripts/resource-');throw new Error('injected').json",
     "scripts/resource-`${process.exit(99)}-\u2028\u2029.json",
   ]) {
