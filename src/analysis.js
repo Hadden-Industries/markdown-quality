@@ -6,9 +6,7 @@ import { gfm } from "micromark-extension-gfm";
 import { gfmFromMarkdown } from "mdast-util-gfm";
 import { frontmatter } from "micromark-extension-frontmatter";
 import { frontmatterFromMarkdown } from "mdast-util-frontmatter";
-import { lstatSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { safePath } from "./configuration.js";
+import { checkLocalLinks, createSpellingObserver } from "./local-links.js";
 import { diagnosticBudget, diagnosticCollector } from "./contracts.js";
 import { eslintRuleSettings } from "./preset.js";
 /** Parse selected front matter as opaque metadata, with original source positions. */
@@ -71,54 +69,20 @@ export async function lintDocument(linter, text, file, config) {
   diagnosticBudget(diagnostics, config?.analyzerLimits);
   return diagnostics;
 }
-export function checkLinks(context, text, file, memo) {
-  if (!context.config.links.checkLocalTargets) return [];
+/** Check local targets, exact path spelling and same-document fragments. Returns
+ * diagnostics plus the document's anchors and cross-document references for the
+ * invocation graph owner.
+ */
+export function checkLinks(context, text, file, memo, spelling) {
   const collector = diagnosticCollector(context.config.analyzerLimits);
-  function walk(node) {
-    if (["link", "image", "definition"].includes(node.type)) {
-      const target = node.url;
-      if (
-        target &&
-        !target.startsWith("#") &&
-        !/^[a-zA-Z][a-zA-Z\d+.-]*:/u.test(target) &&
-        !target.startsWith("//")
-      ) {
-        try {
-          const raw = target.split(/[?#]/u)[0];
-          const decoded = decodeURIComponent(raw);
-          if (decoded.includes("\\") || decoded.includes("\0"))
-            throw new Error("Invalid target.");
-          if (
-            decoded.startsWith("/") &&
-            context.config.links.rootRelative === "reject"
-          )
-            throw new Error(
-              "Root-relative links require explicit root policy.",
-            );
-          const path = safePath(
-            context.root,
-            decoded.startsWith("/")
-              ? resolve(context.root, "." + decoded)
-              : resolve(context.root, dirname(file), decoded),
-          );
-          const stat = lstatSync(path);
-          if (!stat.isFile() && !stat.isDirectory())
-            throw new Error("Target is not a file or directory.");
-        } catch (error) {
-          collector.push({
-            source: "links",
-            rule: "local-target",
-            line: node.position.start.line,
-            column: node.position.start.column,
-            message:
-              "Local target is missing, invalid, linked, or outside the root.",
-            severity: "error",
-          });
-        }
-      }
-    }
-    for (const child of node.children ?? []) walk(child);
-  }
-  walk(memo ? memo.parse(text) : parse(text));
-  return collector.diagnostics;
+  const tree = memo ? memo.parse(text) : parse(text, context.config.syntax);
+  const links = checkLocalLinks(
+    context,
+    tree,
+    file,
+    collector,
+    spelling ??
+      createSpellingObserver(context.root, context.config.analyzerLimits ?? {}),
+  );
+  return { diagnostics: collector.diagnostics, ...links };
 }

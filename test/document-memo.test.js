@@ -129,14 +129,13 @@ test("exact document reuse preserves literals/options and fresh physical targets
     root,
     config: { links: { checkLocalTargets: true, rootRelative: "reject" } },
   };
-  assert.deepEqual(checkLinks(context, source, "source.md", memo), []);
+  const findings = () =>
+    checkLinks(context, source, "source.md", memo).diagnostics;
+  assert.deepEqual(findings(), []);
   unlinkSync(join(root, "target.md"));
-  assert.equal(
-    checkLinks(context, source, "source.md", memo)[0].rule,
-    "local-target",
-  );
+  assert.equal(findings()[0].rule, "local-target");
   writeFileSync(join(root, "target.md"), "Restored.\n");
-  assert.deepEqual(checkLinks(context, source, "source.md", memo), []);
+  assert.deepEqual(findings(), []);
   assert.deepEqual(tree, preimage);
   assert.ok(memo.statistics.parseHits >= 4);
   assert.equal(memo.statistics.layoutHits, 1);

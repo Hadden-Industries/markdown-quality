@@ -30,8 +30,10 @@ export const lintDefaults = Object.freeze({
     "error",
     { allowLabels: ["!NOTE", "!TIP", "!IMPORTANT", "!WARNING", "!CAUTION"] },
   ],
+  // The package's quality/unresolved-local-fragment rule owns same- and
+  // cross-document fragments; the upstream rule stays explicitly selectable.
   "markdown/no-missing-link-fragments": [
-    "error",
+    "off",
     { ignoreCase: true, allowPattern: "" },
   ],
   "markdown/no-multiple-h1": ["error", { frontmatterTitle: "(?!)" }],
@@ -60,6 +62,12 @@ export const qualityRuleDefaults = Object.freeze({
   "quality/long-prose-line": "info",
   // Owner-selected default: decomposed prose blocks; only normalize repairs it.
   "quality/non-nfc-prose": "error",
+  "quality/placeholder-image-alt": "error",
+  "quality/unlabeled-image-link": "error",
+  "quality/disallowed-html-construct": "error",
+  "quality/missing-html-image-alt": "error",
+  "quality/local-path-case-mismatch": "error",
+  "quality/unresolved-local-fragment": "error",
 });
 export const formatterDefaults = Object.freeze({
   parser: "markdown",

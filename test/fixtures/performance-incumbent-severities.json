@@ -5,5 +5,11 @@
   "quality/long-prose-line": "info",
   "quality/non-nfc-prose": "info",
   "markdown/no-bare-urls": "off",
-  "markdown/no-missing-link-fragments": "error"
+  "markdown/no-missing-link-fragments": "error",
+  "quality/placeholder-image-alt": "off",
+  "quality/unlabeled-image-link": "off",
+  "quality/disallowed-html-construct": "off",
+  "quality/missing-html-image-alt": "off",
+  "quality/local-path-case-mismatch": "off",
+  "quality/unresolved-local-fragment": "off"
 }

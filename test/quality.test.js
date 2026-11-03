@@ -158,7 +158,8 @@ test("structure, fragments, labels, tables and local links use maintained analys
   assert.equal(result.exitCode, 1, JSON.stringify(result));
   for (const rule of [
     "markdown/heading-increment",
-    "markdown/no-missing-link-fragments",
+    // The package fragment rule owns same-document fragments by default.
+    "quality/unresolved-local-fragment",
     "markdown/no-missing-label-refs",
     "markdown/table-column-count",
     "local-target",
@@ -181,7 +182,7 @@ test("candidate validation blocks all writes when any local target is missing", 
 test("links classify encoded filenames and schemes without fetching", async (t) => {
   const root = consumer(t, {
     "a.md":
-      "[File](résumé%20%5B1%5D.txt)\n\n![Image](image.png)\n\n[Remote](https://example.invalid)\n\n[Email](mailto:author@example.invalid)\n",
+      "[File](résumé%20%5B1%5D.txt)\n\n![Diagram of the layout](image.png)\n\n[Remote](https://example.invalid)\n\n[Email](mailto:author@example.invalid)\n",
     "résumé [1].txt": "literal",
     "image.png": "image",
   });

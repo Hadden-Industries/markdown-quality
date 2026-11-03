@@ -15,6 +15,7 @@ import { replaceDocument } from "./replacement.js";
 import { createNativeStaging } from "./native-staging.js";
 import { effectivePolicy } from "./preset.js";
 import { createLinter } from "./analysis.js";
+import { createLinkGraph } from "./link-graph.js";
 import { createInitialQualityResult } from "./result-construction.js";
 import {
   decode,
@@ -275,6 +276,17 @@ export async function analyzeOperation(
     result.diagnostics = collector.diagnostics;
     let total = 0,
       outputTotal = 0;
+    // Unique selected and dependency inputs share one retained-byte account.
+    const graph = createLinkGraph(context, {
+      admitBytes(bytes) {
+        total += bytes;
+        if (exceeds(total, budgets.maxTotalDocumentBytes))
+          fail(
+            "BATCH_LIMIT",
+            "Total document and link-dependency bytes exceed the limit.",
+          );
+      },
+    });
     let prepared = [],
       preparedBytes = 0;
     let inputs = [],
@@ -331,6 +343,11 @@ export async function analyzeOperation(
           });
         diagnosticBudget(diagnostics, budgets);
         for (const d of diagnostics) collector.push({ path: file, ...d });
+        graph.addDocument(
+          file,
+          formatted.links.anchors,
+          formatted.links.references,
+        );
         records.get(file).analysisStatus = "completed";
         if (mode === "format")
           candidates.push({ file, item, output: formatted.output });
@@ -451,9 +468,14 @@ export async function analyzeOperation(
     await flushPrepared();
     // Quiesce the worker and remove private payloads before admitting any write.
     await closeAnalysis();
+    // Cross-document fragments use every proposed batch output and captured
+    // dependency content, never a partially written mixture.
+    graph.resolve((diagnostic) => collector.push(diagnostic));
+    result.selection.readDependencies = graph.readDependencies;
+    const observations = [...context.observations, ...graph.observations];
     result.diagnostics.sort(sortDiagnostics);
-    // Refuse stale success: policy inputs must still match their admitted observations.
-    recheckObservations(context.observations);
+    // Refuse stale success: policy and dependency inputs must still match.
+    recheckObservations(observations);
     const blocked = result.diagnostics.some(
       (d) =>
         (d.severity === "error" ||
@@ -489,7 +511,7 @@ export async function analyzeOperation(
       for (const [index, candidate] of changed.entries()) {
         // Earlier replacements are this operation's own postimages; policy inputs
         // are rechecked before every later write.
-        if (index > 0) recheckObservations(context.observations);
+        if (index > 0) recheckObservations(observations);
         replaceDocument(
           context.root,
           candidate.item,

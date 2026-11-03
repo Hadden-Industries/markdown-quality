@@ -2,6 +2,7 @@
 import { parentPort, workerData } from "node:worker_threads";
 import { prepareFormattedDocument } from "./formatting.js";
 import { createLinter, lintDocument, checkLinks } from "./analysis.js";
+import { createSpellingObserver } from "./local-links.js";
 import { diagnosticBudget, OperationError } from "./contracts.js";
 import { checkTrailingWhitespace } from "./whitespace.js";
 import { checkQualityRules } from "./quality-diagnostics.js";
@@ -18,6 +19,11 @@ import {
 } from "./native-checks.js";
 const { context, tool } = workerData;
 const linter = createLinter(context);
+// Directory-entry observations are reused for this invocation's documents only.
+const spelling = createSpellingObserver(
+  context.root,
+  context.config.analyzerLimits,
+);
 function reported(error) {
   return {
     code: error instanceof OperationError ? error.code : "ANALYSIS_FAILURE",
@@ -150,7 +156,10 @@ parentPort.on(
         precheck,
       );
       const proposed = mode === "format" ? formatted.output : text;
-      const canonical = mode === "format" || formatted.output === text;
+      // Normalization admission evaluates structural rules on its actual candidate
+      // even when it is not canonically formatted.
+      const canonical =
+        mode === "format" || mode === "normalize" || formatted.output === text;
       const literalExclusions = captureLiteralExclusions(
         formatted.output,
         context.config.syntax,
@@ -162,12 +171,13 @@ parentPort.on(
           memo,
           context.config.analyzerLimits,
         );
+        const links = checkLinks(context, proposed, file, memo, spelling);
         const diagnostics = [
           ...whitespace,
           ...(canonical
             ? await lintDocument(linter, proposed, file, context.config)
             : []),
-          ...checkLinks(context, proposed, file, memo),
+          ...links.diagnostics,
           ...checkQualityRules(proposed, context.config, memo),
         ];
         diagnosticBudget(diagnostics, context.config.analyzerLimits);
@@ -177,6 +187,7 @@ parentPort.on(
           whitespaceCount: whitespace.length,
           prechecked: formatted.prechecked,
           literalExclusions,
+          links: { anchors: links.anchors, references: links.references },
         });
       } catch (error) {
         // Preserve prose-before-lint failure order; no provisional result is admitted.

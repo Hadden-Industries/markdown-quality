@@ -308,7 +308,7 @@ test("packed root and isolated consumers install without lifecycle scripts and e
           },
           text,
           file.path,
-        ),
+        ).diagnostics,
         [],
         file.path,
       );

@@ -29,6 +29,8 @@
     "src/document-analysis.js",
     "src/execution.js",
     "src/host-git.js",
+    "src/link-graph.js",
+    "src/local-links.js",
     "src/native-staging.js",
     "src/native-tool.js",
     "src/qualification-evidence.js",

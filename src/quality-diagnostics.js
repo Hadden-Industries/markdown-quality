@@ -3,10 +3,15 @@ import { parse } from "./analysis.js";
 import { qualityRuleDefaults } from "./preset.js";
 import { diagnosticCollector } from "./contracts.js";
 import { collectProse, proseValue, isNfc } from "./prose-runs.js";
+import {
+  htmlFacts,
+  htmlPosition,
+  meaningfulLabel,
+  normalizedLabel,
+  placeholderAlternatives,
+} from "./html-policy.js";
 
-/** Reviewed exact generic labels, matched case-insensitively after trimming and
- * collapsing whitespace, in prose and tables.
- */
+/** Reviewed exact generic labels, matched case-insensitively after trimming. */
 export const genericLinkLabels = Object.freeze(
   new Set([
     "click here",
@@ -21,21 +26,43 @@ export const genericLinkLabels = Object.freeze(
     "this page",
   ]),
 );
-const normalizedLabel = (value) =>
-  value.replace(/s+/gu, " ").trim().toLowerCase();
+/** Rules owned by this module; link-target rules belong to the local-link checker. */
+const ownedRules = [
+  "quality/duplicate-sibling-heading",
+  "quality/heading-trailing-punctuation",
+  "quality/generic-link-text",
+  "quality/non-nfc-prose",
+  "quality/long-prose-line",
+  "quality/placeholder-image-alt",
+  "quality/unlabeled-image-link",
+  "quality/disallowed-html-construct",
+  "quality/missing-html-image-alt",
+];
 
-/** Package quality rules with configurable severity; never fixes or accessibility certification.
- * Disabled rules skip their own work; a fully disabled rule set does not parse.
+/** Package quality rules with configurable severity; never fixes or accessibility
+ * certification. Disabled rules skip their own work; a fully disabled set does not parse.
  */
 export function checkQualityRules(text, config, memo) {
-  const enabled = (rule) =>
-    (config.lint[rule] ?? qualityRuleDefaults[rule]) !== "off";
+  const severity = (rule) => config.lint[rule] ?? qualityRuleDefaults[rule];
+  const enabled = (rule) => severity(rule) !== "off";
   const duplicateHeadingsEnabled = enabled("quality/duplicate-sibling-heading"),
     headingPunctuationEnabled = enabled("quality/heading-trailing-punctuation"),
     genericLinksEnabled = enabled("quality/generic-link-text"),
     nfcEnabled = enabled("quality/non-nfc-prose"),
-    longLinesEnabled = enabled("quality/long-prose-line");
-  if (!Object.keys(qualityRuleDefaults).some(enabled)) return [];
+    longLinesEnabled = enabled("quality/long-prose-line"),
+    placeholderEnabled = enabled("quality/placeholder-image-alt"),
+    unlabeledEnabled = enabled("quality/unlabeled-image-link"),
+    // The upstream require-alt-text rule also reports absent HTML alt attributes;
+    // the parser-based package rule takes over only when that rule is disabled,
+    // so one missing alternative never yields two findings.
+    missingHtmlAltEnabled =
+      enabled("quality/missing-html-image-alt") &&
+      (config.lint["markdown/require-alt-text"] ?? "error") === "off",
+    htmlEnabled =
+      enabled("quality/disallowed-html-construct") ||
+      missingHtmlAltEnabled ||
+      unlabeledEnabled;
+  if (!ownedRules.some(enabled)) return [];
   const collector = diagnosticCollector(config.analyzerLimits);
   const lines = longLinesEnabled ? text.split(/\r\n|\r|\n/u) : undefined;
   const lineOffsets = longLinesEnabled ? [0] : undefined;
@@ -43,7 +70,7 @@ export function checkQualityRules(text, config, memo) {
     for (const match of text.matchAll(/\r\n|\r|\n/gu))
       lineOffsets.push(match.index + match[0].length);
   function report(rule, node, message, position = node.position.start) {
-    const selected = config.lint[rule] ?? qualityRuleDefaults[rule];
+    const selected = severity(rule);
     if (selected === "off") return;
     collector.push({
       source: "quality",
@@ -57,9 +84,30 @@ export function checkQualityRules(text, config, memo) {
   function label(node) {
     return node.value ?? (node.children ?? []).map(label).join("");
   }
+  // Static accessible label of a Markdown link: meaningful text plus image alternatives.
+  function accessibleLabel(node) {
+    if (["image", "imageReference"].includes(node.type)) return node.alt ?? "";
+    if (node.type === "html") return "";
+    return node.value ?? (node.children ?? []).map(accessibleLabel).join("");
+  }
+  const images = (node) =>
+    ["image", "imageReference"].includes(node.type)
+      ? [node]
+      : (node.children ?? []).flatMap(images);
   const tree = memo ? memo.parse(text) : parse(text);
-  // NFC uses the shared prose population: joined rendered runs, table cells and
-  // image alternatives, reported at each run's original source start.
+  const unlabeledHtml = new Set();
+  function reportUnlabeledHtml(node, item) {
+    const at = htmlPosition(node, item);
+    const key = at.line + ":" + at.column;
+    if (unlabeledHtml.has(key)) return;
+    unlabeledHtml.add(key);
+    report(
+      "quality/unlabeled-image-link",
+      node,
+      "Image-only HTML link has no meaningful static label.",
+      at,
+    );
+  }
   if (nfcEnabled)
     for (const unit of collectProse(tree))
       if (!isNfc(proseValue(unit)))
@@ -69,10 +117,51 @@ export function checkQualityRules(text, config, memo) {
           "Prose contains non-NFC Unicode; run normalize to repair eligible prose.",
         );
   function visit(node) {
-    if (
-      ["code", "inlineCode", "html", "yaml", "toml", "json"].includes(node.type)
-    )
+    if (node.type === "html") {
+      if (!htmlEnabled) return;
+      const facts = htmlFacts(node.value);
+      for (const item of facts.disallowed)
+        report(
+          "quality/disallowed-html-construct",
+          node,
+          `Raw HTML uses the disallowed ${item.construct}; this static policy is not a sanitizer.`,
+          htmlPosition(node, item),
+        );
+      if (missingHtmlAltEnabled)
+        for (const item of facts.missingAlt)
+          report(
+            "quality/missing-html-image-alt",
+            node,
+            'HTML image lacks an alt attribute; use alt="" only for decorative images.',
+            htmlPosition(node, item),
+          );
+      for (const item of facts.unlabeledLinks) reportUnlabeledHtml(node, item);
       return;
+    }
+    if (["code", "inlineCode", "yaml", "toml", "json"].includes(node.type))
+      return;
+    if (node.children && unlabeledEnabled) {
+      // Supported model extension: adjacent inline HTML nodes separated only by
+      // whitespace form one fragment, so <a ...><img ...></a> is assessed whole.
+      let run = [];
+      const flush = () => {
+        if (run.length > 1) {
+          const first = run[0];
+          const source = text.slice(
+            first.position.start.offset,
+            run.at(-1).position.end.offset,
+          );
+          for (const item of htmlFacts(source).unlabeledLinks)
+            reportUnlabeledHtml(first, item);
+        }
+        run = [];
+      };
+      for (const child of node.children)
+        if (child.type === "html") run.push(child);
+        else if (!(child.type === "text" && !child.value.trim() && run.length))
+          flush();
+      flush();
+    }
     if (node.children) {
       // Lesser-depth headings own sections; containers have independent scopes.
       const ancestors = duplicateHeadingsEnabled ? [] : undefined,
@@ -116,6 +205,29 @@ export function checkQualityRules(text, config, memo) {
         "quality/generic-link-text",
         node,
         "Use descriptive link text instead of a generic label.",
+      );
+    if (
+      placeholderEnabled &&
+      ["image", "imageReference"].includes(node.type) &&
+      placeholderAlternatives.has(normalizedLabel(node.alt ?? ""))
+    )
+      report(
+        "quality/placeholder-image-alt",
+        node,
+        "Image alternative text is a placeholder; describe the image or use decorative HTML.",
+      );
+    if (
+      unlabeledEnabled &&
+      ["link", "linkReference"].includes(node.type) &&
+      images(node).length &&
+      !meaningfulLabel(accessibleLabel(node)) &&
+      // An empty Markdown alternative is already the missing-alt error's finding.
+      images(node).some((image) => normalizedLabel(image.alt ?? "") !== "")
+    )
+      report(
+        "quality/unlabeled-image-link",
+        node,
+        "Image link has no meaningful static label from its text or image alternatives.",
       );
     if (longLinesEnabled && node.type === "paragraph") {
       const exempt = [];
