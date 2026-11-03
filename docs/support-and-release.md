@@ -39,7 +39,7 @@ A compatible repair may use a patch version.
 An opt-in compatible feature may use a minor version.
 The current source targets a new major release because its contracts are breaking: existing configurations, API names, flags and default verdicts change.
 It requires no configuration file (zero-config), replaces `authored-gfm@1` with the stricter `authored-gfm@2` defaults, rejects configuration schemas 1 and 2 with migration guidance, and adds the `normalize` command for NFC repair.
-It adds `parse5` 8.0.1 (MIT) and `github-slugger` 2.0.0 (ISC) as direct runtime dependencies.
+It adds `parse5` 8.1.0 (MIT) and `github-slugger` 2.0.0 (ISC) as direct runtime dependencies.
 Published 1.0.3 remains unchanged; its schemas, preset and behavior are history, not this source's contract.
 The [current compatibility contract](centralized-contracts.md#current-source-compatibility) owns schema admission, resource ceilings and the result, execution and comparison versions.
 Do not republish existing archives or describe this development source as the published 1.0.3 behavior.

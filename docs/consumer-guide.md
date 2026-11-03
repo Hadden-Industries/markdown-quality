@@ -14,7 +14,7 @@ No configuration file is required.
 A local dependency does not put a bare `markdown-quality` executable on every shell's PATH; use [npm exec](https://docs.npmjs.com/cli/v11/commands/npm-exec/) or an npm script.
 Keep the consumer lockfile, and disable lifecycle scripts with `--ignore-scripts` where your acquisition policy requires it.
 An isolated `tooling/markdown` npm project supports consumers that do not use Node for their application; pass the actual repository root to its commands.
-`parse5` 8.0.1 (MIT) and `github-slugger` 2.0.0 (ISC) are direct runtime dependencies.
+`parse5` 8.1.0 (MIT) and `github-slugger` 2.0.0 (ISC) are direct runtime dependencies.
 
 ## Root discovery
 

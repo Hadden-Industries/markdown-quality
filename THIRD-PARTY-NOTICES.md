@@ -21,13 +21,13 @@ That policy text retains CC BY-SA 4.0, its attribution and the indicated changes
 | micromark-extension-frontmatter | 2.0.0   | MIT, Titus Wormer                 |
 | micromark-extension-gfm         | 3.0.0   | MIT                               |
 | picomatch                       | 4.0.7   | MIT                               |
-| parse5                          | 8.0.1   | MIT, Ivan Nikulin                 |
+| parse5                          | 8.1.0   | MIT, Ivan Nikulin                 |
 | github-slugger                  | 2.0.0   | ISC                               |
 | Snapper upstream executable     | 0.11.9  | MIT, Copyright 2026 Rohit Goswami |
 
 Installed npm packages retain their upstream license files.
-parse5 parses raw HTML fragments as static data for the package's finite HTML and anchor checks; its transitive `entities` 8.1.0 dependency retains its BSD-2-Clause notice by Felix Böhm.
-parse5 8.1.0 was published on 2026-11-01 with a newly published `entities` 9 dependency; the older 8.0.1 is retained until that release has a review and soak period.
+parse5 parses raw HTML fragments as static data for the package's finite HTML and anchor checks; its transitive `entities` 9.0.0 dependency retains its BSD-2-Clause notice by Felix Böhm.
+parse5 8.1.0 (published 2026-11-01) and `entities` 9.0.0 (published 2026-10-29) were adopted by owner decision without the usual soak period.
 github-slugger was already installed through ESLint Markdown and is now imported directly for the package's documented heading-anchor allocation; its installed ISC notice is unchanged.
 Development analysis uses dependency-cruiser 18.7.0 under MIT, copyright 2016-2026 Sander Verweij.
 Its installed `LICENSE` retains the original permission and copyright notice; no analyzer source is vendored or modified.
