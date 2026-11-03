@@ -1,8 +1,25 @@
 # Markdown quality
 
 This package supplies one CLI and library for Markdown layout, sentence lines, GFM linting, NFC prose, static accessibility checks and contained local links and fragments.
-It works without a configuration file: package defaults select every lowercase `.md` file under the consumer root.
+It works without a configuration file: package defaults discover every lowercase `.md` file under the consumer root, and files you name are checked whatever their extension.
 The package preserves the existing AGPL-3.0-only license.
+
+## Why use it
+
+- One package covers layout, sentence lines, GFM linting, NFC prose, accessibility and local links, with one configuration, one result schema and one exit-code contract.
+- It repairs decomposed Unicode in prose to NFC without touching code, raw HTML or link destinations, and its tests run against the official Unicode normalization test data.
+- Accessibility checks flag missing and placeholder image alternatives, generic link text and unlabeled image links.
+- Local links and fragments are checked with GitHub's heading anchors, and path case must match exactly, so a link that works on a case-insensitive disk does not break on GitHub.
+- `normalize --update-links` rewrites local links to headings whose anchors change, and refuses rather than guesses when it cannot.
+- Repairs check the whole batch before the first write and recheck each file just before replacing it; symbolic links, hard links and paths outside the root are refused.
+- Nothing is fetched over the network, every resource ceiling has a finite configurable default, and results are machine-readable JSON with published schemas.
+
+## When not to use it
+
+- Your documents are MDX or another dialect; the package checks GitHub Flavored Markdown only.
+- You want to choose your own layout style; canonical layout and whitespace policy are fixed.
+- You need external URLs, site routes or extensionless targets verified; only repository-local targets are checked.
+- You need spelling, grammar or prose-style review.
 
 ## Install and run
 

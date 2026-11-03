@@ -1,7 +1,7 @@
 {
   "name": "@hadden-industries/markdown-quality",
   "version": "1.0.3",
-  "description": "Shared, bounded Markdown formatting, GFM linting, and local-link checking",
+  "description": "Zero-config Markdown formatter and GFM checker with NFC prose repair, accessibility checks and local link and fragment validation",
   "type": "module",
   "license": "AGPL-3.0-only",
   "engines": {
@@ -50,11 +50,20 @@
   },
   "keywords": [
     "markdown",
+    "gfm",
     "formatter",
     "linter",
-    "gfm",
-    "nodejs",
-    "cli"
+    "unicode",
+    "nfc",
+    "normalization",
+    "accessibility",
+    "alt-text",
+    "links",
+    "anchors",
+    "link-checker",
+    "documentation",
+    "cli",
+    "nodejs"
   ],
   "scripts": {
     "sync:node": "node scripts/project-node-support.js --write",
