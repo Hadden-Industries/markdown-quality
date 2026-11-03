@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import test from "node:test";
 import assert from "node:assert/strict";
-import { writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runQuality } from "../src/quality.js";
 import {
@@ -177,5 +184,20 @@ test("dependency ceilings and freshness are enforced for link targets", async (t
   assert.throws(
     () => recheckObservations(graph.observations),
     (error) => error.code === "DEPENDENCY_CHANGED",
+  );
+});
+
+test("spelling observation never descends through a linked component", async (t) => {
+  const outside = mkdtempSync(join(tmpdir(), "markdown-quality-outside-"));
+  t.after(() => rmSync(outside, { recursive: true, force: true }));
+  mkdirSync(join(outside, "data"));
+  writeFileSync(join(outside, "data", "x.md"), "# X\n");
+  const root = consumer(t, { "a.md": "# A\n\n[x](linked/x.md)\n" });
+  // A junction needs no elevation on Windows and is a directory link elsewhere.
+  symlinkSync(join(outside, "data"), join(root, "Linked"), "junction");
+  const report = await runQuality({ root });
+  assert.deepEqual(
+    report.diagnostics.map((d) => d.rule),
+    ["local-target"],
   );
 });

@@ -63,7 +63,7 @@ export function createSpellingObserver(root, budgets) {
     let directory = root;
     const expected = [];
     let mismatch = false;
-    for (const part of parts) {
+    for (const [index, part] of parts.entries()) {
       const names = list(directory);
       if (names.includes(part)) expected.push(part);
       else {
@@ -75,6 +75,14 @@ export function createSpellingObserver(root, budgets) {
         mismatch = true;
       }
       directory = join(directory, expected.at(-1));
+      // Never observe through a linked or non-directory component, even when it
+      // was reached by a case-insensitive match the literal path check skipped.
+      const stat = lstatSync(directory);
+      if (
+        stat.isSymbolicLink() ||
+        (index < parts.length - 1 && !stat.isDirectory())
+      )
+        return undefined;
     }
     return mismatch ? expected.join("/") : null;
   };

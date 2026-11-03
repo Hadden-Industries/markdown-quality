@@ -128,6 +128,7 @@ export async function runQualityRequest(request, options = {}, internal = {}) {
   const { root } = discoverConsumerRoot(request.root, {
     gitExecutablePath: request.gitExecutablePath,
     gitTimeoutMs: bootstrapCeiling("gitTimeoutMs", [invocation]),
+    maxGitOutputBytes: bootstrapCeiling("maxInventoryBytes", [invocation]),
   });
   const profileSnapshot =
     internal.profileSnapshot ??

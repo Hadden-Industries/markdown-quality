@@ -53,6 +53,17 @@ export const executionLimitKeys = Object.freeze([
   ...qualificationLimitKeys,
 ]);
 
+// Remaining fixed constants are not resource ceilings and never refuse work:
+// - Work units: 65,536-byte read chunks; 32-document and 4 MiB analysis and prose
+//   recheck batches (native-protocol nativeGroupCapacity, prose-diagnostics) flush
+//   early rather than reject; normalization scans character references in 40-unit
+//   windows.
+// - Correctness or protocol: native report reservation estimates checked against
+//   maxNativeOutputBytes; Snapper's long_threshold, which disables its unrelated
+//   length advisory; CommonMark character-reference digit and name lengths.
+// - Representation bounds: timers clamp to Node's 2,147,483,647 ms maximum and
+//   re-arm; diagnostic messages quote at most 200 or 300 characters of input.
+
 /** Disclosed with every resolved policy; package modes cannot remove these. */
 export const externalResourceConstraints =
   "Unlimited means no package-imposed ceilings. Node/V8 heap and stack defaults, JavaScript string and buffer representation limits, operating-system and filesystem constraints, and hosted-provider job or artifact limits still apply; a library cannot change its host process's startup heap.";

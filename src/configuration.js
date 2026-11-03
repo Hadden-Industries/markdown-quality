@@ -231,6 +231,7 @@ export function loadConfiguration(options = {}, internal = {}) {
   const { root, method } = discoverConsumerRoot(options.root, {
     gitExecutablePath: options.gitExecutablePath,
     gitTimeoutMs: bootstrapCeiling("gitTimeoutMs", [invocation]),
+    maxGitOutputBytes: bootstrapCeiling("maxInventoryBytes", [invocation]),
   });
   const profile =
     internal.profileSnapshot ??

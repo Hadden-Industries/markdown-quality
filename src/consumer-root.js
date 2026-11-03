@@ -59,13 +59,16 @@ function observe(path) {
 }
 
 /** Confirm an observed .git entry denotes this directory's checkout through host Git. */
-function verifyGitBoundary(directory, { gitExecutablePath, gitTimeoutMs }) {
+function verifyGitBoundary(
+  directory,
+  { gitExecutablePath, gitTimeoutMs, maxGitOutputBytes },
+) {
   let output;
   try {
     const git = bindGitExecutable(directory, gitExecutablePath);
     output = readGit(git, directory, ["rev-parse", "--show-toplevel"], {
       timeoutMs: gitTimeoutMs,
-      maxOutputBytes: 65_536,
+      maxOutputBytes: maxGitOutputBytes,
     });
   } catch {
     fail(
@@ -92,7 +95,12 @@ function verifyGitBoundary(directory, { gitExecutablePath, gitTimeoutMs }) {
  */
 export function discoverConsumerRoot(
   root,
-  { cwd = process.cwd(), gitExecutablePath, gitTimeoutMs = null } = {},
+  {
+    cwd = process.cwd(),
+    gitExecutablePath,
+    gitTimeoutMs = null,
+    maxGitOutputBytes = null,
+  } = {},
 ) {
   let method;
   if (root !== undefined && root !== null) {
@@ -111,7 +119,11 @@ export function discoverConsumerRoot(
             "UNSAFE_ROOT",
             "Git metadata must be a directory or a worktree/submodule file.",
           );
-        verifyGitBoundary(directory, { gitExecutablePath, gitTimeoutMs });
+        verifyGitBoundary(directory, {
+          gitExecutablePath,
+          gitTimeoutMs,
+          maxGitOutputBytes,
+        });
         root = directory;
         method = "git";
         break;
