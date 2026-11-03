@@ -2,6 +2,7 @@
 
 The pilot declarations are [OwlAPI](consumer-configurations/owlapi.json) and [WebVOWL](consumer-configurations/webvowl.json).
 They preserve the incumbent authored selection and native ignore files.
+Both are 1.0.x-era configuration schema 1 records using `authored-gfm@1`, retained unchanged as history; current source rejects them with migration guidance, and they are not current consumer configurations.
 Existing ignore policy is retained from each frozen consumer; it is not copied into the shared preset.
 The shared GFM, prose, and link checks still require reviewed diagnostic and output deltas before cutover.
 

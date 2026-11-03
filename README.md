@@ -1,53 +1,86 @@
 # Markdown quality
 
-This package supplies one CLI and library for Markdown layout, sentence lines, GFM linting, and contained local links.
-Consumers declare their authored-document scope in `.markdown-quality.json`.
-Development source uses configuration schema 2 and result schema 3 with the agreed opinionated `authored-gfm@1` defaults.
-Code-block languages remain required.
-Native options and lint settings are explicitly package-owned; upstream recommended configurations do not select policy.
-This is a breaking change for the next major release; published 1.0.3 archives retain their previous behavior.
+This package supplies one CLI and library for Markdown layout, sentence lines, GFM linting, NFC prose, static accessibility checks and contained local links and fragments.
+It works without a configuration file: package defaults select every lowercase `.md` file under the consumer root.
 The package preserves the existing AGPL-3.0-only license.
 
-Core and platform packages share one exact release version.
-Adopt the latest producer commit after its exact core/native/archive/workflow tuple passes qualification, regardless of release status.
-Keep its full source SHA, archive hashes and frozen lock; the reused package version alone cannot identify development source.
-Public npm release adoption retains its separate coordinated registry qualification.
-Registry publication and promotion to `latest` are separate outcomes.
+## Install and run
 
 ```sh
-markdown-quality check --root /path/to/repository
-markdown-quality check --root /path/to/repository --strict
-markdown-quality format --root /path/to/repository
-markdown-quality inspect --root /path/to/repository --json
-markdown-quality inspect-profile --root /path/to/repository --json
-markdown-quality format --stdin-request --root /path/to/repository --json
-markdown-quality check --root /path/to/repository -- "docs/literal [1].md"
-markdown-quality check --root /path/to/repository --files-json '[]'
+npm install --save-dev @hadden-industries/markdown-quality
+npm exec -- markdown-quality check --root .
 ```
 
-Checks never install tools or write documents.
-Formatting validates the complete selected batch before any replacement.
-Errors block; warnings block only under `--strict`; information never blocks.
-Read-only checks also fail on formatting drift.
-Reports retain advisory findings even when exit is zero.
-Current source supports `--diagnostic-level info|warning|error` for human-readable findings, defaulting to `info`.
-Filtered output reports hidden counts; complete JSON results, exit decisions and formatting admission are unaffected.
-Operational resource limits are defaults the consumer can raise or bypass through configuration, library options, or CLI `--no-limits`.
-Overrides preserve quality rules and guarded formatting; the consumer owns capacity choices.
-It checks each file's original identity and bytes immediately before replacing it.
-A failure after earlier replacements reports the completed and unprocessed paths.
-Formatting is not a whole-batch transaction.
+A local dependency does not put a bare `markdown-quality` executable on every shell's PATH.
+Run it through [npm exec](https://docs.npmjs.com/cli/v11/commands/npm-exec/), an npm script, or another runner that resolves local package binaries.
+Without `--root`, the root is the nearest Git checkout verified with host Git, else the nearest package root, else the current directory.
+The optional `.markdown-quality.json` is looked up only at that root.
 
-Read the [consumer guide](docs/consumer-guide.md) for configuration and installation.
-The [support and release guide](docs/support-and-release.md) describes compatibility and release gates.
-The [third-party notices](THIRD-PARTY-NOTICES.md) distinguish package code from upstream assets.
-For development and proposals, read [Contributing](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
-Report vulnerabilities through the private channel in the [security policy](SECURITY.md).
+## Commands
+
+```sh
+npm exec -- markdown-quality check --root .
+npm exec -- markdown-quality check --root . --strict
+npm exec -- markdown-quality format --root .
+npm exec -- markdown-quality normalize --root . --dry-run
+npm exec -- markdown-quality normalize --root . --dry-run --update-links
+npm exec -- markdown-quality normalize --root . --update-links
+npm exec -- markdown-quality inspect --root . --json
+npm exec -- markdown-quality inspect-profile --root . --json
+npm exec -- markdown-quality format --stdin-request --root . --json
+npm exec -- markdown-quality check --root . -- "docs/literal [1].md"
+npm exec -- markdown-quality check --root . --files-json '[]'
+```
+
+`check` is read-only and establishes the policy verdict for the selected scope.
+`format` applies canonical presentation; it may leave only `quality/non-nfc-prose` findings, which it never repairs.
+`normalize` repairs eligible prose to NFC with source-aware edits; it may leave only presentation drift for `format`.
+`normalize --dry-run` performs the same preparation and reports proposed changes with zero writes; a preview is not write authority.
+`normalize --update-links` permits changed generated heading anchors and updates supported local fragments inside the selected write set.
+It refuses dependent references outside that set, inside raw HTML or with ambiguous targets, and always reports external backlinks as unverified.
+`inspect` resolves configuration, policy and selection without a content verdict.
+`inspect-profile` resolves the execution profile without analysis or qualification.
+`format --stdin-request` and `normalize --stdin-request` read one bounded JSON request `{path, requestId, contentBase64}` from standard input and never write the checkout.
+Literal filenames follow `--`; `--files-json '[]'` is an intentional empty selection that succeeds without launching tools.
+
+Both repair orders work: format, normalize, check, or normalize, format, check.
+Formatting and normalization validate the complete selected batch before the first replacement.
+Each file's identity and bytes are rechecked immediately before its replacement; this is per-file guarded replacement, not a transaction.
+
+## Exit and status
+
+| Exit | Meaning                                                                                                            |
+| ---- | ------------------------------------------------------------------------------------------------------------------ |
+| `0`  | The operation completed without blockers; a repair or preview can still report remaining findings                  |
+| `1`  | A completed check found blocking findings or drift, or a repair or preview was refused with zero source writes     |
+| `2`  | Operational failure, such as invalid configuration or arguments, unsafe input, resource exhaustion or stale inputs |
+
+Results report `operationStatus` (`completed`, `previewed`, `refused`, `failed`) separately from `qualityStatus` (`clean`, `findings`, `incomplete`, `not-checked`) and `qualityBasis` (`input`, `candidate`, `applied` or null).
+Only `check` establishes the policy verdict; a successful repair or preview is never check evidence.
+Errors block; warnings block only under `--strict`; information never blocks.
+`--diagnostic-display-level info|warning|error` filters human-readable output only.
+
+## Resource controls
+
+Every package resource ceiling has a finite default that consumers can raise, lower or disable with `null`.
+`--resource-limit-mode unlimited`, or `{"resourceLimitMode": "unlimited"}` in `.markdown-quality-execution.json`, removes all package ceilings, including bootstrap reads.
+`--no-analyzer-limits` removes only analyzer ceilings, and `--max-profile-bytes N` sets the profile bootstrap ceiling.
+Precedence is package defaults, configuration `analyzerLimits`, execution profile, then invocation.
+Unlimited mode cannot remove Node, V8, operating-system or hosting-provider limits and is not a speed claim.
+
+## Guides
+
+- The [consumer guide](docs/consumer-guide.md) covers installation, configuration, defaults, links, normalization, resources and the library API.
+- The [migration guide](docs/migration-guide.md) maps configuration schema 2, 1.x names and result fields to the current contracts.
+- The [support and release guide](docs/support-and-release.md) describes compatibility and release gates.
+- The [centralized contracts guide](docs/centralized-contracts.md) and [CI trust guide](docs/ci-trust.md) describe logical documents, execution profiles and trusted qualification.
+- The [third-party notices](THIRD-PARTY-NOTICES.md) distinguish package code from upstream assets.
+- For development and proposals, read [Contributing](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
+- Report vulnerabilities through the private channel in the [security policy](SECURITY.md).
+
+## Development
 
 Reference builds use the Node reference declared in [node-support.json](https://github.com/Hadden-Industries/markdown-quality/blob/main/assets/node-support.json) and an existing stable Python interpreter at least as new as [.python-version](https://github.com/Hadden-Industries/markdown-quality/blob/main/.python-version) for asset preparation.
-Source compatibility follows the minimum in the Node policy; other engine-compatible releases receive best-effort support.
-Deliberate CI qualifies that floor, the latest declared LTS releases and the independent producer reference on the policy's supported platforms.
-See the [support policy](docs/support-and-release.md) for exact minima and the distinction between development compatibility and published releases.
 Ordinary checks and logical-document operations need no Python interpreter.
 Trusted candidate qualification additionally needs the Python version declared in its accepted execution profile.
 
@@ -61,21 +94,7 @@ npm run check:full
 node scripts/pack.js /path/to/output
 ```
 
-The builder accepts the frozen `snapper-windows.zip` and `snapper-linux.tar.xz` archives.
-It verifies archive and executable hashes before copying fixed regular members.
-Build acquisition is explicit; product operations never acquire executables.
-
-This repository dogfoods its current source directly: `format:markdown` performs guarded formatting and `check:markdown` checks the full authored scope, including Markdown PR templates.
-`format` combines non-Markdown Prettier formatting with that native Markdown pipeline; `check:full` retains both checks and the independent regression suite.
-It does not install a dependency on itself or use documentation success as the sole correctness oracle.
-
-Full, explicit and logical-document selection share the root policy, including ancestor exclusions.
-Ignore files have no Markdown policy authority.
-Use `--inventory git` to explain every tracked Markdown path under a full check.
-The public `processDocument` and `executeQuality` APIs support generated content without checkout writes.
-`format --stdin-request` exposes supplied-document formatting through bounded JSON transport.
-`inspect-profile` resolves execution controls without running document analysis or qualification.
-`markdown-quality-qualify consumer` measures a consumer against the locked producer archive and workflow tuple.
-The former `document`, qualifier `profile` and qualifier `candidate` commands are removed without aliases.
-The package ships trusted staging, a Windows/Linux observer, and a reusable workflow; see the [CI trust guide](docs/ci-trust.md).
-Source tests and workflow definitions alone do not establish hosted or consumer adoption acceptance.
+The builder accepts the frozen `snapper-windows.zip` and `snapper-linux.tar.xz` archives and verifies archive and executable hashes before copying fixed regular members.
+Product operations never acquire executables.
+This repository dogfoods its current source: `format:markdown` performs guarded formatting and `check:markdown` checks the authored scope with Git inventory reconciliation.
+Published 1.0.3 archives retain their previous behavior; this source is the next major contract.

@@ -15,14 +15,13 @@ The source-only adoption does not republish immutable npm 1.0.3.
 
 ```sh
 npm ci --ignore-scripts
-npm run inspect:json -- --json
 npm run check:json
 npm run lint:json:identity
 npm run test:json
 npm run qualify:json:packages
 ```
 
-`inspect:json` and `format:json:check` delegate to complete `check`, including protected presentation.
+`check:json` runs the complete `check`, including protected presentation; the former `inspect:json` and `format:json:check` scripts are removed.
 The retired `inventory`, `lint`, `check-format`, `format-check` and `producers` operations fail without aliases.
 The adapter fixes the repository root.
 

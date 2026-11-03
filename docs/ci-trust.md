@@ -55,7 +55,7 @@ The source lock acquisition alone does not populate metadata for a fresh consume
 It cannot serve as evidence that a pilot's private access works.
 
 A pilot integration must acquire the exact public tool graph from a trusted source without registry credentials and process a separately fetched candidate data tree.
-Use the reviewed schema 2 root policy; translate intended ignore-file exclusions into that policy before adoption.
+Use a reviewed configuration schema 3 root policy, or trusted absence for package defaults; translate intended ignore-file exclusions into that policy before adoption.
 Ignore files have no authority over the current Markdown selector.
 Candidate checkout must not execute application tooling, Git hooks, package lifecycle scripts, JavaScript configuration, or a candidate CLI.
 The checking process must not inherit checkout write credentials, npm configuration, or OIDC issuance authority.
@@ -105,10 +105,16 @@ Package archives, native original license evidence, distribution and recipient S
 The reusable Markdown workflow uploads compact reports and complete content manifests, not per-sample staged source trees.
 Candidate/trusted commits, archive identities and staged digests remain in original receipts; reconstruction must verify all manifest paths, including hidden inputs.
 See [the compact artifact contract](centralized-contracts.md#compact-hosted-artifacts).
-Fresh staging, candidate non-execution, credential boundaries and finite checks remain unchanged.
+Fresh staging, candidate non-execution and credential boundaries remain unchanged.
 A packaging error fails the job; an uploaded partial directory is not passing qualification evidence.
 
-Routine successes retain artifacts for7 days, failures for14, and explicitly selected `qualification-evidence: true` runs for30.
+The reusable workflow takes `trusted-repository`, `trusted-commit-id`, `candidate-repository`, `candidate-commit-id`, `profile` and the Boolean `retain-qualification-evidence` inputs.
+It exposes the full identities to its steps as `MQ_TRUSTED_COMMIT_ID`, `MQ_CANDIDATE_COMMIT_ID` and `MQ_WORKFLOW_COMMIT_ID`.
+Local qualification uses the `markdown-quality-qualify-git` bin, which accepts named flags only, or the `qualifyGitMarkdown` API.
+The repository's own qualification lanes keep finite ceilings.
+An owner-requested profile with `resourceLimitMode: "unlimited"` is a distinct policy; its receipts and window record that mode rather than presenting it as a finite lane.
+
+Routine successes retain artifacts for 7 days, failures for 14, and explicitly selected `retain-qualification-evidence: true` runs for 30.
 GitHub supports per-artifact retention and path selection; it does not require retaining repeated source copies.
 Source bundles needed for offline audit have separate retention ownership.
 Existing artifacts are not deleted or relabeled by this workflow change.

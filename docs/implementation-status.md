@@ -1,5 +1,12 @@
 # Implementation decisions and evidence
 
+## Zero-config opinionated policy source
+
+Current source requires no configuration file and applies the `authored-gfm@2` preset, with configuration schema 3, result schema 4, execution schema 2 and comparison schema 3.
+Public names follow the naming migration: `processLogicalDocument`, `executeQualityRequest`, `stageCandidateData`, `qualifyGitMarkdown`, `compareCheckReports` and the `markdown-quality-qualify-git` bin.
+Repository scripts are renamed to `check:formatting-and-markdown` and `check:dependency-audit`; `inspect:json` and `format:json:check` are removed.
+The [centralized contracts guide](centralized-contracts.md) owns the current contract details; the dated sections below remain historical records of 1.0.x behavior.
+
 ## Consumer Node compatibility on 2026-10-15
 
 The [runtime compatibility record](node-runtime-compatibility.md) records the dependency minima and qualification evidence.

@@ -32,6 +32,7 @@
     "README.md",
     "THIRD-PARTY-NOTICES.md",
     "docs/consumer-guide.md",
+    "docs/migration-guide.md",
     "docs/centralized-contracts.md",
     "docs/ci-trust.md",
     "docs/support-and-release.md"

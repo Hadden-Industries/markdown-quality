@@ -4,7 +4,7 @@ Latest-commit adoption does not require a new npm release.
 Qualify and freeze the full producer commit, exact transported core/native archives, installed JavaScript graph, shared assets and paired reusable workflow revision.
 Packing includes a clean/dirty source identity; trusted qualification refuses a dirty or mismatched source tuple.
 Public release, semver selection, registry qualification and `latest` promotion remain separate effects.
-The [centralized contracts guide](centralized-contracts.md) describes configuration schema 2, result schema 3 and the shared trusted qualification/profile contract.
+The [centralized contracts guide](centralized-contracts.md) describes configuration schema 3, result schema 4, execution schema 2, comparison schema 3 and the shared trusted qualification/profile contract.
 Local source tests do not establish hosted Windows/Linux qualification or downstream acceptance of a new tuple.
 
 Development source targets the consumer floor in the [canonical Node policy](https://github.com/Hadden-Industries/markdown-quality/blob/main/assets/node-support.json).
@@ -37,8 +37,11 @@ Consumers pin the package, preset, and lockfile.
 The public contract includes CLI, library API, schemas, exit meanings, formatter output, and default diagnostics.
 A compatible repair may use a patch version.
 An opt-in compatible feature may use a minor version.
-The owner-approved opinionated-defaults change replaces `authored-gfm@1` in place and requires a new package major because existing invocations change.
-The [current compatibility contract](centralized-contracts.md#current-source-compatibility) owns schema admission, advisory severities, strict admission and effective native policy.
+The current source targets a new major release because its contracts are breaking: existing configurations, API names, flags and default verdicts change.
+It requires no configuration file (zero-config), replaces `authored-gfm@1` with the stricter `authored-gfm@2` defaults, rejects configuration schemas 1 and 2 with migration guidance, and adds the `normalize` command for NFC repair.
+It adds `parse5` 8.0.1 (MIT) and `github-slugger` 2.0.0 (ISC) as direct runtime dependencies.
+Published 1.0.3 remains unchanged; its schemas, preset and behavior are history, not this source's contract.
+The [current compatibility contract](centralized-contracts.md#current-source-compatibility) owns schema admission, resource ceilings and the result, execution and comparison versions.
 Do not republish existing archives or describe this development source as the published 1.0.3 behavior.
 Exact coordinated package version selection and publication remain release decisions.
 Dependency upgrades are classified from observed corpus and consumer deltas.
