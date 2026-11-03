@@ -253,7 +253,7 @@ test("unlimited aggregate diagnostics exceed the old batch count and validate as
 
 test("unlimited resource settings preserve strict warning admission", async (t) => {
   const root = consumer(t, {
-    "a.md": "# Title\n\n## Same\n\n## Same\n\nAlpha. Beta.\n",
+    "a.md": "# Title\n\n## Heading.\n\nAlpha. Beta.\n",
   });
   const strict = await runQuality({
     root,

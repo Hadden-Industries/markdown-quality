@@ -327,7 +327,7 @@ The 15 October synthesis adds these explicit acceptance refinements to the same 
 ### Public integration and source selection
 
 The only editable JSON engine source coordinate will be `devDependencies["@hadden-industries/json-quality"]` in the proposed tooling/json/package.json.
-The revised proposed value is git+https://github.com/Hadden-Industries/json-quality.git#e5e7c66be14af4445946fbb5cf454d4b4a1b7cf5.
+The revised proposed value is `git+https://github.com/Hadden-Industries/json-quality.git#e5e7c66be14af4445946fbb5cf454d4b4a1b7cf5`.
 An exact npm version, or the producer-supported same-package exact npm alias, can replace it only after separate publication and qualification.
 Reject tags, branches, partial commits, floating ranges and sibling file links.
 The isolated exact-source rule is the native acquisition contract; it does not relax the root's existing >= development-dependency convention.

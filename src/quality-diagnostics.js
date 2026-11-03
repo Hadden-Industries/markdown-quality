@@ -2,6 +2,27 @@
 import { parse } from "./analysis.js";
 import { qualityRuleDefaults } from "./preset.js";
 import { diagnosticCollector } from "./contracts.js";
+import { collectProse, proseValue, isNfc } from "./prose-runs.js";
+
+/** Reviewed exact generic labels, matched case-insensitively after trimming and
+ * collapsing whitespace, in prose and tables.
+ */
+export const genericLinkLabels = Object.freeze(
+  new Set([
+    "click here",
+    "here",
+    "read more",
+    "more",
+    "link",
+    "learn more",
+    "this link",
+    "more info",
+    "more information",
+    "this page",
+  ]),
+);
+const normalizedLabel = (value) =>
+  value.replace(/s+/gu, " ").trim().toLowerCase();
 
 /** Package quality rules with configurable severity; never fixes or accessibility certification.
  * Disabled rules skip their own work; a fully disabled rule set does not parse.
@@ -36,11 +57,20 @@ export function checkQualityRules(text, config, memo) {
   function label(node) {
     return node.value ?? (node.children ?? []).map(label).join("");
   }
+  const tree = memo ? memo.parse(text) : parse(text);
+  // NFC uses the shared prose population: joined rendered runs, table cells and
+  // image alternatives, reported at each run's original source start.
+  if (nfcEnabled)
+    for (const unit of collectProse(tree))
+      if (!isNfc(proseValue(unit)))
+        report(
+          "quality/non-nfc-prose",
+          unit.kind === "alt" ? unit.node : unit.parts[0],
+          "Prose contains non-NFC Unicode; run normalize to repair eligible prose.",
+        );
   function visit(node) {
     if (
-      ["code", "inlineCode", "html", "yaml", "toml", "json", "table"].includes(
-        node.type,
-      )
+      ["code", "inlineCode", "html", "yaml", "toml", "json"].includes(node.type)
     )
       return;
     if (node.children) {
@@ -80,22 +110,12 @@ export function checkQualityRules(text, config, memo) {
     if (
       genericLinksEnabled &&
       ["link", "linkReference"].includes(node.type) &&
-      /^(?:click here|here|read more|more|link)$/iu.test(label(node).trim())
+      genericLinkLabels.has(normalizedLabel(label(node)))
     )
       report(
         "quality/generic-link-text",
         node,
-        "Consider descriptive link text instead of a generic label.",
-      );
-    if (
-      nfcEnabled &&
-      node.type === "text" &&
-      node.value !== node.value.normalize("NFC")
-    )
-      report(
-        "quality/non-nfc-prose",
-        node,
-        "Prose contains non-NFC Unicode; no normalization is performed.",
+        "Use descriptive link text instead of a generic label.",
       );
     if (longLinesEnabled && node.type === "paragraph") {
       const exempt = [];
@@ -145,7 +165,7 @@ export function checkQualityRules(text, config, memo) {
             report(
               "quality/long-prose-line",
               node,
-              "Prose line exceeds the informational 120-character threshold.",
+              "Prose line exceeds the 120-character threshold.",
               { line, column: column + 1 },
             );
             break;
@@ -155,6 +175,6 @@ export function checkQualityRules(text, config, memo) {
       }
     }
   }
-  visit(memo ? memo.parse(text) : parse(text));
+  visit(tree);
   return collector.diagnostics;
 }

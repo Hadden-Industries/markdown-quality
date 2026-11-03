@@ -48,7 +48,7 @@ test("bundled Windows/Linux observer runs real full trusted staging and detects 
   );
   const trustedCommitId = freeze(trustedRoot);
   const candidateRoot = consumer(t, {
-    "README.md": "# Heading!\n\nAlpha.\n",
+    "README.md": "# Heading\n\n" + "Word ".repeat(25).trim() + "\n",
     "candidate.mjs": "throw new Error('Never execute this');",
   });
   const candidateCommitId = freeze(candidateRoot);

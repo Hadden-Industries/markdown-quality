@@ -49,15 +49,17 @@ export const lintDefaults = Object.freeze({
   "markdown/require-alt-text": "error",
   "markdown/table-column-count": ["error", { checkMissingCells: true }],
   "markdown/no-html": ["off", { allowed: [], allowedIgnoreCase: false }],
-  "markdown/no-bare-urls": "off",
+  // Angle-bracket autolinks remain allowed by the upstream rule.
+  "markdown/no-bare-urls": "error",
 });
 /** Package quality-rule severities; any rule can be configured from off to error. */
 export const qualityRuleDefaults = Object.freeze({
-  "quality/duplicate-sibling-heading": "warn",
-  "quality/generic-link-text": "warn",
-  "quality/heading-trailing-punctuation": "info",
+  "quality/duplicate-sibling-heading": "error",
+  "quality/generic-link-text": "error",
+  "quality/heading-trailing-punctuation": "warn",
   "quality/long-prose-line": "info",
-  "quality/non-nfc-prose": "info",
+  // Owner-selected default: decomposed prose blocks; only normalize repairs it.
+  "quality/non-nfc-prose": "error",
 });
 export const formatterDefaults = Object.freeze({
   parser: "markdown",

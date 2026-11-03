@@ -22,10 +22,19 @@ function run(root, ...args) {
 }
 
 test("display thresholds preserve complete JSON results, exit behavior and default output", (t) => {
-  const root = consumer(t, {
-    "a.md": "# Title.\n\n[here](target.md)\n\n" + "x".repeat(121) + "\n",
-    "target.md": "Target.\n",
-  });
+  const root = consumer(
+    t,
+    {
+      "a.md": "# Title.\n\n[here](target.md)\n\n" + "x".repeat(121) + "\n",
+      "target.md": "Target.\n",
+    },
+    {
+      lint: {
+        "quality/generic-link-text": "warn",
+        "quality/heading-trailing-punctuation": "info",
+      },
+    },
+  );
   const complete = run(root, "check", "--json");
   assert.equal(complete.status, 0, complete.stdout);
   const report = JSON.parse(complete.stdout);
@@ -64,7 +73,16 @@ test("display thresholds preserve complete JSON results, exit behavior and defau
 
 test("hidden warnings enforce strict write admission and permit ordinary formatting", (t) => {
   const original = "# Title.\n\n[here](target.md) and _text_.\n";
-  const root = consumer(t, { "a.md": original, "target.md": "Target.\n" });
+  const root = consumer(
+    t,
+    { "a.md": original, "target.md": "Target.\n" },
+    {
+      lint: {
+        "quality/generic-link-text": "warn",
+        "quality/heading-trailing-punctuation": "info",
+      },
+    },
+  );
   const strict = run(
     root,
     "format",

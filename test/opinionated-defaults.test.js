@@ -68,10 +68,14 @@ test("LF applies only to physical separators while all other YAML, HTML and code
 });
 
 test("warning format admits writes ordinarily and strict prevents the whole batch", async (t) => {
-  const root = consumer(t, {
-    "a.md": "# A\n\n## Same\n\n## Same\n",
-    "b.md": "# B\n\n_text_\n",
-  });
+  const root = consumer(
+    t,
+    {
+      "a.md": "# A\n\n## Same\n\n## Same\n",
+      "b.md": "# B\n\n_text_\n",
+    },
+    { lint: { "quality/duplicate-sibling-heading": "warn" } },
+  );
   const blocked = await runQuality({ root, mode: "format", strict: true });
   assert.equal(blocked.exitCode, 1, JSON.stringify(blocked));
   assert.deepEqual(blocked.writtenPaths, []);
@@ -116,10 +120,19 @@ test("indented code converts without guessing a language and blocks all writes",
 });
 
 test("info survives strict, editorial literals stay excluded, hierarchy errors block", async (t) => {
-  const root = consumer(t, {
-    "a.md":
-      "# Question?\n\n## Punctuation.\n\ne\u0301 prose.\n\n```text\ne\u0301\n```\n",
-  });
+  const root = consumer(
+    t,
+    {
+      "a.md":
+        "# Question?\n\n## Punctuation.\n\ne\u0301 prose.\n\n```text\ne\u0301\n```\n",
+    },
+    {
+      lint: {
+        "quality/heading-trailing-punctuation": "info",
+        "quality/non-nfc-prose": "info",
+      },
+    },
+  );
   const result = await runQuality({ root, strict: true });
   assert.equal(result.exitCode, 0, JSON.stringify(result));
   assert.deepEqual(
@@ -240,7 +253,7 @@ test("native recommendations cannot add package rules and inspection exposes the
     max_width: 0,
     clause_breaks: false,
   });
-  assert.equal(result.policy.eslintRules["markdown/no-bare-urls"], "off");
+  assert.equal(result.policy.eslintRules["markdown/no-bare-urls"], "error");
   assert.equal(
     result.policy.eslintRules["markdown/no-duplicate-headings"],
     undefined,
@@ -249,7 +262,7 @@ test("native recommendations cannot add package rules and inspection exposes the
   const native = await createLinter(
     loadConfiguration({ root }),
   ).calculateConfigForFile(join(root, "a.md"));
-  assert.equal(native.rules["markdown/no-bare-urls"][0], 0);
+  assert.equal(native.rules["markdown/no-bare-urls"][0], 2);
   assert.equal(native.rules["markdown/invented-rule"], undefined);
   assert.deepEqual(result.policy.eslintRules["markdown/table-column-count"], [
     "error",
@@ -326,8 +339,12 @@ test("strict failure identity and informational line positions remain accurate",
 test("editorial scope excludes literal width and separates sibling parents", async (t) => {
   const long = "Word ".repeat(25).trim() + ".";
   const url = "https://example.invalid/" + "x".repeat(160);
-  const source = `# A\n\n## One\n\n### Same\n\n## Two\n\n### Same\n\n${long}\n\n${url}\n\n[click here](https://example.invalid)\n\n\`\`\`text\n${long}\n\`\`\`\n`;
-  const root = consumer(t, { "a.md": source });
+  const source = `# A\n\n## One\n\n### Same\n\n## Two\n\n### Same\n\n${long}\n\n<${url}>\n\n[click here](https://example.invalid)\n\n\`\`\`text\n${long}\n\`\`\`\n`;
+  const root = consumer(
+    t,
+    { "a.md": source },
+    { lint: { "quality/generic-link-text": "warn" } },
+  );
   const result = await runQuality({ root });
   assert.equal(result.exitCode, 0, JSON.stringify(result));
   assert.deepEqual(
