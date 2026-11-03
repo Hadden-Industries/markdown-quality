@@ -1,6 +1,7 @@
 # Migration guide
 
-This guide migrates consumers of published 1.x releases and of unreleased configuration schema 2 development source to configuration schema 3, preset `authored-gfm@2` and result schema 4.
+This guide migrates consumers of published 1.x releases and of unreleased configuration schema 2 development source to version 2.0.0-rc.1: configuration schema 3, preset `authored-gfm@2` and result schema 4.
+Old names in the tables below come from 1.0.3 or from that unreleased development source.
 The new names are not aliases: removed keys, flags, markers and options fail with guidance instead of being ignored.
 The [consumer guide](consumer-guide.md) describes the current contracts in full.
 
@@ -111,8 +112,9 @@ simplifies to:
 | Comparison harness `--no-limits`             | `--no-input-size-limit` or `--max-comparison-input-bytes N`                            |
 | Bare `markdown-quality` from a local install | `npm exec -- markdown-quality`                                                         |
 
-`normalize`, `--dry-run`, `--update-links`, `--execution-profile`, `--resource-limit-mode` and `--max-profile-bytes` are new.
-The former `document`, qualifier `profile` and qualifier `candidate` commands remain removed.
+Published 1.0.3 offers only `check`, `format` and `inspect` with `--root`, `--config`, `--json`, `--files-json` and literal paths after `--`.
+Relative to 1.0.3, the `normalize` and `inspect-profile` commands are new, as are `--reconcile-inventory`, `--concurrency`, `--strict`, `--no-analyzer-limits`, `--diagnostic-display-level`, `--execution-profile`, `--resource-limit-mode`, `--max-profile-bytes`, `--stdin-request`, `--dry-run` and `--update-links`.
+The development-source `document`, qualifier `profile` and qualifier `candidate` commands remain removed.
 
 ## SDK exports and options
 
@@ -132,8 +134,9 @@ The former `document`, qualifier `profile` and qualifier `candidate` commands re
 | Execution `requestBytes`   | `maxRequestBytes`         |
 | Execution `nodeOldSpaceMb` | `maxNodeOldGenerationMiB` |
 
-`runQuality`, `inspectSelection`, `readExecutionProfile` and `validateQualityResult` keep their names.
-New operation options are `executionProfile`, `executionLimits`, `resourceLimitMode`, `dryRun` and `updateLinks`.
+Published 1.0.3 exports only `runQuality` and `createResult`.
+`runQuality` keeps its name; `inspectSelection`, `readExecutionProfile` and `validateQualityResult` keep their development-source names, and the other exports in the [library API](consumer-guide.md#library-api) are new relative to 1.0.3.
+Relative to the development source, the new operation options are `executionProfile`, `executionLimits`, `resourceLimitMode`, `dryRun` and `updateLinks`.
 
 ## Execution profile keys
 
@@ -226,6 +229,7 @@ Capture package, lock, configuration and workflow identities and exact document 
 Then run each step and review its result before the next:
 
 ```sh
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@2.0.0-rc.1
 npm exec -- markdown-quality inspect --root . --json
 npm exec -- markdown-quality check --root .
 npm exec -- markdown-quality normalize --root . --dry-run
@@ -234,6 +238,7 @@ npm exec -- markdown-quality format --root .
 npm exec -- markdown-quality check --root .
 ```
 
+The install pins the release candidate exactly in the manifest and lock; an unversioned install can select an earlier 1.x release.
 `inspect` confirms the root, selection, omissions and effective policy.
 The first `check` reports the new default errors: non-NFC prose, generic link text, duplicate sibling headings, bare URLs, unresolved fragments, path case, image alternatives and disallowed HTML.
 Fix semantic findings by editing content; no repair command rewrites link text, alternatives or HTML.

@@ -90,4 +90,4 @@ Use the repository issue forms or concise PR template; do not upload credentials
 Dependabot proposes npm and Action updates for review; it does not merge them or upgrade frozen native assets automatically.
 Native upgrades require fresh source/component, rights, parity and platform evidence.
 Follow [release operations](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/release-operations.md) for coordinated immutable archives and recoverable publication.
-Changing source metadata or guidance does not republish 1.0.3, promote tags or authorize a new release.
+Changing source metadata or guidance does not republish an existing version, publish 2.0.0-rc.1, promote tags or authorize a new release.

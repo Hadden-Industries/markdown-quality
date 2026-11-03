@@ -63,7 +63,8 @@ See the [support and release boundary](docs/support-and-release.md) for acquisit
 Native packages retain `LICENSE.snapper` and a fixed executable/repack component record.
 The AGPL declaration applies to the packaging implementation and does not relabel upstream executable bytes.
 
-Controlled native build run `37274204161` binds Snapper source, Cargo inputs, Rust toolchain and the exact Windows/Linux executable hashes.
+Controlled native build run `38742809829`, published as the `snapper-0.11.9-build.2` acquisition prerelease, binds Snapper source, Cargo inputs, Rust toolchain and the exact Windows/Linux executable hashes.
+It retains the original component/runtime notices and dependency graphs reconciled for the earlier run `37274204161`; its recipient Cargo reports remove only duplicate boolean `doctest` entries and conserve every typed value, component, license and association.
 Both native packages retain the original component inventories, complete harvested notices, official Rust runtime copyright report and unchanged MPL-2.0 `webpki-roots` 0.25.4 source.
 The separately recorded [rights supplement](assets/native-rights.json) restores original notices omitted from published crate archives, including native per-file copyright comments.
 Every native archive and package includes its exact `rights-evidence.json` and readable `SUPPLEMENTAL-NOTICES.txt`.

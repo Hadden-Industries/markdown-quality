@@ -24,9 +24,13 @@ The package preserves the existing AGPL-3.0-only license.
 ## Install and run
 
 ```sh
-npm install --save-dev @hadden-industries/markdown-quality
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@2.0.0-rc.1
 npm exec -- markdown-quality check --root .
 ```
+
+This documentation describes 2.0.0-rc.1, the first release candidate of the 2.0 contract.
+Install it by exact version: a release candidate is never promoted to npm's `latest` tag, so an unversioned install can select an earlier 1.x release, which has different commands, configuration and results.
+The [migration guide](docs/migration-guide.md) maps 1.x usage to 2.0.
 
 A local dependency does not put a bare `markdown-quality` executable on every shell's PATH.
 Run it through [npm exec](https://docs.npmjs.com/cli/v11/commands/npm-exec/), an npm script, or another runner that resolves local package binaries.
@@ -88,7 +92,7 @@ Unlimited mode cannot remove Node, V8, operating-system or hosting-provider limi
 ## Guides
 
 - The [consumer guide](docs/consumer-guide.md) covers installation, configuration, defaults, links, normalization, resources and the library API.
-- The [migration guide](docs/migration-guide.md) maps configuration schema 2, 1.x names and result fields to the current contracts.
+- The [migration guide](docs/migration-guide.md) maps 1.x and unreleased development configuration, CLI, API and result names to the 2.0 contracts.
 - The [support and release guide](docs/support-and-release.md) describes compatibility and release gates.
 - The [centralized contracts guide](docs/centralized-contracts.md) and [CI trust guide](docs/ci-trust.md) describe logical documents, execution profiles and trusted qualification.
 - The [third-party notices](THIRD-PARTY-NOTICES.md) distinguish package code from upstream assets.
@@ -114,4 +118,4 @@ node scripts/pack.js /path/to/output
 The builder accepts the frozen `snapper-windows.zip` and `snapper-linux.tar.xz` archives and verifies archive and executable hashes before copying fixed regular members.
 Product operations never acquire executables.
 This repository dogfoods its current source: `format:markdown` performs guarded formatting and `check:markdown` checks the authored scope with Git inventory reconciliation.
-Published 1.0.3 archives retain their previous behavior; this source is the next major contract.
+Published 1.x archives are immutable and keep their previous behavior.

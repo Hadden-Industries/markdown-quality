@@ -1,20 +1,21 @@
 # Consumer guide
 
-This guide describes zero-config consumption of the current source contract: configuration schema 3, preset `authored-gfm@2` and result schema 4.
-Published 1.0.3 archives retain their previous behavior; the [migration guide](migration-guide.md) maps old names to these contracts.
+This guide describes zero-config consumption of version 2.0.0-rc.1: configuration schema 3, preset `authored-gfm@2` and result schema 4.
+Published 1.x archives are immutable and keep their previous behavior; the [migration guide](migration-guide.md) maps old names to these contracts.
 
 ## Installation
 
 ```sh
-npm install --save-dev @hadden-industries/markdown-quality
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@2.0.0-rc.1
 npm exec -- markdown-quality check --root .
 ```
 
+Install the release candidate by exact version; an unversioned install can select an earlier 1.x release.
 No configuration file is required.
 A local dependency does not put a bare `markdown-quality` executable on every shell's PATH; use [npm exec](https://docs.npmjs.com/cli/v11/commands/npm-exec/) or an npm script.
 Keep the consumer lockfile, and disable lifecycle scripts with `--ignore-scripts` where your acquisition policy requires it.
 An isolated `tooling/markdown` npm project supports consumers that do not use Node for their application; pass the actual repository root to its commands.
-`parse5` 8.1.0 (MIT) and `github-slugger` 2.0.0 (ISC) are direct runtime dependencies.
+Version 2.0 adds `parse5` 8.1.0 (MIT) and `github-slugger` 2.0.0 (ISC) as direct runtime dependencies; the [third-party notices](../THIRD-PARTY-NOTICES.md) list them all.
 
 ## Root discovery
 
@@ -296,7 +297,7 @@ Execution ceilings, as profile keys or SDK execution options:
 Trusted qualification declares `sampleTimeoutMs`, `maxObservedMemoryBytes`, `maxStagedDataBytes` and `maxStagedEntries` (a positive integer or null); ordinary operations have no package default for them.
 Quality policy, NFC enforcement, containment, freshness and guarded replacement are not resource ceilings and stay enforced in every mode.
 
-## Opt-in concurrency in current source
+## Opt-in concurrency
 
 `--concurrency N` and `runQuality({ concurrency: N })` request at most `N` simultaneous document preparations; the default is `1`.
 It is an execution option, not a configuration field or a resource ceiling.

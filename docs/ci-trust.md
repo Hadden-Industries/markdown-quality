@@ -31,17 +31,17 @@ The owner selected public npm distribution after the private upload was rejected
 Core and both native packages declare public access; anonymous installation is a required registry qualification.
 Ordinary fork pull requests need no registry credential or paid npm subscription.
 The direct CLI and public APIs are canonical integrations.
-Current source adds the public SHA-pinned reusable workflow described in the [centralized contracts guide](centralized-contracts.md).
+Version 2.0 adds the public SHA-pinned reusable workflow described in the [centralized contracts guide](centralized-contracts.md).
 Adoption uses the latest qualified producer commit and locked archive/workflow tuple regardless of npm release status.
 The historical pilot/publication evidence below does not establish qualification of these new source contracts.
 
-| Event                    | Trusted graph and policy                              | Acquisition                                     | Candidate processing                                 | Current status                               |
-| ------------------------ | ----------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------- | -------------------------------------------- |
-| Package pull request     | Public locked dependencies and fixed native manifests | Public upstream inputs, no private secrets      | Package tests run without elevated authority         | Hosted package qualification passed          |
-| Pilot protected branch   | Reviewed capability release and consumer policy       | Public locked graph, lifecycle scripts disabled | Full authored scope without credentials              | Alpha.3 registry passed; pilot proof pending |
-| Pilot same-repository PR | Reviewed base tooling and policy                      | Separate trusted acquisition                    | Candidate Markdown and link target tree only         | Architecture selected; qualification pending |
-| Pilot fork PR            | Reviewed base tooling and policy                      | Separate trusted acquisition                    | Candidate data only; no candidate scripts or graph   | Architecture selected; qualification pending |
-| Tool or policy update PR | Existing accepted graph until review                  | New graph requires owner review                 | Never treat candidate graph or exclusions as trusted | Required review remains explicit             |
+| Event                    | Trusted graph and policy                              | Acquisition                                     | Candidate processing                                 | Current status                                |
+| ------------------------ | ----------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------- | --------------------------------------------- |
+| Package pull request     | Public locked dependencies and fixed native manifests | Public upstream inputs, no private secrets      | Package tests run without elevated authority         | Hosted package qualification passed           |
+| Pilot protected branch   | Reviewed capability release and consumer policy       | Public locked graph, lifecycle scripts disabled | Full authored scope without credentials              | Alpha.4 cutovers passed; both pilots on 1.0.3 |
+| Pilot same-repository PR | Reviewed base tooling and policy                      | Separate trusted acquisition                    | Candidate Markdown and link target tree only         | 2.0 workflow built; hosted proof pending      |
+| Pilot fork PR            | Reviewed base tooling and policy                      | Separate trusted acquisition                    | Candidate data only; no candidate scripts or graph   | 2.0 workflow built; hosted proof pending      |
+| Tool or policy update PR | Existing accepted graph until review                  | New graph requires owner review                 | Never treat candidate graph or exclusions as trusted | Required review remains explicit              |
 
 Package tests and candidate/registry qualification have no registry secret or OIDC permission.
 They install with lifecycle scripts disabled and qualify both OS targets.

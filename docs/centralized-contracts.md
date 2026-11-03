@@ -1,10 +1,10 @@
 # Centralized producer contracts
 
-These development contracts implement the producer portions of the centralization plan.
-They are separate from published `1.0.3`, hosted qualification, and consumer adoption acceptance.
+These version 2.0.0-rc.1 contracts implement the producer portions of the centralization plan.
+They are separate from published 1.x releases, hosted qualification, and consumer adoption acceptance.
 The latest producer commit can be adopted after its exact transported tuple is qualified; npm publication and a new release are not prerequisites.
 
-## Current source compatibility
+## Contract versions
 
 | Contract                | Version |
 | ----------------------- | ------- |
@@ -48,7 +48,7 @@ Excluded content is returned exactly, including invalid UTF-8 and original line 
 Selected content must satisfy UTF-8 and the selected input limits.
 Failure retains original content and prevents the caller from treating returned bytes as admitted output.
 
-`markdown-quality format --stdin-request --root PATH --json` reads one JSON object from standard input with `path`, optional `requestId`, and canonical `contentBase64`.
+`markdown-quality format --stdin-request --root PATH --json`, or the same with `normalize`, reads one JSON object from standard input with `path`, optional `requestId`, and canonical `contentBase64`.
 Its request framing is bounded by the effective `maxRequestBytes` (8 MiB by default), resolved from the execution profile and invocation before standard input is read.
 It returns the same result schema 4 and never renames a generated file into an unrelated basename.
 Non-JavaScript callers own framing, request correlation and domain freshness, then write only admitted bytes.
@@ -57,11 +57,11 @@ Non-JavaScript callers own framing, request correlation and domain freshness, th
 `executeQualityRequest(request, options)` invokes the installed analyzer in a fresh Node process with sanitized environment, resolved request/output/deadline/heap ceilings and optional `AbortSignal`.
 Its logical request replaces Buffer content with `document: { path, requestId, contentBase64 }`.
 Providing malformed logical content fails before dispatch; it never becomes a checkout operation.
-This bounded transport supports read-only checking/inspection and logical supplied-content formatting.
-Checkout formatting uses `runQuality` and the CLI `format` command in the caller process, retaining guarded actual partial-replacement reports without a killable transport guessing which writes occurred.
+This bounded transport supports read-only checking/inspection, `normalize` previews, and logical supplied-content formatting and normalization.
+Checkout formatting and normalization use `runQuality` and the CLI `format` and `normalize` commands in the caller process, retaining guarded actual partial-replacement reports without a killable transport guessing which writes occurred.
 Default ceilings are 8 MiB request and output (`maxRequestBytes`, `maxOutputBytes`), 180 seconds (`executionTimeoutMs`) and 256 MiB Node old generation (`maxNodeOldGenerationMiB`); each accepts `null`.
 No credentials, PATH, Node injection, npm configuration or GitHub/OIDC variables reach that checker.
-CLI checking, inspection and logical documents use this same transport.
+CLI checking, inspection, normalize previews and logical documents use this same transport.
 `--execution-profile PATH` selects its controls and analyzer limits from the same execution schema.
 The profile's Python declaration is enforced when qualification launches the observer.
 CLI SIGINT/SIGTERM cancellation aborts the checker and waits for cleanup before reporting failure on hosts delivering those signals.

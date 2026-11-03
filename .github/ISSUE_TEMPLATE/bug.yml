@@ -31,6 +31,6 @@ body:
     id: result
     attributes:
       label: Expected and actual behavior
-      description: Include the exit code and diagnostics, and whether checking or formatting was used.
+      description: Include the exit code, the diagnostics and the command used (check, format, normalize or inspect).
     validations:
       required: true

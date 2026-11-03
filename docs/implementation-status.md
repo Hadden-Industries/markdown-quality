@@ -66,7 +66,7 @@ The later consumer scopes supersede the original migration table's proposed excl
 ### Completed source work held from publication
 
 The owner-authorized `concurrency` follow-up adds CLI/library opt-in document preparation concurrency, default `1`, without an upper numeric bound or performance-gain qualification.
-Its [accepted follow-up](plans/performance-implementation-plan.md#owner-accepted-opt-in-concurrency-follow-up) retains ordered validation, cleanup and guarded serial writes; the [consumer guide](consumer-guide.md#opt-in-concurrency-in-current-source) explains the unreleased interface.
+Its [accepted follow-up](plans/performance-implementation-plan.md#owner-accepted-opt-in-concurrency-follow-up) retains ordered validation, cleanup and guarded serial writes; the [consumer guide](consumer-guide.md#opt-in-concurrency) explains the unreleased interface.
 This source addition does not change immutable `1.0.3`, its fixed serial behavior or the publication hold.
 Consumers own resource/performance choices; the original serial qualification budgets do not certify parallel counts.
 Signed source [603a2b3](https://github.com/Hadden-Industries/markdown-quality/commit/603a2b34268a6447e01e8dce6678ffca92ff3b81) is on remote `main`, with [package qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37603471445), [transported candidate qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37603471451) and [CodeQL](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37603471096) all passed.

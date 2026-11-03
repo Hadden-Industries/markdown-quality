@@ -8,7 +8,7 @@
   "exceptions": [
     {
       "paths": [
-        "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-1.0.3.tgz!/package/cargo-notices.json"
+        "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-2.0.0-rc.1.tgz!/package/cargo-notices.json"
       ],
       "owner": "Original crate attribution owners",
       "reason": "The actual packed copy must retain the same independently pinned original author strings as the admitted native source.",
@@ -30,18 +30,7 @@
       "paths": [
         "dist/json-qualification/release-manifest.json",
         "dist/json-qualification/source-sbom.cdx.json",
-        "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-1.0.3.tgz!/package/component.json",
-        "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-1.0.3.tgz!/package/rights-evidence.json",
-        "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-1.0.3.tgz!/package/embedded-dependencies.json",
-        "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-1.0.3.tgz!/package/component-inventory.json",
-        "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-1.0.3.tgz!/package/cargo-notices.json",
-        "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-1.0.3.tgz!/package/build-evidence.json",
-        "dist/json-qualification/hadden-industries-markdown-quality-win32-x64-1.0.3.tgz!/package/component.json",
-        "dist/json-qualification/hadden-industries-markdown-quality-win32-x64-1.0.3.tgz!/package/rights-evidence.json",
-        "dist/json-qualification/hadden-industries-markdown-quality-win32-x64-1.0.3.tgz!/package/embedded-dependencies.json",
-        "dist/json-qualification/hadden-industries-markdown-quality-win32-x64-1.0.3.tgz!/package/component-inventory.json",
-        "dist/json-qualification/hadden-industries-markdown-quality-win32-x64-1.0.3.tgz!/package/cargo-notices.json",
-        "dist/json-qualification/hadden-industries-markdown-quality-win32-x64-1.0.3.tgz!/package/build-evidence.json"
+        "dist/json-qualification/hadden-industries-markdown-quality-{linux,win32}-x64-*.tgz!/package/{component,rights-evidence,embedded-dependencies,component-inventory,cargo-notices,build-evidence}.json"
       ],
       "owner": "Actual package tuple producer",
       "reason": "Exact current generated reports and native JSON archive members use their owning JSON indentation contract; archive membership and original member hashes are independently reconciled.",
@@ -121,7 +110,7 @@
   "preserveSourcePresentation": [
     {
       "paths": [
-        "dist/json-qualification/hadden-industries-markdown-quality-1.0.3.tgz!/package/node_modules/**"
+        "dist/json-qualification/hadden-industries-markdown-quality-[0-9]*.tgz!/package/node_modules/**"
       ],
       "owner": "Locked bundled dependency publishers",
       "reason": "Preserve upstream presentation only after the native archive owner reconciles every packed member with the actual staged file inventory, size and SHA-256. Strict semantic checks remain mandatory."

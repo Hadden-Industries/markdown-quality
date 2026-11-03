@@ -1,6 +1,6 @@
 {
   "name": "@hadden-industries/markdown-quality",
-  "version": "1.0.3",
+  "version": "2.0.0-rc.1",
   "description": "Zero-config Markdown formatter and GFM checker with NFC prose repair, accessibility checks and local link and fragment validation",
   "type": "module",
   "license": "AGPL-3.0-only",
