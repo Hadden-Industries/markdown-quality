@@ -241,7 +241,7 @@ if (args.length === 0 || ["--help", "-h"].includes(args[0])) {
       process.exitCode = 0;
     } else {
       const suppliedDocument = values["stdin-request"] === true;
-      if (suppliedDocument && command !== "format")
+      if (suppliedDocument && !["format", "normalize"].includes(command))
         throw new CliError(
           "CLI_INPUT",
           "--stdin-request requires format or normalize.",

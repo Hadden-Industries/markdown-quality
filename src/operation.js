@@ -21,6 +21,7 @@ import { changeRecords } from "./normalization.js";
 import { createInitialQualityResult } from "./result-construction.js";
 import {
   decode,
+  digest,
   fail,
   OperationError,
   diagnosticBudget,
@@ -507,6 +508,7 @@ export async function analyzeOperation(
       return { item, text: decode(item.bytes) };
     };
     let members, batch, reversePaths;
+    const memberObservations = [];
     if (mode === "normalize") {
       // The complete proposed batch, including dependent fragment edits, is known
       // before any member is analyzed or written.
@@ -525,6 +527,16 @@ export async function analyzeOperation(
         },
       );
       for (const [path, plan] of batch.plans) normalized.set(path, plan.output);
+      // Previews and the first replacement require every member to keep its bytes;
+      // later replacements rely on each file's own guarded preimage.
+      for (const [path, { item }] of members)
+        if (!document)
+          memberObservations.push({
+            role: "dependency",
+            kind: "file",
+            path: join(context.root, path),
+            sha256: digest(item.bytes),
+          });
     }
     for (const file of result.selection.files) {
       let item, original;
@@ -560,7 +572,7 @@ export async function analyzeOperation(
     ];
     result.diagnostics.sort(sortDiagnostics);
     // Refuse stale success: policy and dependency inputs must still match.
-    recheckObservations(observations);
+    recheckObservations([...observations, ...memberObservations]);
     if (reversePaths !== undefined) {
       const current = await listReverseInventory(context, options);
       if (

@@ -55,6 +55,24 @@ export class OperationError extends Error {
 export function fail(code, message) {
   throw new OperationError(code, message);
 }
+/** Closed SDK object admission: removed spellings name their replacement, and any
+ * other unknown key is refused instead of being silently ignored.
+ */
+export function admitKeys(
+  value,
+  allowed,
+  removed = {},
+  code = "INVALID_OPTION",
+) {
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    fail(code, "Options must be a plain object.");
+  for (const key of Object.keys(value)) {
+    if (Object.hasOwn(removed, key))
+      fail(code, `Option ${key} was removed; use ${removed[key]}.`);
+    if (!allowed.includes(key)) fail(code, "Unknown option: " + key);
+  }
+  return value;
+}
 export function diagnosticBudget(diagnostics, budgets = defaultAnalyzerLimits) {
   if (
     exceeds(diagnostics.length, budgets.maxDocumentDiagnostics) ||

@@ -119,6 +119,7 @@ test("trusted absence of configuration stages package defaults and keeps candida
     join(trustedRoot, ".markdown-quality-execution.json"),
     JSON.stringify(profile),
   );
+  // json-identity-contract: bytes; owner: candidate staging fixture; reason: The staged candidate file must retain these exact serialized bytes as data.
   const candidateConfig = JSON.stringify({
     lint: { "quality/non-nfc-prose": "off" },
   });

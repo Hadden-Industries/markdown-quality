@@ -274,4 +274,25 @@ test("the CLI exposes normalize, preview and update-links with explicit flag adm
   writeFileSync(join(root, "b.md"), `# B\n\nCaf${D}.\n`);
   const literal = run("normalize", "--json", "--", "b.md");
   assert.deepEqual(JSON.parse(literal.stdout).writtenPaths, ["b.md"]);
+  const stdin = spawnSync(
+    process.execPath,
+    [cli, "normalize", "--stdin-request", "--json"],
+    {
+      cwd: root,
+      encoding: "utf8",
+      timeout: fixtureCommandTimeoutMs,
+      input: JSON.stringify({
+        path: "generated.md",
+        requestId: "stdin",
+        contentBase64: Buffer.from(`# G\n\nCaf${D}.\n`).toString("base64"),
+      }),
+    },
+  );
+  assert.equal(stdin.status, 0, stdin.stdout);
+  const supplied = JSON.parse(stdin.stdout);
+  assert.equal(
+    Buffer.from(supplied.document.contentBase64, "base64").toString(),
+    `# G\n\nCaf${C}.\n`,
+  );
+  assert.deepEqual(supplied.writtenPaths, []);
 });

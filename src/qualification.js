@@ -16,7 +16,14 @@ import { fileURLToPath } from "node:url";
 import { safePath } from "./consumer-root.js";
 import { readExecutionProfile } from "./execution-profile.js";
 import { executionEnvironment } from "./execution.js";
-import { fail, decode, digest, exceeds, metadata } from "./contracts.js";
+import {
+  admitKeys,
+  fail,
+  decode,
+  digest,
+  exceeds,
+  metadata,
+} from "./contracts.js";
 import { resolveTool } from "./native-tool.js";
 import { admitCheckEvidence } from "./result-validation.js";
 import { inspectCandidateData } from "./candidate-staging.js";
@@ -156,18 +163,43 @@ function boundExecutable(path, roots) {
  * Runtime/profile input is trusted; candidate requests cannot relax its limits. A
  * trusted owner may disable ceilings, and the receipt then records that exact policy.
  */
-export async function qualifyGitMarkdown({
-  candidateRoot,
-  trustedRoot,
-  candidateCommitId,
-  trustedCommitId,
-  gitExecutablePath,
-  pythonExecutablePath,
-  outputRoot,
-  profile: profilePath,
-  producer,
-  workflow,
-}) {
+export async function qualifyGitMarkdown(options) {
+  admitKeys(
+    options,
+    [
+      "candidateRoot",
+      "trustedRoot",
+      "candidateCommitId",
+      "trustedCommitId",
+      "gitExecutablePath",
+      "pythonExecutablePath",
+      "outputRoot",
+      "profile",
+      "producer",
+      "workflow",
+    ],
+    {
+      sourceRoot: "candidateRoot",
+      candidateSha: "candidateCommitId",
+      trustedSha: "trustedCommitId",
+      git: "gitExecutablePath",
+      python: "pythonExecutablePath",
+    },
+  );
+  let {
+    candidateRoot,
+    trustedRoot,
+    gitExecutablePath,
+    pythonExecutablePath,
+    outputRoot,
+  } = options;
+  const {
+    candidateCommitId,
+    trustedCommitId,
+    profile: profilePath,
+    producer,
+    workflow,
+  } = options;
   candidateRoot = resolve(candidateRoot);
   trustedRoot = resolve(trustedRoot);
   outputRoot = resolve(outputRoot);

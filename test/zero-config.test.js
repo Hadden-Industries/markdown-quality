@@ -13,7 +13,13 @@ import { join, dirname } from "node:path";
 import { spawnSync, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import { runQuality, inspectSelection } from "../src/quality.js";
+import {
+  runQuality,
+  inspectSelection,
+  stageCandidateData,
+  readExecutionProfile,
+  qualifyGitMarkdown,
+} from "../src/quality.js";
 import { loadConfiguration } from "../src/configuration.js";
 import { discoverConsumerRoot } from "../src/consumer-root.js";
 import { canonicalJson } from "../src/contracts.js";
@@ -382,4 +388,17 @@ test("closed SDK admission rejects removed and unknown option spellings", async 
     executionProfile: { samples: 1 },
   });
   assert.match(profile.errors[0].message, /requiredConsecutiveSamples/u);
+  // Trusted and profile entry points refuse removed spellings explicitly too.
+  assert.throws(
+    () => stageCandidateData({ sourceRoot: root }),
+    /sourceRoot was removed; use candidateRoot/u,
+  );
+  assert.throws(
+    () => readExecutionProfile({ root, samples: 1 }),
+    /Unknown option: samples/u,
+  );
+  await assert.rejects(
+    qualifyGitMarkdown({ candidateSha: "0".repeat(40) }),
+    /candidateSha was removed; use candidateCommitId/u,
+  );
 });

@@ -3,7 +3,7 @@ import { readFileSync, lstatSync, realpathSync } from "node:fs";
 import { resolve, relative, sep } from "node:path";
 import Ajv from "ajv";
 import { safePath, readBoundedFile } from "./consumer-root.js";
-import { decode, digest, fail } from "./contracts.js";
+import { admitKeys, decode, digest, fail } from "./contracts.js";
 import {
   bootstrapCeiling,
   executionLimitKeys,
@@ -201,12 +201,15 @@ function readRuntimeDeclarations(root, runtimes, ceiling) {
  * references. Qualification additionally requires its sample count, runtime and
  * staging/observation declarations; ordinary operations require none of them.
  */
-export function readExecutionProfile({
-  root,
-  profile,
-  invocation,
-  purpose = "ordinary",
-}) {
+export function readExecutionProfile(options) {
+  admitKeys(options, ["root", "profile", "invocation", "purpose"]);
+  const {
+    root: requestedRoot,
+    profile,
+    invocation,
+    purpose = "ordinary",
+  } = options;
+  let root = requestedRoot;
   root = resolve(root);
   if (realpathSync(root) !== root || lstatSync(root).isSymbolicLink())
     fail("UNSAFE_ROOT", "Profile root must have no linked parents.");

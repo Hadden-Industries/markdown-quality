@@ -4,6 +4,7 @@
 // byte outside them, including EOL bytes and final-newline state, is preserved. The
 // candidate is reparsed and must have the same Markdown structure with only the
 // intended NFC prose changes; anything that cannot be proven is refused.
+import { isDeepStrictEqual } from "node:util";
 import { parse } from "./analysis.js";
 import { collectAnchors } from "./anchors.js";
 import { collectProse, proseValue, isNfc } from "./prose-runs.js";
@@ -379,8 +380,10 @@ export function verifyNormalization(
     };
     substitute(expected);
   }
-  return JSON.stringify(proseStructure(expected, true)) ===
-    JSON.stringify(proseStructure(candidate, false))
+  return isDeepStrictEqual(
+    proseStructure(expected, true),
+    proseStructure(candidate, false),
+  )
     ? candidate
     : null;
 }

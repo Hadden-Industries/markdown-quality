@@ -17,7 +17,13 @@ import { resolve, dirname, join, relative } from "node:path";
 import { safePath } from "./consumer-root.js";
 import { loadConfiguration } from "./configuration.js";
 import { readExecutionProfile } from "./execution-profile.js";
-import { canonicalJson, digest, exceeds, fail } from "./contracts.js";
+import {
+  admitKeys,
+  canonicalJson,
+  digest,
+  exceeds,
+  fail,
+} from "./contracts.js";
 import {
   operationalDirectories as operational,
   trustedStagingDirectory as reserved,
@@ -160,13 +166,14 @@ function stagedIdentity(root, profile, includeManifest) {
  * overlap and unsafe/oversized inputs before creating output. Candidate scripts,
  * dependency graphs and candidate policy are never executed.
  */
-export function stageCandidateData({
-  candidateRoot,
-  trustedRoot,
-  outputRoot,
-  profile: profilePath,
-  config,
-}) {
+export function stageCandidateData(options) {
+  admitKeys(
+    options,
+    ["candidateRoot", "trustedRoot", "outputRoot", "profile", "config"],
+    { sourceRoot: "candidateRoot" },
+  );
+  let { candidateRoot, trustedRoot, outputRoot } = options;
+  const { profile: profilePath, config } = options;
   candidateRoot = resolve(candidateRoot);
   trustedRoot = resolve(trustedRoot);
   outputRoot = resolve(outputRoot);
