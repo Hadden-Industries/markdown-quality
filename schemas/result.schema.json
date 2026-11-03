@@ -32,6 +32,7 @@
     "writtenPaths",
     "proposedChanges",
     "anchorChanges",
+    "backlinkCoverage",
     "refusals",
     "errors"
   ],
@@ -1329,6 +1330,30 @@
           }
         }
       }
+    },
+    "backlinkCoverage": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "inventoriedDocuments",
+            "externalReferences"
+          ],
+          "properties": {
+            "inventoriedDocuments": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "externalReferences": {
+              "const": "unverified"
+            }
+          }
+        }
+      ]
     },
     "refusals": {
       "type": "array",

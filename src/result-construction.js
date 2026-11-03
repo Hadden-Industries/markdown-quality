@@ -65,6 +65,7 @@ export function createInitialQualityResult(
     writtenPaths: [],
     proposedChanges: [],
     anchorChanges: [],
+    backlinkCoverage: null,
     refusals: [],
     errors: [],
   };

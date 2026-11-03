@@ -13,12 +13,19 @@ const schema = JSON.parse(
 const validate = new Ajv({ strict: true, allErrors: true }).compile(schema);
 const invalid = (message) => fail("INVALID_RESULT", message);
 
-/** Repairs may leave only their declared residual condition unblocked. */
+/** Repairs may leave only their declared residual condition unblocked: format the
+ * ordinary NFC finding, normalize the presentation drift that format repairs.
+ */
 function blocking(report, diagnostic) {
   if (
     report.operation === "format" &&
     diagnostic.source === "quality" &&
     diagnostic.rule === "quality/non-nfc-prose"
+  )
+    return false;
+  if (
+    report.operation === "normalize" &&
+    ["formatter", "snapper"].includes(diagnostic.source)
   )
     return false;
   return (
@@ -141,13 +148,52 @@ export function validateQualityResult(report, expected = {}) {
   }
   if (report.operation === "unknown")
     invalid("An unknown operation cannot complete.");
+  const normalize = report.operation === "normalize";
+  if (
+    !normalize &&
+    (report.refusals.length ||
+      report.proposedChanges.length ||
+      report.anchorChanges.length)
+  )
+    invalid("Only normalization reports refusals, proposed edits or anchors.");
+  if ((report.backlinkCoverage !== null) !== report.anchorChanges.length > 0)
+    invalid("Backlink coverage must accompany exactly the anchor changes.");
+  if (
+    report.proposedChanges.some(
+      (change) =>
+        !selection.files.includes(change.path) ||
+        change.sourceByteEndExclusive - change.sourceByteStart !==
+          change.beforeByteLength,
+    )
+  )
+    invalid("A proposed edit has an inconsistent span or path.");
+  // An early known policy refusal precedes content analysis.
+  if (report.qualityStatus === "not-checked") {
+    if (
+      !normalize ||
+      report.operationStatus !== "refused" ||
+      report.exitCode !== 1 ||
+      !report.refusals.length ||
+      report.diagnostics.length ||
+      report.qualityBasis !== null ||
+      documentResults.some(
+        (record) => record.analysisStatus !== "not-requested",
+      ) ||
+      (physical &&
+        documentResults.some((record) => record.writeStatus !== "refused"))
+    )
+      invalid("An unanalyzed result must be a complete early policy refusal.");
+    return report;
+  }
   if (
     report.qualityStatus !== (report.diagnostics.length ? "findings" : "clean")
   )
     invalid("Quality status disagrees with the complete diagnostics.");
   if (documentResults.some((record) => record.analysisStatus !== "completed"))
     invalid("A completed verdict requires completed document analysis.");
-  const blocked = report.diagnostics.some((d) => blocking(report, d));
+  const blocked =
+    report.refusals.length > 0 ||
+    report.diagnostics.some((d) => blocking(report, d));
   if (report.exitCode !== (blocked ? 1 : 0))
     invalid("Exit code and blocking diagnostics disagree.");
   const basis =

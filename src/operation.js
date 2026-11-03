@@ -16,6 +16,8 @@ import { createNativeStaging } from "./native-staging.js";
 import { effectivePolicy } from "./preset.js";
 import { createLinter } from "./analysis.js";
 import { createLinkGraph } from "./link-graph.js";
+import { prepareNormalizeBatch } from "./normalize-batch.js";
+import { changeRecords } from "./normalization.js";
 import { createInitialQualityResult } from "./result-construction.js";
 import {
   decode,
@@ -108,13 +110,37 @@ const sortDiagnostics = (a, b) =>
         a.column - b.column ||
         a.rule.localeCompare(b.rule, "en");
 
-/** Format may leave only ordinary NFC findings on prose whose Unicode it preserves. */
-function residualAllowed(mode, diagnostic) {
+/** Format may leave only ordinary NFC findings on prose whose Unicode it preserves;
+ * normalize may leave only canonical-presentation drift that format repairs.
+ */
+export function residualAllowed(mode, diagnostic) {
+  if (mode === "format")
+    return (
+      diagnostic.source === "quality" &&
+      diagnostic.rule === "quality/non-nfc-prose"
+    );
   return (
-    mode === "format" &&
-    diagnostic.source === "quality" &&
-    diagnostic.rule === "quality/non-nfc-prose"
+    mode === "normalize" &&
+    (diagnostic.source === "formatter" || diagnostic.source === "snapper")
   );
+}
+
+/** All supported Markdown under the root outside hard operational boundaries, including
+ * tracked and ordinarily excluded files: a read scope, never a write selection.
+ */
+async function listReverseInventory(context, options) {
+  const inventory = await selectDocuments(
+    {
+      ...context,
+      config: { ...context.config, include: ["**/*.md"], exclude: [] },
+    },
+    undefined,
+    {
+      reconciliationInventory: options.reconciliationInventory,
+      gitExecutablePath: options.gitExecutablePath,
+    },
+  );
+  return inventory.files;
 }
 
 function reportedError(error) {
@@ -142,7 +168,9 @@ export async function analyzeOperation(
     options?.files !== undefined,
     options ?? {},
   );
-  const physicalWrite = mode === "format" && !document;
+  const repair = mode === "format" || mode === "normalize";
+  const dryRun = options?.dryRun === true;
+  const physicalWrite = repair && !document && !dryRun;
   let analyzer,
     staging,
     stagingAttempted = false,
@@ -176,7 +204,7 @@ export async function analyzeOperation(
     if (options.strict !== undefined && typeof options.strict !== "boolean")
       fail("INVALID_STRICT", "Strict must be a boolean.");
     result.strict = options.strict ?? false;
-    if (!["check", "format", "inspect"].includes(mode))
+    if (!["check", "format", "inspect", "normalize"].includes(mode))
       fail("INVALID_OPERATION", "Unknown operation.");
     if (!Number.isInteger(concurrency) || concurrency < 1)
       fail(
@@ -249,17 +277,38 @@ export async function analyzeOperation(
     if (result.selection.files.length === 0 || mode === "inspect") {
       if (result.selection.files.length) resolveTool();
       recheckObservations(context.observations);
-      result.operationStatus = "completed";
+      result.operationStatus = dryRun ? "previewed" : "completed";
       result.qualityStatus = mode === "inspect" ? "not-checked" : "clean";
       result.qualityBasis =
         mode === "inspect"
           ? null
           : physicalWrite
             ? "applied"
-            : mode === "format"
+            : repair
               ? "candidate"
               : "input";
       result.exitCode = 0;
+      return result;
+    }
+    // An intentional NFC exemption is not silently re-enabled by a repair request.
+    if (
+      mode === "normalize" &&
+      context.config.lint["quality/non-nfc-prose"] === "off"
+    ) {
+      recheckObservations(context.observations);
+      result.refusals.push({
+        code: "NFC_RULE_DISABLED",
+        message:
+          "quality/non-nfc-prose is off, an intentional exemption; enable it (info, warn or error) to request normalization.",
+        path: null,
+        line: null,
+        column: null,
+      });
+      if (physicalWrite)
+        for (const record of result.documentResults)
+          record.writeStatus = "refused";
+      result.operationStatus = "refused";
+      result.exitCode = 1;
       return result;
     }
     const tool = resolveTool();
@@ -272,21 +321,21 @@ export async function analyzeOperation(
             concurrency,
           );
     const candidates = [];
+    const normalized = new Map();
     const collector = diagnosticCollector(budgets, true);
     result.diagnostics = collector.diagnostics;
     let total = 0,
       outputTotal = 0;
     // Unique selected and dependency inputs share one retained-byte account.
-    const graph = createLinkGraph(context, {
-      admitBytes(bytes) {
-        total += bytes;
-        if (exceeds(total, budgets.maxTotalDocumentBytes))
-          fail(
-            "BATCH_LIMIT",
-            "Total document and link-dependency bytes exceed the limit.",
-          );
-      },
-    });
+    const admitBytes = (bytes) => {
+      total += bytes;
+      if (exceeds(total, budgets.maxTotalDocumentBytes))
+        fail(
+          "BATCH_LIMIT",
+          "Total document and link-dependency bytes exceed the limit.",
+        );
+    };
+    const graph = createLinkGraph(context, { admitBytes });
     let prepared = [],
       preparedBytes = 0;
     let inputs = [],
@@ -329,9 +378,12 @@ export async function analyzeOperation(
           ...verified.diagnostics[index],
           ...formatted.diagnostics.slice(formatted.whitespaceCount),
         ];
+        // Check reports input drift; normalize reports its candidate's remaining
+        // presentation drift, which only format repairs.
         if (
-          mode === "check" &&
-          !item.bytes.equals(Buffer.from(formatted.output))
+          (mode === "check" &&
+            !item.bytes.equals(Buffer.from(formatted.output))) ||
+          (mode === "normalize" && normalized.get(file) !== formatted.output)
         )
           diagnostics.push({
             source: "formatter",
@@ -351,6 +403,9 @@ export async function analyzeOperation(
         records.get(file).analysisStatus = "completed";
         if (mode === "format")
           candidates.push({ file, item, output: formatted.output });
+        // Normalization writes its own source-edited candidate, never a printer pass.
+        if (mode === "normalize")
+          candidates.push({ file, item, output: normalized.get(file) });
       }
     }
     async function flushInputs() {
@@ -440,18 +495,44 @@ export async function analyzeOperation(
       }
       await flushPrepared();
     }
+    const readMember = (file) => {
+      const item = document
+        ? { bytes: document.content }
+        : readDocument(context.root, file, budgets);
+      if (physicalWrite && item.stat.nlink !== 1n)
+        fail("HARD_LINK", "Hard-linked documents cannot be repaired.");
+      total += item.bytes.length;
+      if (exceeds(total, budgets.maxTotalDocumentBytes))
+        fail("BATCH_LIMIT", "Total document bytes exceed the limit.");
+      return { item, text: decode(item.bytes) };
+    };
+    let members, batch, reversePaths;
+    if (mode === "normalize") {
+      // The complete proposed batch, including dependent fragment edits, is known
+      // before any member is analyzed or written.
+      members = new Map(
+        result.selection.files.map((file) => [file, readMember(file)]),
+      );
+      if (options.updateLinks)
+        reversePaths = await listReverseInventory(context, options);
+      batch = prepareNormalizeBatch(
+        context,
+        [...members].map(([path, { text }]) => ({ path, text })),
+        {
+          updateLinks: options.updateLinks === true,
+          admitBytes,
+          listReverseInventory: () => reversePaths ?? [],
+        },
+      );
+      for (const [path, plan] of batch.plans) normalized.set(path, plan.output);
+    }
     for (const file of result.selection.files) {
       let item, original;
       try {
-        item = document
-          ? { bytes: document.content }
-          : readDocument(context.root, file, budgets);
-        if (physicalWrite && item.stat.nlink !== 1n)
-          fail("HARD_LINK", "Hard-linked documents cannot be formatted.");
-        total += item.bytes.length;
-        if (exceeds(total, budgets.maxTotalDocumentBytes))
-          fail("BATCH_LIMIT", "Total document bytes exceed the limit.");
-        original = decode(item.bytes);
+        if (members) {
+          ({ item } = members.get(file));
+          original = normalized.get(file);
+        } else ({ item, text: original } = readMember(file));
       } catch (error) {
         await flushInputs();
         throw error;
@@ -472,16 +553,55 @@ export async function analyzeOperation(
     // dependency content, never a partially written mixture.
     graph.resolve((diagnostic) => collector.push(diagnostic));
     result.selection.readDependencies = graph.readDependencies;
-    const observations = [...context.observations, ...graph.observations];
+    const observations = [
+      ...context.observations,
+      ...graph.observations,
+      ...(batch?.observations ?? []),
+    ];
     result.diagnostics.sort(sortDiagnostics);
     // Refuse stale success: policy and dependency inputs must still match.
     recheckObservations(observations);
-    const blocked = result.diagnostics.some(
-      (d) =>
-        (d.severity === "error" ||
-          (result.strict && d.severity === "warning")) &&
-        !residualAllowed(mode, d),
-    );
+    if (reversePaths !== undefined) {
+      const current = await listReverseInventory(context, options);
+      if (
+        current.length !== reversePaths.length ||
+        current.some((path, index) => path !== reversePaths[index])
+      )
+        fail(
+          "DEPENDENCY_CHANGED",
+          "The reverse-reference inventory changed during normalization.",
+        );
+    }
+    if (batch) {
+      for (const [path, plan] of batch.plans)
+        result.proposedChanges.push(
+          ...changeRecords(path, plan.text, plan.edits),
+        );
+      result.anchorChanges.push(...batch.anchorChanges);
+      result.refusals.push(
+        ...batch.refusals.map(({ code, message, path, line, column }) => ({
+          code,
+          message,
+          path: path ?? null,
+          line: line ?? null,
+          column: column ?? null,
+        })),
+      );
+      if (batch.anchorChanges.length)
+        // A local inventory never proves the absence of external callers.
+        result.backlinkCoverage = {
+          inventoriedDocuments: batch.inventoriedDocuments,
+          externalReferences: "unverified",
+        };
+    }
+    const blocked =
+      result.refusals.length > 0 ||
+      result.diagnostics.some(
+        (d) =>
+          (d.severity === "error" ||
+            (result.strict && d.severity === "warning")) &&
+          !residualAllowed(mode, d),
+      );
     result.qualityStatus = result.diagnostics.length ? "findings" : "clean";
     result.qualityBasis = mode === "check" ? "input" : "candidate";
     if (blocked) {
@@ -492,8 +612,14 @@ export async function analyzeOperation(
       result.exitCode = 1;
       return result;
     }
+    if (dryRun) {
+      // A preview is complete analysis with zero source writes, never write authority.
+      result.operationStatus = "previewed";
+      result.exitCode = 0;
+      return result;
+    }
     if (document) {
-      if (mode === "format")
+      if (repair)
         result.document.contentBase64 = Buffer.from(
           candidates[0].output,
         ).toString("base64");

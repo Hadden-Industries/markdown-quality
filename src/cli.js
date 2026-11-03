@@ -13,7 +13,8 @@ import { resolveResourcePolicy } from "./resource-controls.js";
 import { terminalText, OperationError } from "./contracts.js";
 import { resolveConsumerRoot } from "./consumer-root.js";
 
-const usage = `Usage: markdown-quality <check|format|inspect|inspect-profile> [--root PATH] [--config PATH] [--concurrency N] [--strict] [--reconcile-inventory git] [--execution-profile PATH] [--resource-limit-mode configured|unlimited] [--max-profile-bytes N] [--no-analyzer-limits] [--diagnostic-display-level info|warning|error] [--json] [--files-json JSON] [-- literal.md ...]
+const usage = `Usage: markdown-quality <check|format|normalize|inspect|inspect-profile> [--root PATH] [--config PATH] [--concurrency N] [--strict] [--reconcile-inventory git] [--execution-profile PATH] [--resource-limit-mode configured|unlimited] [--max-profile-bytes N] [--no-analyzer-limits] [--diagnostic-display-level info|warning|error] [--json] [--files-json JSON] [-- literal.md ...]
+normalize repairs eligible prose to NFC with source-aware edits; --dry-run previews the same edits and refusals without writing, and --update-links permits changed heading anchors and updates supported local fragments inside the selected write set. External or unsupported backlinks stay unverified.
 No configuration file is required: the root is the explicit --root, else the nearest Git checkout, package root or current directory, and package defaults apply when .markdown-quality.json is absent there.
 format --stdin-request reads one bounded JSON request {path,requestId,contentBase64} from stdin and formats the supplied bytes without checkout writes. inspect-profile resolves the selected execution profile without running qualification or document analysis.
 Resource ceilings resolve from package defaults, configuration analyzerLimits, the execution profile (default .markdown-quality-execution.json at the root) and then invocation flags. --resource-limit-mode unlimited removes every package-imposed ceiling, including bootstrap reads; runtime, OS and provider limits still apply. --max-profile-bytes sets the profile bootstrap ceiling before the profile is read. --no-analyzer-limits removes only analyzer ceilings.
@@ -162,6 +163,8 @@ if (args.length === 0 || ["--help", "-h"].includes(args[0])) {
         "resource-limit-mode": { type: "string" },
         "max-profile-bytes": { type: "string" },
         "stdin-request": { type: "boolean" },
+        "dry-run": { type: "boolean" },
+        "update-links": { type: "boolean" },
       },
     });
     const hasTerminator = args.includes("--");
@@ -171,8 +174,20 @@ if (args.length === 0 || ["--help", "-h"].includes(args[0])) {
       throw new CliError("CLI_INPUT", "Literal filenames must follow --.");
     json = values.json ?? false;
     const command = args[0];
-    if (!["check", "format", "inspect", "inspect-profile"].includes(command))
+    if (
+      !["check", "format", "normalize", "inspect", "inspect-profile"].includes(
+        command,
+      )
+    )
       throw new CliError("CLI_INPUT", "Unknown command; use --help.");
+    if (
+      command !== "normalize" &&
+      (values["dry-run"] !== undefined || values["update-links"] !== undefined)
+    )
+      throw new CliError(
+        "CLI_INPUT",
+        "--dry-run and --update-links apply only to normalize.",
+      );
     const mode = values["resource-limit-mode"];
     if (mode !== undefined && !["configured", "unlimited"].includes(mode))
       throw new CliError(
@@ -227,7 +242,10 @@ if (args.length === 0 || ["--help", "-h"].includes(args[0])) {
     } else {
       const suppliedDocument = values["stdin-request"] === true;
       if (suppliedDocument && command !== "format")
-        throw new CliError("CLI_INPUT", "--stdin-request requires format.");
+        throw new CliError(
+          "CLI_INPUT",
+          "--stdin-request requires format or normalize.",
+        );
       if (
         suppliedDocument &&
         (hasTerminator ||
@@ -295,6 +313,8 @@ if (args.length === 0 || ["--help", "-h"].includes(args[0])) {
         : undefined;
       const request = {
         mode: command,
+        ...(values["dry-run"] ? { dryRun: true } : {}),
+        ...(values["update-links"] ? { updateLinks: true } : {}),
         ...(suppliedDocument ? { document } : {}),
         root,
         ...(values.config === undefined ? {} : { config: values.config }),
@@ -314,7 +334,11 @@ if (args.length === 0 || ["--help", "-h"].includes(args[0])) {
       // Checkout replacement remains in this process so guarded partial writes are
       // reported by the canonical analyzer, never guessed after a killed worker.
       let result;
-      if (command === "format" && !suppliedDocument)
+      const physicalRepair =
+        !suppliedDocument &&
+        (command === "format" ||
+          (command === "normalize" && !values["dry-run"]));
+      if (physicalRepair)
         result = await analyzeOperation(
           {
             ...request,

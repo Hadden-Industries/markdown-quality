@@ -33,6 +33,7 @@
     "src/local-links.js",
     "src/native-staging.js",
     "src/native-tool.js",
+    "src/normalize-batch.js",
     "src/qualification-evidence.js",
     "src/qualification-runner.js",
     "src/qualification.js"
