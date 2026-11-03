@@ -29,6 +29,8 @@ Installed npm packages retain their upstream license files.
 parse5 parses raw HTML fragments as static data for the package's finite HTML and anchor checks; its transitive `entities` 9.0.0 dependency retains its BSD-2-Clause notice by Felix Böhm.
 parse5 8.1.0 (published 2026-11-01) and `entities` 9.0.0 (published 2026-10-29) were adopted by owner decision without the usual soak period.
 github-slugger was already installed through ESLint Markdown and is now imported directly for the package's documented heading-anchor allocation; its installed ISC notice is unchanged.
+The development-only conformance fixtures in `test/fixtures/unicode/` are the unchanged Unicode `NormalizationTest.txt` files for Unicode 16.0.0 and 17.0.0, stored gzip-compressed with their original SHA-256 identities.
+They are © Unicode, Inc. under the Unicode License V3, retained in `test/fixtures/unicode/LICENSE-Unicode-3.0.txt`, and are not shipped in consumer archives.
 Development analysis uses dependency-cruiser 18.7.0 under MIT, copyright 2016-2026 Sander Verweij.
 Its installed `LICENSE` retains the original permission and copyright notice; no analyzer source is vendored or modified.
 The exact developer dependency graph and its integrity identities are frozen in the lockfile, and installed transitive components retain their own upstream notices.

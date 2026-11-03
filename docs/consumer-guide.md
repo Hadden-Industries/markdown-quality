@@ -169,6 +169,7 @@ Dynamic `aria-labelledby`, CSS visibility, renderer sanitization and DOM accessi
 `quality/non-nfc-prose` inspects decoded prose in paragraphs, lists, blockquotes, headings, table cells, link labels and image alternatives, across emphasis boundaries.
 Code, front matter, raw HTML, destinations and definition identifiers are outside the rule.
 Check and format never normalize text.
+Detection and repair use the runtime's ICU normalization; the repository tests both against the official Unicode `NormalizationTest.txt` data for the Unicode version of each supported Node line, and results record the runtime's Node, ICU and Unicode versions.
 Intentionally decomposed prose can opt out with `{"lint": {"quality/non-nfc-prose": "off"}}`; a nonempty `normalize` then refuses with `NFC_RULE_DISABLED`, while `info` and `warn` still allow it.
 
 `normalize` makes minimal source-span edits to eligible prose and preserves every other byte, including EOL layout.
