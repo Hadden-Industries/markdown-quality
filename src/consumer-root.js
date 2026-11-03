@@ -76,13 +76,15 @@ function verifyGitBoundary(
       "Cannot verify the observed Git checkout boundary with host Git.",
     );
   }
+  // Host Git reports long Windows paths; only the native resolver also expands
+  // 8.3 short names such as RUNNER~1, so both sides use it.
   let top;
   try {
-    top = realpathSync(resolve(output.toString("utf8").trim()));
+    top = realpathSync.native(resolve(output.toString("utf8").trim()));
   } catch {
     fail("UNSAFE_ROOT", "Host Git reported an inaccessible checkout root.");
   }
-  if (top !== realpathSync(directory))
+  if (top !== realpathSync.native(directory))
     fail(
       "UNSAFE_ROOT",
       "Observed Git metadata does not identify this directory's checkout.",

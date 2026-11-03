@@ -115,6 +115,38 @@ test("the nearest Git checkout wins over a nested package root and needs no conf
   assert.deepEqual(explicit.selection.files, ["readme.md"]);
 });
 
+test(
+  "a Windows 8.3 short path still identifies its Git checkout",
+  { skip: process.platform !== "win32" },
+  (t) => {
+    const root = fixture(t, { "nested/a.md": "# A\n" });
+    execFileSync("git", ["init", "--quiet"], { cwd: root });
+    // Hosted runners reach temporary directories through names such as RUNNER~1,
+    // while host Git reports the long spelling of the same checkout.
+    const short = execFileSync(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "(New-Object -ComObject Scripting.FileSystemObject).GetFolder($env:PROBE_PATH).ShortPath",
+      ],
+      {
+        encoding: "utf8",
+        env: { ...process.env, PROBE_PATH: root },
+        windowsHide: true,
+      },
+    ).trim();
+    if (short === root)
+      return t.skip("The path is already short or 8.3 names are disabled.");
+    const found = discoverConsumerRoot(undefined, {
+      cwd: join(short, "nested"),
+    });
+    assert.equal(found.method, "git");
+    assert.equal(realpathSync.native(found.root), realpathSync.native(root));
+  },
+);
+
 test("a bare directory falls back to the invocation directory without Git", (t) => {
   const root = fixture(t, { "a.md": "# A\n" });
   const found = discoverConsumerRoot(undefined, { cwd: root });

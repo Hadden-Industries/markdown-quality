@@ -66,7 +66,13 @@ export function qualifyMinimalConsumer({
 }) {
   const manifest = JSON.parse(readFileSync(join(install, "package.json")));
   assert.equal(manifest.scripts, undefined, "Consumer declares no scripts");
-  assert.deepEqual(Object.keys(manifest.dependencies), [packageName]);
+  // Consumers usually save the tool as a devDependency; either section may hold
+  // it, and fixture-routed native companions stay in optionalDependencies.
+  assert.deepEqual(
+    Object.keys({ ...manifest.dependencies, ...manifest.devDependencies }),
+    [packageName],
+    "Consumer declares only the package",
+  );
   assertInstalledBin(install, packageName);
   const rootArgument = relative(install, root).split(sep).join("/") || ".";
   // Only the installation's own members survive between fixtures.

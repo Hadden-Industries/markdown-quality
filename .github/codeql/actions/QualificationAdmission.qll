@@ -100,7 +100,7 @@ class QualificationAdmission extends ControlCheck instanceof Run {
       not exists(checkout.getIf()) and
       kind = ["trusted", "candidate"] and
       checkout.getArgument("path") = kind and
-      exactExpression(checkout.getArgument("ref"), "inputs." + kind + "-sha") and
+      exactExpression(checkout.getArgument("ref"), "inputs." + kind + "-commit-id") and
       exactExpression(checkout.getArgument("repository"), "inputs." + kind + "-repository")
     )
   }
