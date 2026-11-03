@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Private observer child: no candidate module is loaded.
 import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { isDeepStrictEqual } from "node:util";
 import { stageCandidateData, stagedDataDigest } from "./candidate-staging.js";
@@ -8,6 +9,7 @@ import { runQualityRequest } from "./execution.js";
 import { admitCheckEvidence } from "./result-validation.js";
 import { fail, digest, exceeds } from "./contracts.js";
 import { checkoutIdentity } from "./qualification.js";
+import { markdownPathPredicate } from "./documents.js";
 
 const [requestPath, outputRoot, receiptPath] = process.argv.slice(2);
 const request = JSON.parse(readFileSync(requestPath, "utf8"));
@@ -33,6 +35,16 @@ const profile = staging.profile;
 if (profile.profileSha256 !== request.profile.profileSha256)
   fail("PROFILE_CHANGED", "Trusted profile changed before execution.");
 const before = staging.stagedDataSha256;
+// The staged trusted snapshot is the effective policy, including its include scope.
+const { include } = JSON.parse(
+  readFileSync(join(outputRoot, staging.configPath), "utf8"),
+);
+const markdown = markdownPathPredicate(include);
+// Receipts keep each checkout's Markdown inventory, not every tracked path.
+const recorded = ({ trackedPaths, ...identity }) => ({
+  ...identity,
+  markdownPaths: trackedPaths.filter(markdown),
+});
 const started = performance.now();
 // The trusted profile and snapshot own policy; the staged candidate's own files,
 // including any configuration or execution profile, are data only.
@@ -41,7 +53,7 @@ const result = await runQualityRequest(
     mode: "check",
     root: outputRoot,
     config: staging.configPath,
-    reconciliationInventory: candidate.markdownPaths,
+    reconciliationInventory: recorded(candidate).markdownPaths,
   },
   {
     processGroup: "inherit",
@@ -108,8 +120,8 @@ if (
   fail("CHECKOUT_CHANGED", "Qualification checkout changed during execution.");
 const receipt = {
   schemaVersion: 2,
-  candidate,
-  trusted,
+  candidate: recorded(candidate),
+  trusted: recorded(trusted),
   staging,
   producer: request.producer,
   workflow: request.workflow ?? null,

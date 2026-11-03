@@ -73,6 +73,8 @@ Remove markers and values only where they equal the new defaults.
 An old narrow `include` must stay: removing it selects every `**/*.md` file under the root.
 A supplied `exclude` replaces the defaults `**/vendor/**`, `**/.cache/**` and `**/coverage/**`, so add any of those you still need; `[]` clears ordinary exclusions but never the hard boundaries `.git`, `node_modules`, `.venv`, `venv`, `.hi` and `.markdown-quality-trusted-inputs`.
 Keep explicit exclusions for generated, vendored, signed or byte-sensitive documents.
+Files named on the command line, in `files` or as a logical document path are now checked whatever their extension and whether or not `include` matches them, instead of being omitted as `not-included`; only an exclusion omits them, and a named `.mdx` file fails with `UNSUPPORTED_DIALECT`.
+An `include` pattern that names another extension, such as `**/*.markdown`, now selects those files; broad patterns such as `docs/**` still select only `.md`.
 Note that the default `layout.endOfLine` is `"lf"`; keep an explicit `"preserve"` or `"crlf"` if you relied on one.
 
 For example, this schema 2 configuration:

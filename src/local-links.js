@@ -8,6 +8,7 @@ import { safePath } from "./consumer-root.js";
 import { exceeds, fail } from "./contracts.js";
 import { collectAnchors, resolveFragment } from "./anchors.js";
 import { qualityRuleDefaults } from "./preset.js";
+import { markdownPathPredicate } from "./documents.js";
 
 const slash = (path) => path.split(sep).join("/");
 const bounded = (value, length = 200) =>
@@ -192,7 +193,7 @@ export function checkLocalLinks(context, tree, file, collector, spelling) {
         links &&
         target.rawFragment !== null &&
         stat.isFile() &&
-        relativePath.endsWith(".md")
+        markdownPathPredicate(config.include)(relativePath)
       ) {
         if (target.malformedFragment)
           push(

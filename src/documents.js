@@ -13,6 +13,10 @@ import { safePath } from "./consumer-root.js";
 import { fail, exceeds, decode } from "./contracts.js";
 import { defaultAnalyzerLimits } from "./analyzer-limits.js";
 import { defaultExecutionLimits } from "./resource-controls.js";
+import {
+  packageConfigurationDefaults,
+  refusedDialectExtensions,
+} from "./preset.js";
 import { bindGitExecutable, readGit } from "./host-git.js";
 import {
   discoveryBoundaries,
@@ -60,17 +64,49 @@ export function canonicalRelativePath(path) {
   return path;
 }
 
+const markdownPaths = new WeakMap();
+
+/** Whether discovery treats a root-relative path as Markdown: every `.md` path, plus a
+ * path an include pattern names specifically. A pattern opts in another extension or
+ * name only when it would not also match the same path with a different extension, so
+ * a `*.markdown` pattern or a literal `LICENSE` opts in while a broad directory pattern
+ * never sweeps in images or other data. Resolved include lists are immutable, so the
+ * compiled predicate is reused per list.
+ */
+export function markdownPathPredicate(
+  include = packageConfigurationDefaults.include,
+) {
+  if (!markdownPaths.has(include)) {
+    const patterns = include.map((pattern) =>
+      picomatch(pattern, { dot: true }),
+    );
+    markdownPaths.set(include, (path) => {
+      if (path.endsWith(".md")) return true;
+      const slash = path.lastIndexOf("/") + 1;
+      const dot = path.lastIndexOf(".");
+      // NUL never occurs in an admitted pattern, so only a wildcard matches the probe.
+      const probe = (dot > slash ? path.slice(0, dot) : path) + ".\0";
+      return patterns.some((matches) => matches(path) && !matches(probe));
+    });
+  }
+  return markdownPaths.get(include);
+}
+
 /** One path decision, including ancestor exclusions previously applied only by walking.
  * Hard operational boundaries are omissions for inventory accounting and refusals for
- * explicit selection; ordinary exclusions remain consumer-replaceable scope.
+ * explicit selection; ordinary exclusions remain consumer-replaceable scope. Discovery
+ * selects Markdown paths matched by include patterns; an explicitly named file is
+ * checked as Markdown whatever its extension unless an exclusion omits it, and a named
+ * or specifically included non-GFM dialect such as MDX is refused, never omitted.
  */
 export function createPathDecision(config) {
   const included = picomatch(config.include, { dot: true });
+  const markdownPath = markdownPathPredicate(config.include);
   const exclusions = config.exclude.map((pattern) => ({
     pattern,
     matches: picomatch(pattern, { dot: true }),
   }));
-  return (path, { explicit = false } = {}) => {
+  const decide = (path, { explicit = false } = {}) => {
     canonicalRelativePath(path);
     const boundary = operationalBoundary(path);
     if (boundary !== undefined) {
@@ -97,15 +133,24 @@ export function createPathDecision(config) {
       for (const subject of subjects)
         if (matches(subject))
           return { path, decision: "excluded", pattern, matchedPath: subject };
-    if (!path.endsWith(".md") || !included(path))
+    if (!explicit && (!markdownPath(path) || !included(path)))
       return {
         path,
         decision: "not-included",
         pattern: null,
         matchedPath: null,
       };
+    const name = parts.at(-1).toLowerCase();
+    if (refusedDialectExtensions.some((extension) => name.endsWith(extension)))
+      fail(
+        "UNSUPPORTED_DIALECT",
+        "Selected file uses a Markdown dialect that is not GitHub Flavored Markdown: " +
+          path,
+      );
     return { path, decision: "selected", pattern: null, matchedPath: null };
   };
+  decide.markdownPath = markdownPath;
+  return decide;
 }
 
 /** Native Git inventory is bounded metadata read through the bound host executable. */
@@ -139,7 +184,7 @@ export function readGitInventory(
     const match = /^(\d+) ([a-f0-9]+) ([0-3])\t([\s\S]+)$/u.exec(record);
     if (!match || match[3] !== "0")
       fail("INVENTORY_FAILED", "Conflicted or invalid Git inventory.");
-    if (match[4].endsWith(".md")) {
+    if ((decide?.markdownPath ?? markdownPathPredicate())(match[4])) {
       paths.push(match[4]);
       if (exceeds(paths.length, budgets.maxPathsPerSelectionStage))
         fail(
@@ -206,15 +251,16 @@ export async function selectDocuments(
           fail("SELECTION_LIMIT", "Directory entry limit exceeded.");
         if (discoveryBoundaries.has(entry.name)) continue;
         const path = join(dir, entry.name);
+        const markdown = () =>
+          decide.markdownPath(relative(root, path).split(sep).join("/"));
         if (entry.isSymbolicLink()) {
-          if (entry.name.endsWith(".md")) addCandidate(path);
+          if (markdown()) addCandidate(path);
           continue;
         }
         if (entry.isDirectory()) {
           // Enumerate names (never excluded file bytes) so omission provenance is complete.
           walk(path);
-        } else if (entry.isFile() && entry.name.endsWith(".md"))
-          addCandidate(path);
+        } else if (entry.isFile() && markdown()) addCandidate(path);
       }
     } finally {
       directory.closeSync();

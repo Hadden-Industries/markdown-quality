@@ -72,7 +72,7 @@ export function checkoutIdentity(root, gitExecutablePath, expected, profile) {
     .filter(Boolean);
   if (exceeds(records.length, profile.maxStagedEntries))
     fail("STAGING_LIMIT", "Tracked checkout exceeds its admission bound.");
-  const markdownPaths = [],
+  const trackedPaths = [],
     hash = createHash("sha256"),
     chunk = Buffer.alloc(65536);
   let total = 0;
@@ -106,7 +106,7 @@ export function checkoutIdentity(root, gitExecutablePath, expected, profile) {
         "Checkout file bytes differ from the expected commit.",
       );
     hash.update(record + "\0");
-    if (match[3].endsWith(".md")) markdownPaths.push(match[3]);
+    trackedPaths.push(match[3]);
   }
   // The index and ignore rules cannot conceal added data or link targets.
   const committedPaths = new Set(
@@ -135,7 +135,9 @@ export function checkoutIdentity(root, gitExecutablePath, expected, profile) {
     commitId,
     treeId,
     trackedTreeRecordsSha256: hash.digest("hex"),
-    markdownPaths: markdownPaths.sort(),
+    // Every committed regular file; the runner applies the trusted policy's
+    // include scope to derive the Markdown reconciliation inventory.
+    trackedPaths: trackedPaths.sort(),
   };
 }
 

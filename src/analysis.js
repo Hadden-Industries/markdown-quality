@@ -36,7 +36,10 @@ export function createLinter(context) {
     ignore: false,
     overrideConfig: [
       {
-        files: ["**/*.md"],
+        // Selection decides which files are Markdown; explicitly named files may
+        // use any extension, so the linter applies to every analyzed path. A
+        // universal glob such as "**/*" would not make a file lintable on its own.
+        files: [() => true],
         plugins: { markdown },
         language: "markdown/gfm",
         languageOptions: {

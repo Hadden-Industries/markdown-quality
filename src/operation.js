@@ -127,13 +127,18 @@ export function residualAllowed(mode, diagnostic) {
 }
 
 /** All supported Markdown under the root outside hard operational boundaries, including
- * tracked and ordinarily excluded files: a read scope, never a write selection.
+ * tracked and ordinarily excluded files and every `.md` file whatever the include
+ * scope: a read scope, never a write selection.
  */
 async function listReverseInventory(context, options) {
   const inventory = await selectDocuments(
     {
       ...context,
-      config: { ...context.config, include: ["**/*.md"], exclude: [] },
+      config: {
+        ...context.config,
+        include: ["**/*.md", ...context.config.include],
+        exclude: [],
+      },
     },
     undefined,
     {

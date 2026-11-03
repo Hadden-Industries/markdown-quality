@@ -47,7 +47,8 @@ function targetPath(root, from, url, policy) {
     ? resolve(root, "." + decoded)
     : resolve(root, dirname(from), decoded);
   const path = slash(relative(root, absolute));
-  if (path.startsWith("..") || !path.endsWith(".md")) return undefined;
+  // Only selected members can change anchors; their extension is not a filter.
+  if (path.startsWith("..")) return undefined;
   return { path, ...target };
 }
 

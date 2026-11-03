@@ -89,6 +89,10 @@ import { sentenceDefaults } from "./native-policy.js";
 import { deepFreeze } from "./contracts.js";
 
 export const presetIdentity = "authored-gfm@2";
+/** Markdown dialects that are not GitHub Flavored Markdown; formatting them as GFM
+ * could corrupt their syntax, so they are refused rather than treated as Markdown.
+ */
+export const refusedDialectExtensions = Object.freeze([".mdx"]);
 export const configurationSchemaVersion = 3;
 
 /** Package-owned declarative defaults. Sparse consumer input describes exceptions. */

@@ -117,16 +117,20 @@ Formatting whitespace policy, canonical layout and preservation guards are not l
 
 ## Selection, boundaries and omissions
 
-Full selection discovers lowercase `.md` files only, including hidden authored directories and GitHub metadata.
-`.MD`, `.markdown` and `.mdx` are not selected by default.
+Full selection discovers files that match `include`, including hidden authored directories and GitHub metadata.
+A broad pattern such as `docs/**` or `**/*` discovers only lowercase `.md` files, so images and other data are never swept in.
+A pattern that names another extension or file opts it in: `"include": ["**/*.md", "**/*.markdown"]`, `**/*.{md,markdown}`, `**/*.MD` or a literal `LICENSE`.
+A pattern opts a file in when it would not also match that path with a different extension; matching is case-sensitive.
 Literal arguments after `--` and `--files-json` select exactly those paths; `--files-json '[]'` selects nothing and succeeds.
+An explicitly named file or logical document path is checked as GitHub Flavored Markdown whatever its extension and whether or not `include` matches it; only an exclusion omits it.
+MDX is a different dialect: a named `.mdx` file or an include pattern that names MDX fails with `UNSUPPORTED_DIALECT`, and broad patterns never select it.
 Exclusions are tested against a path and every ancestor directory identically in full, explicit and logical requests.
 Hard operational boundaries `.git`, `node_modules`, `.venv`, `venv`, `.hi` and `.markdown-quality-trusted-inputs` can never be selected or read and are not erased by `exclude: []`.
 Directory traversal never follows symbolic links or Windows junctions, and explicit linked paths fail.
 Formatting hard-linked files is refused.
 
 `selection.omissions` records each omitted discovered path with reason `excluded`, `not-included` or `operational-boundary`, plus the matching pattern and matched path or ancestor.
-With `--reconcile-inventory git`, `selection.reconciliationDecisions` explains every tracked Markdown path as `selected`, `excluded`, `not-included` or `operational-boundary`.
+With `--reconcile-inventory git`, `selection.reconciliationDecisions` explains every tracked Markdown path, as discovery defines it, as `selected`, `excluded`, `not-included` or `operational-boundary`.
 Selected tracked files must be present regular inputs.
 
 ## Links, fragments, path case and read dependencies
@@ -136,13 +140,13 @@ Path and fragment are percent-decoded separately exactly once; malformed encodin
 Contained files and directories are valid targets; root-relative `/path` links fail unless `links.rootRelative` is `"consumer-root"`.
 Each local path component must match the directory entry's exact spelling on every platform, reported as `quality/local-path-case-mismatch`; files are never renamed.
 
-Fragments are validated against `.md` targets with one anchor model:
+Fragments are validated against `.md` targets and targets that `include` opts in, using one anchor model:
 
 - Generated heading anchors use `github-slugger` over rendered heading text with source-order duplicate suffixes, matched case-insensitively.
 - Explicit HTML `id` and anchor `name` values match exactly; duplicate explicit IDs are ambiguous.
 - `top`, GitHub line references such as `L10` and a trailing `{#id}` heading suffix are retained compatibility choices, not GFM features.
 - An empty fragment is a document link and passes when the path is valid.
-- Fragments on non-`.md` targets are not validated; their path still is.
+- Fragments on other targets are not validated; their path still is.
 
 A cross-document target inside the root and outside hard boundaries is read as a dependency even when it is unselected or excluded.
 Dependencies are read once, never linted, formatted or crawled, and are listed in `selection.readDependencies`.
@@ -185,7 +189,7 @@ npm exec -- markdown-quality normalize --root . --update-links
 npm exec -- markdown-quality check --root .
 ```
 
-With `--update-links`, normalize inventories reverse references across `.md` files in the root outside hard boundaries and updates supported local fragments inside the selected write set.
+With `--update-links`, normalize inventories reverse references across every `.md` file and every file that `include` opts in, in the root outside hard boundaries, and updates supported local fragments inside the selected write set.
 For example, with `"exclude": ["archive/**"]` and `archive/old.md` linking to a changed heading in `docs/guide.md`, the preview reports `archive/old.md: OUT_OF_SCOPE_REFERENCE` and exits `1` with zero writes.
 Adjust the selection or scope deliberately and rerun.
 References inside raw HTML refuse with `PROTECTED_HTML_REFERENCE`, and edits that cannot be represented refuse with `UNREPRESENTABLE_FRAGMENT_EDIT`.
