@@ -3,7 +3,8 @@ import { runNative } from "./native-tool.js";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { decode, fail, limits, exceeds } from "./contracts.js";
+import { decode, fail, exceeds } from "./contracts.js";
+import { defaultAnalyzerLimits } from "./analyzer-limits.js";
 import {
   removeStagedFile,
   nativeCheckConfig,
@@ -44,11 +45,15 @@ function reportBound(text, staging) {
   );
 }
 /** Avoid speculative checking where the qualified file protocol cannot apply. */
-export function nativeFileCheckEligible(text, staging, budgets = limits) {
+export function nativeFileCheckEligible(
+  text,
+  staging,
+  budgets = defaultAnalyzerLimits,
+) {
   return (
     Boolean(staging) &&
-    !exceeds(Buffer.byteLength(text), budgets.fileBytes) &&
-    !exceeds(reportBound(text, staging) + 2, budgets.nativeOutputBytes)
+    !exceeds(Buffer.byteLength(text), budgets.maxDocumentBytes) &&
+    !exceeds(reportBound(text, staging) + 2, budgets.maxNativeOutputBytes)
   );
 }
 
@@ -58,7 +63,7 @@ export function runNativeChecks(
   texts,
   staging,
   observer,
-  budgets = limits,
+  budgets = defaultAnalyzerLimits,
 ) {
   const results = [];
   let pending = [],
@@ -94,13 +99,13 @@ export function runNativeChecks(
   }
   for (const [index, text] of texts.entries()) {
     const inputBytes = Buffer.byteLength(text);
-    if (exceeds(inputBytes, budgets.fileBytes))
+    if (exceeds(inputBytes, budgets.maxDocumentBytes))
       fail("DOCUMENT_LIMIT", "Native input exceeds the size limit.");
     // Pinned check.rs emits at most two retained findings per source line and
     // at most 203 excerpt characters. Include worst JSON escaping, pretty-print
     // overhead and the complete staged pathname; keep large cases on stdin.
     const outputBound = reportBound(text, staging);
-    if (!staging || exceeds(outputBound + 2, budgets.nativeOutputBytes)) {
+    if (!staging || exceeds(outputBound + 2, budgets.maxNativeOutputBytes)) {
       flush();
       results.push(
         observe([index], () => ({
@@ -113,7 +118,7 @@ export function runNativeChecks(
     if (
       pending.length === nativeGroupCapacity ||
       bytes + inputBytes > nativeGroupInputBytes ||
-      exceeds(bound + outputBound, budgets.nativeOutputBytes)
+      exceeds(bound + outputBound, budgets.maxNativeOutputBytes)
     )
       flush();
     pending.push({ index, text });
@@ -156,8 +161,8 @@ function checkFiles(tool, texts, staging, budgets) {
           RAYON_NUM_THREADS: "1",
         },
         shell: false,
-        timeout: budgets.nativeMs ?? 0,
-        maxBuffer: budgets.nativeOutputBytes ?? Infinity,
+        timeout: budgets.nativeInvocationTimeoutMs ?? 0,
+        maxBuffer: budgets.maxNativeOutputBytes ?? Infinity,
         windowsHide: true,
       },
     );

@@ -40,9 +40,9 @@ private predicate boundInput(Run run, string variable, string input) {
 }
 
 private predicate reviewedInputs(Run run) {
-  boundInput(run, "MQ_TRUSTED_SHA", "trusted-sha") and
+  boundInput(run, "MQ_TRUSTED_COMMIT_ID", "trusted-commit-id") and
   boundInput(run, "MQ_TRUSTED_REPOSITORY", "trusted-repository") and
-  boundInput(run, "MQ_CANDIDATE_SHA", "candidate-sha") and
+  boundInput(run, "MQ_CANDIDATE_COMMIT_ID", "candidate-commit-id") and
   boundInput(run, "MQ_CANDIDATE_REPOSITORY", "candidate-repository") and
   boundInput(run, "MQ_PROFILE", "profile")
 }

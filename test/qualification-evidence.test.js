@@ -19,39 +19,40 @@ const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const json = (root, name) => JSON.parse(readFileSync(join(root, name), "utf8"));
 function fixture(t, passed = true) {
   const scratch = consumer(t);
-  const sourceRoot = join(scratch, "original");
-  mkdirSync(sourceRoot);
+  const evidenceRoot = join(scratch, "original");
+  mkdirSync(evidenceRoot);
   const profile = {
-    samples: passed ? 2 : 3,
-    reportBytes: 1048576,
-    stagingBytes: 1048576,
-    stagingEntries: 100,
-    requestBytes: 1048576,
+    requiredConsecutiveSamples: passed ? 2 : 3,
+    maxOutputBytes: 1048576,
+    maxStagedDataBytes: 1048576,
+    maxStagedEntries: 100,
+    maxRequestBytes: 1048576,
+    maxQualificationSamples: 100,
   };
   const request = {
     profile,
-    candidateSha: "a".repeat(40),
-    trustedSha: "b".repeat(40),
+    candidateCommitId: "a".repeat(40),
+    trustedCommitId: "b".repeat(40),
     producer: { source: { sourceRevision: "c".repeat(40) } },
     workflow: { sha: "d".repeat(40) },
   };
-  writeFileSync(join(sourceRoot, "request.json"), JSON.stringify(request));
+  writeFileSync(join(evidenceRoot, "request.json"), JSON.stringify(request));
   const samples = [];
   for (const index of [1, 2]) {
-    const sample = join(sourceRoot, `sample-${index}`);
+    const sample = join(evidenceRoot, `sample-${index}`);
     mkdirSync(join(sample, "data", "empty"), { recursive: true });
     writeFileSync(join(sample, "data", ".hidden"), "hello");
     writeFileSync(join(sample, "data", "README.md"), "# Alpha\n");
     writeFileSync(join(sample, "stdout.txt"), "diagnostic\n");
     writeFileSync(join(sample, "stderr.txt"), "");
     const receipt = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       staging: {
         stagedDataSha256: stagedDataDigest(join(sample, "data"), profile),
         profile,
       },
-      candidate: { head: request.candidateSha },
-      trusted: { head: request.trustedSha },
+      candidate: { commitId: request.candidateCommitId },
+      trusted: { commitId: request.trustedCommitId },
       producer: request.producer,
       workflow: request.workflow,
     };
@@ -64,21 +65,21 @@ function fixture(t, passed = true) {
     });
   }
   writeFileSync(
-    join(sourceRoot, "window.json"),
+    join(evidenceRoot, "window.json"),
     JSON.stringify({
-      schemaVersion: 1,
+      schemaVersion: 2,
       passed,
       samples,
       enforcedProfile: profile,
     }),
   );
-  return { sourceRoot, outputRoot: join(scratch, "compact") };
+  return { evidenceRoot, outputRoot: join(scratch, "compact") };
 }
 
 test("hosted projection retains byte-exact reports and one complete manifest without staged payloads", (t) => {
   const paths = fixture(t);
   const original = readFileSync(
-    join(paths.sourceRoot, "sample-1/receipt.json"),
+    join(paths.evidenceRoot, "sample-1/receipt.json"),
   );
   packageQualificationEvidence(paths);
   assert.equal(existsSync(join(paths.outputRoot, "sample-1/data")), false);
@@ -87,14 +88,15 @@ test("hosted projection retains byte-exact reports and one complete manifest wit
     original,
   );
   assert.deepEqual(
-    readFileSync(join(paths.sourceRoot, "sample-1/receipt.json")),
+    readFileSync(join(paths.evidenceRoot, "sample-1/receipt.json")),
     original,
   );
   assert.equal(
-    readFileSync(join(paths.sourceRoot, "sample-1/data/.hidden"), "utf8"),
+    readFileSync(join(paths.evidenceRoot, "sample-1/data/.hidden"), "utf8"),
     "hello",
   );
   const index = json(paths.outputRoot, "artifact-index.json");
+  assert.equal(index.schemaVersion, 2);
   assert.equal(index.samples.length, 2);
   assert.equal(index.samples[0].manifestPath, index.samples[1].manifestPath);
   assert.equal(readdirSync(join(paths.outputRoot, "manifests")).length, 1);
@@ -123,7 +125,7 @@ test("projection rejects changed successful stage bytes and receipt tampering", 
     const paths = fixture(t);
     writeFileSync(
       join(
-        paths.sourceRoot,
+        paths.evidenceRoot,
         change === "stage" ? "sample-1/data/.hidden" : "sample-1/receipt.json",
       ),
       "changed",
@@ -137,9 +139,9 @@ test("projection rejects changed successful stage bytes and receipt tampering", 
 
 test("failed qualification retains original diagnostics and explicitly incomplete samples", (t) => {
   const paths = fixture(t, false);
-  mkdirSync(join(paths.sourceRoot, "sample-3"));
+  mkdirSync(join(paths.evidenceRoot, "sample-3"));
   writeFileSync(
-    join(paths.sourceRoot, "sample-3/stderr.txt"),
+    join(paths.evidenceRoot, "sample-3/stderr.txt"),
     "CHECKOUT_CHANGED\n",
   );
   packageQualificationEvidence(paths);
@@ -154,18 +156,18 @@ test("failed qualification retains original diagnostics and explicitly incomplet
 test("successful projection refuses missing samples, hidden data, and logs", (t) => {
   for (const target of ["sample", "hidden", "log"]) {
     const paths = fixture(t);
-    const window = json(paths.sourceRoot, "window.json");
+    const window = json(paths.evidenceRoot, "window.json");
     if (target === "sample") {
       window.samples.pop();
       writeFileSync(
-        join(paths.sourceRoot, "window.json"),
+        join(paths.evidenceRoot, "window.json"),
         JSON.stringify(window),
       );
     } else {
       // Deletion is confined to this disposable test-owned fixture.
       unlinkSync(
         join(
-          paths.sourceRoot,
+          paths.evidenceRoot,
           target === "hidden" ? "sample-1/data/.hidden" : "sample-1/stdout.txt",
         ),
       );
@@ -179,7 +181,7 @@ test("successful projection refuses missing samples, hidden data, and logs", (t)
 
 test("failed projection preserves diagnostics when a completed receipt is damaged", (t) => {
   const paths = fixture(t, false);
-  writeFileSync(join(paths.sourceRoot, "sample-1/receipt.json"), "damaged");
+  writeFileSync(join(paths.evidenceRoot, "sample-1/receipt.json"), "damaged");
   const index = packageQualificationEvidence(paths);
   assert.equal(index.passed, false);
   assert.equal(index.samples[0].complete, false);
@@ -192,12 +194,12 @@ test("failed projection preserves diagnostics when a completed receipt is damage
 
 test("large repeated native payloads do not increase compact evidence size proportionally", (t) => {
   const paths = fixture(t);
-  const window = json(paths.sourceRoot, "window.json");
+  const window = json(paths.evidenceRoot, "window.json");
   for (const sample of window.samples) {
-    const data = join(paths.sourceRoot, `sample-${sample.index}/data`);
+    const data = join(paths.evidenceRoot, `sample-${sample.index}/data`);
     const payload = Buffer.alloc(262144, 0xab);
     writeFileSync(join(data, "native.tgz"), payload);
-    const receiptPath = join(paths.sourceRoot, sample.receiptPath);
+    const receiptPath = join(paths.evidenceRoot, sample.receiptPath);
     const receipt = JSON.parse(readFileSync(receiptPath));
     receipt.staging.stagedDataSha256 = stagedDataDigest(
       data,
@@ -207,7 +209,10 @@ test("large repeated native payloads do not increase compact evidence size propo
     writeFileSync(receiptPath, bytes);
     sample.receiptSha256 = sha(bytes);
   }
-  writeFileSync(join(paths.sourceRoot, "window.json"), JSON.stringify(window));
+  writeFileSync(
+    join(paths.evidenceRoot, "window.json"),
+    JSON.stringify(window),
+  );
   const index = packageQualificationEvidence(paths);
   assert.ok(index.files.reduce((total, file) => total + file.size, 0) < 16384);
   assert.equal(readdirSync(join(paths.outputRoot, "manifests")).length, 1);
@@ -226,11 +231,11 @@ test("projection rejects overlap, existing output and reports above the trusted 
   for (const target of ["overlap", "existing", "bound"]) {
     const paths = fixture(t);
     if (target === "overlap")
-      paths.outputRoot = join(paths.sourceRoot, "compact");
+      paths.outputRoot = join(paths.evidenceRoot, "compact");
     if (target === "existing") mkdirSync(paths.outputRoot);
     if (target === "bound")
       writeFileSync(
-        join(paths.sourceRoot, "sample-1/stdout.txt"),
+        join(paths.evidenceRoot, "sample-1/stdout.txt"),
         Buffer.alloc(1048577),
       );
     assert.throws(
@@ -244,7 +249,7 @@ test("failed oversized diagnostics retain a bounded prefix with explicit truncat
   const paths = fixture(t, false);
   const original = Buffer.alloc(1048577, 0x61);
   for (const file of ["stdout.txt", "stderr.txt"])
-    writeFileSync(join(paths.sourceRoot, "sample-1", file), original);
+    writeFileSync(join(paths.evidenceRoot, "sample-1", file), original);
   const index = packageQualificationEvidence(paths);
   assert.equal(index.passed, false);
   assert.equal(index.samples[0].complete, false);
@@ -257,18 +262,25 @@ test("failed oversized diagnostics retain a bounded prefix with explicit truncat
     const retained = readFileSync(join(paths.outputRoot, path));
     assert.deepEqual(retained, original.subarray(0, 1048576));
     assert.equal(entry.sha256, sha(retained));
-    assert.deepEqual(readFileSync(join(paths.sourceRoot, path)), original);
+    assert.deepEqual(readFileSync(join(paths.evidenceRoot, path)), original);
   }
   assert.ok(index.problems.some((item) => /truncat/iu.test(item.message)));
 });
 
 test("successful projection reconciles immutable request identities with receipts", (t) => {
-  for (const field of ["candidateSha", "trustedSha", "producer", "workflow"]) {
+  for (const field of [
+    "candidateCommitId",
+    "trustedCommitId",
+    "producer",
+    "workflow",
+  ]) {
     const paths = fixture(t);
-    const request = json(paths.sourceRoot, "request.json");
-    request[field] = field.endsWith("Sha") ? "e".repeat(40) : { changed: true };
+    const request = json(paths.evidenceRoot, "request.json");
+    request[field] = field.endsWith("CommitId")
+      ? "e".repeat(40)
+      : { changed: true };
     writeFileSync(
-      join(paths.sourceRoot, "request.json"),
+      join(paths.evidenceRoot, "request.json"),
       JSON.stringify(request),
     );
     assert.throws(() => packageQualificationEvidence(paths), /identit/iu);

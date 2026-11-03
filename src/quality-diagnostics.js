@@ -1,28 +1,28 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { parse } from "./analysis.js";
-import { advisoryDefaults } from "./preset.js";
+import { qualityRuleDefaults } from "./preset.js";
 import { diagnosticCollector } from "./contracts.js";
 
-/** Advisory editorial observations, never fixes or accessibility certification.
- * Disabled rules skip their own work; a fully disabled advisory set does not parse.
+/** Package quality rules with configurable severity; never fixes or accessibility certification.
+ * Disabled rules skip their own work; a fully disabled rule set does not parse.
  */
-export function checkAdvisories(text, config, memo) {
+export function checkQualityRules(text, config, memo) {
   const enabled = (rule) =>
-    (config.lint[rule] ?? advisoryDefaults[rule]) !== "off";
+    (config.lint[rule] ?? qualityRuleDefaults[rule]) !== "off";
   const duplicateHeadingsEnabled = enabled("quality/duplicate-sibling-heading"),
     headingPunctuationEnabled = enabled("quality/heading-trailing-punctuation"),
     genericLinksEnabled = enabled("quality/generic-link-text"),
     nfcEnabled = enabled("quality/non-nfc-prose"),
     longLinesEnabled = enabled("quality/long-prose-line");
-  if (!Object.keys(advisoryDefaults).some(enabled)) return [];
-  const collector = diagnosticCollector(config.limits);
+  if (!Object.keys(qualityRuleDefaults).some(enabled)) return [];
+  const collector = diagnosticCollector(config.analyzerLimits);
   const lines = longLinesEnabled ? text.split(/\r\n|\r|\n/u) : undefined;
   const lineOffsets = longLinesEnabled ? [0] : undefined;
   if (longLinesEnabled)
     for (const match of text.matchAll(/\r\n|\r|\n/gu))
       lineOffsets.push(match.index + match[0].length);
   function report(rule, node, message, position = node.position.start) {
-    const selected = config.lint[rule] ?? advisoryDefaults[rule];
+    const selected = config.lint[rule] ?? qualityRuleDefaults[rule];
     if (selected === "off") return;
     collector.push({
       source: "quality",

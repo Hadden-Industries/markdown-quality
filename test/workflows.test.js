@@ -237,9 +237,9 @@ test("public trusted workflow retains its data-only inputs and evidence retentio
   const shared = workflow("markdown-quality");
   for (const input of [
     "trusted-repository",
-    "trusted-sha",
+    "trusted-commit-id",
     "candidate-repository",
-    "candidate-sha",
+    "candidate-commit-id",
     "profile",
   ])
     assert.ok(shared.on.workflow_call.inputs[input]);
@@ -260,7 +260,7 @@ test("public trusted workflow retains its data-only inputs and evidence retentio
   assert.equal(upload.if, "always()");
   assert.equal(
     upload.with["retention-days"],
-    "${{ inputs.qualification-evidence && 30 || (job.status != 'success' && 14 || 7) }}",
+    "${{ inputs.retain-qualification-evidence && 30 || (job.status != 'success' && 14 || 7) }}",
   );
   assert.ok(
     steps

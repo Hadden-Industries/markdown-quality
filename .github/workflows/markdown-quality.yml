@@ -5,20 +5,20 @@ on:
       trusted-repository:
         type: string
         required: true
-      trusted-sha:
+      trusted-commit-id:
         type: string
         required: true
       candidate-repository:
         type: string
         required: true
-      candidate-sha:
+      candidate-commit-id:
         type: string
         required: true
       profile:
         type: string
         default: .markdown-quality-execution.json
-      qualification-evidence:
-        description: Retain selected qualification evidence for 30 days instead of routine success retention
+      retain-qualification-evidence:
+        description: Select longer retention for qualification evidence (30 days instead of 14-day failure or 7-day routine success retention)
         type: boolean
         default: false
 permissions:
@@ -29,8 +29,8 @@ env:
   MQ_CANDIDATE_REPOSITORY: ${{ inputs.candidate-repository }}
   MQ_TRUSTED_ROOT: ${{ github.workspace }}/trusted
   MQ_CANDIDATE_ROOT: ${{ github.workspace }}/candidate
-  MQ_TRUSTED_SHA: ${{ inputs.trusted-sha }}
-  MQ_CANDIDATE_SHA: ${{ inputs.candidate-sha }}
+  MQ_TRUSTED_COMMIT_ID: ${{ inputs.trusted-commit-id }}
+  MQ_CANDIDATE_COMMIT_ID: ${{ inputs.candidate-commit-id }}
   MQ_PROFILE: ${{ inputs.profile }}
 jobs:
   request:
@@ -50,7 +50,7 @@ jobs:
           package-manager-cache: false
       - name: Show immutable inputs before owner approval
         env:
-          MQ_WORKFLOW_SHA: ${{ job.workflow_sha }}
+          MQ_WORKFLOW_COMMIT_ID: ${{ job.workflow_sha }}
           MQ_WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
         run: node producer/scripts/shared-qualification-admission.js request
   qualify:
@@ -72,13 +72,13 @@ jobs:
     steps:
       - name: Validate exact checkout identities
         env:
-          MQ_WORKFLOW_SHA: ${{ job.workflow_sha }}
+          MQ_WORKFLOW_COMMIT_ID: ${{ job.workflow_sha }}
           MQ_WORKFLOW_REF: ${{ job.workflow_ref }}
           MQ_WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
           MQ_CHECK_RUN_ID: ${{ job.check_run_id }}
         run: |
-          if ($env:MQ_TRUSTED_SHA -notmatch '^[a-f0-9]{40}$' -or $env:MQ_CANDIDATE_SHA -notmatch '^[a-f0-9]{40}$' -or $env:MQ_WORKFLOW_SHA -notmatch '^[a-f0-9]{40}$') { throw 'Full immutable checkout and workflow identities are required' }
-          Add-Content -LiteralPath $env:GITHUB_ENV -Value "MQ_WORKFLOW_SHA=$env:MQ_WORKFLOW_SHA"
+          if ($env:MQ_TRUSTED_COMMIT_ID -notmatch '^[a-f0-9]{40}$' -or $env:MQ_CANDIDATE_COMMIT_ID -notmatch '^[a-f0-9]{40}$' -or $env:MQ_WORKFLOW_COMMIT_ID -notmatch '^[a-f0-9]{40}$') { throw 'Full immutable checkout and workflow identities are required' }
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "MQ_WORKFLOW_COMMIT_ID=$env:MQ_WORKFLOW_COMMIT_ID"
           Add-Content -LiteralPath $env:GITHUB_ENV -Value "MQ_WORKFLOW_REF=$env:MQ_WORKFLOW_REF"
           Add-Content -LiteralPath $env:GITHUB_ENV -Value "MQ_WORKFLOW_REPOSITORY=$env:MQ_WORKFLOW_REPOSITORY"
           Add-Content -LiteralPath $env:GITHUB_ENV -Value "MQ_CHECK_RUN_ID=$env:MQ_CHECK_RUN_ID"
@@ -108,7 +108,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: ${{ inputs.trusted-repository }}
-          ref: ${{ inputs.trusted-sha }}
+          ref: ${{ inputs.trusted-commit-id }}
           path: trusted
           persist-credentials: false
       - id: profile
@@ -137,7 +137,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: ${{ inputs.candidate-repository }}
-          ref: ${{ inputs.candidate-sha }}
+          ref: ${{ inputs.candidate-commit-id }}
           path: candidate
           persist-credentials: false
       - name: Acquire trusted graph and qualify candidate data
@@ -153,4 +153,4 @@ jobs:
         with:
           name: shared-markdown-${{ matrix.os }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/shared-markdown-upload/
-          retention-days: ${{ inputs.qualification-evidence && 30 || (job.status != 'success' && 14 || 7) }}
+          retention-days: ${{ inputs.retain-qualification-evidence && 30 || (job.status != 'success' && 14 || 7) }}

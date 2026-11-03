@@ -11,15 +11,28 @@ const schema = JSON.parse(
   ),
 );
 const validate = new Ajv({ strict: true, allErrors: true }).compile(schema);
-const samePaths = (a, b) => isDeepStrictEqual([...a].sort(), [...b].sort());
+const invalid = (message) => fail("INVALID_RESULT", message);
 
-/** Validate the actual shipped schema and semantic admission, optionally binding a transport request. */
+/** Repairs may leave only their declared residual condition unblocked. */
+function blocking(report, diagnostic) {
+  if (
+    report.operation === "format" &&
+    diagnostic.source === "quality" &&
+    diagnostic.rule === "quality/non-nfc-prose"
+  )
+    return false;
+  return (
+    diagnostic.severity === "error" ||
+    (report.strict && diagnostic.severity === "warning")
+  );
+}
+
+/** Validate the shipped schema and semantic admission, optionally binding a request.
+ * Returns the original validated report; validation is not a snapshot or attestation.
+ */
 export function validateQualityResult(report, expected = {}) {
   if (!validate(report))
-    fail(
-      "INVALID_RESULT",
-      "Quality result does not match the installed schema.",
-    );
+    invalid("Quality result does not match the installed schema.");
   if (
     report.package.name !== metadata.name ||
     report.package.version !== metadata.version
@@ -31,95 +44,158 @@ export function validateQualityResult(report, expected = {}) {
   for (const [key, actual] of Object.entries({
     operation: report.operation,
     exitCode: report.exitCode,
-    configDigest: report.configDigest,
+    configurationBytesSha256: report.configurationBytesSha256,
+    effectiveConfigurationSha256: report.effectiveConfigurationSha256,
     selectionMode: report.selection.mode,
     requestId: report.document?.requestId ?? null,
+    dryRun: report.dryRun,
+    updateLinks: report.updateLinks,
   }))
     if (Object.hasOwn(expected, key) && expected[key] !== actual)
       fail(
         "RESULT_IDENTITY",
         "Quality result does not match the requested " + key + ".",
       );
-  const blockers = report.diagnostics.some(
-    (d) =>
-      d.severity === "error" || (report.strict && d.severity === "warning"),
-  );
+  const { selection, documentResults } = report;
   if (
-    new Set(report.selection.files).size !== report.selection.files.length ||
-    new Set(report.selection.inventory.map((d) => d.path)).size !==
-      report.selection.inventory.length
+    new Set(selection.files).size !== selection.files.length ||
+    new Set(selection.reconciliationDecisions.map((d) => d.path)).size !==
+      selection.reconciliationDecisions.length
   )
-    fail("INVALID_RESULT", "Selection contains duplicate identities.");
-  if (
-    report.diagnostics.some(
-      (finding) => !report.selection.files.includes(finding.path),
-    )
-  )
-    fail("INVALID_RESULT", "Diagnostic does not belong to the selected scope.");
-  const processed = [
-    ...report.written,
-    ...report.unchanged,
-    ...report.unprocessed,
-  ];
-  if (
-    new Set(processed).size !== processed.length ||
-    processed.some((path) => !report.selection.files.includes(path))
-  )
-    fail(
-      "INVALID_RESULT",
-      "Processing contains duplicate or unselected identities.",
-    );
-  if (
-    report.selection.exclusions.some((item) =>
-      report.selection.files.includes(item.path),
-    )
-  )
-    fail("INVALID_RESULT", "A selected path is also reported excluded.");
-  if (report.operation !== "format" && report.written.length)
-    fail("INVALID_RESULT", "Read-only operation reported document writes.");
-  if (report.document && report.written.length)
-    fail(
-      "INVALID_RESULT",
-      "Logical-document operation wrote repository files.",
-    );
-  if (report.exitCode === 2) {
-    if (report.outcome !== "error" || !report.errors.length)
-      fail("INVALID_RESULT", "Operational failure lacks failure evidence.");
-    return report;
-  }
-  if (
-    report.errors.length ||
-    report.outcome !== (report.diagnostics.length ? "findings" : "clean") ||
-    report.exitCode !== (blockers ? 1 : 0)
-  )
-    fail("INVALID_RESULT", "Outcome, severity and exit code disagree.");
-  if (
-    report.exitCode === 0 &&
-    (report.unprocessed.length ||
-      !samePaths(
-        [...report.written, ...report.unchanged],
-        report.selection.files,
-      ))
-  )
-    fail(
-      "INVALID_RESULT",
-      "Successful result does not account for complete processing.",
-    );
-  if (
-    report.exitCode === 1 &&
-    (report.written.length ||
-      report.unchanged.length ||
-      !samePaths(report.unprocessed, report.selection.files))
-  )
-    fail("INVALID_RESULT", "Blocked result does not preserve batch admission.");
-  for (const decision of report.selection.inventory)
+    invalid("Selection contains duplicate identities.");
+  if (report.diagnostics.some((d) => !selection.files.includes(d.path)))
+    invalid("Diagnostic does not belong to the selected scope.");
+  if (selection.omissions.some((item) => selection.files.includes(item.path)))
+    invalid("A selected path is also reported omitted.");
+  for (const decision of selection.reconciliationDecisions)
     if (
       (decision.decision === "selected") !==
-      report.selection.files.includes(decision.path)
+      selection.files.includes(decision.path)
     )
-      fail(
-        "INVALID_RESULT",
-        "Tracked path decision differs from actual selection.",
-      );
+      invalid("Tracked path decision differs from actual selection.");
+  if (
+    report.operationStatus !== "failed" &&
+    !isDeepStrictEqual(
+      documentResults.map((record) => record.path),
+      selection.files,
+    )
+  )
+    invalid("Document results must describe every selected path in order.");
+  if (
+    new Set(documentResults.map((record) => record.path)).size !==
+      documentResults.length ||
+    documentResults.some((record) => !selection.files.includes(record.path))
+  )
+    invalid("Document results contain duplicate or unselected identities.");
+  // writtenPaths is a projection of confirmed writes, never a second source of truth.
+  if (
+    !isDeepStrictEqual(
+      report.writtenPaths,
+      documentResults
+        .filter((record) => record.writeStatus === "written")
+        .map((record) => record.path),
+    )
+  )
+    invalid("Written paths disagree with confirmed document writes.");
+  const physical =
+    ["format", "normalize"].includes(report.operation) &&
+    !report.document &&
+    !report.dryRun;
+  if (
+    !physical &&
+    documentResults.some((record) => record.writeStatus !== "not-requested")
+  )
+    invalid(
+      "A read-only, preview or logical operation reported write effects.",
+    );
+  if (report.exitCode === 2) {
+    if (
+      report.operationStatus !== "failed" ||
+      !report.errors.length ||
+      !["incomplete", "not-checked"].includes(report.qualityStatus) ||
+      report.qualityBasis !== null
+    )
+      invalid("Operational failure lacks consistent failure evidence.");
+    if (
+      physical &&
+      documentResults.some((record) => record.writeStatus === "not-requested")
+    )
+      invalid("A failed physical repair has unaccounted write state.");
+    return report;
+  }
+  if (report.errors.length || report.operationStatus === "failed")
+    invalid("Completed result carries operational failure evidence.");
+  if (report.operation === "inspect") {
+    if (
+      report.operationStatus !== "completed" ||
+      report.qualityStatus !== "not-checked" ||
+      report.qualityBasis !== null ||
+      report.exitCode !== 0 ||
+      report.diagnostics.length ||
+      documentResults.some(
+        (record) => record.analysisStatus !== "not-requested",
+      )
+    )
+      invalid("Inspection cannot claim a content verdict.");
+    return report;
+  }
+  if (report.operation === "unknown")
+    invalid("An unknown operation cannot complete.");
+  if (
+    report.qualityStatus !== (report.diagnostics.length ? "findings" : "clean")
+  )
+    invalid("Quality status disagrees with the complete diagnostics.");
+  if (documentResults.some((record) => record.analysisStatus !== "completed"))
+    invalid("A completed verdict requires completed document analysis.");
+  const blocked = report.diagnostics.some((d) => blocking(report, d));
+  if (report.exitCode !== (blocked ? 1 : 0))
+    invalid("Exit code and blocking diagnostics disagree.");
+  const basis =
+    report.operation === "check"
+      ? "input"
+      : physical && report.exitCode === 0
+        ? "applied"
+        : "candidate";
+  if (report.qualityBasis !== basis)
+    invalid("Quality basis disagrees with the operation and its effects.");
+  if (report.operation === "check") {
+    if (report.operationStatus !== "completed")
+      invalid("A complete check reports completed operation status.");
+    return report;
+  }
+  const status = report.dryRun
+    ? "previewed"
+    : blocked
+      ? "refused"
+      : "completed";
+  if (report.dryRun && blocked) {
+    if (report.operationStatus !== "refused")
+      invalid("A blocked preview reports refusal.");
+  } else if (report.operationStatus !== status)
+    invalid("Repair operation status disagrees with its blockers.");
+  if (physical) {
+    const allowed = blocked ? ["refused"] : ["unchanged", "written"];
+    if (documentResults.some((record) => !allowed.includes(record.writeStatus)))
+      invalid("Physical repair write states disagree with admission.");
+  }
+  return report;
+}
+
+/** Quality gates admit only a complete check of the intended input; a successful
+ * repair, preview or inspection receipt is never substitute check evidence.
+ */
+export function admitCheckEvidence(report, expected = {}) {
+  validateQualityResult(report, expected);
+  if (
+    report.operation !== "check" ||
+    report.operationStatus !== "completed" ||
+    report.qualityBasis !== "input" ||
+    report.exitCode === 2 ||
+    report.writtenPaths.length
+  )
+    fail(
+      "INVALID_RESULT",
+      "Quality acceptance requires a complete read-only check result.",
+    );
   return report;
 }

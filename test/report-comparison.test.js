@@ -5,13 +5,66 @@ import Ajv from "ajv";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { consumer } from "./helpers.js";
-import { compareQualityReports } from "../src/migration.js";
-import { createResult } from "../src/quality.js";
-const schema = JSON.parse(
+import { compareCheckReports } from "../src/report-comparison.js";
+import { executeQualityRequest, runQuality } from "../src/quality.js";
+import { metadata } from "../src/contracts.js";
+const currentSchema = JSON.parse(
   readFileSync(new URL("../schemas/result.schema.json", import.meta.url)),
 );
+const comparisonSchema = JSON.parse(
+  readFileSync(new URL("../schemas/comparison.schema.json", import.meta.url)),
+);
+// Historical schema 1-3 reports are caller-supplied evidence with their own
+// schemas; this minimal schema admits the historical schema-3 report shape.
+const historicalFields = [
+  "schemaVersion",
+  "operation",
+  "configDigest",
+  "selection",
+  "diagnostics",
+  "outcome",
+  "exitCode",
+  "written",
+  "unchanged",
+  "unprocessed",
+  "errors",
+];
+const schema = {
+  type: "object",
+  required: historicalFields,
+  properties: Object.fromEntries(historicalFields.map((key) => [key, {}])),
+};
+/** A historical schema-3 report shape; the comparator still reads these fields. */
+function createResult(mode = "check", explicit = false) {
+  return {
+    schemaVersion: 3,
+    package: { name: metadata.name, version: metadata.version },
+    preset: "authored-gfm@1",
+    tools: {},
+    operation: mode,
+    configDigest: null,
+    configuration: null,
+    policy: null,
+    strict: false,
+    document: null,
+    selection: {
+      mode: explicit ? "explicit" : "full",
+      files: [],
+      exclusions: [],
+      inventory: [],
+    },
+    diagnostics: [],
+    outcome: "error",
+    exitCode: 2,
+    written: [],
+    unchanged: [],
+    unprocessed: [],
+    errors: [],
+  };
+}
 test("comparison CLI exposes a bypass for its input-file byte ceiling", (t) => {
   const original = createResult("check", true);
   Object.assign(original, { outcome: "clean", exitCode: 0 });
@@ -22,7 +75,7 @@ test("comparison CLI exposes a bypass for its input-file byte ceiling", (t) => {
     "inputs.json": "[]",
   });
   const script = fileURLToPath(
-    new URL("../scripts/compare-quality-reports.js", import.meta.url),
+    new URL("../scripts/compare-check-reports.js", import.meta.url),
   );
   const paths = [
     "old.json",
@@ -40,13 +93,13 @@ test("comparison CLI exposes a bypass for its input-file byte ceiling", (t) => {
   assert.match(bounded.stderr, /bounded regular JSON file/u);
   const unlimited = spawnSync(
     process.execPath,
-    [script, "--no-limits", ...paths],
+    [script, "--no-input-size-limit", ...paths],
     { encoding: "utf8", timeout: 30000 },
   );
   assert.equal(unlimited.status, 0, unlimited.stderr);
   assert.deepEqual(JSON.parse(unlimited.stdout).added, []);
 });
-test("comparison and migration schema accept reports beyond default diagnostic and source byte ceilings", () => {
+test("comparison and comparison schema accept reports beyond default diagnostic and source byte ceilings", () => {
   const original = createResult("check", true);
   original.selection.files = ["a.md"];
   original.unchanged = ["a.md"];
@@ -64,7 +117,7 @@ test("comparison and migration schema accept reports beyond default diagnostic a
     severity: "info",
   }));
   const inputs = [{ path: "a.md", bytes: 3000000, sha256: "a".repeat(64) }];
-  const comparison = compareQualityReports({
+  const comparison = compareCheckReports({
     incumbent: original,
     candidate,
     incumbentSchema: schema,
@@ -73,13 +126,7 @@ test("comparison and migration schema accept reports beyond default diagnostic a
     candidateInputs: inputs,
   });
   assert.equal(comparison.added.length, 10001);
-  const validate = new Ajv({ strict: true }).compile(
-    JSON.parse(
-      readFileSync(
-        new URL("../schemas/migration.schema.json", import.meta.url),
-      ),
-    ),
-  );
+  const validate = new Ajv({ strict: true }).compile(comparisonSchema);
   assert.ok(validate(comparison), JSON.stringify(validate.errors));
 });
 test("read-only report comparison requires identical captured source identities", () => {
@@ -100,7 +147,7 @@ test("read-only report comparison requires identical captured source identities"
   });
   candidate.outcome = "findings";
   const inputs = [{ path: "a.md", bytes: 10, sha256: "a".repeat(64) }];
-  const comparison = compareQualityReports({
+  const comparison = compareCheckReports({
     incumbent: original,
     candidate,
     incumbentSchema: schema,
@@ -111,15 +158,17 @@ test("read-only report comparison requires identical captured source identities"
   assert.equal(comparison.added.length, 1);
   assert.equal(comparison.resolved.length, 0);
   assert.equal(comparison.candidate.exitCode, 0);
-  const migrationSchema = JSON.parse(
-    readFileSync(new URL("../schemas/migration.schema.json", import.meta.url)),
-  );
-  const validate = new Ajv({ strict: true }).compile(migrationSchema);
+  assert.equal(comparison.schemaVersion, 3);
+  assert.equal(comparison.incumbent.configurationBytesSha256, null);
+  assert.equal(comparison.incumbent.effectiveConfigurationSha256, null);
+  assert.match(comparison.incumbent.selectionSha256, /^[a-f0-9]{64}$/u);
+  assert.match(comparison.incumbent.inputManifestSha256, /^[a-f0-9]{64}$/u);
+  const validate = new Ajv({ strict: true }).compile(comparisonSchema);
   assert.ok(validate(comparison), JSON.stringify(validate.errors));
   assert.deepEqual(original.diagnostics, []);
   assert.throws(
     () =>
-      compareQualityReports({
+      compareCheckReports({
         incumbent: original,
         candidate,
         incumbentSchema: schema,
@@ -131,7 +180,7 @@ test("read-only report comparison requires identical captured source identities"
   );
   assert.throws(
     () =>
-      compareQualityReports({
+      compareCheckReports({
         incumbent: original,
         candidate: { ...candidate, schemaVersion: 88 },
         incumbentSchema: schema,
@@ -177,7 +226,7 @@ test("comparison preserves policy and distinguishes rewording from changed findi
   });
   const inputs = [{ path: "a.md", bytes: 10, sha256: "a".repeat(64) }];
   const compare = (report = candidate) =>
-    compareQualityReports({
+    compareCheckReports({
       incumbent: original,
       candidate: report,
       incumbentSchema: schema,
@@ -194,7 +243,10 @@ test("comparison preserves policy and distinguishes rewording from changed findi
   assert.deepEqual(result.messageChanges, [
     { before: original.diagnostics[0], after: candidate.diagnostics[0] },
   ]);
-  assert.deepEqual(result.wouldFormat, { incumbent: [], candidate: ["a.md"] });
+  assert.deepEqual(result.formattingDriftPaths, {
+    incumbent: [],
+    candidate: ["a.md"],
+  });
   for (const invalid of [
     { ...candidate, outcome: "error" },
     {
@@ -215,12 +267,11 @@ test("comparison preserves policy and distinguishes rewording from changed findi
     /selected scope/u,
   );
   const futureSchema = structuredClone(schema);
-  futureSchema.properties.schemaVersion.const = 4;
   assert.throws(
     () =>
-      compareQualityReports({
+      compareCheckReports({
         incumbent: original,
-        candidate: { ...candidate, schemaVersion: 4 },
+        candidate: { ...candidate, schemaVersion: 5 },
         incumbentSchema: schema,
         candidateSchema: futureSchema,
         incumbentInputs: inputs,
@@ -238,7 +289,7 @@ test("comparison preserves policy and distinguishes rewording from changed findi
     ...candidate.diagnostics[0],
     message: "Dropped wording.",
   });
-  const duplicateResult = compareQualityReports({
+  const duplicateResult = compareCheckReports({
     incumbent: duplicateBefore,
     candidate: duplicates,
     incumbentSchema: schema,
@@ -257,7 +308,7 @@ test("comparison preserves policy and distinguishes rewording from changed findi
     { ...duplicates.diagnostics[0], message: "Changed wording." },
     duplicates.diagnostics[0],
   ];
-  const reorderedResult = compareQualityReports({
+  const reorderedResult = compareCheckReports({
     incumbent: duplicates,
     candidate: reordered,
     incumbentSchema: schema,
@@ -271,5 +322,80 @@ test("comparison preserves policy and distinguishes rewording from changed findi
       after.message,
     ]),
     [["Different wording.", "Changed wording."]],
+  );
+});
+
+test("schema-4 complete check reports compare with current provenance identities", async (t) => {
+  const root = consumer(t, { "a.md": "Alpha.\n" });
+  const incumbent = await executeQualityRequest({ mode: "check", root });
+  assert.equal(incumbent.schemaVersion, 4);
+  assert.equal(incumbent.operationStatus, "completed");
+  assert.equal(incumbent.qualityBasis, "input");
+  const candidate = structuredClone(incumbent);
+  candidate.diagnostics.push({
+    path: "a.md",
+    source: "quality",
+    rule: "quality/non-nfc-prose",
+    line: 1,
+    column: 1,
+    message: "Prose observation.",
+    severity: "info",
+  });
+  candidate.qualityStatus = "findings";
+  const bytes = readFileSync(join(root, "a.md"));
+  const inputs = [
+    {
+      path: "a.md",
+      bytes: bytes.length,
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+    },
+  ];
+  const comparison = compareCheckReports({
+    incumbent,
+    candidate,
+    incumbentSchema: currentSchema,
+    candidateSchema: currentSchema,
+    incumbentInputs: inputs,
+    candidateInputs: inputs,
+  });
+  assert.equal(comparison.schemaVersion, 3);
+  assert.equal(comparison.incumbent.reportSchemaVersion, 4);
+  assert.equal(
+    comparison.incumbent.configurationBytesSha256,
+    incumbent.configurationBytesSha256,
+  );
+  assert.equal(
+    comparison.incumbent.effectiveConfigurationSha256,
+    incumbent.effectiveConfigurationSha256,
+  );
+  assert.match(
+    comparison.candidate.effectiveConfigurationSha256,
+    /^[a-f0-9]{64}$/u,
+  );
+  assert.equal(
+    comparison.incumbent.selectionSha256,
+    comparison.candidate.selectionSha256,
+  );
+  assert.equal(comparison.added.length, 1);
+  assert.deepEqual(comparison.formattingDriftPaths, {
+    incumbent: [],
+    candidate: [],
+  });
+  const validate = new Ajv({ strict: true }).compile(comparisonSchema);
+  assert.ok(validate(comparison), JSON.stringify(validate.errors));
+  const repair = await runQuality({ mode: "format", root });
+  assert.equal(repair.schemaVersion, 4);
+  assert.equal(repair.operation, "format");
+  assert.throws(
+    () =>
+      compareCheckReports({
+        incumbent,
+        candidate: repair,
+        incumbentSchema: currentSchema,
+        candidateSchema: currentSchema,
+        incumbentInputs: inputs,
+        candidateInputs: inputs,
+      }),
+    /complete read-only/u,
   );
 });

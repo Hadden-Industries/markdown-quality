@@ -36,10 +36,16 @@ test("display thresholds preserve complete JSON results, exit behavior and defau
   ]);
   const defaultText = run(root, "check");
   for (const level of ["info", "warning", "error"]) {
-    const json = run(root, "check", "--json", "--diagnostic-level", level);
+    const json = run(
+      root,
+      "check",
+      "--json",
+      "--diagnostic-display-level",
+      level,
+    );
     assert.equal(json.status, complete.status, json.stdout);
     assert.deepEqual(JSON.parse(json.stdout), report);
-    const text = run(root, "check", "--diagnostic-level", level);
+    const text = run(root, "check", "--diagnostic-display-level", level);
     assert.equal(text.status, 0, text.stdout);
     assert.equal(
       text.stdout.includes("a.md:1:1: quality/heading-trailing-punctuation:"),
@@ -59,12 +65,18 @@ test("display thresholds preserve complete JSON results, exit behavior and defau
 test("hidden warnings enforce strict write admission and permit ordinary formatting", (t) => {
   const original = "# Title.\n\n[here](target.md) and _text_.\n";
   const root = consumer(t, { "a.md": original, "target.md": "Target.\n" });
-  const strict = run(root, "format", "--strict", "--diagnostic-level", "error");
+  const strict = run(
+    root,
+    "format",
+    "--strict",
+    "--diagnostic-display-level",
+    "error",
+  );
   assert.equal(strict.status, 1, strict.stdout);
   assert.ok(!strict.stdout.includes("quality/generic-link-text:"));
   assert.match(strict.stdout, /Strict mode blocked on 1 hidden warning/u);
   assert.equal(readFileSync(join(root, "a.md"), "utf8"), original);
-  const ordinary = run(root, "format", "--diagnostic-level", "error");
+  const ordinary = run(root, "format", "--diagnostic-display-level", "error");
   assert.equal(ordinary.status, 0, ordinary.stdout);
   assert.equal(
     readFileSync(join(root, "a.md"), "utf8"),
@@ -75,28 +87,33 @@ test("hidden warnings enforce strict write admission and permit ordinary formatt
 test("errors and operational failures remain visible and invalid display levels cannot write", (t) => {
   const original = "_text_\n\n```\nvalue\n```\n";
   const root = consumer(t, { "a.md": original });
-  const errors = run(root, "format", "--diagnostic-level", "error");
+  const errors = run(root, "format", "--diagnostic-display-level", "error");
   assert.equal(errors.status, 1, errors.stdout);
   assert.match(errors.stdout, /markdown\/fenced-code-language:/u);
   const invalidRoot = consumer(t, { "a.md": "_text_\n" });
   const invalid = run(
     invalidRoot,
     "format",
-    "--diagnostic-level",
+    "--diagnostic-display-level",
     "silent",
     "--json",
   );
   assert.equal(invalid.status, 2, invalid.stdout);
   assert.equal(JSON.parse(invalid.stdout).errors[0].code, "CLI_INPUT");
-  assert.deepEqual(JSON.parse(invalid.stdout).written, []);
+  assert.deepEqual(JSON.parse(invalid.stdout).writtenPaths, []);
   assert.equal(readFileSync(join(invalidRoot, "a.md"), "utf8"), "_text_\n");
   assert.equal(readFileSync(join(root, "a.md"), "utf8"), original);
   const limitedRoot = consumer(
     t,
     { "a.md": "# Title.\n\n" + "x".repeat(121) + "\n" },
-    { limits: { documentDiagnostics: 1 } },
+    { analyzerLimits: { maxDocumentDiagnostics: 1 } },
   );
-  const operational = run(limitedRoot, "check", "--diagnostic-level", "error");
+  const operational = run(
+    limitedRoot,
+    "check",
+    "--diagnostic-display-level",
+    "error",
+  );
   assert.equal(operational.status, 2, operational.stdout);
   assert.match(operational.stdout, /DIAGNOSTIC_LIMIT:/u);
 });

@@ -55,14 +55,14 @@ test("clean frozen source archives qualify through the installed public boundary
     join(frozen, "node_modules"),
     process.platform === "win32" ? "junction" : "dir",
   );
-  const sourceSha = freeze(frozen);
+  const sourceCommitId = freeze(frozen);
   const { packRelease } = await import(
     pathToFileURL(join(frozen, "scripts/pack.js"))
   );
   const archives = join(scratch, "archives");
   const tuple = packRelease(archives);
   assert.equal(tuple.source.clean, true);
-  assert.equal(tuple.source.head, sourceSha);
+  assert.equal(tuple.source.head, sourceCommitId);
   const trustedRoot = consumer(t, {
     ".gitignore": "node_modules/\n",
     ".node-version": process.versions.node,
@@ -95,17 +95,17 @@ test("clean frozen source archives qualify through the installed public boundary
   writeFileSync(
     join(trustedRoot, ".markdown-quality-execution.json"),
     JSON.stringify({
-      schemaVersion: 1,
-      samples: 6,
-      checkerMs: 30000,
-      windowMs: 60000,
-      memoryBytes: 536870912,
-      nodeOldSpaceMb: 256,
-      reportBytes: 8388608,
-      requestBytes: 8388608,
-      stagingBytes: 134217728,
-      stagingEntries: 100000,
-      limits: {},
+      schemaVersion: 2,
+      requiredConsecutiveSamples: 6,
+      executionTimeoutMs: 30000,
+      sampleTimeoutMs: 60000,
+      maxObservedMemoryBytes: 536870912,
+      maxNodeOldGenerationMiB: 256,
+      maxOutputBytes: 8388608,
+      maxRequestBytes: 8388608,
+      maxStagedDataBytes: 134217728,
+      maxStagedEntries: 100000,
+      analyzerLimits: {},
       runtimes: {
         node: { file: ".node-version" },
         python: { file: ".python-version" },
@@ -117,34 +117,34 @@ test("clean frozen source archives qualify through the installed public boundary
       },
     }),
   );
-  const trustedSha = freeze(trustedRoot);
-  const sourceRoot = consumer(t, {
+  const trustedCommitId = freeze(trustedRoot);
+  const candidateRoot = consumer(t, {
     "README.md": "Alpha.\n",
     "never-run.mjs": "throw new Error('Candidate code executed');",
   });
-  const candidateSha = freeze(sourceRoot);
+  const candidateCommitId = freeze(candidateRoot);
   const require = createRequire(join(trustedRoot, "package.json"));
-  const { qualifyCandidate } = await import(
+  const { qualifyGitMarkdown } = await import(
     pathToFileURL(require.resolve("@hadden-industries/markdown-quality"))
   );
   const native = tuple.archives.find(
     (item) => item.name === `${process.platform}-${process.arch}`,
   );
   const request = {
-    sourceRoot,
+    candidateRoot,
     trustedRoot,
-    candidateSha,
-    trustedSha,
-    git,
-    python,
+    candidateCommitId,
+    trustedCommitId,
+    gitExecutablePath: git,
+    pythonExecutablePath: python,
     outputRoot: join(scratch, "evidence"),
     producer: {
-      sourceSha,
+      sourceCommitId,
       coreArchiveSha256: core.sha256,
       nativeArchiveSha256: native.sha256,
     },
   };
-  const result = await qualifyCandidate(request);
+  const result = await qualifyGitMarkdown(request);
   assert.equal(result.passed, true, JSON.stringify(result));
   assert.equal(result.samples.length, 6);
   const receipt = JSON.parse(
@@ -153,22 +153,30 @@ test("clean frozen source archives qualify through the installed public boundary
       "utf8",
     ),
   );
-  assert.equal(receipt.producer.source.head, sourceSha);
+  assert.equal(receipt.producer.source.head, sourceCommitId);
   assert.equal(receipt.producer.coreArchiveSha256, core.sha256);
-  assert.deepEqual(receipt.result.written, []);
-  assert.equal(readFileSync(join(sourceRoot, "README.md"), "utf8"), "Alpha.\n");
+  assert.equal(receipt.schemaVersion, 2);
+  assert.equal(receipt.candidate.commitId, candidateCommitId);
+  assert.equal(receipt.trusted.commitId, trustedCommitId);
+  assert.deepEqual(receipt.result.writtenPaths, []);
+  assert.equal(receipt.result.operationStatus, "completed");
+  assert.equal(receipt.result.qualityBasis, "input");
+  assert.equal(
+    readFileSync(join(candidateRoot, "README.md"), "utf8"),
+    "Alpha.\n",
+  );
   await assert.rejects(
-    qualifyCandidate({
+    qualifyGitMarkdown({
       ...request,
       outputRoot: join(scratch, "rejected"),
       producer: { ...request.producer, coreArchiveSha256: "0".repeat(64) },
     }),
     { code: "PRODUCER_IDENTITY" },
   );
-  writeFileSync(join(sourceRoot, "uncommitted.md"), "Added.\n");
-  execFileSync(git, ["-C", sourceRoot, "add", "uncommitted.md"]);
+  writeFileSync(join(candidateRoot, "uncommitted.md"), "Added.\n");
+  execFileSync(git, ["-C", candidateRoot, "add", "uncommitted.md"]);
   await assert.rejects(
-    qualifyCandidate({
+    qualifyGitMarkdown({
       ...request,
       outputRoot: join(scratch, "index-injection"),
     }),

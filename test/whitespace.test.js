@@ -25,7 +25,7 @@ test("space-based hard breaks are findings and format to explicit preserved brea
   ]) {
     const root = consumer(t, { "a.md": input });
     const checked = await runQuality({ root });
-    assert.equal(checked.preset, "authored-gfm@1");
+    assert.equal(checked.preset, "authored-gfm@2");
     assert.ok(validateResult(checked), JSON.stringify(validateResult.errors));
     assert.equal(checked.exitCode, 1, JSON.stringify(checked));
     assert.deepEqual(checked.errors, []);
@@ -37,13 +37,16 @@ test("space-based hard breaks are findings and format to explicit preserved brea
     assert.equal(formatted.exitCode, 0, JSON.stringify(formatted));
     assert.equal(readFileSync(join(root, "a.md"), "utf8"), expected);
     assert.equal((await runQuality({ root })).exitCode, 0);
-    assert.deepEqual((await runQuality({ root, mode: "format" })).written, []);
+    assert.deepEqual(
+      (await runQuality({ root, mode: "format" })).writtenPaths,
+      [],
+    );
   }
 });
 
 test("the existing preset owns the strict policy and other presets fail closed", async (t) => {
   const input = "Alpha.  \nBeta.\n";
-  const root = consumer(t, { "a.md": input }, { preset: "authored-gfm@1" });
+  const root = consumer(t, { "a.md": input }, { preset: "authored-gfm@2" });
   for (const mode of ["check", "inspect"]) {
     const result = await runQuality({ root, mode });
     assert.equal(
@@ -51,18 +54,18 @@ test("the existing preset owns the strict policy and other presets fail closed",
       mode === "check" ? 1 : 0,
       JSON.stringify(result),
     );
-    assert.equal(result.preset, "authored-gfm@1");
+    assert.equal(result.preset, "authored-gfm@2");
     assert.ok(validateResult(result), JSON.stringify(validateResult.errors));
     assert.equal(readFileSync(join(root, "a.md"), "utf8"), input);
   }
   const unknownRoot = consumer(
     t,
     { "a.md": input },
-    { preset: "authored-gfm@2" },
+    { preset: "authored-gfm@1" },
   );
   const rejected = await runQuality({ root: unknownRoot });
   assert.equal(rejected.exitCode, 2);
-  assert.equal(rejected.errors[0].code, "INVALID_CONFIG");
+  assert.equal(rejected.errors[0].code, "UNSUPPORTED_PRESET");
   assert.ok(validateResult(rejected), JSON.stringify(validateResult.errors));
 });
 
@@ -111,7 +114,7 @@ test("inline code and HTML payload whitespace is protected while prose is format
       assert.ok(
         !result.diagnostics.some((d) => d.rule === "trailing-whitespace"),
       );
-      assert.deepEqual(result.written, mode === "check" ? [] : ["b.md"]);
+      assert.deepEqual(result.writtenPaths, mode === "check" ? [] : ["b.md"]);
       assert.equal(readFileSync(join(root, "a.md"), "utf8"), input);
       assert.equal(
         readFileSync(join(root, "b.md"), "utf8"),
@@ -193,6 +196,11 @@ test("trimming beside an escaped slash must not manufacture a new hard break", a
   assert.equal(result.exitCode, 1, JSON.stringify(result));
   assert.deepEqual(result.errors, []);
   assert.ok(result.diagnostics.some((d) => d.rule === "trailing-whitespace"));
-  assert.deepEqual(result.written, []);
+  assert.deepEqual(result.writtenPaths, []);
+  assert.equal(result.operationStatus, "refused");
+  assert.deepEqual(
+    result.documentResults.map((record) => record.writeStatus),
+    ["refused"],
+  );
   assert.equal(readFileSync(join(root, "a.md"), "utf8"), input);
 });

@@ -120,9 +120,9 @@ node(["--test", "--test-reporter=./scripts/test-outcomes.js", ...testFiles()]);
 node([
   "src/cli.js",
   "check",
-  "--inventory",
+  "--reconcile-inventory",
   "git",
-  "--diagnostic-level",
+  "--diagnostic-display-level",
   "warning",
 ]);
 if (!productOnly) {

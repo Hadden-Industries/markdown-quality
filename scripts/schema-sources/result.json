@@ -7,22 +7,225 @@
     "package",
     "preset",
     "tools",
+    "runtime",
     "operation",
-    "configDigest",
-    "selection",
-    "diagnostics",
-    "outcome",
-    "exitCode",
-    "written",
-    "unchanged",
-    "unprocessed",
-    "errors",
+    "dryRun",
+    "updateLinks",
+    "root",
+    "configurationOrigin",
+    "configurationBytesSha256",
+    "defaultConfigurationSha256",
+    "policyResolverInputsSha256",
+    "effectiveConfigurationSha256",
     "configuration",
     "policy",
+    "resourcePolicy",
     "strict",
-    "document"
+    "document",
+    "selection",
+    "diagnostics",
+    "operationStatus",
+    "qualityStatus",
+    "qualityBasis",
+    "exitCode",
+    "documentResults",
+    "writtenPaths",
+    "proposedChanges",
+    "anchorChanges",
+    "refusals",
+    "errors"
   ],
   "properties": {
+    "schemaVersion": {
+      "const": 4
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "preset": {
+      "const": "authored-gfm@2"
+    },
+    "tools": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prettier",
+        "eslint",
+        "eslintMarkdown",
+        "snapper"
+      ],
+      "properties": {
+        "prettier": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eslint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eslintMarkdown": {
+          "type": "string",
+          "minLength": 1
+        },
+        "snapper": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node",
+        "icu",
+        "unicode"
+      ],
+      "properties": {
+        "node": {
+          "type": "string",
+          "minLength": 1
+        },
+        "icu": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "unicode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "operation": {
+      "enum": [
+        "check",
+        "format",
+        "inspect",
+        "normalize",
+        "unknown"
+      ]
+    },
+    "dryRun": {
+      "type": "boolean"
+    },
+    "updateLinks": {
+      "type": "boolean"
+    },
+    "root": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "configurationOrigin": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "path",
+            "source"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "default-absent",
+                "file",
+                "trusted-snapshot"
+              ]
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "path",
+                    "bytesSha256"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "default-absent",
+                        "file"
+                      ]
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "bytesSha256": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "configurationBytesSha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "defaultConfigurationSha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "policyResolverInputsSha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "effectiveConfigurationSha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{64}$"
+    },
     "strict": {
       "type": "boolean"
     },
@@ -35,9 +238,10 @@
       "required": [
         "dialect",
         "frontmatter",
-        "lint",
+        "eslintRules",
         "formatter",
-        "sentence"
+        "sentenceLayout",
+        "analyzerLimits"
       ],
       "properties": {
         "dialect": {
@@ -51,13 +255,13 @@
             "json"
           ]
         },
-        "lint": {
+        "eslintRules": {
           "type": "object"
         },
         "formatter": {
           "type": "object"
         },
-        "sentence": {
+        "sentenceLayout": {
           "type": "object",
           "additionalProperties": false,
           "required": [
@@ -79,254 +283,66 @@
         }
       }
     },
-    "schemaVersion": {
-      "const": 3
-    },
-    "package": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "name",
-        "version"
-      ],
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "version": {
-          "type": "string"
-        }
-      }
-    },
-    "preset": {
-      "const": "authored-gfm@1"
-    },
-    "tools": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "prettier",
-        "eslint",
-        "markdown",
-        "snapper"
-      ],
-      "properties": {
-        "prettier": {
-          "type": "string",
-          "minLength": 1
-        },
-        "eslint": {
-          "type": "string",
-          "minLength": 1
-        },
-        "markdown": {
-          "type": "string",
-          "minLength": 1
-        },
-        "snapper": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
-    },
-    "operation": {
-      "enum": [
-        "check",
-        "format",
-        "inspect",
-        "unknown"
-      ]
-    },
-    "configDigest": {
+    "resourcePolicy": {
       "type": [
-        "string",
+        "object",
         "null"
-      ]
-    },
-    "selection": {
-      "type": "object",
+      ],
       "additionalProperties": false,
       "required": [
-        "mode",
-        "files",
-        "exclusions",
-        "inventory"
+        "resourceLimitMode",
+        "resourceLimitModeOrigin",
+        "executionProfile",
+        "executionLimits",
+        "origins",
+        "externalConstraints"
       ],
       "properties": {
-        "mode": {
+        "resourceLimitMode": {
           "enum": [
-            "full",
-            "explicit"
+            "configured",
+            "unlimited"
           ]
         },
-        "files": {
-          "$ref": "#/definitions/paths"
+        "resourceLimitModeOrigin": {
+          "type": "string",
+          "minLength": 1
         },
-        "exclusions": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "path",
-              "reason",
-              "pattern",
-              "matchedPath"
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "path": {
-                "type": "string"
-              },
-              "reason": {
-                "enum": [
-                  "excluded",
-                  "not-included"
-                ]
-              },
-              "pattern": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "matchedPath": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              }
+        "executionProfile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "path",
+            "bytesSha256"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "absent",
+                "file",
+                "inline",
+                "trusted-request"
+              ]
+            },
+            "path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "bytesSha256": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[a-f0-9]{64}$"
             }
           }
         },
-        "inventory": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "path",
-              "decision",
-              "pattern",
-              "matchedPath"
-            ],
-            "properties": {
-              "path": {
-                "type": "string"
-              },
-              "decision": {
-                "enum": [
-                  "selected",
-                  "excluded",
-                  "not-included"
-                ]
-              },
-              "pattern": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "matchedPath": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              }
-            }
-          }
-        }
-      }
-    },
-    "diagnostics": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "path",
-          "source",
-          "rule",
-          "line",
-          "column",
-          "message",
-          "severity"
-        ],
-        "properties": {
-          "path": {
-            "type": "string"
-          },
-          "source": {
-            "enum": [
-              "formatter",
-              "snapper",
-              "eslint",
-              "links",
-              "quality"
-            ]
-          },
-          "rule": {
-            "type": "string"
-          },
-          "line": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "column": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "message": {
-            "type": "string"
-          },
-          "severity": {
-            "enum": [
-              "error",
-              "warning",
-              "info"
-            ]
-          }
-        }
-      }
-    },
-    "outcome": {
-      "enum": [
-        "clean",
-        "findings",
-        "error"
-      ]
-    },
-    "exitCode": {
-      "enum": [
-        0,
-        1,
-        2
-      ]
-    },
-    "written": {
-      "$ref": "#/definitions/paths"
-    },
-    "unchanged": {
-      "$ref": "#/definitions/paths"
-    },
-    "unprocessed": {
-      "$ref": "#/definitions/paths"
-    },
-    "errors": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "code",
-          "message"
-        ],
-        "properties": {
-          "code": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          }
+        "externalConstraints": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
@@ -368,6 +384,387 @@
           }
         }
       ]
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "files",
+        "omissions",
+        "reconciliationDecisions",
+        "readDependencies"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "full",
+            "explicit"
+          ]
+        },
+        "files": {
+          "$ref": "#/definitions/paths"
+        },
+        "omissions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "reason",
+              "pattern",
+              "matchedPath"
+            ],
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "reason": {
+                "enum": [
+                  "excluded",
+                  "not-included",
+                  "operational-boundary"
+                ]
+              },
+              "pattern": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "matchedPath": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "reconciliationDecisions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "decision",
+              "pattern",
+              "matchedPath"
+            ],
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "decision": {
+                "enum": [
+                  "selected",
+                  "excluded",
+                  "not-included",
+                  "operational-boundary"
+                ]
+              },
+              "pattern": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "matchedPath": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "readDependencies": {
+          "$ref": "#/definitions/paths"
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "source",
+          "rule",
+          "line",
+          "column",
+          "message",
+          "severity"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "formatter",
+              "snapper",
+              "eslint",
+              "links",
+              "quality",
+              "normalize"
+            ]
+          },
+          "rule": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "column": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "message": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ]
+          }
+        }
+      }
+    },
+    "operationStatus": {
+      "enum": [
+        "completed",
+        "previewed",
+        "refused",
+        "failed"
+      ]
+    },
+    "qualityStatus": {
+      "enum": [
+        "clean",
+        "findings",
+        "incomplete",
+        "not-checked"
+      ]
+    },
+    "qualityBasis": {
+      "enum": [
+        "input",
+        "candidate",
+        "applied",
+        null
+      ]
+    },
+    "exitCode": {
+      "enum": [
+        0,
+        1,
+        2
+      ]
+    },
+    "documentResults": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "analysisStatus",
+          "writeStatus"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "analysisStatus": {
+            "enum": [
+              "not-requested",
+              "completed",
+              "incomplete"
+            ]
+          },
+          "writeStatus": {
+            "enum": [
+              "not-requested",
+              "unchanged",
+              "refused",
+              "written",
+              "pending"
+            ]
+          }
+        }
+      }
+    },
+    "writtenPaths": {
+      "$ref": "#/definitions/paths"
+    },
+    "proposedChanges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "kind",
+          "sourceByteStart",
+          "sourceByteEndExclusive",
+          "sourceLine",
+          "sourceColumn",
+          "beforeByteLength",
+          "afterByteLength",
+          "beforeSha256",
+          "afterSha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "prose-nfc",
+              "local-fragment"
+            ]
+          },
+          "sourceByteStart": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sourceByteEndExclusive": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sourceLine": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sourceColumn": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "beforeByteLength": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "afterByteLength": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "beforeSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "afterSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "anchorChanges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "headingOrdinal",
+          "sourceLine",
+          "sourceColumn",
+          "oldAnchor",
+          "newAnchor"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "headingOrdinal": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sourceLine": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sourceColumn": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "oldAnchor": {
+            "type": "string"
+          },
+          "newAnchor": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "refusals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message",
+          "path",
+          "line",
+          "column"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message": {
+            "type": "string"
+          },
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "column": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -379,5 +776,5 @@
       }
     }
   },
-  "$id": "urn:hadden-industries:markdown-quality:result:3"
+  "$id": "urn:hadden-industries:markdown-quality:result:4"
 }

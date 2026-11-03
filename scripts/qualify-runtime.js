@@ -11,11 +11,8 @@ export function qualifyRuntime(cli, consumer, environment) {
   const failures = [];
   writeFileSync(
     join(root, ".markdown-quality.json"),
-    JSON.stringify({
-      schemaVersion: 2,
-      preset: "authored-gfm@1",
-      include: ["*.md"],
-    }),
+    // Sparse input: package defaults own everything except the scope exception.
+    JSON.stringify({ include: ["*.md"] }),
   );
   function run(operation, selection, status) {
     const result = spawnSync(
@@ -46,17 +43,23 @@ import {pathToFileURL} from 'node:url';
 import {readFileSync} from 'node:fs';
 const require=createRequire(process.argv[2]);
 const api=await import(pathToFileURL(require.resolve('@hadden-industries/markdown-quality')));
-for(const name of ['runQuality','inspectSelection','processDocument','executeQuality','validateQualityResult','readExecutionProfile','stageCandidate','qualifyCandidate']) assert.equal(typeof api[name],'function',name);
+for(const name of ['runQuality','inspectSelection','processLogicalDocument','executeQualityRequest','validateQualityResult','readExecutionProfile','compareCheckReports','stageCandidateData','qualifyGitMarkdown']) assert.equal(typeof api[name],'function',name);
+for(const name of ['processDocument','executeQuality','createResult','compareQualityReports','stageCandidate','qualifyCandidate']) assert.equal(api[name],undefined,name);
 const Ajv=require('ajv');
-for(const name of ['configuration-schema','result-schema','execution-schema','migration-schema']) {
+for(const name of ['configuration-schema','effective-configuration-schema','result-schema','execution-schema','comparison-schema']) {
   const schema=JSON.parse(readFileSync(require.resolve('@hadden-industries/markdown-quality/'+name),'utf8'));
   new Ajv({strict:true}).compile(schema);
 }
 assert.ok(readFileSync(require.resolve('@hadden-industries/markdown-quality/qualification-observer')).length);
-const result=await api.executeQuality({root:process.argv[3],mode:'format',document:{path:'logical.md',requestId:'packed',contentBase64:Buffer.from('Alpha. Beta.\\n').toString('base64')}});
+const removed=await api.runQuality({root:process.argv[3],inventory:'git'});
+assert.equal(removed.exitCode,2);
+assert.equal(removed.errors[0].code,'INVALID_OPTION');
+const result=await api.executeQualityRequest({root:process.argv[3],mode:'format',document:{path:'logical.md',requestId:'packed',contentBase64:Buffer.from('Alpha. Beta.\\n').toString('base64')}});
 api.validateQualityResult(result,{requestId:'packed',exitCode:0});
 assert.equal(Buffer.from(result.document.contentBase64,'base64').toString(),'Alpha.\\nBeta.\\n');
-assert.deepEqual(result.written,[]);
+assert.deepEqual(result.writtenPaths,[]);
+assert.equal(result.operationStatus,'completed');
+assert.equal(result.qualityBasis,'candidate');
 `,
     );
     const publicExecution = spawnSync(
@@ -120,7 +123,7 @@ assert.deepEqual(result.written,[]);
         "Runtime formatting differs from oracle",
       );
       run("check", fixture.name, 0);
-      assert.deepEqual(run("format", fixture.name, 0).written, []);
+      assert.deepEqual(run("format", fixture.name, 0).writtenPaths, []);
       assert.equal(
         readFileSync(path, "utf8"),
         fixture.expected,
@@ -148,10 +151,17 @@ assert.deepEqual(result.written,[]);
       const path = join(root, name);
       writeFileSync(path, fixture.source);
       const report = run("check", name, fixture.status);
-      assert.equal(report.outcome, fixture.status === 1 ? "findings" : "error");
+      assert.equal(
+        report.operationStatus,
+        fixture.status === 1 ? "completed" : "failed",
+      );
+      assert.equal(
+        report.qualityStatus,
+        fixture.status === 1 ? "findings" : "incomplete",
+      );
       assert.deepEqual(readFileSync(path), fixture.source);
       const refused = run("format", name, fixture.status);
-      assert.deepEqual(refused.written, []);
+      assert.deepEqual(refused.writtenPaths, []);
       assert.deepEqual(
         readFileSync(path),
         fixture.source,
@@ -189,7 +199,7 @@ assert.deepEqual(result.written,[]);
         fixture.expected,
       );
     run("check", names, 0);
-    assert.deepEqual(run("format", names, 0).written, []);
+    assert.deepEqual(run("format", names, 0).writtenPaths, []);
     return {
       node: process.version,
       formatted,

@@ -51,7 +51,8 @@ export const lintDefaults = Object.freeze({
   "markdown/no-html": ["off", { allowed: [], allowedIgnoreCase: false }],
   "markdown/no-bare-urls": "off",
 });
-export const advisoryDefaults = Object.freeze({
+/** Package quality-rule severities; any rule can be configured from off to error. */
+export const qualityRuleDefaults = Object.freeze({
   "quality/duplicate-sibling-heading": "warn",
   "quality/generic-link-text": "warn",
   "quality/heading-trailing-punctuation": "info",
@@ -75,9 +76,31 @@ export const formatterDefaults = Object.freeze({
 });
 export { sentenceDefaults } from "./native-policy.js";
 import { sentenceDefaults } from "./native-policy.js";
+import { deepFreeze } from "./contracts.js";
 
-/** Effective native rule settings, with info mapped to ESLint's supported warn. */
-export function nativeLintRules(config) {
+export const presetIdentity = "authored-gfm@2";
+export const configurationSchemaVersion = 3;
+
+/** Package-owned declarative defaults. Sparse consumer input describes exceptions. */
+export const packageConfigurationDefaults = deepFreeze({
+  include: ["**/*.md"],
+  exclude: ["**/vendor/**", "**/.cache/**", "**/coverage/**"],
+  lint: {
+    ...Object.fromEntries(
+      Object.entries(lintDefaults).map(([rule, setting]) => [
+        rule,
+        Array.isArray(setting) ? setting[0] : setting,
+      ]),
+    ),
+    ...qualityRuleDefaults,
+  },
+  syntax: { frontmatter: "yaml" },
+  links: { checkLocalTargets: true, rootRelative: "reject" },
+  layout: { endOfLine: "lf", tabWidth: 2 },
+});
+
+/** Effective upstream ESLint rule settings, with info mapped to ESLint's supported warn. */
+export function eslintRuleSettings(config) {
   const rules = {};
   for (const [rule, selected] of Object.entries(config.lint)) {
     if (!rule.startsWith("markdown/")) continue;
@@ -93,9 +116,9 @@ export function effectivePolicy(config) {
   return {
     dialect: "gfm",
     frontmatter: config.syntax.frontmatter,
-    lint: nativeLintRules(config),
+    eslintRules: eslintRuleSettings(config),
     formatter: { ...formatterDefaults, ...config.layout, plugins: [] },
-    sentence: sentenceDefaults,
-    limits: { ...config.limits },
+    sentenceLayout: sentenceDefaults,
+    analyzerLimits: { ...config.analyzerLimits },
   };
 }

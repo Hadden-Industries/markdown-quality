@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import {
   runQuality,
-  executeQuality,
+  executeQualityRequest,
   validateQualityResult,
 } from "../src/quality.js";
 import { consumer } from "./helpers.js";
@@ -29,8 +29,8 @@ test("ancestor single-star exclusions explain the same nested path in full and e
   assert.equal(full.exitCode, 0);
   assert.equal(explicit.exitCode, 0);
   assert.deepEqual(explicit.selection.files, []);
-  assert.deepEqual(full.selection.exclusions, explicit.selection.exclusions);
-  assert.equal(explicit.selection.exclusions[0].pattern, "docs/reviews/*");
+  assert.deepEqual(full.selection.omissions, explicit.selection.omissions);
+  assert.equal(explicit.selection.omissions[0].pattern, "docs/reviews/*");
 });
 
 test("tracked authored dot directories are selected and every tracked Markdown path is accounted", async (t) => {
@@ -45,21 +45,28 @@ test("tracked authored dot directories are selected and every tracked Markdown p
   );
   execFileSync("git", ["init", "--quiet", root]);
   execFileSync("git", ["-C", root, "add", "--", "."]);
-  const report = await runQuality({ root, mode: "inspect", inventory: "git" });
+  const report = await runQuality({
+    root,
+    mode: "inspect",
+    reconciliationInventory: "git",
+  });
   assert.equal(report.exitCode, 0, JSON.stringify(report.errors));
   assert.deepEqual(report.selection.files, [".sdlc/notes.md", "README.md"]);
   assert.deepEqual(
-    report.selection.inventory.map(({ path, decision }) => [path, decision]),
+    report.selection.reconciliationDecisions.map(({ path, decision }) => [
+      path,
+      decision,
+    ]),
     [
       [".sdlc/notes.md", "selected"],
       ["README.md", "selected"],
       ["excluded/unsafe.md", "excluded"],
     ],
   );
-  const bounded = await executeQuality({
+  const bounded = await executeQualityRequest({
     root,
     mode: "inspect",
-    inventory: "git",
+    reconciliationInventory: "git",
   });
   assert.deepEqual(bounded.selection, report.selection);
 });
@@ -88,24 +95,24 @@ test("duplicate supplied inventory is rejected consistently before processing", 
   const request = {
     root,
     mode: "inspect",
-    inventory: ["README.md", "README.md"],
+    reconciliationInventory: ["README.md", "README.md"],
   };
   const report = await runQuality(request);
   assert.equal(report.exitCode, 2);
   assert.equal(report.errors[0].code, "INVALID_INVENTORY");
   validateQualityResult(report);
-  const bounded = await executeQuality(request);
+  const bounded = await executeQualityRequest(request);
   assert.equal(bounded.exitCode, 2);
   assert.equal(bounded.errors[0].code, "INVALID_INVENTORY");
 });
 
 test("inventory validation preserves missing-member precedence before sorting and byte accounting", async (t) => {
   const root = consumer(t);
-  for (const invoke of [runQuality, executeQuality]) {
+  for (const invoke of [runQuality, executeQualityRequest]) {
     const ordered = await invoke({
       root,
       mode: "inspect",
-      inventory: ["z-missing.md", "a-missing.md"],
+      reconciliationInventory: ["z-missing.md", "a-missing.md"],
     });
     assert.equal(ordered.exitCode, 2);
     assert.equal(ordered.errors[0].code, "MISSING_DOCUMENT");
@@ -113,40 +120,61 @@ test("inventory validation preserves missing-member precedence before sorting an
     const bounded = await invoke({
       root,
       mode: "inspect",
-      inventory: ["missing.md"],
-      limits: { selectionBytes: 1 },
+      reconciliationInventory: ["missing.md"],
+      analyzerLimits: { maxInventoryBytes: 1 },
     });
     assert.equal(bounded.exitCode, 2);
     assert.equal(bounded.errors[0].code, "MISSING_DOCUMENT");
   }
 });
 
-test("full Git checkout requests automatically account for tracked pruned domains", async (t) => {
+test("full Git checkout requests automatically account for tracked operational-boundary paths", async (t) => {
   const root = consumer(t, { "docs/venv/hidden.md": "Alpha.\n" });
   execFileSync("git", ["init", "--quiet", root]);
   execFileSync("git", ["-C", root, "add", "--", "."]);
-  for (const invoke of [runQuality, executeQuality]) {
+  for (const invoke of [runQuality, executeQualityRequest]) {
     const report = await invoke({ root, mode: "inspect" });
-    assert.equal(report.exitCode, 2);
-    assert.equal(report.errors[0].code, "UNSAFE_SELECTION");
+    assert.equal(report.exitCode, 0, JSON.stringify(report.errors));
+    assert.deepEqual(report.selection.files, []);
+    assert.deepEqual(report.selection.omissions, [
+      {
+        path: "docs/venv/hidden.md",
+        pattern: null,
+        matchedPath: "docs/venv/",
+        reason: "operational-boundary",
+      },
+    ]);
+    assert.deepEqual(
+      report.selection.reconciliationDecisions.map(({ path, decision }) => [
+        path,
+        decision,
+      ]),
+      [["docs/venv/hidden.md", "operational-boundary"]],
+    );
   }
 });
 
 test("full subdirectory roots reconcile tracked members from their parent repository", async (t) => {
   const root = consumer(t, {
     "docs/.markdown-quality.json": JSON.stringify({
-      schemaVersion: 2,
-      preset: "authored-gfm@1",
       include: ["**/*.md"],
     }),
     "docs/venv/hidden.md": "Alpha.\n",
   });
   execFileSync("git", ["init", "--quiet", root]);
   execFileSync("git", ["-C", root, "add", "--", "."]);
-  for (const invoke of [runQuality, executeQuality]) {
+  for (const invoke of [runQuality, executeQualityRequest]) {
     const report = await invoke({ root: join(root, "docs"), mode: "inspect" });
-    assert.equal(report.exitCode, 2);
-    assert.equal(report.errors[0].code, "UNSAFE_SELECTION");
+    assert.equal(report.exitCode, 0, JSON.stringify(report.errors));
+    assert.deepEqual(report.selection.files, []);
+    assert.deepEqual(
+      report.selection.omissions.map(({ path, reason, matchedPath }) => [
+        path,
+        reason,
+        matchedPath,
+      ]),
+      [["venv/hidden.md", "operational-boundary", "venv/"]],
+    );
   }
 });
 
@@ -157,7 +185,7 @@ test("literal wildcard and Unicode path decisions retain absent-member safety", 
     { exclude: ["docs/[*]/*"] },
   );
   const excludedPath = "docs/*/nested [é].md";
-  for (const invoke of [runQuality, executeQuality]) {
+  for (const invoke of [runQuality, executeQualityRequest]) {
     const selected = await invoke({
       root,
       mode: "inspect",
@@ -171,14 +199,14 @@ test("literal wildcard and Unicode path decisions retain absent-member safety", 
     });
     assert.equal(excluded.exitCode, 0);
     assert.deepEqual(excluded.selection.files, []);
-    assert.equal(excluded.selection.exclusions[0].pattern, "docs/[*]/*");
+    assert.equal(excluded.selection.omissions[0].pattern, "docs/[*]/*");
     const inventory = await invoke({
       root,
       mode: "inspect",
-      inventory: [excludedPath, "space [é].md"],
+      reconciliationInventory: [excludedPath, "space [é].md"],
     });
     assert.deepEqual(
-      inventory.selection.inventory.map(({ path, decision }) => [
+      inventory.selection.reconciliationDecisions.map(({ path, decision }) => [
         path,
         decision,
       ]),
@@ -211,7 +239,7 @@ test("excluded directory names consume the finite discovery budget without readi
   const report = await runQuality({
     root,
     mode: "inspect",
-    limits: { entries: 2 },
+    analyzerLimits: { maxEnumeratedEntries: 2 },
   });
   assert.equal(report.exitCode, 2);
   assert.equal(report.errors[0].code, "SELECTION_LIMIT");

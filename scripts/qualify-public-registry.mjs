@@ -383,14 +383,8 @@ try {
     }
     let run, runtimeQualification;
     if (includesCore) {
-      writeFileSync(
-        join(consumer, ".markdown-quality.json"),
-        JSON.stringify({
-          schemaVersion: 2,
-          preset: "authored-gfm@1",
-          include: ["*.md"],
-        }),
-      );
+      // Dependency-only consumer: no policy file, wrapper or script; package
+      // defaults and hard operational boundaries own the scope.
       const document = join(consumer, "a.md");
       const original = "# Heading\n\nAlpha.\nBeta.\n\n`literal  value`\n";
       writeFileSync(document, original);
@@ -420,7 +414,9 @@ try {
         assert.equal(result.status, 0, result.stdout + result.stderr);
         const report = JSON.parse(result.stdout);
         assert.equal(report.package.version, expected.version);
-        assert.equal(report.outcome, "clean");
+        assert.equal(report.operationStatus, "completed");
+        assert.equal(report.qualityStatus, "clean");
+        assert.equal(report.configurationOrigin.kind, "default-absent");
         return report;
       };
       const checked = run("check");
@@ -428,7 +424,7 @@ try {
       assert.equal(readFileSync(document, "utf8"), original);
       run("format");
       assert.equal(readFileSync(document, "utf8"), original);
-      assert.deepEqual(run("format").written, []);
+      assert.deepEqual(run("format").writtenPaths, []);
       runtimeQualification = qualifyRuntime(cli, consumer, runtimeEnvironment);
     }
     npmCommand(

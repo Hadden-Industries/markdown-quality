@@ -1,0 +1,9 @@
+{
+  "quality/duplicate-sibling-heading": "warn",
+  "quality/generic-link-text": "warn",
+  "quality/heading-trailing-punctuation": "info",
+  "quality/long-prose-line": "info",
+  "quality/non-nfc-prose": "info",
+  "markdown/no-bare-urls": "off",
+  "markdown/no-missing-link-fragments": "error"
+}

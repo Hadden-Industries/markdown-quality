@@ -3,62 +3,112 @@ import assert from "node:assert/strict";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { analyzerLimits } from "../src/analyzer-limits.js";
+import { defaultAnalyzerLimits } from "../src/analyzer-limits.js";
+import { executionLimitKeys } from "../src/resource-controls.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const names = ["configuration", "result", "execution"];
+const sourceNames = ["configuration", "result", "execution"];
+const names = [
+  "configuration",
+  "effective-configuration",
+  "result",
+  "execution",
+];
+
+const ceiling = {
+  type: ["integer", "null"],
+  minimum: 1,
+  maximum: Number.MAX_SAFE_INTEGER,
+};
+const closed = (keys, value, required = true) => ({
+  type: "object",
+  additionalProperties: false,
+  ...(required ? { required: [...keys] } : {}),
+  properties: Object.fromEntries(
+    keys.map((key) => [key, structuredClone(value)]),
+  ),
+});
 
 /** Fill only the current contract's known projections; never resolve arbitrary references. */
-export function projectSchemas(sources, catalog = analyzerLimits) {
-  const [configuration, result, execution] = names.map((name) =>
+export function projectSchemas(
+  sources,
+  analyzerCatalog = defaultAnalyzerLimits,
+  executionKeys = executionLimitKeys,
+) {
+  const [configuration, result, execution] = sourceNames.map((name) =>
     structuredClone(sources[name]),
   );
-  assert.ok(!Object.hasOwn(configuration.properties, "limits"));
+  assert.ok(!Object.hasOwn(configuration.properties, "analyzerLimits"));
   assert.ok(!Object.hasOwn(result.properties, "configuration"));
-  assert.ok(!Object.hasOwn(result.properties.policy.properties, "limits"));
-  assert.ok(!Object.hasOwn(execution.properties.limits, "properties"));
-  const limitProperties = (nullable) =>
-    Object.fromEntries(
-      Object.keys(catalog).map((name) => [
-        name,
-        {
-          type: nullable ? ["integer", "null"] : "integer",
-          minimum: 1,
-          maximum: Number.MAX_SAFE_INTEGER,
-        },
-      ]),
-    );
-  configuration.properties.limits = {
-    anyOf: [
-      { const: false },
-      {
-        type: "object",
-        additionalProperties: false,
-        properties: limitProperties(true),
-      },
-    ],
-  };
-  result.properties.policy.properties.limits = structuredClone(
-    configuration.properties.limits,
+  assert.ok(
+    !Object.hasOwn(result.properties.policy.properties, "analyzerLimits"),
   );
-  result.properties.configuration = {
-    anyOf: [{ type: "null" }, structuredClone(configuration)],
+  assert.ok(
+    !Object.hasOwn(
+      result.properties.resourcePolicy.properties,
+      "executionLimits",
+    ),
+  );
+  assert.ok(!Object.hasOwn(execution.properties, "analyzerLimits"));
+  const analyzerKeys = Object.keys(analyzerCatalog);
+  const sparseAnalyzer = {
+    anyOf: [{ const: false }, closed(analyzerKeys, ceiling, false)],
   };
-  execution.properties.limits.properties = limitProperties(false);
-  return { configuration, result, execution };
+  configuration.properties.analyzerLimits = structuredClone(sparseAnalyzer);
+  // The resolved representation requires every runtime field and never accepts
+  // sparse input as resolved output.
+  const effective = structuredClone(configuration);
+  effective.$id = configuration.$id.replace(
+    ":configuration:",
+    ":effective-configuration:",
+  );
+  effective.required = Object.keys(effective.properties);
+  for (const key of ["syntax", "links", "layout"])
+    effective.properties[key].required = Object.keys(
+      effective.properties[key].properties,
+    );
+  effective.properties.analyzerLimits = closed(analyzerKeys, ceiling);
+  result.properties.configuration = {
+    anyOf: [{ type: "null" }, structuredClone(effective)],
+  };
+  result.properties.policy.properties.analyzerLimits = closed(
+    analyzerKeys,
+    ceiling,
+  );
+  result.properties.resourcePolicy.properties.executionLimits = closed(
+    executionKeys,
+    ceiling,
+  );
+  result.properties.resourcePolicy.properties.origins = closed(
+    [...analyzerKeys.map((key) => `analyzerLimits.${key}`), ...executionKeys],
+    { type: "string", minLength: 1 },
+  );
+  execution.properties.analyzerLimits = structuredClone(sparseAnalyzer);
+  for (const key of executionKeys)
+    execution.properties[key] = structuredClone(ceiling);
+  return {
+    configuration,
+    "effective-configuration": effective,
+    result,
+    execution,
+  };
 }
 
 /** Read the fixed authoring sources, which are never needed by installed consumers. */
-export function schemaProjections(directory = root, catalog = analyzerLimits) {
+export function schemaProjections(
+  directory = root,
+  analyzerCatalog = defaultAnalyzerLimits,
+  executionKeys = executionLimitKeys,
+) {
   const sources = Object.fromEntries(
-    names.map((name) => [
+    sourceNames.map((name) => [
       name,
       JSON.parse(
         readFileSync(join(directory, "scripts/schema-sources", `${name}.json`)),
       ),
     ]),
   );
-  return projectSchemas(sources, catalog);
+  return projectSchemas(sources, analyzerCatalog, executionKeys);
 }
 
 /** Structural equality permits repository formatting without accepting stale contract data. */

@@ -302,7 +302,9 @@ test("packed root and isolated consumers install without lifecycle scripts and e
         checkLinks(
           {
             root: installedCore,
-            config: { links: { localFiles: true, rootRelative: "reject" } },
+            config: {
+              links: { checkLocalTargets: true, rootRelative: "reject" },
+            },
           },
           text,
           file.path,
@@ -316,14 +318,7 @@ test("packed root and isolated consumers install without lifecycle scripts and e
       lock.packages["node_modules/@hadden-industries/markdown-quality"].version,
       release.version,
     );
-    writeFileSync(
-      join(consumer, ".markdown-quality.json"),
-      JSON.stringify({
-        schemaVersion: 2,
-        preset: "authored-gfm@1",
-        include: ["*.md"],
-      }),
-    );
+    // Dependency-only consumer: no policy file; package defaults own the scope.
     writeFileSync(
       join(consumer, ".editorconfig"),
       "root = true\n[*]\nmax_line_length = 8\n",
@@ -347,7 +342,11 @@ test("packed root and isolated consumers install without lifecycle scripts and e
       },
     );
     assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.equal(JSON.parse(result.stdout).outcome, "clean");
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.operationStatus, "completed");
+    assert.equal(report.qualityStatus, "clean");
+    assert.equal(report.configurationOrigin.kind, "default-absent");
+    assert.deepEqual(report.selection.files, ["a.md"]);
     phase(`${layout} runtime qualification`, () =>
       qualifyRuntime(cli, consumer, process.env),
     );

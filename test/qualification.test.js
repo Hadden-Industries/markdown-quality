@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { spawnSync, execFileSync } from "node:child_process";
 import {
   readExecutionProfile,
-  qualifyCandidate,
+  qualifyGitMarkdown,
   validateQualityResult,
 } from "../src/quality.js";
 import { consumer } from "./helpers.js";
@@ -29,39 +29,42 @@ test("bundled Windows/Linux observer runs real full trusted staging and detects 
   writeFileSync(
     join(trustedRoot, ".markdown-quality-execution.json"),
     JSON.stringify({
-      schemaVersion: 1,
-      samples: 2,
-      checkerMs: 30000,
-      windowMs: 60000,
-      memoryBytes: 536870912,
-      nodeOldSpaceMb: 256,
-      reportBytes: 8388608,
-      requestBytes: 8388608,
-      stagingBytes: 134217728,
-      stagingEntries: 100000,
-      limits: {},
+      schemaVersion: 2,
+      requiredConsecutiveSamples: 2,
+      executionTimeoutMs: 30000,
+      sampleTimeoutMs: 60000,
+      maxObservedMemoryBytes: 536870912,
+      maxNodeOldGenerationMiB: 256,
+      maxOutputBytes: 8388608,
+      maxRequestBytes: 8388608,
+      maxStagedDataBytes: 134217728,
+      maxStagedEntries: 100000,
+      analyzerLimits: {},
       runtimes: {
         node: { file: ".node-version" },
         python: { file: ".python-version" },
       },
     }),
   );
-  const trustedSha = freeze(trustedRoot);
-  const sourceRoot = consumer(t, {
+  const trustedCommitId = freeze(trustedRoot);
+  const candidateRoot = consumer(t, {
     "README.md": "# Heading!\n\nAlpha.\n",
     "candidate.mjs": "throw new Error('Never execute this');",
   });
-  const candidateSha = freeze(sourceRoot);
-  const profile = readExecutionProfile({ root: trustedRoot });
+  const candidateCommitId = freeze(candidateRoot);
+  const profile = readExecutionProfile({
+    root: trustedRoot,
+    purpose: "qualification",
+  });
   const scratch = consumer(t);
   const request = {
-    sourceRoot,
+    candidateRoot,
     trustedRoot,
-    candidateSha,
-    trustedSha,
-    git,
+    candidateCommitId,
+    trustedCommitId,
+    gitExecutablePath: git,
     profile,
-    producer: { sourceSha: "a".repeat(40) },
+    producer: { sourceCommitId: "a".repeat(40) },
   };
   for (const [name, mutation] of [
     ["passing", false],
@@ -69,16 +72,22 @@ test("bundled Windows/Linux observer runs real full trusted staging and detects 
     ["replaced-object", "replacement"],
   ]) {
     if (mutation === true)
-      writeFileSync(join(sourceRoot, "README.md"), "Alpha. Beta.\n");
+      writeFileSync(join(candidateRoot, "README.md"), "Alpha. Beta.\n");
     if (mutation === "replacement") {
-      writeFileSync(join(sourceRoot, "README.md"), "Replacement.\n");
-      const replacement = freeze(sourceRoot);
-      execFileSync(git, ["-C", sourceRoot, "update-ref", "HEAD", candidateSha]);
+      writeFileSync(join(candidateRoot, "README.md"), "Replacement.\n");
+      const replacement = freeze(candidateRoot);
       execFileSync(git, [
         "-C",
-        sourceRoot,
+        candidateRoot,
+        "update-ref",
+        "HEAD",
+        candidateCommitId,
+      ]);
+      execFileSync(git, [
+        "-C",
+        candidateRoot,
         "replace",
-        candidateSha,
+        candidateCommitId,
         replacement,
       ]);
     }
@@ -111,27 +120,43 @@ test("bundled Windows/Linux observer runs real full trusted staging and detects 
     );
     if (!mutation) {
       assert.equal(execution.status, 0);
+      assert.equal(report.schemaVersion, 2);
       assert.equal(report.samples.length, 2);
+      assert.equal(
+        report.maxObservedCheckDurationMs,
+        Math.max(...report.samples.map((sample) => sample.checkerElapsedMs)),
+      );
       for (const sample of report.samples) {
         const receipt = JSON.parse(
           readFileSync(join(output, sample.receiptPath), "utf8"),
         );
         assert.equal(sample.activeDescendants, 0);
-        assert.ok(sample.peakObservedBytes > 0);
+        assert.ok(sample.peakObservedMemoryBytes > 0);
         assert.deepEqual(receipt.result.selection.files, ["README.md"]);
-        assert.equal(receipt.result.outcome, "findings");
+        assert.equal(receipt.schemaVersion, 2);
+        assert.equal(receipt.candidate.commitId, candidateCommitId);
+        assert.equal(receipt.trusted.commitId, trustedCommitId);
+        assert.equal(receipt.result.operationStatus, "completed");
+        assert.equal(receipt.result.qualityStatus, "findings");
+        assert.equal(receipt.result.qualityBasis, "input");
+        assert.equal(
+          receipt.result.configurationOrigin.kind,
+          "trusted-snapshot",
+        );
         assert.ok(
           receipt.result.diagnostics.every((item) => item.severity === "info"),
         );
         assert.deepEqual(
-          receipt.result.selection.inventory.map((item) => item.path),
+          receipt.result.selection.reconciliationDecisions.map(
+            (item) => item.path,
+          ),
           ["README.md"],
         );
         validateQualityResult(receipt.result);
       }
       const compact = join(scratch, "compact-real-window");
       const packaged = packageQualificationEvidence({
-        sourceRoot: output,
+        evidenceRoot: output,
         outputRoot: compact,
       });
       assert.equal(packaged.passed, true);
@@ -153,8 +178,8 @@ test("bundled Windows/Linux observer runs real full trusted staging and detects 
 test("public qualifier rejects overlapping trusted/candidate/output roots before acceptance", async (t) => {
   const root = consumer(t);
   await assert.rejects(
-    qualifyCandidate({
-      sourceRoot: root,
+    qualifyGitMarkdown({
+      candidateRoot: root,
       trustedRoot: root,
       outputRoot: join(root, "out"),
     }),
@@ -180,12 +205,14 @@ test("observer refuses delayed descendants and retains attributable cleanup fail
     requestPath,
     JSON.stringify({
       profile: {
-        samples: 1,
-        windowMs: 15000,
-        memoryBytes: 536870912,
-        nodeOldSpaceMb: 256,
-        reportBytes: 8388608,
-        checkerMs: 10000,
+        requiredConsecutiveSamples: 1,
+        sampleTimeoutMs: 15000,
+        maxObservedMemoryBytes: 536870912,
+        maxNodeOldGenerationMiB: 256,
+        maxOutputBytes: 8388608,
+        executionTimeoutMs: 10000,
+        cleanupTimeoutMs: null,
+        resourceLimitMode: "configured",
         profileSha256: "a".repeat(64),
       },
     }),

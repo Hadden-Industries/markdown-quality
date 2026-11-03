@@ -144,12 +144,12 @@ test(
     import assert from 'node:assert/strict';
     import {mock} from 'node:test';
     import {spawnSync} from 'node:child_process';
-    import {limits} from './src/contracts.js';
+    import {defaultAnalyzerLimits as limits} from './src/analyzer-limits.js';
     let delays=0;
     mock.module('node:child_process',{[${JSON.stringify(moduleMockExportOption)}]:{spawnSync:(exe,args,options)=>{
       if(exe.toLowerCase().endsWith('whoami.exe')) {
         delays++;
-        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,limits.stagingMs+100);
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,limits.nativeStagingAccessTimeoutMs+100);
       }
       return spawnSync(exe,args,options);
     }}});

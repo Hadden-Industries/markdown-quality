@@ -1,20 +1,26 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import test from "node:test";
 import assert from "node:assert/strict";
-import { checkAdvisories } from "../src/advisory-diagnostics.js";
-import { advisoryDefaults } from "../src/preset.js";
-import { limits } from "../src/contracts.js";
+import { checkQualityRules } from "../src/quality-diagnostics.js";
+import { qualityRuleDefaults } from "../src/preset.js";
+import { defaultAnalyzerLimits as analyzerLimits } from "../src/analyzer-limits.js";
 import { createDocumentMemo } from "../src/document-memo.js";
 
-test("all disabled advisories skip parsing while enabled rules still detect their findings", () => {
+test("all disabled quality rules skip parsing while enabled rules still detect their findings", () => {
   const input = "# Title.\n\n" + "x".repeat(121) + "\n";
   const memo = createDocumentMemo();
   memo.dispose();
   const lint = Object.fromEntries(
-    Object.keys(advisoryDefaults).map((rule) => [rule, "off"]),
+    Object.keys(qualityRuleDefaults).map((rule) => [rule, "off"]),
   );
-  assert.deepEqual(checkAdvisories(input, { lint, limits }, memo), []);
-  assert.equal(checkAdvisories(input, { lint: {}, limits }).length, 2);
+  assert.deepEqual(
+    checkQualityRules(input, { lint, analyzerLimits }, memo),
+    [],
+  );
+  assert.equal(
+    checkQualityRules(input, { lint: {}, analyzerLimits }).length,
+    2,
+  );
 });
 
 test("disabled NFC and long-line rules skip normalization and line indexing without skipping enabled checks", (t) => {
@@ -26,10 +32,10 @@ test("disabled NFC and long-line rules skip normalization and line indexing with
   // parser/dependency implementation details are outside this measurement.
   const normalized = t.mock.method(String.prototype, "normalize");
   const split = t.mock.method(String.prototype, "split");
-  const result = checkAdvisories(
+  const result = checkQualityRules(
     input,
     {
-      limits,
+      analyzerLimits,
       lint: {
         "quality/non-nfc-prose": "off",
         "quality/long-prose-line": "off",
@@ -43,14 +49,17 @@ test("disabled NFC and long-line rules skip normalization and line indexing with
   );
   assert.equal(normalized.mock.callCount(), 0);
   assert.equal(split.mock.callCount(), 0);
-  assert.equal(checkAdvisories(input, { lint: {}, limits }, memo).length, 2);
+  assert.equal(
+    checkQualityRules(input, { lint: {}, analyzerLimits }, memo).length,
+    2,
+  );
   assert.ok(normalized.mock.callCount() > 0);
   assert.ok(split.mock.callCount() > 0);
 });
 
 test("long prose counts code points and reports UTF-16 columns across newline styles", () => {
   const lint = Object.fromEntries(
-    Object.keys(advisoryDefaults).map((rule) => [rule, "off"]),
+    Object.keys(qualityRuleDefaults).map((rule) => [rule, "off"]),
   );
   lint["quality/long-prose-line"] = "info";
   const cases = [
@@ -68,9 +77,9 @@ test("long prose counts code points and reports UTF-16 columns across newline st
   ];
   for (const eol of ["\n", "\r\n", "\r"])
     for (const [line, column] of cases) {
-      const diagnostics = checkAdvisories(
+      const diagnostics = checkQualityRules(
         "# Heading" + eol + eol + line + eol,
-        { lint, limits },
+        { lint, analyzerLimits },
       );
       assert.deepEqual(
         diagnostics.map(({ rule, line, column }) => [rule, line, column]),
@@ -85,9 +94,9 @@ test("long prose traversal avoids code-point string conversions", (t) => {
   const memo = createDocumentMemo();
   memo.parse(input);
   t.after(() => memo.dispose());
-  // Cache the real parser result so the spy observes only the advisory scan.
+  // Cache the real parser result so the spy observes only the quality-rule scan.
   const conversions = t.mock.method(String, "fromCodePoint");
-  const result = checkAdvisories(input, { lint: {}, limits }, memo);
+  const result = checkQualityRules(input, { lint: {}, analyzerLimits }, memo);
   assert.equal(result[0].column, 241);
   assert.equal(conversions.mock.callCount(), 0);
 });

@@ -86,9 +86,15 @@ test("maintainer observer measures real native descendants and retains genuine f
   assert.ok(report.userCpuMsIncludingDriver > 0);
   assert.deepEqual(report.errors, []);
   const quality = JSON.parse(readFileSync(prefix + ".stdout.json", "utf8"));
-  assert.equal(quality.configuration.limits.documentDiagnostics, null);
-  assert.equal(quality.configuration.limits.analysisMs, 30000);
-  assert.equal(quality.configuration.limits.diagnostics, 10000);
+  assert.equal(
+    quality.configuration.analyzerLimits.maxDocumentDiagnostics,
+    null,
+  );
+  assert.equal(
+    quality.configuration.analyzerLimits.documentAnalysisTimeoutMs,
+    30000,
+  );
+  assert.equal(quality.configuration.analyzerLimits.maxTotalDiagnostics, 10000);
   assert.equal(
     report.diagnostics.filter((d) => d.severity === "info").length,
     1001,
@@ -103,10 +109,9 @@ test("maintainer observer measures real native descendants and retains genuine f
     readFileSync(join(root, "b.md"), "utf8"),
     "#   Heading\n\nBeta.\n",
   );
-  assert.equal(
-    JSON.parse(readFileSync(prefix + ".stdout.json", "utf8")).outcome,
-    "findings",
-  );
+  assert.equal(quality.operationStatus, "completed");
+  assert.equal(quality.qualityStatus, "findings");
+  assert.equal(quality.qualityBasis, "input");
 });
 
 test(

@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runQuality } from "../src/quality.js";
 import { consumer, moduleMockExportOption } from "./helpers.js";
-import { limits as defaults } from "../src/contracts.js";
+import { defaultAnalyzerLimits as defaults } from "../src/analyzer-limits.js";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
@@ -26,14 +26,18 @@ test("consumer can disable diagnostic budgets without disabling findings or writ
       "\n\n",
     ) + "\n";
   const root = consumer(t, { "a.md": input });
-  const result = await runQuality({ root, mode: "format", limits: false });
+  const result = await runQuality({
+    root,
+    mode: "format",
+    analyzerLimits: false,
+  });
   assert.equal(result.exitCode, 1, JSON.stringify(result.errors));
   assert.deepEqual(result.errors, []);
   assert.equal(
     result.diagnostics.filter((d) => d.source === "links").length,
     1001,
   );
-  assert.deepEqual(result.written, []);
+  assert.deepEqual(result.writtenPaths, []);
   assert.equal(readFileSync(join(root, "a.md"), "utf8"), input);
 });
 
@@ -42,15 +46,15 @@ test("raised and individual unlimited diagnostic limits keep info nonblocking an
   const root = consumer(
     t,
     { "a.md": input },
-    { limits: { documentDiagnostics: 2 } },
+    { analyzerLimits: { maxDocumentDiagnostics: 2 } },
   );
   const capped = await runQuality({ root });
   assert.equal(capped.errors[0].code, "DIAGNOSTIC_LIMIT");
   for (const overrides of [
-    { documentDiagnostics: 2000 },
-    { documentDiagnostics: null },
+    { maxDocumentDiagnostics: 2000 },
+    { maxDocumentDiagnostics: null },
   ]) {
-    const result = await runQuality({ root, limits: overrides });
+    const result = await runQuality({ root, analyzerLimits: overrides });
     assert.equal(result.errors.length, 0, JSON.stringify(result.errors));
     assert.equal(
       result.diagnostics.filter((d) => d.rule === "quality/long-prose-line")
@@ -61,14 +65,24 @@ test("raised and individual unlimited diagnostic limits keep info nonblocking an
     assert.equal(result.exitCode, 1);
     assert.ok(validate(result), JSON.stringify(validate.errors));
     assert.equal(
-      result.configuration.limits.documentDiagnostics,
-      overrides.documentDiagnostics,
+      result.configuration.analyzerLimits.maxDocumentDiagnostics,
+      overrides.maxDocumentDiagnostics,
     );
-    assert.equal(result.configuration.limits.diagnostics, defaults.diagnostics);
-    assert.deepEqual(result.policy.limits, result.configuration.limits);
+    assert.equal(
+      result.configuration.analyzerLimits.maxTotalDiagnostics,
+      defaults.maxTotalDiagnostics,
+    );
+    assert.deepEqual(
+      result.policy.analyzerLimits,
+      result.configuration.analyzerLimits,
+    );
   }
   assert.equal((await runQuality({ root })).errors[0].code, "DIAGNOSTIC_LIMIT");
-  const formatted = await runQuality({ root, mode: "format", limits: false });
+  const formatted = await runQuality({
+    root,
+    mode: "format",
+    analyzerLimits: false,
+  });
   assert.equal(formatted.exitCode, 0, JSON.stringify(formatted.errors));
   assert.equal(formatted.diagnostics.length, 1001);
   assert.ok(formatted.diagnostics.every((d) => d.severity === "info"));
@@ -76,28 +90,34 @@ test("raised and individual unlimited diagnostic limits keep info nonblocking an
 
 test("every selection/acquisition budget can be raised or bypassed without bypassing path safety", async (t) => {
   for (const [field, code] of [
-    ["fileBytes", "DOCUMENT_LIMIT"],
-    ["totalBytes", "BATCH_LIMIT"],
-    ["files", "SELECTION_LIMIT"],
-    ["entries", "SELECTION_LIMIT"],
-    ["selectionBytes", "SELECTION_LIMIT"],
-    ["configBytes", "CONFIG_LIMIT"],
-    ["patternLength", "CONFIG_LIMIT"],
+    ["maxDocumentBytes", "DOCUMENT_LIMIT"],
+    ["maxTotalDocumentBytes", "BATCH_LIMIT"],
+    ["maxPathsPerSelectionStage", "SELECTION_LIMIT"],
+    ["maxEnumeratedEntries", "SELECTION_LIMIT"],
+    ["maxInventoryBytes", "SELECTION_LIMIT"],
+    ["maxConfigurationBytes", "CONFIG_LIMIT"],
+    ["maxPatternCodePoints", "CONFIG_LIMIT"],
   ]) {
     const root = consumer(
       t,
       { "a.md": "Alpha.\n", "b.md": "Beta.\n" },
-      { limits: { [field]: 1 } },
+      { analyzerLimits: { [field]: 1 } },
     );
     const capped = await runQuality({ root });
     assert.equal(capped.errors[0]?.code, code, field + JSON.stringify(capped));
-    const raised = await runQuality({ root, limits: { [field]: 100000 } });
+    const raised = await runQuality({
+      root,
+      analyzerLimits: { [field]: 100000 },
+    });
     assert.equal(raised.exitCode, 0, field + JSON.stringify(raised.errors));
-    const bypass = await runQuality({ root, limits: { [field]: null } });
+    const bypass = await runQuality({
+      root,
+      analyzerLimits: { [field]: null },
+    });
     assert.equal(bypass.exitCode, 0, field + JSON.stringify(bypass.errors));
     const unsafe = await runQuality({
       root,
-      limits: false,
+      analyzerLimits: false,
       files: ["../outside.md"],
     });
     assert.equal(unsafe.errors[0]?.code, "UNSAFE_PATH");
@@ -108,43 +128,45 @@ test("CLI/configuration unlimited settings expose resolved values and reject mal
   const root = consumer(
     t,
     { "a.md": "Alpha.\n" },
-    { limits: { configBytes: 1 } },
+    { analyzerLimits: { maxConfigurationBytes: 1 } },
   );
   const command = spawnSync(
     process.execPath,
-    [cli, "check", "--root", root, "--json", "--no-limits"],
+    [cli, "check", "--root", root, "--json", "--no-analyzer-limits"],
     { encoding: "utf8", timeout: 30000 },
   );
   assert.equal(command.status, 0, command.stdout + command.stderr);
   const report = JSON.parse(command.stdout);
   assert.ok(validate(report), JSON.stringify(validate.errors));
   assert.ok(
-    Object.values(report.configuration.limits).every((value) => value === null),
-  );
-  const configured = consumer(t, {}, { limits: false });
-  const inspected = await runQuality({ root: configured, mode: "inspect" });
-  assert.equal(inspected.exitCode, 0);
-  assert.ok(
-    Object.values(inspected.configuration.limits).every(
+    Object.values(report.configuration.analyzerLimits).every(
       (value) => value === null,
     ),
   );
-  for (const invalid of [
-    null,
-    true,
-    [],
-    { fileBytes: 0 },
-    { analysisMs: -1 },
-    { diagnostics: 1.5 },
-    { files: Number.MAX_SAFE_INTEGER + 1 },
-    { unknown: null },
+  const configured = consumer(t, {}, { analyzerLimits: false });
+  const inspected = await runQuality({ root: configured, mode: "inspect" });
+  assert.equal(inspected.exitCode, 0);
+  assert.ok(
+    Object.values(inspected.configuration.analyzerLimits).every(
+      (value) => value === null,
+    ),
+  );
+  for (const [invalid, code] of [
+    [null, "INVALID_OPTION"],
+    [true, "INVALID_OPTION"],
+    [[], "INVALID_OPTION"],
+    [{ maxDocumentBytes: 0 }, "INVALID_RESOURCE_POLICY"],
+    [{ documentAnalysisTimeoutMs: -1 }, "INVALID_RESOURCE_POLICY"],
+    [{ maxTotalDiagnostics: 1.5 }, "INVALID_RESOURCE_POLICY"],
+    [
+      { maxPathsPerSelectionStage: Number.MAX_SAFE_INTEGER + 1 },
+      "INVALID_RESOURCE_POLICY",
+    ],
+    [{ unknown: null }, "INVALID_RESOURCE_POLICY"],
   ]) {
-    const rejected = await runQuality({ root, limits: invalid });
-    assert.equal(
-      rejected.errors[0]?.code,
-      "INVALID_CONFIG",
-      JSON.stringify(invalid),
-    );
+    const rejected = await runQuality({ root, analyzerLimits: invalid });
+    assert.equal(rejected.exitCode, 2, JSON.stringify(invalid));
+    assert.equal(rejected.errors[0]?.code, code, JSON.stringify(invalid));
   }
 });
 
@@ -153,10 +175,13 @@ test("byte and batch diagnostic ceilings remain independently overridable", asyn
     "a.md": "[Missing](missing.md)\n",
     "b.md": "[Absent](absent.md)\n",
   });
-  for (const field of ["diagnosticBytes", "diagnostics"]) {
-    const capped = await runQuality({ root, limits: { [field]: 1 } });
+  for (const field of ["maxDiagnosticJsonBytes", "maxTotalDiagnostics"]) {
+    const capped = await runQuality({ root, analyzerLimits: { [field]: 1 } });
     assert.equal(capped.errors[0]?.code, "DIAGNOSTIC_LIMIT");
-    const complete = await runQuality({ root, limits: { [field]: null } });
+    const complete = await runQuality({
+      root,
+      analyzerLimits: { [field]: null },
+    });
     assert.equal(complete.exitCode, 1);
     assert.deepEqual(complete.errors, []);
     assert.equal(
@@ -169,17 +194,20 @@ test("byte and batch diagnostic ceilings remain independently overridable", asyn
 test("native output and analysis time budgets propagate through real analysis", async (t) => {
   const root = consumer(t, { "a.md": "Alpha.\n" });
   for (const [field, code] of [
-    ["nativeOutputBytes", "NATIVE_FAILURE"],
-    ["analysisMs", "ANALYSIS_TIMEOUT"],
+    ["maxNativeOutputBytes", "NATIVE_FAILURE"],
+    ["documentAnalysisTimeoutMs", "ANALYSIS_TIMEOUT"],
   ]) {
-    const capped = await runQuality({ root, limits: { [field]: 1 } });
+    const capped = await runQuality({ root, analyzerLimits: { [field]: 1 } });
     assert.equal(capped.errors[0]?.code, code, JSON.stringify(capped.errors));
-    const complete = await runQuality({ root, limits: { [field]: null } });
+    const complete = await runQuality({
+      root,
+      analyzerLimits: { [field]: null },
+    });
     assert.equal(complete.exitCode, 0, JSON.stringify(complete.errors));
   }
   const huge = await runQuality({
     root,
-    limits: { analysisMs: Number.MAX_SAFE_INTEGER },
+    analyzerLimits: { documentAnalysisTimeoutMs: Number.MAX_SAFE_INTEGER },
   });
   assert.equal(huge.exitCode, 0, JSON.stringify(huge.errors));
 });
@@ -190,13 +218,13 @@ test("unlimited native lint and whitespace producers retain more than a thousand
     ["Alpha. \n\n".repeat(1001), "formatter", "check"],
   ]) {
     const root = consumer(t, { "a.md": input });
-    const result = await runQuality({ root, mode, limits: false });
+    const result = await runQuality({ root, mode, analyzerLimits: false });
     assert.equal(result.exitCode, 1, JSON.stringify(result.errors));
     assert.deepEqual(result.errors, []);
     assert.ok(
       result.diagnostics.filter((d) => d.source === source).length >= 1001,
     );
-    assert.deepEqual(result.written, []);
+    assert.deepEqual(result.writtenPaths, []);
     assert.equal(readFileSync(join(root, "a.md"), "utf8"), input);
   }
 });
@@ -209,7 +237,7 @@ test("unlimited aggregate diagnostics exceed the old batch count and validate as
       Array.from({ length: 11 }, (_, i) => [`${i}.md`, input]),
     ),
   );
-  const result = await runQuality({ root, limits: false });
+  const result = await runQuality({ root, analyzerLimits: false });
   assert.equal(result.exitCode, 1, JSON.stringify(result.errors));
   assert.deepEqual(result.errors, []);
   assert.equal(
@@ -218,7 +246,7 @@ test("unlimited aggregate diagnostics exceed the old batch count and validate as
   );
   assert.ok(
     Buffer.byteLength(JSON.stringify(result.diagnostics)) >
-      defaults.diagnosticBytes,
+      defaults.maxDiagnosticJsonBytes,
   );
   assert.ok(validate(result), JSON.stringify(validate.errors));
 });
@@ -231,22 +259,26 @@ test("unlimited resource settings preserve strict warning admission", async (t) 
     root,
     mode: "format",
     strict: true,
-    limits: false,
+    analyzerLimits: false,
   });
   assert.equal(strict.exitCode, 1, JSON.stringify(strict.errors));
   assert.deepEqual(strict.errors, []);
   assert.ok(strict.diagnostics.some((d) => d.severity === "warning"));
-  assert.deepEqual(strict.written, []);
-  const ordinary = await runQuality({ root, mode: "format", limits: false });
+  assert.deepEqual(strict.writtenPaths, []);
+  const ordinary = await runQuality({
+    root,
+    mode: "format",
+    analyzerLimits: false,
+  });
   assert.equal(ordinary.exitCode, 0, JSON.stringify(ordinary.errors));
-  assert.deepEqual(ordinary.written, ["a.md"]);
+  assert.deepEqual(ordinary.writtenPaths, ["a.md"]);
 });
 
 test("large literal documents can bypass the original file ceiling without changing their bytes", async (t) => {
-  const input = "```text\n" + "x".repeat(defaults.fileBytes) + "\n```\n";
+  const input = "```text\n" + "x".repeat(defaults.maxDocumentBytes) + "\n```\n";
   const root = consumer(t, { "a.md": input });
   assert.equal((await runQuality({ root })).errors[0]?.code, "DOCUMENT_LIMIT");
-  const complete = await runQuality({ root, limits: false });
+  const complete = await runQuality({ root, analyzerLimits: false });
   assert.equal(complete.exitCode, 0, JSON.stringify(complete.errors));
   assert.deepEqual(complete.errors, []);
   assert.deepEqual(complete.diagnostics, []);
@@ -254,57 +286,71 @@ test("large literal documents can bypass the original file ceiling without chang
 });
 
 test("formatting replacement rechecks use the consumer file ceiling", async (t) => {
-  const input = "~~~text\n" + "x".repeat(defaults.fileBytes) + "\n~~~\n";
-  const expected = "```text\n" + "x".repeat(defaults.fileBytes) + "\n```\n";
+  const input = "~~~text\n" + "x".repeat(defaults.maxDocumentBytes) + "\n~~~\n";
+  const expected =
+    "```text\n" + "x".repeat(defaults.maxDocumentBytes) + "\n```\n";
   const root = consumer(t, { "a.md": input });
-  for (const overrides of [{ fileBytes: defaults.fileBytes * 2 }, false]) {
+  for (const overrides of [
+    { maxDocumentBytes: defaults.maxDocumentBytes * 2 },
+    false,
+  ]) {
     writeFileSync(join(root, "a.md"), input);
     const formatted = await runQuality({
       root,
       mode: "format",
-      limits: overrides,
+      analyzerLimits: overrides,
     });
     assert.equal(formatted.exitCode, 0, JSON.stringify(formatted.errors));
-    assert.deepEqual(formatted.written, ["a.md"]);
+    assert.deepEqual(formatted.writtenPaths, ["a.md"]);
     assert.equal(readFileSync(join(root, "a.md"), "utf8"), expected);
     assert.deepEqual(
-      (await runQuality({ root, mode: "format", limits: overrides })).written,
+      (await runQuality({ root, mode: "format", analyzerLimits: overrides }))
+        .writtenPaths,
       [],
     );
   }
 });
 
-test("configuration can bypass its own byte and entry defaults", async (t) => {
+test("configuration cannot raise its own byte ceiling but can bypass its entry defaults", async (t) => {
   const root = consumer(
     t,
     { "a.md": "Alpha.\n" },
-    { include: Array(101).fill("**/*.md"), limits: false },
+    { include: Array(101).fill("**/*.md"), analyzerLimits: false },
   );
   const path = join(root, ".markdown-quality.json");
   writeFileSync(
     path,
-    readFileSync(path, "utf8") + " ".repeat(defaults.configBytes),
+    readFileSync(path, "utf8") + " ".repeat(defaults.maxConfigurationBytes),
   );
-  const complete = await runQuality({ root });
+  // The file is read under the invocation/profile ceiling, so its own
+  // analyzerLimits cannot admit its oversized bytes.
+  assert.equal((await runQuality({ root })).errors[0]?.code, "CONFIG_LIMIT");
+  const complete = await runQuality({
+    root,
+    analyzerLimits: { maxConfigurationBytes: null },
+  });
   assert.equal(complete.exitCode, 0, JSON.stringify(complete.errors));
-  assert.equal(complete.configuration.limits.configBytes, null);
-  assert.equal(complete.configuration.limits.patterns, null);
+  assert.equal(
+    complete.configuration.analyzerLimits.maxConfigurationBytes,
+    null,
+  );
+  assert.equal(complete.configuration.analyzerLimits.maxPatternsPerList, null);
   const capped = await runQuality({
     root,
-    limits: { configBytes: defaults.configBytes },
+    analyzerLimits: { maxConfigurationBytes: defaults.maxConfigurationBytes },
   });
   assert.equal(capped.errors[0]?.code, "CONFIG_LIMIT");
 });
 
 test("configuration entry counts honour individual overrides; ignore files are not policy inputs", async (t) => {
-  for (const field of ["patterns", "lintRules"]) {
+  for (const field of ["maxPatternsPerList", "maxRuleOverrideCount"]) {
     const root = consumer(
       t,
       { "a.md": "Alpha.\n" },
       {
         include: ["*.md", "docs/*.md"],
         lint: { "markdown/no-html": "off", "markdown/no-empty-links": "error" },
-        limits: { [field]: 1 },
+        analyzerLimits: { [field]: 1 },
       },
     );
     assert.equal(
@@ -313,7 +359,10 @@ test("configuration entry counts honour individual overrides; ignore files are n
       field,
     );
     for (const value of [3, null]) {
-      const complete = await runQuality({ root, limits: { [field]: value } });
+      const complete = await runQuality({
+        root,
+        analyzerLimits: { [field]: value },
+      });
       assert.equal(
         complete.exitCode,
         0,
@@ -323,11 +372,16 @@ test("configuration entry counts honour individual overrides; ignore files are n
   }
   const root = consumer(t, {
     "a.md": "Alpha.\n",
-    ".gitignore": "#" + "x".repeat(defaults.configBytes),
+    ".gitignore": "#" + "x".repeat(defaults.maxConfigurationBytes),
   });
   assert.equal((await runQuality({ root })).exitCode, 0);
   assert.equal(
-    (await runQuality({ root, limits: { configBytes: null } })).exitCode,
+    (
+      await runQuality({
+        root,
+        analyzerLimits: { maxConfigurationBytes: null },
+      })
+    ).exitCode,
     0,
   );
 });
@@ -336,7 +390,6 @@ test("native/staging budgets and worker memory reach actual runtime calls with f
   const root = consumer(t);
   const modules = Object.fromEntries(
     [
-      "contracts",
       "configuration",
       "native-tool",
       "native-checks",
@@ -353,7 +406,7 @@ test("native/staging budgets and worker memory reach actual runtime calls with f
     import * as threads from "node:worker_threads";
     const calls = [], workers = [];
     const mockExports = ${JSON.stringify(moduleMockExportOption)};
-    mock.module("node:child_process", { [mockExports]: { spawnSync: (...args) => {
+    mock.module("node:child_process", { [mockExports]: { execFileSync: childProcess.execFileSync, spawnSync: (...args) => {
       const options = args[2];
       calls.push({ command: args[0], args: args[1], timeout: options.timeout, maxBuffer: options.maxBuffer === Infinity ? "unlimited" : options.maxBuffer });
       return childProcess.spawnSync(...args);
@@ -366,22 +419,21 @@ test("native/staging budgets and worker memory reach actual runtime calls with f
         this.once("online", () => { record.actual = this.resourceLimits; });
       }
     } } });
-    const { limits } = await import(${JSON.stringify(modules.contracts)});
     const { loadConfiguration } = await import(${JSON.stringify(modules.configuration)});
     const { resolveTool, runNative } = await import(${JSON.stringify(modules["native-tool"])});
     const { runNativeChecks } = await import(${JSON.stringify(modules["native-checks"])});
     const { createNativeStaging } = await import(${JSON.stringify(modules["native-staging"])});
     const { createDocumentAnalyzer } = await import(${JSON.stringify(modules["document-analysis"])});
     const tool = resolveTool();
-    for (const selected of [{ nativeMs: 60000, nativeOutputBytes: 16777216, stagingMs: 10000, stagingOutputBytes: 131072, workerHeapMb: 64, workerStackMb: 8 }, false]) {
-      const context = loadConfiguration({ root: ${JSON.stringify(root)}, limits: selected });
+    for (const selected of [{ nativeInvocationTimeoutMs: 60000, maxNativeOutputBytes: 16777216, nativeStagingAccessTimeoutMs: 10000, maxNativeStagingCommandOutputBytes: 131072, maxWorkerOldGenerationMiB: 64, workerStackMiB: 8 }, false]) {
+      const context = loadConfiguration({ root: ${JSON.stringify(root)}, analyzerLimits: selected });
       const start = calls.length;
-      const staging = createNativeStaging(context.root, context.config.limits);
+      const staging = createNativeStaging(context.root, context.config.analyzerLimits);
       if (!staging) throw Error("Supported staging unavailable");
       try {
-        runNative(tool, "Alpha. Beta.\\n", false, context.config.limits);
-        runNative(tool, "Alpha. Beta.\\n", true, context.config.limits);
-        runNativeChecks(tool, ["Alpha. Beta.\\n", "Gamma.\\n"], staging.token, undefined, context.config.limits);
+        runNative(tool, "Alpha. Beta.\\n", false, context.config.analyzerLimits);
+        runNative(tool, "Alpha. Beta.\\n", true, context.config.analyzerLimits);
+        runNativeChecks(tool, ["Alpha. Beta.\\n", "Gamma.\\n"], staging.token, undefined, context.config.analyzerLimits);
         const analyzer = createDocumentAnalyzer(context, tool);
         try { await analyzer.prepare({text:"Alpha.\\n",file:"a.md",mode:"check"}); }
         finally { await analyzer.close(); }

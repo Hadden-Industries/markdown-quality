@@ -8,12 +8,12 @@ import { consumer } from "./helpers.js";
 
 test("logical content is formatted at its final path without changing the repository", async (t) => {
   assert.equal(
-    typeof quality.processDocument,
+    typeof quality.processLogicalDocument,
     "function",
     "The logical-document public contract is required.",
   );
   const root = consumer(t, { "docs/target.md": "Target.\n" });
-  const report = await quality.processDocument({
+  const report = await quality.processLogicalDocument({
     root,
     path: "docs/generated.md",
     content: Buffer.from(
@@ -29,18 +29,23 @@ test("logical content is formatted at its final path without changing the reposi
   );
   assert.equal(existsSync(join(root, "docs/generated.md")), false);
   assert.equal(readFileSync(join(root, "docs/target.md"), "utf8"), "Target.\n");
-  assert.deepEqual(report.written, []);
+  assert.deepEqual(report.writtenPaths, []);
+  assert.equal(report.qualityBasis, "candidate");
+  assert.deepEqual(
+    report.documentResults.map((record) => record.writeStatus),
+    ["not-requested"],
+  );
 });
 
 test("excluded invalid-UTF8 bytes are returned unchanged and an included positive control changes", async (t) => {
-  assert.equal(typeof quality.processDocument, "function");
+  assert.equal(typeof quality.processLogicalDocument, "function");
   const root = consumer(
     t,
     {},
     { exclude: ["docs/policy/Editing-Policy.generated.md"] },
   );
   const input = Buffer.from([0xff, 0x0d, 0x0a, 0x00]);
-  const excluded = await quality.processDocument({
+  const excluded = await quality.processLogicalDocument({
     root,
     path: "docs/policy/Editing-Policy.generated.md",
     content: input,
@@ -51,7 +56,7 @@ test("excluded invalid-UTF8 bytes are returned unchanged and an included positiv
     Buffer.from(excluded.document.contentBase64, "base64"),
     input,
   );
-  const positive = await quality.processDocument({
+  const positive = await quality.processLogicalDocument({
     root,
     path: "README.md",
     content: Buffer.from("First sentence. Second sentence.\n"),

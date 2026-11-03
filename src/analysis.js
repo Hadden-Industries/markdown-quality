@@ -10,7 +10,7 @@ import { lstatSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { safePath } from "./configuration.js";
 import { diagnosticBudget, diagnosticCollector } from "./contracts.js";
-import { nativeLintRules } from "./preset.js";
+import { eslintRuleSettings } from "./preset.js";
 /** Parse selected front matter as opaque metadata, with original source positions. */
 export function parse(text, syntax = { frontmatter: "yaml" }) {
   const matters =
@@ -31,7 +31,7 @@ export function parse(text, syntax = { frontmatter: "yaml" }) {
   });
 }
 export function createLinter(context) {
-  const rules = nativeLintRules(context.config);
+  const rules = eslintRuleSettings(context.config);
   return new ESLint({
     cwd: context.root,
     overrideConfigFile: true,
@@ -68,12 +68,12 @@ export async function lintDocument(linter, text, file, config) {
           ? "error"
           : "warning",
   }));
-  diagnosticBudget(diagnostics, config?.limits);
+  diagnosticBudget(diagnostics, config?.analyzerLimits);
   return diagnostics;
 }
 export function checkLinks(context, text, file, memo) {
-  if (!context.config.links.localFiles) return [];
-  const collector = diagnosticCollector(context.config.limits);
+  if (!context.config.links.checkLocalTargets) return [];
+  const collector = diagnosticCollector(context.config.analyzerLimits);
   function walk(node) {
     if (["link", "image", "definition"].includes(node.type)) {
       const target = node.url;

@@ -21,9 +21,11 @@ class ObserverCleanupTests(unittest.TestCase):
             output = root / "observation"
             output.mkdir()
             request.write_text(json.dumps({"profile": {
-                "samples": 1, "windowMs": 15000, "memoryBytes": 536870912,
-                "nodeOldSpaceMb": 256, "reportBytes": 8388608,
-                "checkerMs": 10000, "profileSha256": "a" * 64,
+                "requiredConsecutiveSamples": 1, "sampleTimeoutMs": 15000,
+                "maxObservedMemoryBytes": 536870912,
+                "maxNodeOldGenerationMiB": 256, "maxOutputBytes": 8388608,
+                "executionTimeoutMs": 10000, "cleanupTimeoutMs": 5000,
+                "resourceLimitMode": "configured", "profileSha256": "a" * 64,
             }}), encoding="utf-8")
             clock = [0.0]
             state = {"kill_requested": False, "observations_after_kill": 0}

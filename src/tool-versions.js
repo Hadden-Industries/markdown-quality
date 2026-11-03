@@ -9,7 +9,7 @@ export function installedToolVersions(snapper) {
   const versions = {
     prettier: prettier.version,
     eslint: ESLint.version,
-    markdown: markdown.meta.version,
+    eslintMarkdown: markdown.meta.version,
     snapper,
   };
   if (

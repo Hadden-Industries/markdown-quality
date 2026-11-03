@@ -28,6 +28,24 @@ CORPORA = {
 }
 ORACLES = json.loads((Path(__file__).resolve().parent.parent / "test/fixtures/performance-oracles.json").read_text(encoding="utf-8"))
 POLICIES = json.loads((Path(__file__).resolve().parent.parent / "test/fixtures/performance-policies.json").read_text(encoding="utf-8"))
+# The frozen incumbents were produced under authored-gfm@1. Like-for-like timing keeps
+# those severities as explicit overrides; intentional preset deltas are adjudicated
+# separately and never by rewriting the frozen oracle bytes.
+INCUMBENT_SEVERITIES = json.loads((Path(__file__).resolve().parent.parent / "test/fixtures/performance-incumbent-severities.json").read_text(encoding="utf-8"))
+
+
+def translate_policy(policy):
+    """Translate declared schema-2 names into sparse schema-3 input; scope is unchanged."""
+    translated = {key: value for key, value in policy.items() if key not in ("schemaVersion", "preset", "links", "lint")}
+    links = dict(policy.get("links", {}))
+    if "localFiles" in links:
+        links["checkLocalTargets"] = links.pop("localFiles")
+    if links.get("rootRelative") == "root":
+        links["rootRelative"] = "consumer-root"
+    translated["links"] = links
+    translated["lint"] = {**INCUMBENT_SEVERITIES, **policy.get("lint", {})}
+    return translated
+
 INCUMBENTS = Path(__file__).resolve().parent.parent / "test/fixtures/performance-incumbents"
 
 
@@ -247,13 +265,22 @@ def observe_owned(node, cli, corpus, output, *configuration):
     raw = output.with_suffix(".stdout.json").read_bytes()
     result = json.loads(raw)
     report = {**resources, "elapsedMs": elapsed, "exitCode": child.returncode,
-              "outcome": result["outcome"], "selected": len(result["selection"]["files"]),
+              "outcome": outcome(result), "selected": len(result["selection"]["files"]),
               "resultSha256": digest(raw), "diagnostics": result["diagnostics"], "errors": result["errors"],
               "version": result["package"]["version"], "tools": result["tools"]}
     output.with_suffix(".resources.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8", newline="\n")
     assert child.returncode in (0, 1) and not result["errors"], report
     assert resources["activeDescendants"] == 0, report
     print(json.dumps(report))
+
+
+def outcome(result):
+    """Schema-3 incumbents state one overloaded outcome; schema 4 states it separately."""
+    if "outcome" in result:
+        return result["outcome"]
+    if result["operationStatus"] == "failed":
+        return "error"
+    return "findings" if result["diagnostics"] else "clean"
 
 
 def qualify(node, cli, corpus_parent, output):
@@ -273,7 +300,7 @@ def qualify(node, cli, corpus_parent, output):
         shutil.copytree(corpus, staged, ignore=shutil.ignore_patterns(".git", "node_modules", ".venv"))
         controls = staged / ".markdown-quality-trusted-inputs"
         controls.mkdir(exist_ok=False)
-        policy_bytes = (json.dumps(POLICIES[name], indent=2) + "\n").encode("utf-8")
+        policy_bytes = (json.dumps(translate_policy(POLICIES[name]), indent=2) + "\n").encode("utf-8")
         (controls / "policy.json").write_bytes(policy_bytes)
         observations = []
         for index in range(1, 7):
@@ -301,7 +328,7 @@ def qualify(node, cli, corpus_parent, output):
             result = json.loads((output / f"{name}-{index}.stdout.json").read_bytes())
             assert result["diagnostics"] == incumbent["diagnostics"], "Candidate findings differ from the independently reproduced incumbent oracle"
             assert result["selection"]["files"] == incumbent["selection"]["files"], "Translated fixture changes the frozen corpus scope"
-            assert result["exitCode"] == incumbent["exitCode"] and result["outcome"] == incumbent["outcome"]
+            assert result["exitCode"] == incumbent["exitCode"] and outcome(result) == incumbent["outcome"]
             assert observation["selected"] == ORACLES["corpora"][name]["selected"]
             assert len(observation["diagnostics"]) == ORACLES["corpora"][name]["diagnosticCount"]
             assert dict(Counter(d["rule"] for d in observation["diagnostics"])) == ORACLES["corpora"][name]["diagnosticsByRule"]

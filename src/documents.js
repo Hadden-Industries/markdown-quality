@@ -1,32 +1,29 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import {
-  lstatSync,
   openSync,
   closeSync,
   fstatSync,
   readSync,
   opendirSync,
   existsSync,
-  realpathSync,
 } from "node:fs";
-import {
-  join,
-  relative,
-  sep,
-  dirname,
-  delimiter,
-  isAbsolute,
-  resolve,
-} from "node:path";
-import { execFileSync } from "node:child_process";
+import { join, relative, sep, dirname } from "node:path";
 import picomatch from "picomatch";
-import { safePath } from "./configuration.js";
-import { fail, limits, exceeds, decode } from "./contracts.js";
-const blocked = new Set([".git", "node_modules", ".venv", "venv", ".hi"]);
+import { safePath } from "./consumer-root.js";
+import { fail, exceeds, decode } from "./contracts.js";
+import { defaultAnalyzerLimits } from "./analyzer-limits.js";
+import { defaultExecutionLimits } from "./resource-controls.js";
+import { bindGitExecutable, readGit } from "./host-git.js";
+import {
+  discoveryBoundaries,
+  operationalBoundary,
+} from "./operational-boundaries.js";
+export { bindGitExecutable } from "./host-git.js";
+
 /** Full repository requests reconcile tracked Markdown by default; data roots
  * without Git metadata can supply their immutable inventory explicitly.
  */
-export function defaultInventory(root, files, inventory) {
+export function defaultReconciliationInventory(root, files, inventory) {
   if (inventory !== undefined || files !== undefined) return inventory;
   let directory = root;
   while (true) {
@@ -35,33 +32,6 @@ export function defaultInventory(root, files, inventory) {
     if (parent === directory) return undefined;
     directory = parent;
   }
-}
-
-/** Resolve host Git without command search in candidate working directories. */
-export function bindGitExecutable(root, executable) {
-  const candidates =
-    executable !== undefined
-      ? [executable]
-      : (process.env.PATH ?? process.env.Path ?? "")
-          .split(delimiter)
-          .filter(Boolean)
-          .map((entry) =>
-            join(entry, process.platform === "win32" ? "git.exe" : "git"),
-          );
-  const git = candidates.find(
-    (path) =>
-      isAbsolute(path) &&
-      existsSync(path) &&
-      lstatSync(path).isFile() &&
-      !contained(resolve(root), realpathSync(path)) &&
-      (process.platform !== "win32" || path.toLowerCase().endsWith(".exe")),
-  );
-  if (!git)
-    fail(
-      "INVENTORY_FAILED",
-      "Cannot bind native host Git outside consumer inputs.",
-    );
-  return realpathSync(git);
 }
 
 function selectedPath(root, file) {
@@ -73,25 +43,49 @@ function selectedPath(root, file) {
     throw error;
   }
 }
-/** One path decision, including ancestor exclusions previously applied only by walking. */
+
+/** Canonical repository-relative spelling shared by selection and link targets. */
+export function canonicalRelativePath(path) {
+  if (
+    typeof path !== "string" ||
+    path.startsWith("/") ||
+    path.includes("\\") ||
+    path
+      .split("/")
+      .some((part) => part === ".." || part === "." || part === "") ||
+    path.includes(":") ||
+    path.includes("\0")
+  )
+    fail("UNSAFE_PATH", "Expected a canonical repository-relative path.");
+  return path;
+}
+
+/** One path decision, including ancestor exclusions previously applied only by walking.
+ * Hard operational boundaries are omissions for inventory accounting and refusals for
+ * explicit selection; ordinary exclusions remain consumer-replaceable scope.
+ */
 export function createPathDecision(config) {
   const included = picomatch(config.include, { dot: true });
   const exclusions = config.exclude.map((pattern) => ({
     pattern,
     matches: picomatch(pattern, { dot: true }),
   }));
-  return (path) => {
-    if (
-      typeof path !== "string" ||
-      path.startsWith("/") ||
-      path.includes("\\") ||
-      path
-        .split("/")
-        .some((part) => part === ".." || part === "." || part === "") ||
-      path.includes(":") ||
-      path.includes("\0")
-    )
-      fail("UNSAFE_PATH", "Expected a canonical repository-relative path.");
+  return (path, { explicit = false } = {}) => {
+    canonicalRelativePath(path);
+    const boundary = operationalBoundary(path);
+    if (boundary !== undefined) {
+      if (explicit)
+        fail(
+          "UNSAFE_SELECTION",
+          "Selected path traverses operational filesystem state: " + path,
+        );
+      return {
+        path,
+        decision: "operational-boundary",
+        pattern: null,
+        matchedPath: boundary,
+      };
+    }
     const parts = path.split("/");
     const subjects = [
       path,
@@ -110,44 +104,31 @@ export function createPathDecision(config) {
         pattern: null,
         matchedPath: null,
       };
-    if (parts.some((part) => blocked.has(part)))
-      fail(
-        "UNSAFE_SELECTION",
-        "Selected path traverses operational filesystem state: " + path,
-      );
     return { path, decision: "selected", pattern: null, matchedPath: null };
   };
 }
 
-/** Native Git inventory is bounded metadata; fsmonitor/replacements and ambient Git environment overrides are disabled. */
-export function readGitInventory(root, budgets, gitExecutable, decide) {
-  gitExecutable = bindGitExecutable(root, gitExecutable);
-  const env = Object.fromEntries(
-    ["PATH", "Path", "SystemRoot", "WINDIR", "TEMP", "TMP"]
-      .filter((key) => process.env[key])
-      .map((key) => [key, process.env[key]]),
-  );
+/** Native Git inventory is bounded metadata read through the bound host executable. */
+export function readGitInventory(
+  root,
+  budgets,
+  gitExecutablePath,
+  decide,
+  executionLimits = defaultExecutionLimits,
+) {
+  gitExecutablePath = bindGitExecutable(root, gitExecutablePath);
   let bytes;
   try {
-    bytes = execFileSync(
-      gitExecutable,
-      [
-        "--no-optional-locks",
-        "--no-replace-objects",
-        "-c",
-        "core.fsmonitor=false",
-        "-C",
-        root,
-        "ls-files",
-        "--cached",
-        "--stage",
-        "-z",
-      ],
+    bytes = readGit(
+      gitExecutablePath,
+      root,
+      ["ls-files", "--cached", "--stage", "-z"],
       {
-        env,
-        timeout: 10_000,
-        maxBuffer: budgets.selectionBytes ?? 4_194_304,
-        windowsHide: true,
+        timeoutMs: executionLimits.gitTimeoutMs,
+        maxOutputBytes:
+          executionLimits.maxGitInventoryOutputBytes === undefined
+            ? budgets.maxInventoryBytes
+            : executionLimits.maxGitInventoryOutputBytes,
       },
     );
   } catch {
@@ -160,7 +141,7 @@ export function readGitInventory(root, budgets, gitExecutable, decide) {
       fail("INVENTORY_FAILED", "Conflicted or invalid Git inventory.");
     if (match[4].endsWith(".md")) {
       paths.push(match[4]);
-      if (exceeds(paths.length, budgets.files))
+      if (exceeds(paths.length, budgets.maxPathsPerSelectionStage))
         fail(
           "SELECTION_LIMIT",
           "Tracked Markdown inventory exceeds the file bound.",
@@ -182,16 +163,20 @@ export function readGitInventory(root, budgets, gitExecutable, decide) {
 export async function selectDocuments(
   context,
   files,
-  { inventory, gitExecutable } = {},
+  { reconciliationInventory, gitExecutablePath } = {},
 ) {
   const { root, config } = context;
-  inventory = defaultInventory(root, files, inventory);
-  const budgets = config.limits ?? limits;
+  let inventory = defaultReconciliationInventory(
+    root,
+    files,
+    reconciliationInventory,
+  );
+  const budgets = config.analyzerLimits ?? defaultAnalyzerLimits;
   if (
     files !== undefined &&
     (!Array.isArray(files) ||
       files.some((p) => typeof p !== "string") ||
-      exceeds(files.length, budgets.files))
+      exceeds(files.length, budgets.maxPathsPerSelectionStage))
   )
     fail(
       "INVALID_SELECTION",
@@ -209,7 +194,7 @@ export async function selectDocuments(
   let candidateBytes = 0;
   function addCandidate(path) {
     candidateBytes += Buffer.byteLength(path);
-    if (exceeds(candidateBytes, budgets.selectionBytes))
+    if (exceeds(candidateBytes, budgets.maxInventoryBytes))
       fail("SELECTION_LIMIT", "Discovered path bytes exceed the limit.");
     candidates.push(path);
   }
@@ -217,9 +202,9 @@ export async function selectDocuments(
     const directory = opendirSync(dir);
     try {
       for (let entry; (entry = directory.readSync()) !== null;) {
-        if (exceeds(++visited, budgets.entries))
+        if (exceeds(++visited, budgets.maxEnumeratedEntries))
           fail("SELECTION_LIMIT", "Directory entry limit exceeded.");
-        if (blocked.has(entry.name)) continue;
+        if (discoveryBoundaries.has(entry.name)) continue;
         const path = join(dir, entry.name);
         if (entry.isSymbolicLink()) {
           if (entry.name.endsWith(".md")) addCandidate(path);
@@ -238,12 +223,18 @@ export async function selectDocuments(
   if (files === undefined) walk(root);
   else
     for (const file of files) {
-      decide(file);
+      decide(file, { explicit: true });
       addCandidate(join(root, file));
     }
   const tracked =
     inventory === "git"
-      ? readGitInventory(root, budgets, gitExecutable, decide)
+      ? readGitInventory(
+          root,
+          budgets,
+          gitExecutablePath,
+          decide,
+          context.resources?.executionLimits,
+        )
       : inventory;
   if (
     tracked !== undefined &&
@@ -251,7 +242,7 @@ export async function selectDocuments(
       !Array.isArray(tracked) ||
       tracked.some((p) => typeof p !== "string") ||
       new Set(tracked).size !== tracked.length ||
-      exceeds(tracked.length, budgets.files))
+      exceeds(tracked.length, budgets.maxPathsPerSelectionStage))
   )
     fail(
       "INVALID_INVENTORY",
@@ -259,38 +250,57 @@ export async function selectDocuments(
     );
   const accounting = (tracked ?? []).map((path) => decide(path));
   for (const item of accounting) {
+    if (item.decision === "operational-boundary") continue;
     if (item.decision === "selected") selectedPath(root, item.path);
     addCandidate(join(root, item.path));
   }
   const selected = [],
-    exclusions = [];
+    omissions = [];
   for (const path of [...new Set(candidates)].sort()) {
     const rel = relative(root, path).split(sep).join("/");
-    const decision = decide(rel);
+    const decision = decide(rel, { explicit: files !== undefined });
     if (decision.decision !== "selected") {
       const { decision: reason, ...details } = decision;
-      exclusions.push({ ...details, reason });
+      omissions.push({ ...details, reason });
     } else {
       selectedPath(root, rel);
       selected.push(rel);
     }
   }
-  if (exceeds(selected.length, budgets.files))
+  for (const item of accounting)
+    if (item.decision === "operational-boundary") {
+      const { decision: reason, ...details } = item;
+      omissions.push({ ...details, reason });
+    }
+  omissions.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  if (exceeds(selected.length, budgets.maxPathsPerSelectionStage))
     fail("SELECTION_LIMIT", "Document count limit exceeded.");
   return {
     files: selected,
-    exclusions,
+    omissions,
     mode: files === undefined ? "full" : "explicit",
-    inventory: accounting,
+    reconciliationDecisions: accounting,
+    readDependencies: [],
   };
 }
-export function readDocument(root, file, budgets = limits) {
+
+export function readDocument(root, file, budgets = defaultAnalyzerLimits) {
   const path = selectedPath(root, file);
+  if (
+    operationalBoundary(relative(root, path).split(sep).join("/")) !== undefined
+  )
+    fail(
+      "UNSAFE_SELECTION",
+      "Documents cannot be read through operational filesystem state: " + file,
+    );
   const fd = openSync(path, "r");
   try {
     const stat = fstatSync(fd, { bigint: true });
     if (!stat.isFile()) fail("INVALID_FILE", "Expected a regular file.");
-    if (budgets.fileBytes !== null && stat.size > BigInt(budgets.fileBytes))
+    if (
+      budgets.maxDocumentBytes !== null &&
+      stat.size > BigInt(budgets.maxDocumentBytes)
+    )
       fail("DOCUMENT_LIMIT", "Document exceeds the size limit.");
     // Read chunks through EOF even with no ceiling; never allocate the configured
     // maximum up front, and still detect growth after the initial stat.
@@ -302,7 +312,7 @@ export function readDocument(root, file, budgets = limits) {
       count = readSync(fd, buffer, 0, buffer.length, null);
       if (count === 0) break;
       size += count;
-      if (exceeds(size, budgets.fileBytes))
+      if (exceeds(size, budgets.maxDocumentBytes))
         fail("DOCUMENT_LIMIT", "Document exceeds the size limit.");
       chunks.push(buffer.subarray(0, count));
     }
@@ -318,5 +328,3 @@ export function readDocument(root, file, budgets = limits) {
     closeSync(fd);
   }
 }
-
-import { contained } from "./path-containment.js";

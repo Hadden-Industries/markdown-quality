@@ -6,7 +6,6 @@ import {
   realpathSync,
   existsSync,
   mkdirSync,
-  readFileSync,
   writeFileSync,
   openSync,
   readSync,
@@ -15,12 +14,14 @@ import {
   fstatSync,
 } from "node:fs";
 import { resolve, dirname, join, relative } from "node:path";
-import { safePath, loadConfiguration } from "./configuration.js";
+import { safePath } from "./consumer-root.js";
+import { loadConfiguration } from "./configuration.js";
 import { readExecutionProfile } from "./execution-profile.js";
-import { digest, fail } from "./contracts.js";
-
-const reserved = ".markdown-quality-trusted-inputs";
-const operational = new Set([".git", "node_modules", ".venv", "venv", ".hi"]);
+import { canonicalJson, digest, exceeds, fail } from "./contracts.js";
+import {
+  operationalDirectories as operational,
+  trustedStagingDirectory as reserved,
+} from "./operational-boundaries.js";
 const slash = (name) => name.replaceAll("\\", "/");
 import { fingerprint } from "./stat-fingerprint.js";
 import { statRegularFile } from "./regular-file.js";
@@ -31,7 +32,7 @@ function tree(root, profile, strip = false) {
     entries = 0;
   function visit(directory) {
     for (const name of readdirSync(directory).sort()) {
-      if (++entries > profile.stagingEntries)
+      if (exceeds(++entries, profile.maxStagedEntries))
         fail("STAGING_LIMIT", "Candidate exceeds the staged entry bound.");
       const path = join(directory, name),
         stat = lstatSync(path),
@@ -66,7 +67,7 @@ function tree(root, profile, strip = false) {
           fail("UNSAFE_STAGING", "Candidate file changed during admission.");
         }
         bytes += observed.size;
-        if (bytes > profile.stagingBytes)
+        if (exceeds(bytes, profile.maxStagedDataBytes))
           fail("STAGING_LIMIT", "Candidate exceeds the staged byte bound.");
         records.push({
           path: logical,
@@ -152,21 +153,24 @@ function stagedIdentity(root, profile, includeManifest) {
   };
 }
 
-/** Stage candidate data under an independently read finite trusted profile/policy.
- * Preflight rejects overlap and unsafe/oversized inputs before creating output.
- * Candidate scripts, dependency graphs and candidate policy are never executed.
+/** Stage candidate data under an independently read trusted profile and policy.
+ * Trusted absence of a configuration resolves package defaults in the trusted checkout,
+ * never in the candidate; the effective result is materialized as an owned snapshot
+ * whose source origin is bound separately from the snapshot bytes. Preflight rejects
+ * overlap and unsafe/oversized inputs before creating output. Candidate scripts,
+ * dependency graphs and candidate policy are never executed.
  */
-export function stageCandidate({
-  sourceRoot,
+export function stageCandidateData({
+  candidateRoot,
   trustedRoot,
   outputRoot,
   profile: profilePath,
-  config = ".markdown-quality.json",
+  config,
 }) {
-  sourceRoot = resolve(sourceRoot);
+  candidateRoot = resolve(candidateRoot);
   trustedRoot = resolve(trustedRoot);
   outputRoot = resolve(outputRoot);
-  for (const root of [sourceRoot, trustedRoot])
+  for (const root of [candidateRoot, trustedRoot])
     if (
       realpathSync(root) !== root ||
       !lstatSync(root).isDirectory() ||
@@ -177,10 +181,10 @@ export function stageCandidate({
         "Inputs require real directories without linked parents.",
       );
   if (
-    contained(sourceRoot, trustedRoot) ||
-    contained(trustedRoot, sourceRoot) ||
-    contained(sourceRoot, outputRoot) ||
-    contained(outputRoot, sourceRoot) ||
+    contained(candidateRoot, trustedRoot) ||
+    contained(trustedRoot, candidateRoot) ||
+    contained(candidateRoot, outputRoot) ||
+    contained(outputRoot, candidateRoot) ||
     contained(trustedRoot, outputRoot) ||
     contained(outputRoot, trustedRoot) ||
     existsSync(outputRoot)
@@ -195,16 +199,39 @@ export function stageCandidate({
   const profile = readExecutionProfile({
     root: trustedRoot,
     profile: profilePath,
+    purpose: "qualification",
   });
-  const policyPath = safePath(trustedRoot, config, { file: true });
-  if (lstatSync(policyPath).size > profile.limits.configBytes)
-    fail("CONFIG_LIMIT", "Trusted policy exceeds its admission bound.");
-  const policy = readFileSync(policyPath);
-  loadConfiguration({ root: trustedRoot, config, limits: profile.limits });
-  const inventory = tree(sourceRoot, profile, true);
+  // The trusted profile owns analyzer resources; candidate data has no authority.
+  const trusted = loadConfiguration(
+    { root: trustedRoot, config },
+    {
+      profileSnapshot: {
+        origin: {
+          kind: "file",
+          path: profile.profilePath,
+          bytesSha256: profile.profileSha256,
+        },
+        value: profile.sparseProfile,
+        observation: null,
+      },
+    },
+  );
+  const { kind, path } = trusted.provenance.configurationOrigin;
+  const configurationSource = {
+    kind,
+    path,
+    bytesSha256: trusted.provenance.configurationBytesSha256,
+  };
+  const snapshot = Buffer.from(canonicalJson(trusted.config) + "\n");
+  if (exceeds(snapshot.length, profile.analyzerLimits.maxConfigurationBytes))
+    fail(
+      "CONFIG_LIMIT",
+      "Trusted policy snapshot exceeds its admission bound.",
+    );
+  const inventory = tree(candidateRoot, profile, true);
   if (
-    inventory.bytes + policy.length > profile.stagingBytes ||
-    inventory.entries + 2 > profile.stagingEntries
+    exceeds(inventory.bytes + snapshot.length, profile.maxStagedDataBytes) ||
+    exceeds(inventory.entries + 2, profile.maxStagedEntries)
   )
     fail(
       "STAGING_LIMIT",
@@ -218,7 +245,7 @@ export function stageCandidate({
       mkdirSync(destination);
       continue;
     }
-    const source = safePath(sourceRoot, record.path, { file: true }),
+    const source = safePath(candidateRoot, record.path, { file: true }),
       input = openSync(source, "r"),
       output = openSync(destination, "wx");
     try {
@@ -246,13 +273,15 @@ export function stageCandidate({
   }
   mkdirSync(join(outputRoot, reserved));
   const configPath = reserved + "/policy.json";
-  writeFileSync(join(outputRoot, configPath), policy, { flag: "wx" });
+  writeFileSync(join(outputRoot, configPath), snapshot, { flag: "wx" });
   return {
     configPath,
+    configurationSource,
     profile,
-    policySha256: digest(policy),
-    entries: inventory.entries,
-    dataBytes: inventory.bytes,
+    trustedConfigurationSnapshotSha256: digest(snapshot),
+    // Pre-overlay candidate population; the staged identity below includes the overlay.
+    candidateEntryCount: inventory.entries,
+    candidateFileBytes: inventory.bytes,
     stagedDataSha256: stagedDataDigest(outputRoot, profile),
   };
 }

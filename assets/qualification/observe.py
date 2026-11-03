@@ -130,6 +130,11 @@ def windows_job():
     return observe, abort
 
 
+def exceeds(value, ceiling):
+    """Null is an explicit disabled ceiling, never a default."""
+    return ceiling is not None and value > ceiling
+
+
 def run():
     node, script, request_path, output = sys.argv[1:]
     output = Path(output)
@@ -146,7 +151,7 @@ def run():
         raise InterruptedError("Qualification observer interrupted")
     signal.signal(signal.SIGTERM, interrupted)
     try:
-        for index in range(1, profile["samples"] + 1):
+        for index in range(1, profile["requiredConsecutiveSamples"] + 1):
             sample = output / f"sample-{index}"
             sample.mkdir()
             receipt_path = sample / "receipt.json"
@@ -154,13 +159,14 @@ def run():
             started = time.monotonic()
             env = {name: os.environ[name] for name in ("SystemRoot", "SYSTEMROOT", "WINDIR", "TEMP", "TMP") if name in os.environ}
             with (sample / "stdout.txt").open("wb") as stdout, (sample / "stderr.txt").open("wb") as stderr:
-                child = subprocess.Popen([node, "--max-old-space-size=" + str(profile["nodeOldSpaceMb"]), script, request_path, str(sample / "data"), str(receipt_path)], env=env, stdout=stdout, stderr=stderr, start_new_session=not windows)
+                heap = [] if profile["maxNodeOldGenerationMiB"] is None else ["--max-old-space-size=" + str(profile["maxNodeOldGenerationMiB"])]
+                child = subprocess.Popen([node, *heap, script, request_path, str(sample / "data"), str(receipt_path)], env=env, stdout=stdout, stderr=stderr, start_new_session=not windows)
                 while child.poll() is None:
                     peak = max(peak, observe()[0] if windows else linux_rss(child.pid))
                     polls += 1
-                    if time.monotonic() - started > profile["windowMs"] / 1000 or peak > profile["memoryBytes"]:
+                    if (profile["sampleTimeoutMs"] is not None and time.monotonic() - started > profile["sampleTimeoutMs"] / 1000) or exceeds(peak, profile["maxObservedMemoryBytes"]):
                         raise RuntimeError("Observation deadline or memory budget exceeded")
-                    if any((sample / name).stat().st_size > profile["reportBytes"] for name in ("stdout.txt", "stderr.txt")):
+                    if any(exceeds((sample / name).stat().st_size, profile["maxOutputBytes"]) for name in ("stdout.txt", "stderr.txt")):
                         raise RuntimeError("Observation output bound exceeded")
                     time.sleep(0.05)
             elapsed = round((time.monotonic() - started) * 1000)
@@ -173,15 +179,15 @@ def run():
                     raise RuntimeError("No valid process-group memory observation")
             if active:
                 raise RuntimeError("Descendants did not quiesce")
-            if receipt_path.stat().st_size > profile["reportBytes"]:
+            if exceeds(receipt_path.stat().st_size, profile["maxOutputBytes"]):
                 raise RuntimeError("Receipt exceeds report bound")
             receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
             identity = {key: value for key, value in receipt.items() if key != "checkerElapsedMs"}
             if identities is not None and identities != identity:
                 raise RuntimeError("Frozen inputs or checker result changed")
             identities = identity
-            samples.append({"index": index, "receiptSha256": hashlib.sha256(receipt_path.read_bytes()).hexdigest(), "receiptPath": f"sample-{index}/receipt.json", "checkerElapsedMs": receipt["checkerElapsedMs"], "outerElapsedMsIncludingStaging": elapsed, "peakObservedBytes": peak, "exitCode": child.returncode, "activeDescendants": active, "samplePolls": polls})
-            if child.returncode != 0 or receipt["result"]["exitCode"] != 0 or receipt["result"]["errors"] or receipt["result"]["written"] or receipt["checkerElapsedMs"] > profile["checkerMs"] or elapsed > profile["windowMs"] or peak > profile["memoryBytes"]:
+            samples.append({"index": index, "receiptSha256": hashlib.sha256(receipt_path.read_bytes()).hexdigest(), "receiptPath": f"sample-{index}/receipt.json", "checkerElapsedMs": receipt["checkerElapsedMs"], "outerElapsedMsIncludingStaging": elapsed, "peakObservedMemoryBytes": peak, "exitCode": child.returncode, "activeDescendants": active, "observationPollCount": polls})
+            if child.returncode != 0 or receipt["result"]["exitCode"] != 0 or receipt["result"]["errors"] or receipt["result"]["writtenPaths"] or receipt["result"]["operation"] != "check" or exceeds(receipt["checkerElapsedMs"], profile["executionTimeoutMs"]) or exceeds(elapsed, profile["sampleTimeoutMs"]) or exceeds(peak, profile["maxObservedMemoryBytes"]):
                 raise RuntimeError("Checker admission, latency or memory budget failed")
     except BaseException as error:
         failure = f"{type(error).__name__}: {error}"
@@ -193,26 +199,26 @@ def run():
                 needs_abort, cleanup = True, "unknown-job-state"
         elif child is not None:
             try:
-                cleanup_deadline = time.monotonic() + 5
+                cleanup_deadline = None if profile["cleanupTimeoutMs"] is None else time.monotonic() + profile["cleanupTimeoutMs"] / 1000
                 if child.poll() is None or linux_members(child.pid):
                     try:
                         os.killpg(child.pid, signal.SIGKILL)
                     except ProcessLookupError:
                         # The last descendant can exit between observation and signaling.
                         pass
-                child.wait(timeout=max(0, cleanup_deadline - time.monotonic()))
+                child.wait(timeout=None if cleanup_deadline is None else max(0, cleanup_deadline - time.monotonic()))
                 # Waiting for the parent does not wait for its orphaned descendants.
                 while linux_members(child.pid):
-                    remaining = cleanup_deadline - time.monotonic()
+                    remaining = 0.05 if cleanup_deadline is None else cleanup_deadline - time.monotonic()
                     if remaining <= 0:
                         break
                     time.sleep(min(0.05, remaining))
                 cleanup = "quiescent" if not linux_members(child.pid) else "not-quiescent"
             except (OSError, subprocess.TimeoutExpired):
                 cleanup = "unknown-group-state"
-    report = {"schemaVersion": 1, "passed": failure is None, "failure": failure, "failureCleanup": cleanup, "requiredConsecutiveSamples": profile["samples"], "profileSha256": profile["profileSha256"], "enforcedProfile": profile, "samples": samples, "observedNearestRankP95Ms": max((sample["checkerElapsedMs"] for sample in samples), default=None) if len(samples) == profile["samples"] else None, "memoryMetric": "Windows Job peak committed bytes including Python; cumulative across the window" if windows else "Sampled sum of dedicated process-group smaps_rollup RSS; excludes Python and counts shared pages per process", "observerSha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), "python": sys.version, "limitations": "Observed sample window, not statistical tail assurance. Linux scans every 50ms plus overhead; short-lived peaks can be missed. Trusted checker descendants must remain in the owned Job/group. Hosted check/job identity and owner acceptance are separate."}
+    report = {"schemaVersion": 2, "passed": failure is None, "failure": failure, "failureCleanup": cleanup, "requiredConsecutiveSamples": profile["requiredConsecutiveSamples"], "profileSha256": profile["profileSha256"], "enforcedProfile": profile, "samples": samples, "maxObservedCheckDurationMs": max((sample["checkerElapsedMs"] for sample in samples), default=None) if len(samples) == profile["requiredConsecutiveSamples"] else None, "resourceLimitMode": profile["resourceLimitMode"], "memoryMetric": "Windows Job peak committed bytes including Python; cumulative across the window" if windows else "Sampled sum of dedicated process-group smaps_rollup RSS; excludes Python and counts shared pages per process", "observerSha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), "pythonVersionDetails": sys.version, "limitations": "Observed sample window, not statistical tail assurance. Linux scans every 50ms plus overhead; short-lived peaks can be missed. Trusted checker descendants must remain in the owned Job/group. Hosted check/job identity and owner acceptance are separate."}
     encoded = (json.dumps(report, indent=2) + "\n").encode("utf-8")
-    if len(encoded) > profile["reportBytes"]:
+    if exceeds(len(encoded), profile["maxOutputBytes"]):
         # Complete per-sample receipts remain retained; never emit an oversized
         # successful window. A tiny rejected profile can prevent any receipt.
         raise RuntimeError("Observation window exceeds report bound")

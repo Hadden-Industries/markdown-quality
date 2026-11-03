@@ -152,9 +152,9 @@ test("independent list and continuation rechecks preserve real findings and line
 
 test("both prose callers suppress an admitted literal-only native finding", () => {
   const code = `
-    import {mock} from 'node:test'; import assert from 'node:assert/strict';
+    import {mock} from 'node:test'; import assert from 'node:assert/strict'; import * as cp from 'node:child_process';
     const option=${JSON.stringify(moduleMockExportOption)};
-    mock.module('node:child_process',{[option]:{spawnSync:()=>({status:1,stdout:Buffer.from(JSON.stringify([{would_reformat:true,diagnostics:[{kind:'fused',line:2,excerpt:'Alpha. Beta.'}]}]))})}});
+    mock.module('node:child_process',{[option]:{execFileSync:cp.execFileSync,spawnSync:()=>({status:1,stdout:Buffer.from(JSON.stringify([{would_reformat:true,diagnostics:[{kind:'fused',line:2,excerpt:'Alpha. Beta.'}]}]))})}});
     const {checkProse,checkProseGroup}=await import('./src/prose-diagnostics.js');
     const text='\x60\x60\x60js\\nAlpha. Beta.\\n\x60\x60\x60\\n';
     assert.deepEqual(checkProse({executable:'unused'},text),[]);
@@ -177,7 +177,7 @@ test("native grouping, report bounds and prose retention enforce independent byt
     import {mock} from 'node:test'; import assert from 'node:assert/strict'; import * as cp from 'node:child_process';
     const original=cp.spawnSync; let groups=[];
     const option=${JSON.stringify(moduleMockExportOption)};
-    mock.module('node:child_process',{[option]:{spawnSync:(exe,args,options)=>{
+    mock.module('node:child_process',{[option]:{execFileSync:cp.execFileSync,spawnSync:(exe,args,options)=>{
       if(!args.includes('--check'))return original(exe,args,options);
       groups.push(args.filter(arg=>/input-[0-9]+\\.md$/.test(arg)).length);
       return {status:0,stdout:Buffer.from('[]')};
@@ -185,7 +185,7 @@ test("native grouping, report bounds and prose retention enforce independent byt
     const {createTestNativeStaging}=await import('./test/native-staging-helpers.js');
     const {runNativeChecks}=await import('./src/native-checks.js');
     const {checkProseGroup}=await import('./src/prose-diagnostics.js');
-    const {limits}=await import('./src/contracts.js');
+    const {defaultAnalyzerLimits:limits}=await import('./src/analyzer-limits.js');
     const staging=createTestNativeStaging(process.cwd()); assert.ok(staging);
     try {
       for(const [count,expected] of [[31,[31]],[32,[32]],[33,[32,1]]]) {
@@ -194,7 +194,7 @@ test("native grouping, report bounds and prose retention enforce independent byt
       }
       groups=[]; runNativeChecks({executable:'unused'},Array(3).fill('x'.repeat(1500000)+'\\n'),staging.token);
       assert.deepEqual(groups,[2,1],'native input bytes split below the count capacity');
-      groups=[]; runNativeChecks({executable:'unused'},Array(3).fill('Stable.\\n'),staging.token,null,{...limits,nativeOutputBytes:10000});
+      groups=[]; runNativeChecks({executable:'unused'},Array(3).fill('Stable.\\n'),staging.token,null,{...limits,maxNativeOutputBytes:10000});
       assert.deepEqual(groups,[1,1,1],'independent report-byte upper bound splits the group');
       const text='> 1. '+'x'.repeat(1500000)+'.\\n';
       const admitted=Array.from({length:3},()=>({wouldReformat:true,diagnostics:[{rule:'fused',line:1}]}));

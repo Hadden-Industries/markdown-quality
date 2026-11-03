@@ -6,14 +6,16 @@ The latest producer commit can be adopted after its exact transported tuple is q
 
 ## Current source compatibility
 
-| Contract      | Version |
-| ------------- | ------- |
-| Configuration | 2       |
-| Result        | 3       |
-| Execution     | 1       |
+| Contract                | Version |
+| ----------------------- | ------- |
+| Configuration           | 3       |
+| Effective configuration | 3       |
+| Result                  | 4       |
+| Execution               | 2       |
+| Comparison              | 3       |
 
-Current configuration admission rejects schema 1.
-Analyzer limits permit `false` to remove ceilings and `null` to bypass an individual ceiling; trusted execution limits require finite positive safe integers.
+Current configuration admission rejects schemas 1 and 2 with migration guidance; omitted markers select the installed contract.
+Analyzer limits permit `false` to remove ceilings and `null` to bypass an individual ceiling; every execution-profile ceiling also accepts `null`, and `resourceLimitMode: "unlimited"` removes every package ceiling.
 Each shipped schema compiles independently without a sibling schema registry.
 Historical release evidence retains the versions and behavior actually shipped by that release.
 

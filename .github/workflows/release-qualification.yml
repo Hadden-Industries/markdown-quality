@@ -63,7 +63,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-producer
-      - run: npm run check:security
+      - run: npm run check:dependency-audit
   security:
     needs:
       - product

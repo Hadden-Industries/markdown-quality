@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { spawn, execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { join, resolve } from "node:path";
-import { resolveConsumerRoot } from "./configuration.js";
-import { fail, OperationError, decode } from "./contracts.js";
+import { join } from "node:path";
+import { discoverConsumerRoot } from "./consumer-root.js";
+import { fail, OperationError, decode, exceeds } from "./contracts.js";
 import { validateQualityResult } from "./result-validation.js";
-import { defaultInventory, bindGitExecutable } from "./documents.js";
+import { defaultReconciliationInventory } from "./documents.js";
+import { bindGitExecutable } from "./host-git.js";
+import { admitOperationOptions } from "./operation.js";
+import { loadExecutionProfile, profileLayer } from "./execution-profile.js";
+import {
+  bootstrapCeiling,
+  executionLimitKeys,
+  resolveResourcePolicy,
+} from "./resource-controls.js";
 
 /** Child environment deliberately excludes credentials, PATH and Node/config injection. */
 export function executionEnvironment() {
@@ -16,27 +24,32 @@ export function executionEnvironment() {
   );
 }
 
-/** Invoke the installed canonical analyzer in a fresh Node process, with bounded
- * framing, sanitized environment, cancellation and native process-tree termination.
- * OS observation/qualification remains the separately shipped observer contract.
+const removedExecutionOptions = Object.freeze({
+  checkerMs: "executionTimeoutMs",
+  reportBytes: "maxOutputBytes",
+  requestBytes: "maxRequestBytes",
+  nodeOldSpaceMb: "maxNodeOldGenerationMiB",
+});
+
+/** Closed admission for the runner's own controls: signal, process ownership and the
+ * same resource fields an execution profile accepts.
  */
-export async function executeQuality(
-  request,
-  {
-    checkerMs = 180000,
-    reportBytes = 8388608,
-    requestBytes = 8388608,
-    nodeOldSpaceMb = 256,
-    signal,
-    processGroup = "owned",
-  } = {},
-) {
-  for (const bound of [checkerMs, reportBytes, requestBytes, nodeOldSpaceMb])
-    if (!Number.isSafeInteger(bound) || bound < 1)
+function admitExecutionOptions(options) {
+  if (options === null || typeof options !== "object" || Array.isArray(options))
+    fail("INVALID_EXECUTION", "Execution options must be an object.");
+  for (const key of Object.keys(options)) {
+    if (Object.hasOwn(removedExecutionOptions, key))
       fail(
         "INVALID_EXECUTION",
-        "External execution requires finite positive bounds.",
+        `Execution option ${key} was removed; use ${removedExecutionOptions[key]}.`,
       );
+    if (
+      !["signal", "processGroup", "resourceLimitMode"].includes(key) &&
+      !executionLimitKeys.includes(key)
+    )
+      fail("INVALID_EXECUTION", "Unknown execution option: " + key);
+  }
+  const { signal, processGroup = "owned" } = options;
   if (
     !["owned", "inherit"].includes(processGroup) ||
     (signal !== undefined && !(signal instanceof AbortSignal))
@@ -45,53 +58,132 @@ export async function executeQuality(
       "INVALID_EXECUTION",
       "Execution requires a supported containment mode and AbortSignal.",
     );
-  if (signal?.aborted)
-    fail("CANCELLED", "Operation was cancelled before launch.");
+  const executionLimits = {};
+  for (const key of executionLimitKeys)
+    if (Object.hasOwn(options, key)) executionLimits[key] = options[key];
+  return {
+    signal,
+    processGroup,
+    invocation: {
+      origin: "invocation",
+      resourceLimitMode: options.resourceLimitMode,
+      executionLimits,
+    },
+  };
+}
+
+function admitRequest(request) {
   if (!request || typeof request !== "object" || Array.isArray(request))
     fail("INVALID_EXECUTION", "Execution requires a request object.");
+  for (const key of ["resourceLimitMode", "executionLimits"])
+    if (Object.hasOwn(request, key))
+      fail(
+        "INVALID_EXECUTION",
+        `Request ${key} belongs in the runner's options argument.`,
+      );
+  const { document, ...options } = request;
+  admitOperationOptions(options);
   const logical = Object.hasOwn(request, "document");
   if (
     logical &&
-    (!request.document ||
-      typeof request.document !== "object" ||
-      Array.isArray(request.document) ||
-      typeof request.document.path !== "string" ||
-      typeof request.document.contentBase64 !== "string")
+    (!document ||
+      typeof document !== "object" ||
+      Array.isArray(document) ||
+      Object.keys(document).some(
+        (key) => !["path", "requestId", "contentBase64"].includes(key),
+      ) ||
+      typeof document.path !== "string" ||
+      typeof document.contentBase64 !== "string")
   )
     fail("INVALID_DOCUMENT", "Invalid logical document framing.");
-  if (!logical && request.mode === "format")
+  if (
+    !logical &&
+    (request.mode === "format" ||
+      (request.mode === "normalize" && request.dryRun !== true))
+  )
     fail(
       "INVALID_EXECUTION",
-      "Bounded execution is read-only; checkout formatting requires runQuality.",
+      "The request runner never writes checkouts; physical repairs require runQuality.",
     );
-  request = { ...request, root: resolveConsumerRoot(request.root) };
+  return logical;
+}
+
+/** Invoke the installed canonical analyzer in a fresh Node process, with resolved
+ * framing, deadline and output ceilings, a sanitized environment, cancellation and
+ * native process-tree termination. Physical-write restrictions do not imply a sandbox.
+ * OS observation/qualification remains the separately shipped observer contract.
+ */
+export function executeQualityRequest(request, options = {}) {
+  return runQualityRequest(request, options);
+}
+
+/** Trusted package callers may bind a profile and configuration snapshot. */
+export async function runQualityRequest(request, options = {}, internal = {}) {
+  const { signal, processGroup, invocation } = admitExecutionOptions(options);
+  if (signal?.aborted)
+    fail("CANCELLED", "Operation was cancelled before launch.");
+  const logical = admitRequest(request);
+  invocation.analyzerLimits = request.analyzerLimits;
+  // Bind the consumer root and host Git before the child loses its environment.
+  const { root } = discoverConsumerRoot(request.root, {
+    gitExecutablePath: request.gitExecutablePath,
+    gitTimeoutMs: bootstrapCeiling("gitTimeoutMs", [invocation]),
+  });
+  const profileSnapshot =
+    internal.profileSnapshot ??
+    loadExecutionProfile({
+      root,
+      profile: request.executionProfile,
+      invocation,
+    });
+  const limits = resolveResourcePolicy([
+    profileLayer(profileSnapshot.value),
+    invocation,
+  ]).executionLimits;
+  let admitted = { ...request, root };
+  delete admitted.executionProfile;
   if (!logical)
-    request = {
-      ...request,
-      inventory: defaultInventory(
-        resolve(request.root ?? process.cwd()),
-        request.files,
-        request.inventory,
-      ),
-    };
-  if (request.inventory === "git") {
-    // Bind native host Git before removing PATH. Candidate data cannot supply
-    // the executable, and the checker never inherits a command-search graph.
-    request = {
-      ...request,
-      gitExecutable: bindGitExecutable(request.root, request.gitExecutable),
-    };
-  }
-  const input = Buffer.from(JSON.stringify(request));
-  if (input.length > requestBytes)
+    admitted.reconciliationInventory = defaultReconciliationInventory(
+      root,
+      request.files,
+      request.reconciliationInventory,
+    );
+  if (admitted.reconciliationInventory === "git")
+    // Candidate data cannot supply the executable, and the checker never
+    // inherits a command-search graph.
+    admitted.gitExecutablePath = bindGitExecutable(
+      root,
+      request.gitExecutablePath,
+    );
+  const frame = {
+    request: admitted,
+    internal: {
+      profileSnapshot: {
+        origin: profileSnapshot.origin,
+        value: profileSnapshot.value,
+        observation: profileSnapshot.observation,
+      },
+      profileOrigin: internal.profileOrigin,
+      configurationSource: internal.configurationSource,
+      invocation: {
+        resourceLimitMode: invocation.resourceLimitMode,
+        executionLimits: invocation.executionLimits,
+      },
+    },
+  };
+  const input = Buffer.from(JSON.stringify(frame));
+  if (exceeds(input.length, limits.maxRequestBytes))
     fail("REQUEST_LIMIT", "Request exceeds the input framing bound.");
   return new Promise((resolve, reject) => {
     const child = spawn(
       process.execPath,
       [
-        "--max-old-space-size=" + nodeOldSpaceMb,
+        // Null omits the package flag and delegates to the runtime's own limit.
+        ...(limits.maxNodeOldGenerationMiB === null
+          ? []
+          : ["--max-old-space-size=" + limits.maxNodeOldGenerationMiB]),
         fileURLToPath(new URL("./execution-worker.js", import.meta.url)),
-        String(requestBytes),
+        String(limits.maxRequestBytes),
       ],
       {
         env: executionEnvironment(),
@@ -118,7 +210,11 @@ export async function executeQuality(
               "taskkill.exe",
             ),
             ["/PID", String(child.pid), "/T", "/F"],
-            { windowsHide: true, env: executionEnvironment(), timeout: 5000 },
+            {
+              windowsHide: true,
+              env: executionEnvironment(),
+              timeout: limits.cleanupTimeoutMs ?? 0,
+            },
             (error) => {
               if (error && child.exitCode === null)
                 failure = new OperationError(
@@ -144,28 +240,36 @@ export async function executeQuality(
         }
       }
     }
-    const deadline = performance.now() + checkerMs;
     let timer;
-    function expire() {
-      const remaining = deadline - performance.now();
-      if (remaining > 0) {
-        timer = setTimeout(expire, Math.min(remaining, 2_147_483_647));
-        return;
-      }
-      void stop("EXECUTION_TIMEOUT", "External checker exceeded its deadline.");
+    if (limits.executionTimeoutMs !== null) {
+      const deadline = performance.now() + limits.executionTimeoutMs;
+      const expire = () => {
+        const remaining = deadline - performance.now();
+        if (remaining > 0) {
+          timer = setTimeout(expire, Math.min(remaining, 2_147_483_647));
+          return;
+        }
+        void stop(
+          "EXECUTION_TIMEOUT",
+          "External checker exceeded its deadline.",
+        );
+      };
+      timer = setTimeout(
+        expire,
+        Math.min(limits.executionTimeoutMs, 2_147_483_647),
+      );
     }
-    timer = setTimeout(expire, Math.min(checkerMs, 2_147_483_647));
     const cancel = () => stop("CANCELLED", "Operation was cancelled.");
     signal?.addEventListener("abort", cancel, { once: true });
     child.stdout.on("data", (bytes) => {
       outputBytes += bytes.length;
-      if (outputBytes > reportBytes)
+      if (exceeds(outputBytes, limits.maxOutputBytes))
         void stop("REPORT_LIMIT", "Checker output exceeds the report bound.");
       else output.push(bytes);
     });
     child.stderr.on("data", (bytes) => {
       stderrBytes += bytes.length;
-      if (stderrBytes > reportBytes)
+      if (exceeds(stderrBytes, limits.maxOutputBytes))
         void stop(
           "REPORT_LIMIT",
           "Checker error output exceeds the report bound.",
