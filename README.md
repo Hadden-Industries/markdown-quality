@@ -24,12 +24,13 @@ The package preserves the existing AGPL-3.0-only license.
 ## Install and run
 
 ```sh
-npm install --save-dev --save-exact @hadden-industries/markdown-quality@2.0.0-rc.1
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@2.0.0
 npm exec -- markdown-quality check --root .
 ```
 
-This documentation describes 2.0.0-rc.1, the first release candidate of the 2.0 contract.
-Install it by exact version: a release candidate is never promoted to npm's `latest` tag, so an unversioned install can select an earlier 1.x release, which has different commands, configuration and results.
+This documentation describes version 2.0.0.
+Releases are first published under npm's `pilot` tag and move to `latest` only after pilot acceptance and stable promotion.
+Until then, install 2.0.0 by exact version: an unversioned install selects the `latest` 1.x release, which has different commands, configuration and results.
 The [migration guide](docs/migration-guide.md) maps 1.x usage to 2.0.
 
 A local dependency does not put a bare `markdown-quality` executable on every shell's PATH.

@@ -1,6 +1,6 @@
 # Centralized producer contracts
 
-These version 2.0.0-rc.1 contracts implement the producer portions of the centralization plan.
+These version 2.0.0 contracts implement the producer portions of the centralization plan.
 They are separate from published 1.x releases, hosted qualification, and consumer adoption acceptance.
 The latest producer commit can be adopted after its exact transported tuple is qualified; npm publication and a new release are not prerequisites.
 

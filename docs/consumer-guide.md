@@ -1,16 +1,16 @@
 # Consumer guide
 
-This guide describes zero-config consumption of version 2.0.0-rc.1: configuration schema 3, preset `authored-gfm@2` and result schema 4.
+This guide describes zero-config consumption of version 2.0.0: configuration schema 3, preset `authored-gfm@2` and result schema 4.
 Published 1.x archives are immutable and keep their previous behavior; the [migration guide](migration-guide.md) maps old names to these contracts.
 
 ## Installation
 
 ```sh
-npm install --save-dev --save-exact @hadden-industries/markdown-quality@2.0.0-rc.1
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@2.0.0
 npm exec -- markdown-quality check --root .
 ```
 
-Install the release candidate by exact version; an unversioned install can select an earlier 1.x release.
+While 2.0.0 is under npm's `pilot` tag, install it by exact version; an unversioned install selects the `latest` 1.x release.
 No configuration file is required.
 A local dependency does not put a bare `markdown-quality` executable on every shell's PATH; use [npm exec](https://docs.npmjs.com/cli/v11/commands/npm-exec/) or an npm script.
 Keep the consumer lockfile, and disable lifecycle scripts with `--ignore-scripts` where your acquisition policy requires it.

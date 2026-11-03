@@ -8,7 +8,7 @@
   "exceptions": [
     {
       "paths": [
-        "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-2.0.0-rc.1.tgz!/package/cargo-notices.json"
+        "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-2.0.0.tgz!/package/cargo-notices.json"
       ],
       "owner": "Original crate attribution owners",
       "reason": "The actual packed copy must retain the same independently pinned original author strings as the admitted native source.",
