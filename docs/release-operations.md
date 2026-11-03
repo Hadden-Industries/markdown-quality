@@ -5,8 +5,8 @@ Releases use the manual workflows below.
 A push, tag, successful ordinary CI run, or staging result does not publish a stable release.
 The [accepted plan](plans/2026-10-16-release-publishing-assurance-implementation-plan.md) and [research record](research/2026-10-16-release-publishing-assurance-evidence.md) retain the decisions, authoritative sources and historical baseline.
 
-No next version is selected by this implementation.
-The opinionated-defaults change requires the SemVer decision described in [support and release](support-and-release.md).
+The owner selected 2.0.0 for the opinionated-defaults major release described in [support and release](support-and-release.md).
+It follows the same qualification, `pilot` staging, archival and stable promotion sequence below; a defect found during piloting requires a new version rather than reuse of 2.0.0.
 Changed bytes cannot reuse the published 1.0.3 identity.
 
 ## Manual workflow sequence

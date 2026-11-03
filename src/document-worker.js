@@ -2,9 +2,10 @@
 import { parentPort, workerData } from "node:worker_threads";
 import { prepareFormattedDocument } from "./formatting.js";
 import { createLinter, lintDocument, checkLinks } from "./analysis.js";
+import { createSpellingObserver } from "./local-links.js";
 import { diagnosticBudget, OperationError } from "./contracts.js";
 import { checkTrailingWhitespace } from "./whitespace.js";
-import { checkAdvisories } from "./advisory-diagnostics.js";
+import { checkQualityRules } from "./quality-diagnostics.js";
 import { createDocumentMemo } from "./document-memo.js";
 import {
   checkProseGroup,
@@ -18,6 +19,11 @@ import {
 } from "./native-checks.js";
 const { context, tool } = workerData;
 const linter = createLinter(context);
+// Directory-entry observations are reused for this invocation's documents only.
+const spelling = createSpellingObserver(
+  context.root,
+  context.config.analyzerLimits,
+);
 function reported(error) {
   return {
     code: error instanceof OperationError ? error.code : "ANALYSIS_FAILURE",
@@ -31,11 +37,13 @@ function budgetObserver(elapsed) {
   return {
     start(indices) {
       const remainingMs =
-        context.config.limits.analysisMs === null
+        context.config.analyzerLimits.documentAnalysisTimeoutMs === null
           ? null
           : Math.min(
               ...indices.map(
-                (index) => context.config.limits.analysisMs - elapsed[index],
+                (index) =>
+                  context.config.analyzerLimits.documentAnalysisTimeoutMs -
+                  elapsed[index],
               ),
             );
       if (remainingMs !== null && remainingMs <= 0)
@@ -64,7 +72,11 @@ parentPort.on(
         const eligible = documents
           .map((text, index) => ({ text, index }))
           .filter(({ text }) =>
-            nativeFileCheckEligible(text, staging, context.config.limits),
+            nativeFileCheckEligible(
+              text,
+              staging,
+              context.config.analyzerLimits,
+            ),
           );
         const reports = runNativeChecks(
           tool,
@@ -81,7 +93,7 @@ parentPort.on(
               );
             },
           },
-          context.config.limits,
+          context.config.analyzerLimits,
         );
         const workerMs = performance.now() - started;
         observer.finish(
@@ -126,13 +138,16 @@ parentPort.on(
               : undefined,
           ),
           context.config.syntax,
-          context.config.limits,
+          context.config.analyzerLimits,
           documents.map((document) => document.literalExclusions),
         );
         parentPort.postMessage({ diagnostics });
         return;
       }
-      memo = createDocumentMemo(context.config.syntax);
+      memo = createDocumentMemo(
+        context.config.syntax,
+        context.resources?.executionLimits,
+      );
       const formatted = await prepareFormattedDocument(
         text,
         context,
@@ -141,7 +156,10 @@ parentPort.on(
         precheck,
       );
       const proposed = mode === "format" ? formatted.output : text;
-      const canonical = mode === "format" || formatted.output === text;
+      // Normalization admission evaluates structural rules on its actual candidate
+      // even when it is not canonically formatted.
+      const canonical =
+        mode === "format" || mode === "normalize" || formatted.output === text;
       const literalExclusions = captureLiteralExclusions(
         formatted.output,
         context.config.syntax,
@@ -151,23 +169,25 @@ parentPort.on(
         const whitespace = checkTrailingWhitespace(
           proposed,
           memo,
-          context.config.limits,
+          context.config.analyzerLimits,
         );
+        const links = checkLinks(context, proposed, file, memo, spelling);
         const diagnostics = [
           ...whitespace,
           ...(canonical
             ? await lintDocument(linter, proposed, file, context.config)
             : []),
-          ...checkLinks(context, proposed, file, memo),
-          ...checkAdvisories(proposed, context.config, memo),
+          ...links.diagnostics,
+          ...checkQualityRules(proposed, context.config, memo),
         ];
-        diagnosticBudget(diagnostics, context.config.limits);
+        diagnosticBudget(diagnostics, context.config.analyzerLimits);
         parentPort.postMessage({
           output: formatted.output,
           diagnostics,
           whitespaceCount: whitespace.length,
           prechecked: formatted.prechecked,
           literalExclusions,
+          links: { anchors: links.anchors, references: links.references },
         });
       } catch (error) {
         // Preserve prose-before-lint failure order; no provisional result is admitted.

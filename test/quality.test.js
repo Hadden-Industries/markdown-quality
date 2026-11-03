@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync, linkSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { runQuality } from "../src/quality.js";
 import { consumer } from "./helpers.js";
-import { limits } from "../src/contracts.js";
+import { defaultAnalyzerLimits as limits } from "../src/analyzer-limits.js";
 test("opt-in concurrency preserves real native findings, exact formatted bytes and convergence", async (t) => {
   const files = {
     "a.md": "# Heading\n\nAlpha. Beta.\n",
@@ -35,7 +35,7 @@ test("opt-in concurrency preserves real native findings, exact formatted bytes a
     );
   assert.deepEqual(
     (await runQuality({ root: parallelRoot, mode: "format", concurrency: 2 }))
-      .written,
+      .writtenPaths,
     [],
   );
 });
@@ -52,7 +52,7 @@ test("concurrent validation still blocks all writes on a real missing local targ
   assert.ok(
     result.diagnostics.some((diagnostic) => diagnostic.path === "b.md"),
   );
-  assert.deepEqual(result.written, []);
+  assert.deepEqual(result.writtenPaths, []);
   for (const [file, bytes] of Object.entries(files))
     assert.equal(readFileSync(join(root, file), "utf8"), bytes);
 });
@@ -70,7 +70,10 @@ test("real native wrapping preserves inline-code meaning and reaches a fixed poi
   assert.equal(formatted.exitCode, 0, JSON.stringify(formatted));
   assert.equal(readFileSync(join(root, "a.md"), "utf8"), expected);
   assert.equal((await runQuality({ root })).exitCode, 0);
-  assert.deepEqual((await runQuality({ root, mode: "format" })).written, []);
+  assert.deepEqual(
+    (await runQuality({ root, mode: "format" })).writtenPaths,
+    [],
+  );
 });
 test("valid fenced examples retain whitespace-only lines and trailing literal spaces through real checks and formatting", async (t) => {
   for (const text of [
@@ -93,7 +96,10 @@ test("valid fenced examples retain whitespace-only lines and trailing literal sp
       readFileSync(join(root, "a.md"), "utf8"),
       text.replaceAll("\r\n", "\n"),
     );
-    assert.deepEqual((await runQuality({ root, mode: "format" })).written, []);
+    assert.deepEqual(
+      (await runQuality({ root, mode: "format" })).writtenPaths,
+      [],
+    );
   }
 });
 test("real native chain checks read-only, formats independently chosen bytes and converges", async (t) => {
@@ -112,7 +118,7 @@ test("real native chain checks read-only, formats independently chosen bytes and
   );
   const second = await runQuality({ root, mode: "format" });
   assert.equal(second.exitCode, 0);
-  assert.deepEqual(second.written, []);
+  assert.deepEqual(second.writtenPaths, []);
   assert.equal((await runQuality({ root })).exitCode, 0);
 });
 test("selection uses root-policy exclusions while preserving Unicode and literal brackets", async (t) => {
@@ -152,7 +158,8 @@ test("structure, fragments, labels, tables and local links use maintained analys
   assert.equal(result.exitCode, 1, JSON.stringify(result));
   for (const rule of [
     "markdown/heading-increment",
-    "markdown/no-missing-link-fragments",
+    // The package fragment rule owns same-document fragments by default.
+    "quality/unresolved-local-fragment",
     "markdown/no-missing-label-refs",
     "markdown/table-column-count",
     "local-target",
@@ -169,13 +176,13 @@ test("candidate validation blocks all writes when any local target is missing", 
   });
   const result = await runQuality({ root, mode: "format" });
   assert.equal(result.exitCode, 1);
-  assert.deepEqual(result.written, []);
+  assert.deepEqual(result.writtenPaths, []);
   assert.equal(readFileSync(join(root, "a.md"), "utf8"), "Alpha. Beta.\n");
 });
 test("links classify encoded filenames and schemes without fetching", async (t) => {
   const root = consumer(t, {
     "a.md":
-      "[File](résumé%20%5B1%5D.txt)\n\n![Image](image.png)\n\n[Remote](https://example.invalid)\n\n[Email](mailto:author@example.invalid)\n",
+      "[File](résumé%20%5B1%5D.txt)\n\n![Diagram of the layout](image.png)\n\n[Remote](https://example.invalid)\n\n[Email](mailto:author@example.invalid)\n",
     "résumé [1].txt": "literal",
     "image.png": "image",
   });
@@ -241,7 +248,7 @@ test("check detects BOM removal and agrees with subsequent formatting bytes", as
   assert.deepEqual(readFileSync(join(root, "a.md")), bytes);
   const formatted = await runQuality({ root, mode: "format" });
   assert.equal(formatted.exitCode, 0, JSON.stringify(formatted));
-  assert.deepEqual(formatted.written, ["a.md"]);
+  assert.deepEqual(formatted.writtenPaths, ["a.md"]);
   assert.equal(readFileSync(join(root, "a.md"), "utf8"), "Alpha.\n");
   assert.equal((await runQuality({ root })).exitCode, 0);
 });
@@ -257,21 +264,23 @@ test("severity-only overrides preserve the preset's allowed alert labels", async
 test("excessive local-link diagnostics fail within the output budget without writes", async (t) => {
   const text =
     Array.from(
-      { length: limits.documentDiagnostics + 1 },
+      { length: limits.maxDocumentDiagnostics + 1 },
       () => "[x](missing)",
     ).join("\n\n") + "\n";
   const root = consumer(t, { "a.md": text });
   const result = await runQuality({ root, mode: "format" });
   assert.equal(result.exitCode, 2, JSON.stringify(result).slice(0, 500));
   assert.equal(result.errors[0].code, "DIAGNOSTIC_LIMIT");
-  assert.deepEqual(result.written, []);
-  assert.ok(Buffer.byteLength(JSON.stringify(result)) < limits.diagnosticBytes);
+  assert.deepEqual(result.writtenPaths, []);
+  assert.ok(
+    Buffer.byteLength(JSON.stringify(result)) < limits.maxDiagnosticJsonBytes,
+  );
   assert.equal(readFileSync(join(root, "a.md"), "utf8"), text);
 });
 test("individually bounded documents cannot overflow the aggregate finding budget", async (t) => {
   const text =
     Array.from(
-      { length: limits.documentDiagnostics },
+      { length: limits.maxDocumentDiagnostics },
       () => "[x](missing)",
     ).join("\n\n") + "\n";
   const files = Object.fromEntries(
@@ -281,12 +290,14 @@ test("individually bounded documents cannot overflow the aggregate finding budge
   const result = await runQuality({ root });
   assert.equal(result.exitCode, 2);
   assert.equal(result.errors[0].code, "DIAGNOSTIC_LIMIT");
-  assert.equal(result.diagnostics.length, limits.diagnostics);
-  assert.ok(Buffer.byteLength(JSON.stringify(result)) < limits.diagnosticBytes);
+  assert.equal(result.diagnostics.length, limits.maxTotalDiagnostics);
+  assert.ok(
+    Buffer.byteLength(JSON.stringify(result)) < limits.maxDiagnosticJsonBytes,
+  );
 });
 test("layout findings count toward the complete document diagnostic budget", async (t) => {
   const text = Array.from(
-    { length: limits.documentDiagnostics },
+    { length: limits.maxDocumentDiagnostics },
     () => "[x](missing)",
   ).join("\n\n");
   const root = consumer(t, { "a.md": text });

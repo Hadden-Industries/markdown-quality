@@ -4,7 +4,7 @@ Latest-commit adoption does not require a new npm release.
 Qualify and freeze the full producer commit, exact transported core/native archives, installed JavaScript graph, shared assets and paired reusable workflow revision.
 Packing includes a clean/dirty source identity; trusted qualification refuses a dirty or mismatched source tuple.
 Public release, semver selection, registry qualification and `latest` promotion remain separate effects.
-The [centralized contracts guide](centralized-contracts.md) describes configuration schema 2, result schema 3 and the shared trusted qualification/profile contract.
+The [centralized contracts guide](centralized-contracts.md) describes configuration schema 3, result schema 4, execution schema 2, comparison schema 3 and the shared trusted qualification/profile contract.
 Local source tests do not establish hosted Windows/Linux qualification or downstream acceptance of a new tuple.
 
 Development source targets the consumer floor in the [canonical Node policy](https://github.com/Hadden-Industries/markdown-quality/blob/main/assets/node-support.json).
@@ -26,7 +26,7 @@ Historical candidates without a matrix retain their original two-platform read-o
 Only observed passing platform evidence can establish support.
 Use the latest security-patched release in a supported family for ordinary operation; the compatibility minimum is not a security recommendation.
 Published 1.0.3 retains its immutable `>=24.21.0 <25` engine declaration and Node 24.21.0 qualification.
-This source compatibility change does not republish 1.0.3 or authorize a new release; Node 22/26 consumer support requires qualification of the adopted source/archive tuple or a subsequent release.
+Version 2.0.0 declares `>=22.13.0`; Node 22, 24 and 26 consumer support for it requires qualification of its exact transported tuple, and declaring the range does not republish 1.0.3 or authorize publication.
 macOS, ARM, and musl are unqualified.
 Controlled Linux builds require glibc 2.39, as supplied by Ubuntu 24.04.
 Windows requires the installed x64 Microsoft Visual C++ runtime (`VCRUNTIME140.dll` and UCRT).
@@ -37,10 +37,14 @@ Consumers pin the package, preset, and lockfile.
 The public contract includes CLI, library API, schemas, exit meanings, formatter output, and default diagnostics.
 A compatible repair may use a patch version.
 An opt-in compatible feature may use a minor version.
-The owner-approved opinionated-defaults change replaces `authored-gfm@1` in place and requires a new package major because existing invocations change.
-The [current compatibility contract](centralized-contracts.md#current-source-compatibility) owns schema admission, advisory severities, strict admission and effective native policy.
-Do not republish existing archives or describe this development source as the published 1.0.3 behavior.
-Exact coordinated package version selection and publication remain release decisions.
+Version 2.0.0 is a new major release because its contracts are breaking: existing configurations, API names, flags and default verdicts change.
+It requires no configuration file (zero-config), replaces `authored-gfm@1` with the stricter `authored-gfm@2` defaults, rejects configuration schemas 1 and 2 with migration guidance, and adds the `normalize` command for NFC repair.
+Explicitly named files are checked whatever their extension, `include` patterns can opt in other extensions, and MDX is refused.
+It adds `parse5` 8.1.0 (MIT) and `github-slugger` 2.0.0 (ISC) as direct runtime dependencies.
+Published 1.0.3 remains unchanged; its schemas, preset and behavior are history, not the 2.0 contract.
+The [contract versions](centralized-contracts.md#contract-versions) section owns schema admission, resource ceilings and the result, execution and comparison versions.
+Do not republish existing archives or describe 2.0 behavior as the published 1.0.3 behavior.
+Publication remains a release decision: 2.0.0 is staged under `pilot` and reaches `latest` only through the stable promotion gates.
 Dependency upgrades are classified from observed corpus and consumer deltas.
 Never overwrite a published version.
 After npm accepts publication, allow up to five minutes for anonymous version metadata and both installer metadata representations to expose the exact approved integrity.
@@ -77,8 +81,9 @@ An upstream Cargo lock is a superset of features and development inputs and does
 The original upstream license and per-asset repack identity are retained.
 
 The owner selected public distribution after npm rejected the private publication with E402.
-All three packages declare public access and share the source candidate version 1.0.3.
-The tuple retains alpha.4's qualified native executable/source/notice bytes and adds bounded request-local reuse, native checking batches and exact-input check-first formatting while retaining independent prose checks and preservation/convergence checks.
+All three packages declare public access and share version 2.0.0.
+Its native packages carry the `snapper-0.11.9-build.2` executables from native run `38742809829`: the Linux executable is byte-identical to its reconciled predecessor and the Windows rebuild keeps the same system DLL imports.
+The published 1.0.3 tuple retained alpha.4's qualified native executable/source/notice bytes and added bounded request-local reuse, native checking batches and exact-input check-first formatting while retaining independent prose checks and preservation/convergence checks.
 The first alpha.3 hosted OWLAPI shadow checks passed correctness but exceeded the accepted 30-second budget on both platforms.
 Alpha.3 and alpha.4 remain immutable historical evidence.
 Every new source tuple requires transported-archive qualification; registry qualification applies when that tuple is publicly published.
@@ -155,7 +160,7 @@ The generated `assets/bundled-dependencies.json` binds the exact files, source l
 Packing and architecture qualification verify that inventory; development tools remain excluded.
 Fresh root and isolated consumers must install without lifecycle scripts or overrides, have a valid native dependency tree, pass malicious-input and legitimate-rendering probes, and reinstall offline from their own frozen lock.
 Release qualification additionally requires the actual installed-recipient audit and distribution SBOM.
-This changes candidate source and packaging only; immutable release 1.0.3 remains unchanged until a separately authorized new version is qualified and released.
+Immutable release 1.0.3 does not bundle these closures; consumers receive the repair through 2.0.0 or a later version once it is qualified and released.
 Remove each vendored metadata repair when maintained upstream releases declare safe dependency ranges and the same recipient checks pass without it; remove bundling when all repairs are unnecessary.
 
 Tooling qualification allows twenty minutes per npm install or ci operation, thirty minutes per Node test suite and up to 120 minutes per enclosing job.

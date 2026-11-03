@@ -20,11 +20,11 @@ const requestEnvironment = {
   GITHUB_REPOSITORY: "example/consumer",
   GITHUB_RUN_ID: "101",
   MQ_WORKFLOW_REPOSITORY: "Hadden-Industries/markdown-quality",
-  MQ_WORKFLOW_SHA: "a".repeat(40),
+  MQ_WORKFLOW_COMMIT_ID: "a".repeat(40),
   MQ_TRUSTED_REPOSITORY: "example/consumer",
-  MQ_TRUSTED_SHA: "b".repeat(40),
+  MQ_TRUSTED_COMMIT_ID: "b".repeat(40),
   MQ_CANDIDATE_REPOSITORY: "example/candidate",
-  MQ_CANDIDATE_SHA: "c".repeat(40),
+  MQ_CANDIDATE_COMMIT_ID: "c".repeat(40),
   MQ_PROFILE: ".markdown-quality-execution.json",
 };
 const protection = () => ({
@@ -60,8 +60,11 @@ test("approval uses only the caller repository's current environment and this ru
     "/actions/runs/101/approvals",
   ]);
   assert.equal(result.reviewerId, 42);
-  assert.equal(result.trustedSha, requestEnvironment.MQ_TRUSTED_SHA);
-  assert.equal(result.producerSha, requestEnvironment.MQ_WORKFLOW_SHA);
+  assert.equal(result.trustedCommitId, requestEnvironment.MQ_TRUSTED_COMMIT_ID);
+  assert.equal(
+    result.producerCommitId,
+    requestEnvironment.MQ_WORKFLOW_COMMIT_ID,
+  );
 });
 
 test("missing protection, administrator bypass and unauthenticated reviews fail closed", () => {
@@ -104,8 +107,8 @@ test("missing protection, administrator bypass and unauthenticated reviews fail 
 
 test("invalid or mutable request identities cannot enter the approval record", () => {
   for (const delta of [
-    { MQ_TRUSTED_SHA: "main" },
-    { MQ_WORKFLOW_SHA: "HEAD" },
+    { MQ_TRUSTED_COMMIT_ID: "main" },
+    { MQ_WORKFLOW_COMMIT_ID: "HEAD" },
     { MQ_PROFILE: "../profile.json" },
     { MQ_PROFILE: "profile\nextra" },
     { MQ_TRUSTED_REPOSITORY: "https://example/repo" },

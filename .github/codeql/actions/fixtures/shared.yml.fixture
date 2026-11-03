@@ -2,10 +2,10 @@ name: Shared qualification model fixture
 on:
   workflow_call:
     inputs:
-      trusted-sha:
+      trusted-commit-id:
         type: string
         required: true
-      candidate-sha:
+      candidate-commit-id:
         type: string
         required: true
       trusted-repository:
@@ -20,9 +20,9 @@ on:
 permissions:
   contents: read
 env:
-  MQ_TRUSTED_SHA: ${{ inputs.trusted-sha }}
+  MQ_TRUSTED_COMMIT_ID: ${{ inputs.trusted-commit-id }}
   MQ_TRUSTED_REPOSITORY: ${{ inputs.trusted-repository }}
-  MQ_CANDIDATE_SHA: ${{ inputs.candidate-sha }}
+  MQ_CANDIDATE_COMMIT_ID: ${{ inputs.candidate-commit-id }}
   MQ_CANDIDATE_REPOSITORY: ${{ inputs.candidate-repository }}
   MQ_PROFILE: ${{ inputs.profile }}
 jobs:
@@ -53,7 +53,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: ${{ inputs.trusted-repository }}
-          ref: ${{ inputs.trusted-sha }}
+          ref: ${{ inputs.trusted-commit-id }}
           path: trusted
           persist-credentials: false
       - id: upload

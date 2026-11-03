@@ -13,18 +13,25 @@ import {
 } from "node:fs";
 import { resolve, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { safePath } from "./configuration.js";
+import { safePath } from "./consumer-root.js";
 import { readExecutionProfile } from "./execution-profile.js";
 import { executionEnvironment } from "./execution.js";
-import { fail, decode, digest, metadata } from "./contracts.js";
+import {
+  admitKeys,
+  fail,
+  decode,
+  digest,
+  exceeds,
+  metadata,
+} from "./contracts.js";
 import { resolveTool } from "./native-tool.js";
-import { validateQualityResult } from "./result-validation.js";
+import { admitCheckEvidence } from "./result-validation.js";
 import { inspectCandidateData } from "./candidate-staging.js";
 
 /** Native metadata-only Git reads; verify committed regular-file bytes without
  * status/diff filters, hooks or any candidate program. Linked trees fail closed.
  */
-export function checkoutIdentity(root, git, expected, profile) {
+export function checkoutIdentity(root, gitExecutablePath, expected, profile) {
   if (!/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/u.test(expected ?? ""))
     fail(
       "REVISION_IDENTITY",
@@ -33,7 +40,7 @@ export function checkoutIdentity(root, git, expected, profile) {
   root = resolve(root);
   const read = (...args) =>
     execFileSync(
-      git,
+      gitExecutablePath,
       [
         "--no-optional-locks",
         "--no-replace-objects",
@@ -45,27 +52,27 @@ export function checkoutIdentity(root, git, expected, profile) {
       ],
       {
         env: executionEnvironment(),
-        timeout: 10000,
-        maxBuffer: profile.stagingEntries * 1024,
+        timeout: profile.gitTimeoutMs ?? 0,
+        maxBuffer: profile.maxGitTreeOutputBytes ?? Infinity,
         windowsHide: true,
       },
     );
-  const head = decode(read("rev-parse", "--verify", "HEAD")).trim();
-  if (head !== expected)
+  const commitId = decode(read("rev-parse", "--verify", "HEAD")).trim();
+  if (commitId !== expected)
     fail(
       "REVISION_IDENTITY",
       "Checkout does not match the requested exact revision.",
     );
-  const tree = decode(read("rev-parse", "HEAD^{tree}")).trim();
+  const treeId = decode(read("rev-parse", "HEAD^{tree}")).trim();
   const format = decode(read("rev-parse", "--show-object-format")).trim();
   if (!["sha1", "sha256"].includes(format))
     fail("REVISION_IDENTITY", "Unsupported native Git object format.");
   const records = decode(read("ls-tree", "-r", "-z", "HEAD"))
     .split("\0")
     .filter(Boolean);
-  if (records.length > profile.stagingEntries)
+  if (exceeds(records.length, profile.maxStagedEntries))
     fail("STAGING_LIMIT", "Tracked checkout exceeds its admission bound.");
-  const markdownPaths = [],
+  const trackedPaths = [],
     hash = createHash("sha256"),
     chunk = Buffer.alloc(65536);
   let total = 0;
@@ -79,7 +86,7 @@ export function checkoutIdentity(root, git, expected, profile) {
     const path = safePath(root, match[3], { file: true }),
       stat = lstatSync(path);
     total += stat.size;
-    if (stat.nlink !== 1 || total > profile.stagingBytes)
+    if (stat.nlink !== 1 || exceeds(total, profile.maxStagedDataBytes))
       fail(
         "STAGING_LIMIT",
         "Committed checkout exceeds bounded regular-file admission.",
@@ -99,7 +106,7 @@ export function checkoutIdentity(root, git, expected, profile) {
         "Checkout file bytes differ from the expected commit.",
       );
     hash.update(record + "\0");
-    if (match[3].endsWith(".md")) markdownPaths.push(match[3]);
+    trackedPaths.push(match[3]);
   }
   // The index and ignore rules cannot conceal added data or link targets.
   const committedPaths = new Set(
@@ -122,11 +129,15 @@ export function checkoutIdentity(root, git, expected, profile) {
       "CHECKOUT_CHANGED",
       "Qualification checkout has data outside the requested commit.",
     );
+  // trackedTreeRecordsSha256 hashes the ordered Git tree records plus their NUL
+  // separators after blob verification; it is not a digest of file contents.
   return {
-    head,
-    tree,
-    committedDataSha256: hash.digest("hex"),
-    markdownPaths: markdownPaths.sort(),
+    commitId,
+    treeId,
+    trackedTreeRecordsSha256: hash.digest("hex"),
+    // Every committed regular file; the runner applies the trusted policy's
+    // include scope to derive the Markdown reconciliation inventory.
+    trackedPaths: trackedPaths.sort(),
   };
 }
 
@@ -149,39 +160,65 @@ function boundExecutable(path, roots) {
   return bound;
 }
 
-/** Observe repeated exact-candidate checks using bundled Windows Job/Linux group
- * mechanics. This produces evidence, never installation, publication or approval.
- * Runtime/profile input is trusted; candidate requests cannot relax its limits.
+/** Repeatedly check immutable Git Markdown with bundled Windows Job/Linux group
+ * observation. This produces evidence, never installation, publication or approval.
+ * Runtime/profile input is trusted; candidate requests cannot relax its limits. A
+ * trusted owner may disable ceilings, and the receipt then records that exact policy.
  */
-export async function qualifyCandidate({
-  sourceRoot,
-  trustedRoot,
-  candidateSha,
-  trustedSha,
-  git,
-  python,
-  outputRoot,
-  profile: profilePath,
-  producer,
-  workflow,
-}) {
-  sourceRoot = resolve(sourceRoot);
+export async function qualifyGitMarkdown(options) {
+  admitKeys(
+    options,
+    [
+      "candidateRoot",
+      "trustedRoot",
+      "candidateCommitId",
+      "trustedCommitId",
+      "gitExecutablePath",
+      "pythonExecutablePath",
+      "outputRoot",
+      "profile",
+      "producer",
+      "workflow",
+    ],
+    {
+      sourceRoot: "candidateRoot",
+      candidateSha: "candidateCommitId",
+      trustedSha: "trustedCommitId",
+      git: "gitExecutablePath",
+      python: "pythonExecutablePath",
+    },
+  );
+  let {
+    candidateRoot,
+    trustedRoot,
+    gitExecutablePath,
+    pythonExecutablePath,
+    outputRoot,
+  } = options;
+  const {
+    candidateCommitId,
+    trustedCommitId,
+    profile: profilePath,
+    producer,
+    workflow,
+  } = options;
+  candidateRoot = resolve(candidateRoot);
   trustedRoot = resolve(trustedRoot);
   outputRoot = resolve(outputRoot);
-  const roots = [sourceRoot, trustedRoot];
+  const roots = [candidateRoot, trustedRoot];
   if (
     roots.some(
       (root) => contained(root, outputRoot) || contained(outputRoot, root),
     ) ||
-    contained(sourceRoot, trustedRoot) ||
-    contained(trustedRoot, sourceRoot)
+    contained(candidateRoot, trustedRoot) ||
+    contained(trustedRoot, candidateRoot)
   )
     fail(
       "UNSAFE_STAGING",
       "Qualification inputs and output require disjoint roots.",
     );
   if (
-    realpathSync(sourceRoot) !== sourceRoot ||
+    realpathSync(candidateRoot) !== candidateRoot ||
     realpathSync(trustedRoot) !== trustedRoot ||
     realpathSync(resolve(outputRoot, "..")) !== resolve(outputRoot, "..")
   )
@@ -189,19 +226,20 @@ export async function qualifyCandidate({
   const profile = readExecutionProfile({
     root: trustedRoot,
     profile: profilePath,
+    purpose: "qualification",
   });
   if (profile.runtimes.node !== process.versions.node)
     fail(
       "RUNTIME_MISMATCH",
       "Installed Node differs from the trusted runtime declaration.",
     );
-  git = boundExecutable(git, roots);
-  python = boundExecutable(python, roots);
+  gitExecutablePath = boundExecutable(gitExecutablePath, roots);
+  pythonExecutablePath = boundExecutable(pythonExecutablePath, roots);
   const pythonVersion = decode(
-    execFileSync(python, ["--version"], {
+    execFileSync(pythonExecutablePath, ["--version"], {
       env: executionEnvironment(),
-      timeout: 10000,
-      maxBuffer: 4096,
+      timeout: profile.runtimeProbeTimeoutMs ?? 0,
+      maxBuffer: profile.maxRuntimeProbeOutputBytes ?? Infinity,
       windowsHide: true,
     }),
   )
@@ -217,7 +255,7 @@ export async function qualifyCandidate({
     );
   if (
     !producer ||
-    !/^[a-f0-9]{40}$/u.test(producer.sourceSha ?? "") ||
+    !/^[a-f0-9]{40}$/u.test(producer.sourceCommitId ?? "") ||
     !/^[a-f0-9]{64}$/u.test(producer.coreArchiveSha256 ?? "") ||
     !/^[a-f0-9]{64}$/u.test(producer.nativeArchiveSha256 ?? "")
   )
@@ -238,7 +276,7 @@ export async function qualifyCandidate({
       "Qualification requires an installed source-bound packed capability.",
     );
   }
-  if (installed.head !== producer.sourceSha || installed.clean !== true)
+  if (installed.head !== producer.sourceCommitId || installed.clean !== true)
     fail(
       "PRODUCER_IDENTITY",
       "Installed capability does not bind the requested clean producer revision.",
@@ -250,7 +288,7 @@ export async function qualifyCandidate({
     );
   const acquire = (name) => {
     const path = safePath(trustedRoot, name, { file: true });
-    if (lstatSync(path).size > profile.stagingBytes)
+    if (exceeds(lstatSync(path).size, profile.maxStagedDataBytes))
       fail(
         "STAGING_LIMIT",
         "Trusted archive graph exceeds its admission bound.",
@@ -287,19 +325,24 @@ export async function qualifyCandidate({
       "PRODUCER_IDENTITY",
       "Trusted lock and actual archive bytes disagree with the requested installed tuple.",
     );
-  checkoutIdentity(sourceRoot, git, candidateSha, profile);
-  checkoutIdentity(trustedRoot, git, trustedSha, profile);
+  checkoutIdentity(
+    candidateRoot,
+    gitExecutablePath,
+    candidateCommitId,
+    profile,
+  );
+  checkoutIdentity(trustedRoot, gitExecutablePath, trustedCommitId, profile);
   const native = resolveTool();
   mkdirSync(outputRoot);
   const requestPath = join(outputRoot, "request.json");
   writeFileSync(
     requestPath,
     JSON.stringify({
-      sourceRoot,
+      candidateRoot,
       trustedRoot,
-      candidateSha,
-      trustedSha,
-      git,
+      candidateCommitId,
+      trustedCommitId,
+      gitExecutablePath,
       profile,
       profilePath,
       producer: {
@@ -320,7 +363,7 @@ export async function qualifyCandidate({
     new URL("./qualification-runner.js", import.meta.url),
   );
   const child = spawn(
-    python,
+    pythonExecutablePath,
     ["-I", "-B", observer, process.execPath, runner, requestPath, outputRoot],
     {
       env: executionEnvironment(),
@@ -331,22 +374,23 @@ export async function qualifyCandidate({
   let errorBytes = 0;
   child.stderr.on("data", (bytes) => {
     errorBytes += bytes.length;
-    if (errorBytes > profile.reportBytes) child.kill();
+    if (exceeds(errorBytes, profile.maxOutputBytes)) child.kill();
   });
   const status = await new Promise((done, reject) => {
     child.on("error", reject);
     child.on("close", done);
   });
   const reportPath = join(outputRoot, "window.json");
-  if (lstatSync(reportPath).size > profile.reportBytes)
+  if (exceeds(lstatSync(reportPath).size, profile.maxOutputBytes))
     fail("REPORT_LIMIT", "Observation report exceeds its bound.");
   const report = JSON.parse(decode(readFileSync(reportPath)));
   if (
+    report.schemaVersion !== 2 ||
     report.profileSha256 !== profile.profileSha256 ||
     report.passed !== (status === 0) ||
-    report.requiredConsecutiveSamples !== profile.samples ||
+    report.requiredConsecutiveSamples !== profile.requiredConsecutiveSamples ||
     (report.passed &&
-      (report.samples.length !== profile.samples ||
+      (report.samples.length !== profile.requiredConsecutiveSamples ||
         report.samples.some((sample) => sample.activeDescendants !== 0)))
   )
     fail(
@@ -357,16 +401,16 @@ export async function qualifyCandidate({
     if (sample.receiptPath !== `sample-${sample.index}/receipt.json`)
       fail("INVALID_RESULT", "Observer returned an unexpected receipt path.");
     const path = safePath(outputRoot, sample.receiptPath, { file: true });
-    if (lstatSync(path).size > profile.reportBytes)
+    if (exceeds(lstatSync(path).size, profile.maxOutputBytes))
       fail("REPORT_LIMIT", "Sample receipt exceeds its bound.");
     const bytes = readFileSync(path);
     if (digest(bytes) !== sample.receiptSha256)
       fail("INVALID_RESULT", "Sample receipt identity changed.");
     const receipt = JSON.parse(decode(bytes));
-    validateQualityResult(receipt.result, {
-      operation: "check",
-      exitCode: sample.exitCode,
-    });
+    if (receipt.schemaVersion !== 2)
+      fail("INVALID_RESULT", "Sample receipt uses an unsupported schema.");
+    // Qualification evidence is a complete check; repair receipts never qualify.
+    admitCheckEvidence(receipt.result, { exitCode: sample.exitCode });
   }
   return report;
 }

@@ -31,17 +31,17 @@ The owner selected public npm distribution after the private upload was rejected
 Core and both native packages declare public access; anonymous installation is a required registry qualification.
 Ordinary fork pull requests need no registry credential or paid npm subscription.
 The direct CLI and public APIs are canonical integrations.
-Current source adds the public SHA-pinned reusable workflow described in the [centralized contracts guide](centralized-contracts.md).
+Version 2.0 adds the public SHA-pinned reusable workflow described in the [centralized contracts guide](centralized-contracts.md).
 Adoption uses the latest qualified producer commit and locked archive/workflow tuple regardless of npm release status.
 The historical pilot/publication evidence below does not establish qualification of these new source contracts.
 
-| Event                    | Trusted graph and policy                              | Acquisition                                     | Candidate processing                                 | Current status                               |
-| ------------------------ | ----------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------- | -------------------------------------------- |
-| Package pull request     | Public locked dependencies and fixed native manifests | Public upstream inputs, no private secrets      | Package tests run without elevated authority         | Hosted package qualification passed          |
-| Pilot protected branch   | Reviewed capability release and consumer policy       | Public locked graph, lifecycle scripts disabled | Full authored scope without credentials              | Alpha.3 registry passed; pilot proof pending |
-| Pilot same-repository PR | Reviewed base tooling and policy                      | Separate trusted acquisition                    | Candidate Markdown and link target tree only         | Architecture selected; qualification pending |
-| Pilot fork PR            | Reviewed base tooling and policy                      | Separate trusted acquisition                    | Candidate data only; no candidate scripts or graph   | Architecture selected; qualification pending |
-| Tool or policy update PR | Existing accepted graph until review                  | New graph requires owner review                 | Never treat candidate graph or exclusions as trusted | Required review remains explicit             |
+| Event                    | Trusted graph and policy                              | Acquisition                                     | Candidate processing                                 | Current status                                |
+| ------------------------ | ----------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------- | --------------------------------------------- |
+| Package pull request     | Public locked dependencies and fixed native manifests | Public upstream inputs, no private secrets      | Package tests run without elevated authority         | Hosted package qualification passed           |
+| Pilot protected branch   | Reviewed capability release and consumer policy       | Public locked graph, lifecycle scripts disabled | Full authored scope without credentials              | Alpha.4 cutovers passed; both pilots on 1.0.3 |
+| Pilot same-repository PR | Reviewed base tooling and policy                      | Separate trusted acquisition                    | Candidate Markdown and link target tree only         | 2.0 workflow built; hosted proof pending      |
+| Pilot fork PR            | Reviewed base tooling and policy                      | Separate trusted acquisition                    | Candidate data only; no candidate scripts or graph   | 2.0 workflow built; hosted proof pending      |
+| Tool or policy update PR | Existing accepted graph until review                  | New graph requires owner review                 | Never treat candidate graph or exclusions as trusted | Required review remains explicit              |
 
 Package tests and candidate/registry qualification have no registry secret or OIDC permission.
 They install with lifecycle scripts disabled and qualify both OS targets.
@@ -55,7 +55,7 @@ The source lock acquisition alone does not populate metadata for a fresh consume
 It cannot serve as evidence that a pilot's private access works.
 
 A pilot integration must acquire the exact public tool graph from a trusted source without registry credentials and process a separately fetched candidate data tree.
-Use the reviewed schema 2 root policy; translate intended ignore-file exclusions into that policy before adoption.
+Use a reviewed configuration schema 3 root policy, or trusted absence for package defaults; translate intended ignore-file exclusions into that policy before adoption.
 Ignore files have no authority over the current Markdown selector.
 Candidate checkout must not execute application tooling, Git hooks, package lifecycle scripts, JavaScript configuration, or a candidate CLI.
 The checking process must not inherit checkout write credentials, npm configuration, or OIDC issuance authority.
@@ -105,10 +105,16 @@ Package archives, native original license evidence, distribution and recipient S
 The reusable Markdown workflow uploads compact reports and complete content manifests, not per-sample staged source trees.
 Candidate/trusted commits, archive identities and staged digests remain in original receipts; reconstruction must verify all manifest paths, including hidden inputs.
 See [the compact artifact contract](centralized-contracts.md#compact-hosted-artifacts).
-Fresh staging, candidate non-execution, credential boundaries and finite checks remain unchanged.
+Fresh staging, candidate non-execution and credential boundaries remain unchanged.
 A packaging error fails the job; an uploaded partial directory is not passing qualification evidence.
 
-Routine successes retain artifacts for7 days, failures for14, and explicitly selected `qualification-evidence: true` runs for30.
+The reusable workflow takes `trusted-repository`, `trusted-commit-id`, `candidate-repository`, `candidate-commit-id`, `profile` and the Boolean `retain-qualification-evidence` inputs.
+It exposes the full identities to its steps as `MQ_TRUSTED_COMMIT_ID`, `MQ_CANDIDATE_COMMIT_ID` and `MQ_WORKFLOW_COMMIT_ID`.
+Local qualification uses the `markdown-quality-qualify-git` bin, which accepts named flags only, or the `qualifyGitMarkdown` API.
+The repository's own qualification lanes keep finite ceilings.
+An owner-requested profile with `resourceLimitMode: "unlimited"` is a distinct policy; its receipts and window record that mode rather than presenting it as a finite lane.
+
+Routine successes retain artifacts for 7 days, failures for 14, and explicitly selected `retain-qualification-evidence: true` runs for 30.
 GitHub supports per-artifact retention and path selection; it does not require retaining repeated source copies.
 Source bundles needed for offline audit have separate retention ownership.
 Existing artifacts are not deleted or relabeled by this workflow change.

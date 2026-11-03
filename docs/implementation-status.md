@@ -1,5 +1,12 @@
 # Implementation decisions and evidence
 
+## Zero-config opinionated policy source
+
+Current source requires no configuration file and applies the `authored-gfm@2` preset, with configuration schema 3, result schema 4, execution schema 2 and comparison schema 3.
+Public names follow the naming migration: `processLogicalDocument`, `executeQualityRequest`, `stageCandidateData`, `qualifyGitMarkdown`, `compareCheckReports` and the `markdown-quality-qualify-git` bin.
+Repository scripts are renamed to `check:formatting-and-markdown` and `check:dependency-audit`; `inspect:json` and `format:json:check` are removed.
+The [centralized contracts guide](centralized-contracts.md) owns the current contract details; the dated sections below remain historical records of 1.0.x behavior.
+
 ## Consumer Node compatibility on 2026-10-15
 
 The [runtime compatibility record](node-runtime-compatibility.md) records the dependency minima and qualification evidence.
@@ -59,7 +66,7 @@ The later consumer scopes supersede the original migration table's proposed excl
 ### Completed source work held from publication
 
 The owner-authorized `concurrency` follow-up adds CLI/library opt-in document preparation concurrency, default `1`, without an upper numeric bound or performance-gain qualification.
-Its [accepted follow-up](plans/performance-implementation-plan.md#owner-accepted-opt-in-concurrency-follow-up) retains ordered validation, cleanup and guarded serial writes; the [consumer guide](consumer-guide.md#opt-in-concurrency-in-current-source) explains the unreleased interface.
+Its [accepted follow-up](plans/performance-implementation-plan.md#owner-accepted-opt-in-concurrency-follow-up) retains ordered validation, cleanup and guarded serial writes; the [consumer guide](consumer-guide.md#opt-in-concurrency) explains the unreleased interface.
 This source addition does not change immutable `1.0.3`, its fixed serial behavior or the publication hold.
 Consumers own resource/performance choices; the original serial qualification budgets do not certify parallel counts.
 Signed source [603a2b3](https://github.com/Hadden-Industries/markdown-quality/commit/603a2b34268a6447e01e8dce6678ffca92ff3b81) is on remote `main`, with [package qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37603471445), [transported candidate qualification](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37603471451) and [CodeQL](https://github.com/Hadden-Industries/markdown-quality/actions/runs/37603471096) all passed.

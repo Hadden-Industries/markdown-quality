@@ -49,8 +49,19 @@ test("a later filesystem interruption reports the completed prefix and preserves
   const result = await runQuality({ root, mode: "format" });
   assert.equal(result.exitCode, 2);
   assert.equal(calls, 2);
-  assert.deepEqual(result.written, ["a.md"]);
-  assert.deepEqual(result.unprocessed, ["b.md", "c.md"]);
+  assert.equal(result.operationStatus, "failed");
+  assert.deepEqual(result.writtenPaths, ["a.md"]);
+  assert.deepEqual(
+    result.documentResults.map(({ path, writeStatus }) => ({
+      path,
+      writeStatus,
+    })),
+    [
+      { path: "a.md", writeStatus: "written" },
+      { path: "b.md", writeStatus: "pending" },
+      { path: "c.md", writeStatus: "pending" },
+    ],
+  );
   assert.equal(readFileSync(join(root, "a.md"), "utf8"), "Alpha.\nBeta.\n");
   assert.equal(readFileSync(join(root, "b.md"), "utf8"), "Gamma. Delta.\n");
   assert.equal(readFileSync(join(root, "c.md"), "utf8"), "Epsilon. Zeta.\n");

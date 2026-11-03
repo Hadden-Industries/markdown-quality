@@ -4,7 +4,8 @@ import { readFileSync, lstatSync, realpathSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { decode, digest, fail, limits, metadata } from "./contracts.js";
+import { decode, digest, fail, metadata } from "./contracts.js";
+import { defaultAnalyzerLimits } from "./analyzer-limits.js";
 const require = createRequire(import.meta.url);
 export const manifest = JSON.parse(
   readFileSync(
@@ -86,7 +87,12 @@ export function validateDiagnostics(result, text) {
   // This preset has no sentence-length policy; validate but omit that advisory.
   return reports[0].diagnostics.map(nativeDiagnostic).filter(Boolean);
 }
-export function runNative(tool, text, check = false, budgets = limits) {
+export function runNative(
+  tool,
+  text,
+  check = false,
+  budgets = defaultAnalyzerLimits,
+) {
   const args = [
     "--native",
     "--config",
@@ -107,8 +113,8 @@ export function runNative(tool, text, check = false, budgets = limits) {
     cwd: fileURLToPath(new URL("../assets/", import.meta.url)),
     env,
     shell: false,
-    timeout: budgets.nativeMs ?? 0,
-    maxBuffer: budgets.nativeOutputBytes ?? Infinity,
+    timeout: budgets.nativeInvocationTimeoutMs ?? 0,
+    maxBuffer: budgets.maxNativeOutputBytes ?? Infinity,
     windowsHide: true,
   });
   if (check) return validateDiagnostics(result, text);

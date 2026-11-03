@@ -21,9 +21,16 @@ That policy text retains CC BY-SA 4.0, its attribution and the indicated changes
 | micromark-extension-frontmatter | 2.0.0   | MIT, Titus Wormer                 |
 | micromark-extension-gfm         | 3.0.0   | MIT                               |
 | picomatch                       | 4.0.7   | MIT                               |
+| parse5                          | 8.1.0   | MIT, Ivan Nikulin                 |
+| github-slugger                  | 2.0.0   | ISC                               |
 | Snapper upstream executable     | 0.11.9  | MIT, Copyright 2026 Rohit Goswami |
 
 Installed npm packages retain their upstream license files.
+parse5 parses raw HTML fragments as static data for the package's finite HTML and anchor checks; its transitive `entities` 9.0.0 dependency retains its BSD-2-Clause notice by Felix Böhm.
+parse5 8.1.0 (published 2026-11-01) and `entities` 9.0.0 (published 2026-10-29) were adopted by owner decision without the usual soak period.
+github-slugger was already installed through ESLint Markdown and is now imported directly for the package's documented heading-anchor allocation; its installed ISC notice is unchanged.
+The development-only conformance fixtures in `test/fixtures/unicode/` are the unchanged Unicode `NormalizationTest.txt` files for Unicode 16.0.0 and 17.0.0, stored gzip-compressed with their original SHA-256 identities.
+They are © Unicode, Inc. under the Unicode License V3, retained in `test/fixtures/unicode/LICENSE-Unicode-3.0.txt`, and are not shipped in consumer archives.
 Development analysis uses dependency-cruiser 18.7.0 under MIT, copyright 2016-2026 Sander Verweij.
 Its installed `LICENSE` retains the original permission and copyright notice; no analyzer source is vendored or modified.
 The exact developer dependency graph and its integrity identities are frozen in the lockfile, and installed transitive components retain their own upstream notices.
@@ -56,7 +63,8 @@ See the [support and release boundary](docs/support-and-release.md) for acquisit
 Native packages retain `LICENSE.snapper` and a fixed executable/repack component record.
 The AGPL declaration applies to the packaging implementation and does not relabel upstream executable bytes.
 
-Controlled native build run `37274204161` binds Snapper source, Cargo inputs, Rust toolchain and the exact Windows/Linux executable hashes.
+Controlled native build run `38742809829`, published as the `snapper-0.11.9-build.2` acquisition prerelease, binds Snapper source, Cargo inputs, Rust toolchain and the exact Windows/Linux executable hashes.
+It retains the original component/runtime notices and dependency graphs reconciled for the earlier run `37274204161`; its recipient Cargo reports remove only duplicate boolean `doctest` entries and conserve every typed value, component, license and association.
 Both native packages retain the original component inventories, complete harvested notices, official Rust runtime copyright report and unchanged MPL-2.0 `webpki-roots` 0.25.4 source.
 The separately recorded [rights supplement](assets/native-rights.json) restores original notices omitted from published crate archives, including native per-file copyright comments.
 Every native archive and package includes its exact `rights-evidence.json` and readable `SUPPLEMENTAL-NOTICES.txt`.

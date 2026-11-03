@@ -11,7 +11,7 @@ import * as api from "../src/quality.js";
 import { consumer, moduleMockExportOption } from "./helpers.js";
 
 test("bounded public execution preserves logical identity and rejects report overflow", async (t) => {
-  assert.equal(typeof api.executeQuality, "function");
+  assert.equal(typeof api.executeQualityRequest, "function");
   const root = consumer(t, { "target.md": "Target.\n" });
   const request = {
     root,
@@ -22,33 +22,39 @@ test("bounded public execution preserves logical identity and rejects report ove
       contentBase64: Buffer.from("Alpha. Beta.\n").toString("base64"),
     },
   };
-  const result = await api.executeQuality(request);
+  const result = await api.executeQualityRequest(request);
   assert.equal(result.exitCode, 0);
   assert.equal(result.document.requestId, "r1");
   assert.equal(
     Buffer.from(result.document.contentBase64, "base64").toString(),
     "Alpha.\nBeta.\n",
   );
-  assert.deepEqual(result.written, []);
+  assert.deepEqual(result.writtenPaths, []);
   for (const prefix of ["", "x", "xx", "xxx"]) {
     const unicodeIdentity = prefix + "é💡".repeat(20000);
-    const unicodeResult = await api.executeQuality({
+    const unicodeResult = await api.executeQualityRequest({
       ...request,
       document: { ...request.document, requestId: unicodeIdentity },
     });
     assert.equal(unicodeResult.document.requestId, unicodeIdentity);
   }
-  await assert.rejects(api.executeQuality(request, { reportBytes: 100 }), {
-    code: "REPORT_LIMIT",
-  });
-  await assert.rejects(api.executeQuality(request, { checkerMs: 1 }), {
-    code: "EXECUTION_TIMEOUT",
-  });
-  await assert.rejects(api.executeQuality(request, { signal: {} }), {
+  await assert.rejects(
+    api.executeQualityRequest(request, { maxOutputBytes: 100 }),
+    {
+      code: "REPORT_LIMIT",
+    },
+  );
+  await assert.rejects(
+    api.executeQualityRequest(request, { executionTimeoutMs: 1 }),
+    {
+      code: "EXECUTION_TIMEOUT",
+    },
+  );
+  await assert.rejects(api.executeQualityRequest(request, { signal: {} }), {
     code: "INVALID_EXECUTION",
   });
   await assert.rejects(
-    api.executeQuality(request, { signal: AbortSignal.abort() }),
+    api.executeQualityRequest(request, { signal: AbortSignal.abort() }),
     { code: "CANCELLED" },
   );
 });
@@ -68,7 +74,7 @@ test("logical CLI bounded JSON framing uses the public operation", (t) => {
   assert.equal(output.status, 0, output.stdout + output.stderr);
   const result = JSON.parse(output.stdout);
   assert.equal(result.document.requestId, "cli1");
-  assert.deepEqual(result.written, []);
+  assert.deepEqual(result.writtenPaths, []);
   assert.equal(existsSync(join(root, "new.md")), false);
   assert.equal(
     Buffer.from(result.document.contentBase64, "base64").toString(),
@@ -95,7 +101,7 @@ test("retired commands and incompatible stdin options fail before formatting che
   for (const command of ["profile", "candidate"]) {
     const result = spawnSync(
       process.execPath,
-      ["src/qualification-cli.js", command, "--root", root],
+      ["src/qualify-git-cli.js", command, "--root", root],
       { encoding: "utf8", timeout: fixtureCommandTimeoutMs },
     );
     assert.equal(result.status, 2);
@@ -107,7 +113,7 @@ test("malformed provided logical documents cannot fall through to checkout forma
   const root = consumer(t, { "README.md": original });
   for (const document of [null, false, 0, "", undefined, [], {}]) {
     await assert.rejects(
-      api.executeQuality({ root, mode: "format", document }),
+      api.executeQualityRequest({ root, mode: "format", document }),
       { code: "INVALID_DOCUMENT" },
     );
     assert.equal(readFileSync(join(root, "README.md"), "utf8"), original);
@@ -130,9 +136,9 @@ test("malformed provided logical documents cannot fall through to checkout forma
 
 test("accepted deadlines above the Node timer ceiling retain their full duration", async (t) => {
   const root = consumer(t, { "README.md": "Alpha.\n" });
-  const report = await api.executeQuality(
+  const report = await api.executeQualityRequest(
     { root, mode: "inspect" },
-    { checkerMs: 2_147_483_648 },
+    { executionTimeoutMs: 2_147_483_648 },
   );
   assert.equal(report.exitCode, 0);
   assert.deepEqual(report.selection.files, ["README.md"]);
@@ -141,7 +147,7 @@ test("accepted deadlines above the Node timer ceiling retain their full duration
 test("bounded execution rejects checkout writes before launching a killable worker", async (t) => {
   const original = "Alpha. Beta.\n";
   const root = consumer(t, { "README.md": original });
-  await assert.rejects(api.executeQuality({ root, mode: "format" }), {
+  await assert.rejects(api.executeQualityRequest({ root, mode: "format" }), {
     code: "INVALID_EXECUTION",
   });
   assert.equal(readFileSync(join(root, "README.md"), "utf8"), original);
@@ -190,7 +196,7 @@ test("nested CLI invocations discover the policy root before binding tracked inv
     assert.equal(execution.status, 0, execution.stdout + execution.stderr);
     const report = JSON.parse(execution.stdout);
     assert.deepEqual(
-      report.selection.inventory.map(({ path }) => path),
+      report.selection.reconciliationDecisions.map(({ path }) => path),
       ["README.md"],
     );
   }
@@ -199,17 +205,17 @@ test("nested CLI invocations discover the policy root before binding tracked inv
   writeFileSync(
     join(root, ".markdown-quality-execution.json"),
     JSON.stringify({
-      schemaVersion: 1,
-      samples: 1,
-      checkerMs: 1,
-      windowMs: 30000,
-      memoryBytes: 536870912,
-      nodeOldSpaceMb: 256,
-      reportBytes: 8388608,
-      requestBytes: 8388608,
-      stagingBytes: 134217728,
-      stagingEntries: 100000,
-      limits: {},
+      schemaVersion: 2,
+      requiredConsecutiveSamples: 1,
+      executionTimeoutMs: 1,
+      sampleTimeoutMs: 30000,
+      maxObservedMemoryBytes: 536870912,
+      maxNodeOldGenerationMiB: 256,
+      maxOutputBytes: 8388608,
+      maxRequestBytes: 8388608,
+      maxStagedDataBytes: 134217728,
+      maxStagedEntries: 100000,
+      analyzerLimits: {},
       runtimes: {
         node: { file: ".node-version" },
         python: { file: ".python-version" },
@@ -235,24 +241,24 @@ test("nested CLI invocations discover the policy root before binding tracked inv
   assert.equal(JSON.parse(bounded.stdout).errors[0].code, "EXECUTION_TIMEOUT");
 });
 
-test("execution profile resolves only bounded trusted runtime declarations and finite limits", (t) => {
+test("execution profile resolves only bounded trusted runtime declarations and admitted limits", (t) => {
   assert.equal(typeof api.readExecutionProfile, "function");
   const root = consumer(t, {
     ".node-version": process.versions.node,
     "runtime.json": JSON.stringify({ python: "3.15.0" }),
   });
   const profile = {
-    schemaVersion: 1,
-    samples: 2,
-    checkerMs: 30000,
-    windowMs: 60000,
-    memoryBytes: 536870912,
-    nodeOldSpaceMb: 256,
-    reportBytes: 8388608,
-    requestBytes: 8388608,
-    stagingBytes: 134217728,
-    stagingEntries: 100000,
-    limits: {},
+    schemaVersion: 2,
+    requiredConsecutiveSamples: 2,
+    executionTimeoutMs: 30000,
+    sampleTimeoutMs: 60000,
+    maxObservedMemoryBytes: 536870912,
+    maxNodeOldGenerationMiB: 256,
+    maxOutputBytes: 8388608,
+    maxRequestBytes: 8388608,
+    maxStagedDataBytes: 134217728,
+    maxStagedEntries: 100000,
+    analyzerLimits: {},
     runtimes: {
       node: { file: ".node-version" },
       python: { file: "runtime.json", pointer: "/python" },
@@ -265,8 +271,11 @@ test("execution profile resolves only bounded trusted runtime declarations and f
   const resolved = api.readExecutionProfile({ root });
   assert.equal(resolved.runtimes.node, process.versions.node);
   assert.equal(resolved.runtimes.python, "3.15.0");
-  assert.equal(resolved.limits.documentDiagnostics, 1000);
-  assert.equal(resolved.samples, 2);
+  assert.equal(resolved.schemaVersion, 2);
+  assert.equal(resolved.analyzerLimits.maxDocumentDiagnostics, 1000);
+  assert.equal(resolved.requiredConsecutiveSamples, 2);
+  assert.equal(resolved.executionTimeoutMs, 30000);
+  assert.equal(resolved.profileOrigin, "file");
   const inspected = spawnSync(
     process.execPath,
     ["src/cli.js", "inspect-profile", "--root", root, "--json"],
@@ -297,9 +306,9 @@ test("execution profile resolves only bounded trusted runtime declarations and f
     },
   );
   assert.equal(logical.status, 0, logical.stdout + logical.stderr);
-  assert.deepEqual(JSON.parse(logical.stdout).written, []);
+  assert.deepEqual(JSON.parse(logical.stdout).writtenPaths, []);
   assert.equal(existsSync(join(root, "generated.md")), false);
-  profile.checkerMs = 1;
+  profile.executionTimeoutMs = 1;
   writeFileSync(
     join(root, ".markdown-quality-execution.json"),
     JSON.stringify(profile),
@@ -319,16 +328,39 @@ test("execution profile resolves only bounded trusted runtime declarations and f
   );
   assert.equal(timed.status, 2);
   assert.equal(JSON.parse(timed.stdout).errors[0].code, "EXECUTION_TIMEOUT");
-  profile.checkerMs = 30000;
-  profile.limits = { documentDiagnostics: null };
+  profile.executionTimeoutMs = 30000;
+  // Null now disables an individual ceiling in an ordinary profile.
+  profile.analyzerLimits = { maxDocumentDiagnostics: null };
   writeFileSync(
     join(root, ".markdown-quality-execution.json"),
     JSON.stringify(profile),
   );
-  assert.throws(() => api.readExecutionProfile({ root }), {
-    code: "INVALID_PROFILE",
-  });
-  profile.limits = {};
+  assert.equal(
+    api.readExecutionProfile({ root }).analyzerLimits.maxDocumentDiagnostics,
+    null,
+  );
+  // Removed schema-1 keys and invalid ceilings are refused, not ignored.
+  for (const invalid of [
+    { limits: {} },
+    { checkerMs: 30000 },
+    { schemaVersion: 1 },
+    { executionTimeoutMs: 0 },
+    { executionTimeoutMs: 120000 },
+    { analyzerLimits: { maxDocumentDiagnostics: 0 } },
+  ]) {
+    writeFileSync(
+      join(root, ".markdown-quality-execution.json"),
+      JSON.stringify({ ...profile, analyzerLimits: {}, ...invalid }),
+    );
+    assert.throws(
+      () => api.readExecutionProfile({ root }),
+      {
+        code: /^(INVALID_PROFILE|INVALID_RESOURCE_POLICY|UNSUPPORTED_PROFILE_VERSION)$/u,
+      },
+      JSON.stringify(invalid),
+    );
+  }
+  profile.analyzerLimits = {};
   profile.runtimes.node.file = "../node.txt";
   writeFileSync(
     join(root, ".markdown-quality-execution.json"),

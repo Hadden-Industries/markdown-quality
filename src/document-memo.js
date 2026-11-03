@@ -1,25 +1,34 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { parse } from "./analysis.js";
-import { fail, limits } from "./contracts.js";
+import { fail, exceeds } from "./contracts.js";
+import { defaultExecutionLimits } from "./resource-controls.js";
 
 // Independent stage budgets avoid starving layout reuse behind a retained AST.
 // These account for source/result bytes, not total JavaScript heap allocation.
+// Null removes a ceiling; invocation disposal still releases every entry.
 export const documentMemoLimits = Object.freeze({
-  parseBytes: limits.fileBytes * 2,
-  layoutBytes: limits.fileBytes * 2,
-  entriesPerStage: 4,
+  maxMemoParseBytes: defaultExecutionLimits.maxMemoParseBytes,
+  maxMemoLayoutBytes: defaultExecutionLimits.maxMemoLayoutBytes,
+  maxMemoEntriesPerStage: defaultExecutionLimits.maxMemoEntriesPerStage,
 });
 
 /** Reuse pure owned results for one document; never retain filesystem validity. */
-export function createDocumentMemo(syntax = { frontmatter: "yaml" }) {
+export function createDocumentMemo(
+  syntax = { frontmatter: "yaml" },
+  memoLimits = documentMemoLimits,
+) {
   const trees = new Map();
   const layouts = new Map();
   const stages = {
-    parse: { order: new Map(), bytes: 0, limit: documentMemoLimits.parseBytes },
+    parse: {
+      order: new Map(),
+      bytes: 0,
+      limit: memoLimits.maxMemoParseBytes,
+    },
     layout: {
       order: new Map(),
       bytes: 0,
-      limit: documentMemoLimits.layoutBytes,
+      limit: memoLimits.maxMemoLayoutBytes,
     },
   };
   let disposed = false;
@@ -33,10 +42,11 @@ export function createDocumentMemo(syntax = { frontmatter: "yaml" }) {
     return entry.value;
   }
   function admit(stage, bytes, value, remove) {
-    if (bytes > stage.limit) return null;
+    if (exceeds(bytes, stage.limit)) return null;
     while (
-      stage.order.size >= documentMemoLimits.entriesPerStage ||
-      stage.bytes + bytes > stage.limit
+      stage.order.size &&
+      (exceeds(stage.order.size + 1, memoLimits.maxMemoEntriesPerStage) ||
+        exceeds(stage.bytes + bytes, stage.limit))
     ) {
       const oldest = stage.order.keys().next().value;
       stage.order.delete(oldest);

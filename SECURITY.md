@@ -5,8 +5,8 @@ After stable promotion, it covers only the latest stable release designated by `
 Consumers should pin exact versions and qualify upgrades.
 Older releases remaining downloadable does not imply maintenance or backport support.
 For published 1.0.3, the supported runtime remains Node 24.21.0 on Windows x64 and Ubuntu 24.04 x64 with glibc 2.39, with the qualified core/native tuple and explicit preset.
-Development CI additionally qualifies Node 22/24/26 at the patched minima and latest versions described in the [support policy](docs/support-and-release.md).
-That source qualification does not change an existing release's immutable metadata or establish support for an unpublished release.
+Version 2.0.0 declares Node `>=22.13.0`, and its CI matrix covers Node 22/24/26 at the patched minima and latest versions described in the [support policy](docs/support-and-release.md).
+That qualification does not change an existing release's immutable metadata or establish support for an unpublished release.
 
 Report suspected vulnerabilities privately through [GitHub private vulnerability reporting](https://github.com/Hadden-Industries/markdown-quality/security/advisories/new).
 If unavailable or unsuitable, use `security@haddenindustries.com`.
@@ -54,7 +54,7 @@ See the [consumer contract](docs/consumer-guide.md) and [CI trust decision](docs
   Consumers may raise or bypass package ceilings and own capacity consequences; explicit choices do not bypass quality, path or replacement checks.
   Untrusted text must not become executable arguments or process configuration.
 - Formatting must preserve literal content, validate convergence and preservation before replacement, and recheck each original file's identity and bytes before writing.
-  Replacement is guarded per file, not a whole-batch transaction; a later failure must report completed and unprocessed paths truthfully.
+  Replacement is guarded per file, not a whole-batch transaction; a later failure must report written and pending paths truthfully.
 - Findings and operational failures must remain distinct exits `1` and `2`; missing tools, invalid configuration and stale or absent evidence must not become success.
   JSON output must retain its native result schema without exposing document bodies by default.
 - Candidate-as-data qualification must not execute candidate scripts or inherit registry, repository-write or OIDC credentials into checking.

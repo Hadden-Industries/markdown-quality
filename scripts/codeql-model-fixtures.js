@@ -135,7 +135,7 @@ export function prepareCodeqlModelTests(pack, output) {
       edits: [
         [
           "ref: ${{ job.workflow_sha }}",
-          "ref: ${{ inputs.trusted-sha }}",
+          "ref: ${{ inputs.trusted-commit-id }}",
           true,
         ],
       ],
@@ -159,7 +159,7 @@ export function prepareCodeqlModelTests(pack, output) {
       edits: [
         [
           "  qualify:\n",
-          "  qualify:\n    env:\n      MQ_TRUSTED_SHA: ${{ inputs.candidate-sha }}\n",
+          "  qualify:\n    env:\n      MQ_TRUSTED_COMMIT_ID: ${{ inputs.candidate-commit-id }}\n",
         ],
       ],
     },
@@ -168,7 +168,7 @@ export function prepareCodeqlModelTests(pack, output) {
       edits: [
         [
           "      - id: admission\n",
-          "      - id: admission\n        env:\n          MQ_TRUSTED_SHA: ${{ inputs.candidate-sha }}\n",
+          "      - id: admission\n        env:\n          MQ_TRUSTED_COMMIT_ID: ${{ inputs.candidate-commit-id }}\n",
         ],
       ],
     },
@@ -185,8 +185,8 @@ export function prepareCodeqlModelTests(pack, output) {
       name: "wrong_binding",
       edits: [
         [
-          "MQ_TRUSTED_SHA: ${{ inputs.trusted-sha }}",
-          "MQ_TRUSTED_SHA: ${{ inputs.candidate-sha }}",
+          "MQ_TRUSTED_COMMIT_ID: ${{ inputs.trusted-commit-id }}",
+          "MQ_TRUSTED_COMMIT_ID: ${{ inputs.candidate-commit-id }}",
         ],
       ],
     },
@@ -194,8 +194,8 @@ export function prepareCodeqlModelTests(pack, output) {
       name: "compound_binding",
       edits: [
         [
-          "MQ_TRUSTED_SHA: ${{ inputs.trusted-sha }}",
-          "MQ_TRUSTED_SHA: ${{ inputs.trusted-sha || inputs.candidate-sha }}",
+          "MQ_TRUSTED_COMMIT_ID: ${{ inputs.trusted-commit-id }}",
+          "MQ_TRUSTED_COMMIT_ID: ${{ inputs.trusted-commit-id || inputs.candidate-commit-id }}",
         ],
       ],
     },
@@ -203,8 +203,8 @@ export function prepareCodeqlModelTests(pack, output) {
       name: "checkout_mismatch",
       edits: [
         [
-          "ref: ${{ inputs.trusted-sha }}\n          path: trusted",
-          "ref: ${{ inputs.candidate-sha }}\n          path: trusted",
+          "ref: ${{ inputs.trusted-commit-id }}\n          path: trusted",
+          "ref: ${{ inputs.candidate-commit-id }}\n          path: trusted",
         ],
       ],
     },

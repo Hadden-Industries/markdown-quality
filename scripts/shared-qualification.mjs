@@ -46,7 +46,7 @@ if (process.argv[2] === "bootstrap") {
     fail("LOCK_CHANGED", "Frozen trusted lock changed during acquisition.");
   const require = createRequire(join(graphRoot, "package.json"));
   const entry = require.resolve("@hadden-industries/markdown-quality");
-  const { qualifyCandidate } = await import(pathToFileURL(entry));
+  const { qualifyGitMarkdown } = await import(pathToFileURL(entry));
   const nativeArchive = safePath(
     trustedRoot,
     profile.toolchain.nativeArchives[`${process.platform}-${process.arch}`],
@@ -68,29 +68,29 @@ if (process.argv[2] === "bootstrap") {
     .trim()
     .split(/\r?\n/u)[0];
   if (
-    !/^[a-f0-9]{40}$/u.test(process.env.MQ_WORKFLOW_SHA ?? "") ||
+    !/^[a-f0-9]{40}$/u.test(process.env.MQ_WORKFLOW_COMMIT_ID ?? "") ||
     process.env.MQ_WORKFLOW_REPOSITORY !== "Hadden-Industries/markdown-quality"
   )
     fail(
       "WORKFLOW_IDENTITY",
       "Producer workflow identity is unavailable or inconsistent.",
     );
-  const report = await qualifyCandidate({
-    sourceRoot: resolve(process.env.MQ_CANDIDATE_ROOT),
+  const report = await qualifyGitMarkdown({
+    candidateRoot: resolve(process.env.MQ_CANDIDATE_ROOT),
     trustedRoot,
     profile: process.env.MQ_PROFILE,
-    candidateSha: process.env.MQ_CANDIDATE_SHA,
-    trustedSha: process.env.MQ_TRUSTED_SHA,
-    git,
-    python,
+    candidateCommitId: process.env.MQ_CANDIDATE_COMMIT_ID,
+    trustedCommitId: process.env.MQ_TRUSTED_COMMIT_ID,
+    gitExecutablePath: git,
+    pythonExecutablePath: python,
     outputRoot: join(process.env.RUNNER_TEMP, "shared-markdown-evidence"),
     producer: {
-      sourceSha: process.env.MQ_WORKFLOW_SHA,
+      sourceCommitId: process.env.MQ_WORKFLOW_COMMIT_ID,
       coreArchiveSha256: digest(readFileSync(coreArchive)),
       nativeArchiveSha256: digest(readFileSync(nativeArchive)),
     },
     workflow: {
-      producerSha: process.env.MQ_WORKFLOW_SHA,
+      producerCommitId: process.env.MQ_WORKFLOW_COMMIT_ID,
       producerRef: process.env.MQ_WORKFLOW_REF,
       producerRepository: process.env.MQ_WORKFLOW_REPOSITORY,
       callerRef: process.env.GITHUB_WORKFLOW_REF,

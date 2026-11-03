@@ -78,7 +78,12 @@ export async function prepareFormattedDocument(
   function nativePolicy(source) {
     const protectedLiterals = protectOpaqueLiterals(source, memo, endOfLine);
     return protectedLiterals.restore(
-      runNative(tool, protectedLiterals.text, false, context.config.limits),
+      runNative(
+        tool,
+        protectedLiterals.text,
+        false,
+        context.config.analyzerLimits,
+      ),
     );
   }
   // Equal-width emphasis repairs can avoid a second full printer pass. Admit
@@ -126,7 +131,7 @@ export async function formatDocument(text, context, tool, memo) {
       tool,
       formatted.output,
       context.config.syntax,
-      context.config.limits,
+      context.config.analyzerLimits,
     ),
   };
 }

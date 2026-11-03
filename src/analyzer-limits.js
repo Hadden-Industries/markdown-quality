@@ -1,23 +1,26 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-/** Current analyzer ceilings. Null overrides bypass individual ceilings. */
-export const analyzerLimits = Object.freeze({
-  fileBytes: 2_097_152,
-  totalBytes: 33_554_432,
-  files: 10_000,
-  entries: 100_000,
-  configBytes: 262_144,
-  nativeMs: 15_000,
-  nativeOutputBytes: 8_388_608,
-  diagnostics: 10_000,
-  documentDiagnostics: 1_000,
-  diagnosticBytes: 4_194_304,
-  selectionBytes: 4_194_304,
-  analysisMs: 30_000,
-  workerHeapMb: 128,
-  workerStackMb: 4,
-  stagingMs: 1_000,
-  stagingOutputBytes: 65_536,
-  patterns: 100,
-  patternLength: 512,
-  lintRules: 60,
+/** Configured analyzer ceilings. Null overrides disable individual package ceilings.
+ * Populations and units are documented in the resource-control inventory.
+ */
+export const defaultAnalyzerLimits = Object.freeze({
+  maxDocumentBytes: 2_097_152,
+  maxTotalDocumentBytes: 33_554_432,
+  maxPathsPerSelectionStage: 10_000,
+  maxEnumeratedEntries: 100_000,
+  maxConfigurationBytes: 262_144,
+  nativeInvocationTimeoutMs: 15_000,
+  maxNativeOutputBytes: 8_388_608,
+  maxTotalDiagnostics: 10_000,
+  maxDocumentDiagnostics: 1_000,
+  maxDiagnosticJsonBytes: 4_194_304,
+  maxInventoryBytes: 4_194_304,
+  documentAnalysisTimeoutMs: 30_000,
+  maxWorkerOldGenerationMiB: 128,
+  workerStackMiB: 4,
+  nativeStagingAccessTimeoutMs: 1_000,
+  maxNativeStagingCommandOutputBytes: 65_536,
+  maxPatternsPerList: 100,
+  maxPatternCodePoints: 512,
+  maxRuleOverrideCount: 60,
+  maxReadDependencyDocuments: 10_000,
 });

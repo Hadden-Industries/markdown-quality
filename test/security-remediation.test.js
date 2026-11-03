@@ -130,7 +130,7 @@ test("math-containing GFM retains literals, diagnostics and write boundaries", a
   const root = consumer(t, { "math.md": input });
   const checked = await runQuality({ root });
   assert.deepEqual(checked.errors, []);
-  assert.deepEqual(checked.written, []);
+  assert.deepEqual(checked.writtenPaths, []);
   assert.equal(readFileSync(join(root, "math.md"), "utf8"), input);
   assert.ok(!checked.diagnostics.some((d) => d.rule === "parse"));
   const formatted = await runQuality({ root, mode: "format" });
@@ -143,5 +143,8 @@ test("math-containing GFM retains literals, diagnostics and write boundaries", a
   ])
     assert.ok(output.includes(literal), literal);
   assert.equal((await runQuality({ root })).exitCode, 0);
-  assert.deepEqual((await runQuality({ root, mode: "format" })).written, []);
+  assert.deepEqual(
+    (await runQuality({ root, mode: "format" })).writtenPaths,
+    [],
+  );
 });

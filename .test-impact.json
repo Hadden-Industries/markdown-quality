@@ -24,11 +24,16 @@
   "boundaryFiles": [
     "src/candidate-staging.js",
     "src/configuration.js",
+    "src/consumer-root.js",
     "src/contracts.js",
     "src/document-analysis.js",
     "src/execution.js",
-    "src/native-tool.js",
+    "src/host-git.js",
+    "src/link-graph.js",
+    "src/local-links.js",
     "src/native-staging.js",
+    "src/native-tool.js",
+    "src/normalize-batch.js",
     "src/qualification-evidence.js",
     "src/qualification-runner.js",
     "src/qualification.js"
@@ -89,6 +94,14 @@
       "kind": "spawn",
       "evidence": "Execution tests invoke the source CLI",
       "fixture": "test/affected-tests.test.js real spawned CLI seeded failure"
+    },
+    {
+      "id": "qualify-git-cli-execution",
+      "dependency": "src/qualify-git-cli.js",
+      "consumer": "test/execution.test.js",
+      "kind": "spawn",
+      "evidence": "Execution tests invoke the source Git qualification CLI",
+      "fixture": "test/affected-tests.test.js supplemental chain"
     },
     {
       "id": "document-worker",

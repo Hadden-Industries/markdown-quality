@@ -21,8 +21,6 @@ export function consumer(t, files = {}, config = {}) {
   writeFileSync(
     join(root, ".markdown-quality.json"),
     JSON.stringify({
-      schemaVersion: 2,
-      preset: "authored-gfm@1",
       include: ["**/*.md"],
       ...config,
     }),

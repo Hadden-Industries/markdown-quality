@@ -57,12 +57,13 @@ No consumer code, configuration JavaScript, lifecycle scripts or private pilot o
 Those public corpora differ from the separately frozen pilot proposals in nine/two metadata paths and one selected OwlAPI Markdown file; the Windows paired evidence above remains a separate workload.
 
 The maintainer observer records six full runs per corpus/platform, every raw result, source revision and physical tracked-file manifest, before/after corpus identity, descendant quiescence, CPU and platform-specific memory measurements.
-Each fresh Node process calls the installed package's public `runQuality` API through `scripts/performance-check.mjs`, selecting only `limits: { documentDiagnostics: null }`.
-This maintainer-owned override retains every advisory on the complete public corpora without adding or editing their configuration files.
+Each fresh Node process calls the installed package's public `runQuality` API through `scripts/performance-check.mjs`, selecting only `analyzerLimits: { maxDocumentDiagnostics: null }`.
+The harness maps historical analyzer-limit leaf names to their current `analyzerLimits` keys.
+This maintainer-owned override retains every finding on the complete public corpora without adding or editing their configuration files.
 All other resolved consumer budgets remain active; consumer defaults and the 30-second/512 MiB qualification gates are unchanged.
 Authored resource reports, qualification summaries and driver JSON status explicitly use UTF-8 with LF on every platform.
 Raw child stdout and stderr retain the actual captured bytes; result identities hash those retained bytes.
-Each candidate result must match the independently frozen baseline's complete diagnostics, selected paths, outcome and exit code; its package version must match the installed candidate.
+Each candidate result must match the independently frozen baseline's complete diagnostics, selected paths, status and exit code; its package version must match the installed candidate.
 The revision-5 oracle in `test/fixtures/performance-oracles.json` replaces the earlier strict-whitespace report-schema-1 oracle.
 It was frozen from source `763984e94f2122a949d2ad6f9bce5da9791015e8` with the explicit maintainer override, before the literal-protection optimization.
 The complete historical reports are retained as compressed [correctness fixtures](../test/fixtures/performance-incumbents/README.md), with their hosted acquisition provenance.
@@ -70,10 +71,13 @@ Before measuring a candidate, the qualifier verifies both complete canonical rep
 Missing, corrupt or changed reports abort qualification.
 CI uses this retained correctness evidence instead of installing and executing the unoptimized historical producer on each runner; no historical timing or memory measurement is reused as current candidate evidence.
 The qualification report records `retainedIncumbentFullResultOracleVerified` and the verified full-result hash, rather than claiming a fresh historical execution.
-The agreed policy fixtures establish the intentional new advisory and style behavior; the corpus baseline detects any further result change from optimization.
+The frozen corpus policies in `test/fixtures/performance-policies.json` are configuration schema 2 records.
+The qualifier translates them into sparse schema 3 input with explicit `authored-gfm@1` severity overrides from `test/fixtures/performance-incumbent-severities.json`, so the frozen incumbents are compared like-for-like.
+Intentional `authored-gfm@2` preset changes are adjudicated separately and never by rewriting the frozen oracle bytes.
+The agreed policy fixtures establish the intentional style behavior; the corpus baseline detects any further result change from optimization.
 OwlAPI selects 63 documents with 5,829 findings (5,799 line-length information, 24 heading-punctuation information, four layout errors and two whitespace errors); WebVOWL selects 67 with 3,625 findings (3,588 line-length information, 24 heading-punctuation information, ten layout errors and three whitespace errors).
 The canonical hash authenticates all fields and findings of each retained historical report; candidate comparison uses the fields listed above because the translated fixture intentionally changes its effective configuration representation.
-Finding, selection, outcome, exit-code and count parity are checked immediately after each observation so a mismatch stops before the remaining runs; compact counts do not replace complete diagnostic comparison.
+Finding, selection, status, exit-code and count parity are checked immediately after each observation so a mismatch stops before the remaining runs; compact counts do not replace complete diagnostic comparison.
 It enforces the existing accepted timing and memory budgets and retains observations on failure without automatic retries.
 Windows uses Job Object peak committed bytes; Linux samples summed process-group RSS every 10 ms, which may miss brief peaks and count shared pages more than once.
 These metrics are declared independently and must not be compared as identical measures.

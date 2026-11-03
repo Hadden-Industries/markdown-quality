@@ -12,17 +12,20 @@ import {
 } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { safePath } from "./configuration.js";
-import { digest, fail } from "./contracts.js";
+import { safePath } from "./consumer-root.js";
+import { digest, exceeds, fail } from "./contracts.js";
+import { defaultExecutionLimits } from "./resource-controls.js";
 import { stagedDataManifest } from "./candidate-staging.js";
 
-const maximumReportBytes = 64 * 1024 * 1024;
 import { fingerprint } from "./stat-fingerprint.js";
 import { openRegularFile, statRegularFile } from "./regular-file.js";
 function readEvidence(root, path, bound, allowTruncation = false) {
   const full = safePath(root, path, { file: true });
   const pathStat = lstatSync(full);
-  if (pathStat.nlink !== 1 || (!allowTruncation && pathStat.size > bound))
+  if (
+    pathStat.nlink !== 1 ||
+    (!allowTruncation && exceeds(pathStat.size, bound))
+  )
     fail("EVIDENCE_LIMIT", "Evidence requires bounded singly linked files.");
   let opened;
   try {
@@ -32,11 +35,13 @@ function readEvidence(root, path, bound, allowTruncation = false) {
   }
   const { descriptor: fd, stat: before } = opened;
   try {
-    if (!allowTruncation && before.size > bound)
+    if (!allowTruncation && exceeds(before.size, bound))
       fail("EVIDENCE_LIMIT", "Evidence requires bounded singly linked files.");
     if (fingerprint(before) !== fingerprint(fstatSync(fd)))
       fail("EVIDENCE_CHANGED", "Evidence changed during packaging.");
-    const bytes = Buffer.alloc(Math.min(before.size, bound));
+    const bytes = Buffer.alloc(
+      bound === null ? before.size : Math.min(before.size, bound),
+    );
     let offset = 0;
     while (offset < bytes.length) {
       const count = readSync(fd, bytes, offset, bytes.length - offset, offset);
@@ -55,7 +60,11 @@ function readEvidence(root, path, bound, allowTruncation = false) {
       fingerprint(before) !== fingerprint(current)
     )
       fail("EVIDENCE_CHANGED", "Evidence changed during packaging.");
-    return { bytes, originalSize: before.size, truncated: before.size > bound };
+    return {
+      bytes,
+      originalSize: before.size,
+      truncated: exceeds(before.size, bound),
+    };
   } finally {
     closeSync(fd);
   }
@@ -63,12 +72,28 @@ function readEvidence(root, path, bound, allowTruncation = false) {
 const boundedRead = (root, path, bound) =>
   readEvidence(root, path, bound).bytes;
 
+const tighter = (left, right) =>
+  left === null ? right : right === null ? left : Math.min(left, right);
+
 /** Project quiescent qualification output for upload without modifying originals.
  * Manifests establish identity, not retained bytes or independent authenticity.
  * Reproduction requires the immutable candidate/trusted Git objects and archives.
  * Failed/incomplete observations retain diagnostics without becoming passes.
+ * The trusted caller supplies input ceilings before any artifact is read; artifact
+ * contents cannot authorize their own admission. Null disables a package ceiling.
  */
-export function packageQualificationEvidence({ sourceRoot, outputRoot }) {
+export function packageQualificationEvidence({
+  evidenceRoot: sourceRoot,
+  outputRoot,
+  maxEvidenceInputBytes = defaultExecutionLimits.maxEvidenceInputBytes,
+  maxUnboundEvidenceSamples = defaultExecutionLimits.maxUnboundEvidenceSamples,
+}) {
+  for (const value of [maxEvidenceInputBytes, maxUnboundEvidenceSamples])
+    if (value !== null && (!Number.isSafeInteger(value) || value < 1))
+      fail(
+        "EVIDENCE_LIMIT",
+        "Evidence ceilings must be positive safe integers or null.",
+      );
   sourceRoot = resolve(sourceRoot);
   outputRoot = resolve(outputRoot);
   if (
@@ -85,7 +110,7 @@ export function packageQualificationEvidence({ sourceRoot, outputRoot }) {
     );
   const originalReports = new Map();
   const readJson = (path) => {
-    const bytes = boundedRead(sourceRoot, path, maximumReportBytes);
+    const bytes = boundedRead(sourceRoot, path, maxEvidenceInputBytes);
     originalReports.set(path, bytes);
     return JSON.parse(bytes);
   };
@@ -98,22 +123,34 @@ export function packageQualificationEvidence({ sourceRoot, outputRoot }) {
   const profile = request?.profile;
   const passed = window?.passed === true;
   if (profile) {
+    if (
+      !Number.isSafeInteger(profile.requiredConsecutiveSamples) ||
+      profile.requiredConsecutiveSamples <= 0
+    )
+      fail(
+        "EVIDENCE_LIMIT",
+        "Evidence profiles require a finite positive sample count.",
+      );
     for (const key of [
-      "samples",
-      "reportBytes",
-      "requestBytes",
-      "stagingBytes",
-      "stagingEntries",
+      "maxOutputBytes",
+      "maxRequestBytes",
+      "maxStagedDataBytes",
+      "maxStagedEntries",
+      "maxQualificationSamples",
     ])
-      if (!Number.isSafeInteger(profile[key]) || profile[key] <= 0)
+      if (
+        profile[key] !== null &&
+        (!Number.isSafeInteger(profile[key]) || profile[key] <= 0)
+      )
         fail(
           "EVIDENCE_LIMIT",
-          "Evidence profile bounds must be finite positive integers.",
+          "Evidence profile ceilings must be positive integers or null.",
         );
     if (
-      profile.samples > 100 ||
-      profile.reportBytes > maximumReportBytes ||
-      profile.requestBytes > maximumReportBytes
+      exceeds(
+        profile.requiredConsecutiveSamples,
+        profile.maxQualificationSamples,
+      )
     )
       fail("EVIDENCE_LIMIT", "Evidence exceeds packaging admission bounds.");
   }
@@ -122,15 +159,20 @@ export function packageQualificationEvidence({ sourceRoot, outputRoot }) {
     (!profile ||
       !isDeepStrictEqual(window.enforcedProfile, profile) ||
       !Array.isArray(window.samples) ||
-      window.samples.length !== profile.samples)
+      window.samples.length !== profile.requiredConsecutiveSamples)
   )
     fail(
       "EVIDENCE_CHANGED",
       "Successful window requires every declared sample and the exact profile.",
     );
-  const bound = profile?.reportBytes ?? 8388608;
+  const bound = profile
+    ? tighter(profile.maxOutputBytes, maxEvidenceInputBytes)
+    : tighter(defaultExecutionLimits.maxOutputBytes, maxEvidenceInputBytes);
+  const sampleCeiling = profile
+    ? profile.requiredConsecutiveSamples
+    : maxUnboundEvidenceSamples;
   const samples = window?.samples ?? [];
-  if (!Array.isArray(samples) || samples.length > (profile?.samples ?? 1000))
+  if (!Array.isArray(samples) || exceeds(samples.length, sampleCeiling))
     fail("EVIDENCE_LIMIT", "Invalid evidence sample count.");
   const recorded = new Map();
   const receiptProblems = [];
@@ -147,10 +189,11 @@ export function packageQualificationEvidence({ sourceRoot, outputRoot }) {
         fail("EVIDENCE_CHANGED", "Sample receipt digest changed.");
       const receipt = JSON.parse(bytes);
       if (
-        !/^[a-f0-9]{40}$/u.test(request?.candidateSha ?? "") ||
-        !/^[a-f0-9]{40}$/u.test(request?.trustedSha ?? "") ||
-        receipt.candidate?.head !== request.candidateSha ||
-        receipt.trusted?.head !== request.trustedSha ||
+        receipt.schemaVersion !== 2 ||
+        !/^[a-f0-9]{40}$/u.test(request?.candidateCommitId ?? "") ||
+        !/^[a-f0-9]{40}$/u.test(request?.trustedCommitId ?? "") ||
+        receipt.candidate?.commitId !== request.candidateCommitId ||
+        receipt.trusted?.commitId !== request.trustedCommitId ||
         !isDeepStrictEqual(receipt.producer, request.producer) ||
         !isDeepStrictEqual(receipt.workflow, request.workflow ?? null)
       )
@@ -167,7 +210,7 @@ export function packageQualificationEvidence({ sourceRoot, outputRoot }) {
   mkdirSync(outputRoot);
   mkdirSync(join(outputRoot, "manifests"));
   const index = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     passed,
     payloadRetention: "reconstruct-from-immutable-inputs",
     limitations:
@@ -177,7 +220,7 @@ export function packageQualificationEvidence({ sourceRoot, outputRoot }) {
     problems: receiptProblems,
   };
   function emit(path, bytes, limit = bound, metadata = {}) {
-    if (bytes.length > limit)
+    if (exceeds(bytes.length, limit))
       fail("EVIDENCE_LIMIT", "Compact evidence file exceeds the report bound.");
     writeFileSync(join(outputRoot, path), bytes, { flag: "wx" });
     index.files.push({
@@ -190,18 +233,22 @@ export function packageQualificationEvidence({ sourceRoot, outputRoot }) {
   for (const path of ["request.json", "window.json"])
     if (existsSync(join(sourceRoot, path))) {
       const limit =
-        path === "request.json" ? (profile?.requestBytes ?? bound) : bound;
+        path === "request.json"
+          ? profile
+            ? tighter(profile.maxRequestBytes, maxEvidenceInputBytes)
+            : bound
+          : bound;
       emit(path, originalReports.get(path), limit);
     }
   const directories = readdirSync(sourceRoot)
     .filter((name) => /^sample-[1-9][0-9]*$/u.test(name))
     .sort((a, b) => Number(a.slice(7)) - Number(b.slice(7)));
-  if (directories.length > (profile?.samples ?? 1000))
+  if (exceeds(directories.length, sampleCeiling))
     fail("EVIDENCE_LIMIT", "Too many sample directories.");
   const manifests = new Map();
   for (const name of directories) {
     const number = Number(name.slice(7));
-    if (number > (profile?.samples ?? 1000))
+    if (exceeds(number, sampleCeiling))
       fail("EVIDENCE_LIMIT", "Sample index exceeds the window.");
     const directory = safePath(sourceRoot, name);
     if (!lstatSync(directory).isDirectory())
@@ -313,7 +360,7 @@ export function packageQualificationEvidence({ sourceRoot, outputRoot }) {
   }
   if (
     passed &&
-    (index.samples.length !== profile.samples ||
+    (index.samples.length !== profile.requiredConsecutiveSamples ||
       index.samples.some((sample) => !sample.complete))
   )
     fail("EVIDENCE_CHANGED", "Successful window has missing sample evidence.");
@@ -323,7 +370,7 @@ export function packageQualificationEvidence({ sourceRoot, outputRoot }) {
         "Qualification window unavailable; observation did not complete.",
     });
   const bytes = Buffer.from(JSON.stringify(index, null, 2) + "\n");
-  if (bytes.length > bound)
+  if (exceeds(bytes.length, bound))
     fail("EVIDENCE_LIMIT", "Artifact index exceeds the report bound.");
   writeFileSync(join(outputRoot, "artifact-index.json"), bytes, { flag: "wx" });
   return index;

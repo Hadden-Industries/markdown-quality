@@ -9,7 +9,7 @@ import Ajv from "ajv";
 import { consumer } from "./helpers.js";
 import { runQuality } from "../src/quality.js";
 import { safePath } from "../src/configuration.js";
-import { limits } from "../src/contracts.js";
+import { defaultAnalyzerLimits } from "../src/analyzer-limits.js";
 const validate = new Ajv({ strict: true }).compile(
   JSON.parse(
     readFileSync(
@@ -27,7 +27,17 @@ test("CLI concurrency reaches real analysis and rejects counts below one before 
     { encoding: "utf8", timeout: 30_000 },
   );
   assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.deepEqual(JSON.parse(result.stdout).unchanged, ["a.md", "b.md"]);
+  const checked = JSON.parse(result.stdout);
+  assert.equal(checked.operationStatus, "completed");
+  assert.equal(checked.qualityBasis, "input");
+  assert.deepEqual(
+    checked.documentResults,
+    ["a.md", "b.md"].map((path) => ({
+      path,
+      analysisStatus: "completed",
+      writeStatus: "not-requested",
+    })),
+  );
   const invalid = spawnSync(
     process.execPath,
     [cli, "format", "--root", root, "--concurrency", "0", "--json"],
@@ -37,7 +47,7 @@ test("CLI concurrency reaches real analysis and rejects counts below one before 
   const rejected = JSON.parse(invalid.stdout);
   assert.ok(validate(rejected), JSON.stringify(validate.errors));
   assert.equal(rejected.errors[0].code, "INVALID_CONCURRENCY");
-  assert.deepEqual(rejected.written, []);
+  assert.deepEqual(rejected.writtenPaths, []);
 });
 test("CLI literal and JSON selections preserve boundaries and schema on every exit", (t) => {
   const root = consumer(t, {
@@ -65,19 +75,29 @@ test("CLI literal and JSON selections preserve boundaries and schema on every ex
 });
 test("oversized files, outside paths and alternate streams fail before analysis or writes", async (t) => {
   const root = consumer(t, {
-    "big.md": Buffer.alloc(limits.fileBytes + 1, 97),
+    "big.md": Buffer.alloc(defaultAnalyzerLimits.maxDocumentBytes + 1, 97),
     "a.md": "Alpha.\n",
   });
   const result = await runQuality({ root, mode: "format" });
   assert.equal(result.exitCode, 2);
   assert.equal(result.errors[0].code, "DOCUMENT_LIMIT");
-  assert.deepEqual(result.written, []);
+  assert.deepEqual(result.writtenPaths, []);
+  assert.ok(
+    result.documentResults.every((record) => record.writeStatus !== "written"),
+  );
   assert.throws(() => safePath(root, "../outside.md"));
   assert.throws(() => safePath(root, join(root, "a.md") + ":stream"));
   const inspect = await runQuality({ root, mode: "inspect", files: ["a.md"] });
   assert.ok(validate(inspect), JSON.stringify(validate.errors));
   assert.equal(inspect.configuration.layout.endOfLine, "lf");
-  assert.deepEqual(inspect.unprocessed, []);
+  assert.equal(inspect.qualityStatus, "not-checked");
+  assert.deepEqual(inspect.documentResults, [
+    {
+      path: "a.md",
+      analysisStatus: "not-requested",
+      writeStatus: "not-requested",
+    },
+  ]);
 });
 test(
   "Linux filenames cannot inject terminal commands into text diagnostics",

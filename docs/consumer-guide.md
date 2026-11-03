@@ -1,272 +1,358 @@
 # Consumer guide
 
-Install an exact coordinated public release after registry availability is verified.
-Acquisition needs no npm account or token; disable lifecycle scripts.
+This guide describes zero-config consumption of version 2.0.0: configuration schema 3, preset `authored-gfm@2` and result schema 4.
+Published 1.x archives are immutable and keep their previous behavior; the [migration guide](migration-guide.md) maps old names to these contracts.
+
+## Installation
 
 ```sh
-npm install --save-dev --save-exact --ignore-scripts @hadden-industries/markdown-quality@1.0.3
-npm ci --ignore-scripts
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@2.0.0
+npm exec -- markdown-quality check --root .
 ```
 
-The installation command selects the existing published `1.0.3` release.
-Development source replaces its `authored-gfm@1` defaults in place; adopt the latest commit through an independently qualified source/core/native/archive/workflow tuple, regardless of npm release status.
-Freeze the full source SHA and archive integrities in the consumer graph; package version `1.0.3` alone does not distinguish development bytes.
-The install command above selects the immutable published package and does not acquire these development contracts.
-No `authored-gfm@2` or selectable legacy policy is introduced.
-General pilot availability and stable `latest` designation are separate decisions.
-The owner explicitly authorized 1.0.3 to be published as `latest`, subject to its complete archive, registry/provenance and immutable-release verification.
-The previously qualified alpha.4 tuple remains immutable historical evidence.
-That release decision does not accept or change either consumer's separately paused migration; both still require their exact scope and trusted-run acceptance before cutover.
-Keep the consumer lockfile.
-An isolated `tooling/markdown` npm project supports consumers that do not use Node for their application.
-Its commands must pass the actual repository root.
+While 2.0.0 is under npm's `pilot` tag, install it by exact version; an unversioned install selects the `latest` 1.x release.
+No configuration file is required.
+A local dependency does not put a bare `markdown-quality` executable on every shell's PATH; use [npm exec](https://docs.npmjs.com/cli/v11/commands/npm-exec/) or an npm script.
+Keep the consumer lockfile, and disable lifecycle scripts with `--ignore-scripts` where your acquisition policy requires it.
+An isolated `tooling/markdown` npm project supports consumers that do not use Node for their application; pass the actual repository root to its commands.
+Version 2.0 adds `parse5` 8.1.0 (MIT) and `github-slugger` 2.0.0 (ISC) as direct runtime dependencies; the [third-party notices](../THIRD-PARTY-NOTICES.md) list them all.
 
-Place this bounded JSON policy at the repository root.
+## Root discovery
+
+An explicit `--root` or API `root` selects exactly that directory, including a subdirectory of a checkout.
+Otherwise the root is the nearest Git checkout, verified through host Git, else the nearest directory with a regular `package.json`, else the current directory.
+Git worktree and submodule `.git` files are verified by host Git rather than parsed.
+Malformed or unverifiable Git metadata is an operational error, not a reason to search farther outward.
+`.markdown-quality.json` is looked up only at the selected root, and `--config` never relocates the root.
+A missing explicit `--config`, an unreadable or linked file, invalid JSON, schema errors and unsupported versions return exit `2`; none falls back to defaults.
+
+## Sparse configuration
+
+Every key is optional, and `{}` is equivalent to no file.
+When present, `schemaVersion` must be `3` and `preset` must be `authored-gfm@2`; older markers fail with migration guidance.
+
+| Key                       | Default                                              | Merge rule                                                         |
+| ------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------ |
+| `include`                 | `["**/*.md"]`                                        | A supplied nonempty list replaces the default                      |
+| `exclude`                 | `["**/vendor/**", "**/.cache/**", "**/coverage/**"]` | A supplied list replaces the default; `[]` clears these exclusions |
+| `lint`                    | Complete package rule map                            | Supplied `off`, `info`, `warn` or `error` severities merge by rule |
+| `syntax.frontmatter`      | `"yaml"`                                             | `false`, `"yaml"`, `"toml"` or `"json"` replaces it                |
+| `links.checkLocalTargets` | `true`                                               | `false` disables filesystem target, case and cross-document checks |
+| `links.rootRelative`      | `"reject"`                                           | `"consumer-root"` resolves `/path` links against the root          |
+| `layout`                  | `{"endOfLine": "lf", "tabWidth": 2}`                 | Supplied fields merge; `endOfLine` also accepts `crlf`, `preserve` |
+| `analyzerLimits`          | Package analyzer ceilings                            | Supplied leaves merge; `null` disables one, `false` disables all   |
+
+Exclude only a generated area and keep everything else:
 
 ```json
 {
-  "schemaVersion": 2,
-  "preset": "authored-gfm@1",
+  "exclude": ["docs/generated/**"]
+}
+```
+
+Keep a narrow authored scope with one rule exemption and front matter disabled:
+
+```json
+{
+  "schemaVersion": 3,
+  "preset": "authored-gfm@2",
   "include": ["*.md", "docs/**/*.md"],
-  "exclude": ["docs/reviews/**", "docs/generated/**"],
-  "lint": {},
-  "links": { "localFiles": true, "rootRelative": "reject" },
-  "layout": { "endOfLine": "preserve", "tabWidth": 2 }
+  "exclude": ["docs/reviews/**"],
+  "lint": { "quality/long-prose-line": "off" },
+  "syntax": { "frontmatter": false },
+  "links": { "rootRelative": "consumer-root" }
 }
 ```
 
-Include and exclude entries are relative slash-separated globs supplied to picomatch.
-Explicit exclusions win.
-Only `.markdown-quality.json` owns Markdown scope.
-`.gitignore`, `.prettierignore`, EditorConfig and JavaScript configuration cannot exclude Markdown.
-Configuration schema 1 and `ignoreFiles` are rejected; translate intended ignore exclusions into reviewed root policy before adoption.
-Exclusions are tested against a path and every ancestor directory, identically for full, explicit and logical requests.
-For example, `docs/reviews/*` excludes `docs/reviews/nested/README.md` in every request mode.
-Dependency, Git, and tooling directories cannot become document inputs.
-Directory traversal never follows symbolic links or Windows junctions.
-Explicit linked paths fail.
-Formatting hard-linked files is unsupported.
-
-Unknown fields, versions, and lint rules fail.
-Lint overrides accept `off`, `info`, `warn`, or `error` for installed `markdown/` rules and package `quality/` advisories.
-Warnings are unresolved findings and block formatting under `--strict`.
-GitHub alert labels are allowed.
-Consumer JavaScript configs, arbitrary plugins, inline ESLint disable comments, and native executable overrides are not execution authority.
-
-Local Markdown links, images, and definitions are parsed with maintained mdast/GFM libraries.
-Percent-encoded filenames resolve after decoding.
-Contained files and directories are valid targets.
-External schemes are classified without network access.
-Same-document fragments use the native ESLint Markdown rule.
-Cross-document heading fragments and remote availability are outside this version's contract.
-
-The library exports `runQuality({ root, config, mode, files, concurrency, inventory })` and `inspectSelection(options)`.
-Omit `files` for full discovery.
-An explicit empty array selects nothing.
-CLI literal filenames follow `--`; `--files-json` accepts the JSON array directly.
-Results identify the package, preset, tools, config digest, selection, diagnostics, written paths, unchanged paths, unprocessed paths, and operational errors.
-Text and JSON share the same result.
-
-## Opt-in concurrency in current source
-
-The `concurrency` option is implemented in development source and is not available in published `1.0.3`.
-Its default is `1`, retaining serial analysis.
-Use a positive integer to request a maximum number of simultaneous document preparations; there is no configured upper bound or automatic CPU/memory tuning.
-The same setting is available as CLI `--concurrency N` and library `runQuality({ concurrency: N })`.
-It is an execution option, not a field in `.markdown-quality.json` or a different Markdown preset.
-For example, against current source:
-
-```sh
-node src/cli.js check --root . --concurrency 2
-node src/cli.js format --root . --concurrency 2
-```
-
-Workers are reused and created only for available work in the existing bounded batches.
-Grouped native prechecks and final independent prose verification remain coordinated; native formatting within concurrent preparations can overlap, and Snapper can also use its own internal threads.
-The count therefore controls JavaScript preparation concurrency rather than the total number of operating-system threads or native processes.
-Diagnostics and failure selection retain document order, all analysis workers stop before private staging is removed, and formatting replacement remains serial after successful validation of the complete batch.
-Consumer-selected concurrency may increase memory use or reduce throughput; the consumer owns performance and capacity choices.
-The serial producer qualification budgets do not certify any selected parallel count.
-Resource defaults apply unless overridden by the consumer.
-
-Exit `0` means no blocking findings, including completed formatting with warnings/information.
-Exit `1` means errors or read-only formatting drift; `--strict` also blocks on warnings.
-Information never affects exit or write admission.
-The library accepts `strict: true` with the same behavior.
-Exit `2` means configuration, tool, input, or operation failure.
-Machine output follows the shipped result schema even for CLI input failures.
-Development source emits result `schemaVersion: 3`; configuration uses `schemaVersion: 2`.
-Tracked inventory decisions and exclusion provenance identify the matching policy pattern and path/ancestor.
-Use `inventory: "git"` or CLI `--inventory git` for full Git reconciliation, or supply a bounded canonical path array from independently bound metadata.
-Selected tracked files must be regular present inputs; selected operational metadata paths fail instead of disappearing.
-`.sdlc` has no implicit exclusion.
-Installed Prettier, ESLint and Markdown plugin versions come from their actual runtime metadata.
-`outcome: findings` can coexist with exit `0`; machine callers use `exitCode` and retain diagnostics.
-Inspection includes effective configuration, native formatter/lint options and sentence-layout policy, including empty selections.
-No excerpts, document bodies, or absolute root paths are emitted by default.
-
-## Diagnostic display in current source
-
-`--diagnostic-level info|warning|error` selects the minimum severity displayed in human-readable output.
-The default is `info`, which retains the existing complete text output.
-For example, against current source:
-
-```sh
-node src/cli.js check --root . --diagnostic-level warning
-node src/cli.js format --root . --strict --diagnostic-level error
-```
-
-The summary reports hidden information and warning counts.
-Under `--strict`, hidden warnings still block and the summary explicitly explains that decision.
-Errors and operational failures are always reported.
-Invalid levels fail before analysis or writes.
-
-This option changes presentation only: rules still run, diagnostic budgets still count every finding, and exit codes and guarded formatting decisions are unchanged.
-With `--json`, the complete structured result is retained at every valid display level.
-The library returns the same complete result; it does not log findings or accept a display-level option.
-The [centralized contracts guide](centralized-contracts.md) describes logical-document transport, supported validation, finite execution profiles and trusted qualification.
-
-Rule disabling is an explicit checking choice through existing `lint` settings.
-To disable the three default information advisories:
+Raise one analyzer ceiling and disable another:
 
 ```json
 {
-  "quality/heading-trailing-punctuation": "off",
-  "quality/long-prose-line": "off",
-  "quality/non-nfc-prose": "off"
+  "analyzerLimits": { "maxDocumentBytes": 8388608, "maxDocumentDiagnostics": null }
 }
 ```
 
-Place these entries in the configuration's `lint` object.
-Disabled advisories skip their rule-specific work; when every advisory is disabled, the advisory checker skips syntax parsing and traversal entirely.
-Formatting, native linting, local-link checks and preservation guards continue according to their own configured contracts.
-No global rule-execution suppression option is introduced.
+Unknown keys, versions and rules fail.
+Patterns are relative slash-separated picomatch globs; absolute, backslash, `..` and NUL patterns fail.
+Ignore files, EditorConfig, JavaScript configuration and inline disable comments have no Markdown policy authority.
 
-## Operational resource budgets
+## Rule defaults
 
-Default limits are 2 MiB per document, 32 MiB per batch, 10,000 selected documents, 100,000 enumerated entries, and 256 KiB per configuration.
-Native invocations have a 15-second deadline and an 8 MiB output cap.
-Each analysis worker has a 128 MiB old-generation JavaScript heap limit and 4 MiB stack limit; document analysis retains its 30-second deadline.
-These heap limits do not bound native processes, external buffers or total process memory.
-Discovered path bytes are capped at 4 MiB.
-Diagnostics are capped at 1,000 records per document, 10,000 records across the batch, and 4 MiB per document and batch.
-Exceeding a selected finite limit returns exit `2` before any formatting writes.
-Text diagnostics escape terminal control characters; JSON retains structured relative filenames.
-Lint messages describe the violated rule without quoting document content.
-These are conservative operational limits; benchmark and platform acceptance remains part of candidate qualification.
+| Rule                                    | Default | Notes                                                                                   |
+| --------------------------------------- | ------- | --------------------------------------------------------------------------------------- |
+| `quality/non-nfc-prose`                 | `error` | Decomposed prose fails check; only `normalize` repairs it                               |
+| `quality/generic-link-text`             | `error` | Exact labels listed below, in prose and tables                                          |
+| `quality/duplicate-sibling-heading`     | `error` | Sibling headings within one section, not every repeated heading                         |
+| `quality/heading-trailing-punctuation`  | `warn`  | Question marks are allowed; `--strict` makes warnings block                             |
+| `quality/long-prose-line`               | `info`  | Prose lines over 120 characters; URLs, literals, tables and code are exempt             |
+| `quality/placeholder-image-alt`         | `error` | Reviewed placeholder alternatives listed below                                          |
+| `quality/unlabeled-image-link`          | `error` | Image-only links need a meaningful static label                                         |
+| `quality/disallowed-html-construct`     | `error` | Finite construct list below; not a sanitizer                                            |
+| `quality/missing-html-image-alt`        | `error` | Reported only when `markdown/require-alt-text` is off, which already reports absent alt |
+| `quality/local-path-case-mismatch`      | `error` | Local path components must match directory-entry spelling exactly                       |
+| `quality/unresolved-local-fragment`     | `error` | Missing or ambiguous same- and cross-document fragments                                 |
+| `markdown/no-bare-urls`                 | `error` | Angle-bracket autolinks remain allowed                                                  |
+| `markdown/no-missing-link-fragments`    | `off`   | Replaced by `quality/unresolved-local-fragment`; still selectable                       |
+| `markdown/no-html`                      | `off`   | Raw HTML stays allowed and protected from rewrites                                      |
+| `markdown/fenced-code-language`         | `error` | Code fences need an author-supplied language                                            |
+| `markdown/heading-increment`            | `error` | Heading levels increase one at a time                                                   |
+| `markdown/no-multiple-h1`               | `error` | At most one H1; an H1 is not mandatory                                                  |
+| `markdown/no-duplicate-definitions`     | `error` | Including footnote definitions                                                          |
+| `markdown/no-empty-definitions`         | `error` | Including footnote definitions                                                          |
+| `markdown/no-unused-definitions`        | `error` | Including footnote definitions                                                          |
+| `markdown/no-empty-images`              | `error` | Upstream rule                                                                           |
+| `markdown/no-empty-links`               | `error` | Upstream rule                                                                           |
+| `markdown/no-invalid-label-refs`        | `error` | Upstream rule                                                                           |
+| `markdown/no-missing-atx-heading-space` | `error` | Upstream rule                                                                           |
+| `markdown/no-missing-label-refs`        | `error` | GitHub alert labels are allowed                                                         |
+| `markdown/no-reference-like-urls`       | `error` | Upstream rule                                                                           |
+| `markdown/no-reversed-media-syntax`     | `error` | Upstream rule                                                                           |
+| `markdown/no-space-in-emphasis`         | `error` | Upstream rule                                                                           |
+| `markdown/require-alt-text`             | `error` | Markdown images need alternative text                                                   |
+| `markdown/table-column-count`           | `error` | Including missing cells                                                                 |
 
-Every package operational resource ceiling is consumer-controlled.
-Set `"limits": false` in configuration, pass `limits: false` to `runQuality`, or use `--no-limits` to bypass analyzer ceilings.
-External transport still has finite framing, process and report bounds; trusted qualification requires finite profile limits.
-Set an individual field to `null` to bypass only that ceiling, or to a positive safe integer to raise or lower it without a package policy maximum.
-For example, `"limits": { "documentDiagnostics": null, "diagnostics": 50000 }` permits unlimited findings per document while retaining a batch count ceiling.
-Invocation fields override configuration fields; omitted fields retain the configuration choice or explicit package default.
-Inspection and JSON reports expose the resolved limits, including `null` values; `configDigest` still identifies the original configuration bytes.
+Generic link labels, matched case-insensitively after trimming, are `click here`, `here`, `read more`, `more`, `link`, `learn more`, `this link`, `more info`, `more information` and `this page`.
+Placeholder alternatives, matched after trimming, collapsing whitespace and lowercasing, are `image`, `img`, `photo`, `picture`, `screenshot`, `alt text`, `image description`, `alt`, `graphic`, `icon` and `logo`.
+Every rule accepts `off`, `info`, `warn` or `error`; `info` reaches ESLint as `warn` but is reported and admitted as information.
+Formatting whitespace policy, canonical layout and preservation guards are not lint rules and cannot be disabled.
+
+## Selection, boundaries and omissions
+
+Full selection discovers files that match `include`, including hidden authored directories and GitHub metadata.
+A broad pattern such as `docs/**` or `**/*` discovers only lowercase `.md` files, so images and other data are never swept in.
+A pattern that names another extension or file opts it in: `"include": ["**/*.md", "**/*.markdown"]`, `**/*.{md,markdown}`, `**/*.MD` or a literal `LICENSE`.
+A pattern opts a file in when it would not also match that path with a different extension; matching is case-sensitive.
+Literal arguments after `--` and `--files-json` select exactly those paths; `--files-json '[]'` selects nothing and succeeds.
+An explicitly named file or logical document path is checked as GitHub Flavored Markdown whatever its extension and whether or not `include` matches it; only an exclusion omits it.
+MDX is a different dialect: a named `.mdx` file or an include pattern that names MDX fails with `UNSUPPORTED_DIALECT`, and broad patterns never select it.
+Exclusions are tested against a path and every ancestor directory identically in full, explicit and logical requests.
+Hard operational boundaries `.git`, `node_modules`, `.venv`, `venv`, `.hi` and `.markdown-quality-trusted-inputs` can never be selected or read and are not erased by `exclude: []`.
+Directory traversal never follows symbolic links or Windows junctions, and explicit linked paths fail.
+Formatting hard-linked files is refused.
+
+`selection.omissions` records each omitted discovered path with reason `excluded`, `not-included` or `operational-boundary`, plus the matching pattern and matched path or ancestor.
+With `--reconcile-inventory git`, `selection.reconciliationDecisions` explains every tracked Markdown path, as discovery defines it, as `selected`, `excluded`, `not-included` or `operational-boundary`.
+Selected tracked files must be present regular inputs.
+
+## Links, fragments, path case and read dependencies
+
+Local links, images and definitions are parsed with maintained mdast/GFM libraries; external URLs are classified without network access.
+Path and fragment are percent-decoded separately exactly once; malformed encodings fail.
+Contained files and directories are valid targets; root-relative `/path` links fail unless `links.rootRelative` is `"consumer-root"`.
+Each local path component must match the directory entry's exact spelling on every platform, reported as `quality/local-path-case-mismatch`; files are never renamed.
+
+Fragments are validated against `.md` targets and targets that `include` opts in, using one anchor model:
+
+- Generated heading anchors use `github-slugger` over rendered heading text with source-order duplicate suffixes, matched case-insensitively.
+- Explicit HTML `id` and anchor `name` values match exactly; duplicate explicit IDs are ambiguous.
+- `top`, GitHub line references such as `L10` and a trailing `{#id}` heading suffix are retained compatibility choices, not GFM features.
+- An empty fragment is a document link and passes when the path is valid.
+- Fragments on other targets are not validated; their path still is.
+
+A cross-document target inside the root and outside hard boundaries is read as a dependency even when it is unselected or excluded.
+Dependencies are read once, never linted, formatted or crawled, and are listed in `selection.readDependencies`.
+They are bounded by `maxReadDependencyDocuments` (default 10,000) and the shared `maxDocumentBytes` and `maxTotalDocumentBytes` accounts.
+
+## Static accessibility and HTML policy
+
+Markdown images are informational: empty `![](...)` alternatives fail.
+Mark a decorative image with an HTML `<img>` that has `alt=""` or `aria-hidden="true"`.
+Image-only Markdown links and HTML anchors need a meaningful static label from text or image alternatives.
+
+`quality/disallowed-html-construct` reports this finite set, parsed with `parse5` rather than regular expressions:
+
+- GFM tagfilter elements `title`, `textarea`, `style`, `xmp`, `iframe`, `noembed`, `noframes`, `script` and `plaintext`.
+- Event-handler attributes.
+- `javascript:` and `vbscript:` URLs in URL attributes after character-reference decoding.
+
+It does not establish that other HTML is safe and is not a sanitizer.
+The narrowed model parses each raw HTML node as one fragment and joins adjacent inline HTML nodes separated only by whitespace.
+Dynamic `aria-labelledby`, CSS visibility, renderer sanitization and DOM accessibility are outside this static checker; passing checks do not certify accessibility.
+
+## NFC policy and normalization
+
+`quality/non-nfc-prose` inspects decoded prose in paragraphs, lists, blockquotes, headings, table cells, link labels and image alternatives, across emphasis boundaries.
+Code, front matter, raw HTML, destinations and definition identifiers are outside the rule.
+Check and format never normalize text.
+Detection and repair use the runtime's ICU normalization; the repository tests both against the official Unicode `NormalizationTest.txt` data for the Unicode version of each supported Node line, and results record the runtime's Node, ICU and Unicode versions.
+Intentionally decomposed prose can opt out with `{"lint": {"quality/non-nfc-prose": "off"}}`; a nonempty `normalize` then refuses with `NFC_RULE_DISABLED`, while `info` and `warn` still allow it.
+
+`normalize` makes minimal source-span edits to eligible prose and preserves every other byte, including EOL layout.
+It refuses, before any write, combining sequences split by inline boundaries that cannot be represented, new structural findings and overlapping edits.
+If a generated heading anchor changes, including suffix cascades on later headings, it refuses with `ANCHOR_CHANGE_REQUIRES_UPDATE_LINKS` and lists the `anchorChanges`.
+
+Preview first, then authorize anchor changes:
+
+```sh
+npm exec -- markdown-quality normalize --root . --dry-run
+npm exec -- markdown-quality normalize --root . --dry-run --update-links
+npm exec -- markdown-quality normalize --root . --update-links
+npm exec -- markdown-quality check --root .
+```
+
+With `--update-links`, normalize inventories reverse references across every `.md` file and every file that `include` opts in, in the root outside hard boundaries, and updates supported local fragments inside the selected write set.
+For example, with `"exclude": ["archive/**"]` and `archive/old.md` linking to a changed heading in `docs/guide.md`, the preview reports `archive/old.md: OUT_OF_SCOPE_REFERENCE` and exits `1` with zero writes.
+Adjust the selection or scope deliberately and rerun.
+References inside raw HTML refuse with `PROTECTED_HTML_REFERENCE`, and edits that cannot be represented refuse with `UNREPRESENTABLE_FRAGMENT_EDIT`.
+`backlinkCoverage` reports the inventoried document count and `externalReferences: "unverified"`; absence from the local inventory never proves there are no external callers.
+
+A preview performs the same selection, edits, anchor mapping, inventory and freshness checks as a write, but returns `operationStatus: "previewed"`, `qualityBasis: "candidate"` and empty `writtenPaths`.
+A later write reruns preparation; a preview is never a stored write token.
+
+## Composable repairs
+
+`format` may leave only `quality/non-nfc-prose`; `normalize` may leave only presentation drift that `format` repairs.
+Either order reaches a passing check for otherwise valid input:
+
+```sh
+npm exec -- markdown-quality format --root .
+npm exec -- markdown-quality normalize --root .
+npm exec -- markdown-quality check --root .
+```
+
+A repair that exits `0` with residual findings reports `qualityStatus: "findings"` and says so in human output.
+Only a complete `check` on the intended input establishes the verdict; CI gates must not accept a repair or preview result in its place.
+
+## Partial-write recovery
+
+Repairs validate the complete batch before the first replacement, so a known refusal writes nothing.
+Replacement is per-file guarded, not a transaction: each file's identity and bytes are rechecked immediately before it is replaced.
+If a later replacement fails, `documentResults` keeps `written` for completed files and `pending` for unapplied changes, and `qualityStatus` is `incomplete`.
+Retain preimages or start from a clean commit; applying NFD cannot restore the original bytes of normalized text.
+Reconcile recorded effects and rerun from current inputs rather than replaying a preview.
+
+## Execution profiles and resource controls
+
+Ordinary operations auto-discover an optional sparse `.markdown-quality-execution.json` at the root; `--execution-profile PATH` selects another file.
+Its `schemaVersion`, when present, must be `2`.
+Persist an unlimited default for one consumer:
+
+```json
+{
+  "resourceLimitMode": "unlimited"
+}
+```
+
+Resolution order is package defaults, configuration `analyzerLimits`, execution profile, then invocation options.
+Every ceiling accepts a positive safe integer or `null`, which disables that ceiling.
+`resourceLimitMode: "unlimited"` projects every package ceiling to `null`, including bootstrap reads; a finite value in the same layer is contradictory and fails.
+`--no-analyzer-limits` or `analyzerLimits: false` disables analyzer ceilings only.
+A file cannot authorize reading itself beyond its bootstrap ceiling, so use `--max-profile-bytes N` or invocation unlimited mode for an unusually large profile.
+Unlimited mode cannot remove Node, V8, JavaScript representation, operating-system, filesystem or hosting-provider limits, and it is not a speed claim.
+Inspection and results report each effective ceiling, its origin and `resourceLimitMode`.
+
+Analyzer ceilings, in configuration `analyzerLimits`, the profile's `analyzerLimits` or invocation options:
+
+| Key                                  |    Default | Unit and population                                                              |
+| ------------------------------------ | ---------: | -------------------------------------------------------------------------------- |
+| `maxDocumentBytes`                   |  2,097,152 | Bytes of each selected input, read dependency and proposed output                |
+| `maxTotalDocumentBytes`              | 33,554,432 | Bytes of the unique input union, and separately of proposed outputs              |
+| `maxPathsPerSelectionStage`          |     10,000 | Paths in each explicit input, reconciliation inventory and final selection stage |
+| `maxEnumeratedEntries`               |    100,000 | Directory entries enumerated, including skipped entries                          |
+| `maxConfigurationBytes`              |    262,144 | Configuration input bytes                                                        |
+| `nativeInvocationTimeoutMs`          |     15,000 | Milliseconds per native process invocation, including grouped invocations        |
+| `maxNativeOutputBytes`               |  8,388,608 | Output bytes per native invocation                                               |
+| `maxTotalDiagnostics`                |     10,000 | Diagnostics per operation                                                        |
+| `maxDocumentDiagnostics`             |      1,000 | Diagnostics per document                                                         |
+| `maxDiagnosticJsonBytes`             |  4,194,304 | UTF-8 JSON array bytes, separately per document and per operation                |
+| `maxInventoryBytes`                  |  4,194,304 | Inventory output and candidate path bytes                                        |
+| `documentAnalysisTimeoutMs`          |     30,000 | Milliseconds per document across analysis phases                                 |
+| `maxWorkerOldGenerationMiB`          |        128 | Worker V8 old generation in MiB, not total process memory                        |
+| `workerStackMiB`                     |          4 | Worker stack in MiB                                                              |
+| `nativeStagingAccessTimeoutMs`       |      1,000 | Milliseconds to establish private Windows native scratch access                  |
+| `maxNativeStagingCommandOutputBytes` |     65,536 | Output bytes of native scratch-access setup commands                             |
+| `maxPatternsPerList`                 |        100 | Entries in `include` and in `exclude`, independently                             |
+| `maxPatternCodePoints`               |        512 | Unicode code points per glob                                                     |
+| `maxRuleOverrideCount`               |         60 | Supplied `lint` entries                                                          |
+| `maxReadDependencyDocuments`         |     10,000 | Unique additional Markdown documents read for targets or reverse references      |
+
+Execution ceilings, as profile keys or SDK execution options:
+
+| Key                          |    Default | Unit and population                                                             |
+| ---------------------------- | ---------: | ------------------------------------------------------------------------------- |
+| `executionTimeoutMs`         |    180,000 | Milliseconds per request-runner child                                           |
+| `maxOutputBytes`             |  8,388,608 | Bytes per child stdout or stderr stream and per report                          |
+| `maxRequestBytes`            |  8,388,608 | UTF-8 bytes of a serialized request, including CLI stdin requests               |
+| `maxNodeOldGenerationMiB`    |        256 | Request-runner child old generation in MiB                                      |
+| `maxProfileBytes`            |     65,536 | Execution profile bytes, admitted before the profile is read                    |
+| `maxRuntimeDeclarationBytes` |     65,536 | Bytes of each runtime declaration file                                          |
+| `gitTimeoutMs`               |     10,000 | Milliseconds per Git inventory or identity subprocess                           |
+| `runtimeProbeTimeoutMs`      |     10,000 | Milliseconds per runtime probe                                                  |
+| `maxRuntimeProbeOutputBytes` |      4,096 | Output bytes per runtime probe                                                  |
+| `maxQualificationSamples`    |        100 | Ceiling on `requiredConsecutiveSamples`                                         |
+| `maxEvidenceInputBytes`      | 67,108,864 | Evidence packaging input bytes                                                  |
+| `maxUnboundEvidenceSamples`  |      1,000 | Samples collected without a complete trusted profile                            |
+| `maxMemoParseBytes`          |  4,194,304 | Per-invocation parse memo bytes                                                 |
+| `maxMemoLayoutBytes`         |  4,194,304 | Per-invocation layout memo bytes                                                |
+| `maxMemoEntriesPerStage`     |          4 | Memo entries per stage                                                          |
+| `cleanupTimeoutMs`           |      5,000 | Milliseconds to wait for package cleanup; null removes only the deadline        |
+| `maxComparisonInputBytes`    |  8,388,608 | Bytes per comparison harness input file                                         |
+| `maxGitInventoryOutputBytes` |    Derived | Bytes of Git inventory output; defaults to `maxInventoryBytes`                  |
+| `maxGitTreeOutputBytes`      |    Derived | Bytes of qualification Git tree output; defaults to `maxStagedEntries` × 1024   |
+| `sampleTimeoutMs`            |   Declared | Milliseconds per qualification sample window, including staging and observation |
+| `maxObservedMemoryBytes`     |   Declared | Observer rejection threshold for its declared platform memory metric            |
+| `maxStagedDataBytes`         |   Declared | Bytes of candidate and trusted data admitted for staging                        |
+| `maxStagedEntries`           |   Declared | Files and directories enumerated for staging admission                          |
+
+Trusted qualification declares `sampleTimeoutMs`, `maxObservedMemoryBytes`, `maxStagedDataBytes` and `maxStagedEntries` (a positive integer or null); ordinary operations have no package default for them.
+Quality policy, NFC enforcement, containment, freshness and guarded replacement are not resource ceilings and stay enforced in every mode.
+
+## Opt-in concurrency
+
+`--concurrency N` and `runQuality({ concurrency: N })` request at most `N` simultaneous document preparations; the default is `1`.
+It is an execution option, not a configuration field or a resource ceiling.
+Diagnostics keep document order, and replacement remains serial after the complete batch validates.
+Higher counts may increase memory use or reduce throughput; serial qualification budgets do not certify a parallel count.
+
+## Library API
 
 ```javascript
-const result = await runQuality({ root, limits: false });
+import {
+  runQuality,
+  inspectSelection,
+  processLogicalDocument,
+  executeQualityRequest,
+  readExecutionProfile,
+  validateQualityResult,
+  compareCheckReports,
+  stageCandidateData,
+  qualifyGitMarkdown,
+} from "@hadden-industries/markdown-quality";
+
+const result = await runQuality({ root: ".", mode: "check" });
 ```
 
-```sh
-markdown-quality check --root . --no-limits --json
-```
+- `runQuality(options)` runs `check`, `format`, `normalize` or `inspect` in process, including guarded physical repairs; options are `mode`, `root`, `config`, `files`, `reconciliationInventory`, `concurrency`, `strict`, `analyzerLimits`, `executionProfile`, `executionLimits`, `resourceLimitMode`, `gitExecutablePath`, `dryRun` and `updateLinks`.
+- `inspectSelection(options)` returns policy and selection with `qualityStatus: "not-checked"`.
+- `processLogicalDocument({ content, path, requestId, ...options })` processes supplied Buffer bytes at a logical path, defaulting to `format`, and never writes the checkout; excluded input is returned unchanged.
+- `executeQualityRequest(request, options)` runs one request in a fresh Node process with `signal`, `processGroup`, `resourceLimitMode` and execution ceilings; it refuses physical repairs and is not a sandbox.
+- `readExecutionProfile({ root, profile, invocation, purpose })` resolves a profile's resource policy without analysis.
+- `validateQualityResult(report, expected)` validates a result against schema 4 and returns the original report.
+- `compareCheckReports({ incumbent, candidate, incumbentSchema, candidateSchema, incumbentInputs, candidateInputs })` compares complete read-only check reports and refuses repair or preview receipts.
+- `stageCandidateData` and `qualifyGitMarkdown` support trusted qualification; see the [centralized contracts guide](centralized-contracts.md) and [CI trust guide](ci-trust.md).
 
-Supported fields and default values are:
+Unknown and removed option keys fail rather than restoring defaults.
+Schemas are exported as `./configuration-schema`, `./effective-configuration-schema`, `./result-schema`, `./execution-schema` and `./comparison-schema`.
 
-| Field                 |  Default | Unit or scope                                          |
-| --------------------- | -------: | ------------------------------------------------------ |
-| `fileBytes`           |  2097152 | Each input and formatted document                      |
-| `totalBytes`          | 33554432 | Input and formatted batch totals                       |
-| `files`               |    10000 | Explicit selection and selected documents              |
-| `entries`             |   100000 | Enumerated directory entries                           |
-| `selectionBytes`      |  4194304 | Discovered path bytes                                  |
-| `configBytes`         |   262144 | Configuration                                          |
-| `patterns`            |      100 | Each include/exclude array                             |
-| `patternLength`       |      512 | Characters per glob                                    |
-| `lintRules`           |       60 | Configured rule overrides                              |
-| `documentDiagnostics` |     1000 | Findings per document                                  |
-| `diagnostics`         |    10000 | Findings per operation                                 |
-| `diagnosticBytes`     |  4194304 | Serialized diagnostic array per document and operation |
-| `nativeMs`            |    15000 | Milliseconds per native invocation                     |
-| `nativeOutputBytes`   |  8388608 | Output bytes per native invocation                     |
-| `analysisMs`          |    30000 | Milliseconds per document across analysis phases       |
-| `workerHeapMb`        |      128 | Worker old-generation heap MiB                         |
-| `workerStackMb`       |        4 | Worker stack MiB                                       |
-| `stagingMs`           |     1000 | Milliseconds to establish private Windows staging      |
-| `stagingOutputBytes`  |    65536 | Output bytes per staging helper                        |
+## Result schema 4 essentials
 
-The configuration is read before applying its resolved size ceiling so it can declare its own bypass.
-Unlimited removes package ceilings; available memory, OS limits, and Node/native runtime constraints still apply.
-For worker memory, `null` omits the package resource setting and uses the runtime's intrinsic allocation limits; a finite value explicitly requests the corresponding worker setting.
-Internal group partitioning and memo cache retention continue to divide work or skip caching; they do not reject inputs.
-Resource overrides preserve quality rules, path safety, semantic preservation, convergence and complete-batch write admission.
-The consumer owns the capacity consequences of its choices.
-The report-comparison harness likewise accepts `--no-limits` before its six input paths to bypass its default 8 MiB input-file ceiling; the library imposes no manifest/report size ceiling.
+| Field              | Meaning                                                                                                                                       |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `operationStatus`  | `completed`, `previewed`, `refused` or `failed`                                                                                               |
+| `qualityStatus`    | `clean`, `findings`, `incomplete` or `not-checked` over the complete selected scope                                                           |
+| `qualityBasis`     | `input`, `candidate`, `applied` or null                                                                                                       |
+| `documentResults`  | One record per selected path with `analysisStatus` and `writeStatus`                                                                          |
+| `writtenPaths`     | Confirmed `written` paths only; empty for check, inspect, preview and logical documents                                                       |
+| `proposedChanges`  | Kind `prose-nfc` or `local-fragment`, original UTF-8 half-open byte span, one-based line and UTF-16 column, before/after lengths and SHA-256  |
+| `anchorChanges`    | Path, heading ordinal, source position, `oldAnchor` and `newAnchor`                                                                           |
+| `backlinkCoverage` | Inventoried documents and `externalReferences: "unverified"`, or null                                                                         |
+| `refusals`         | Code, message and optional location for each refusal                                                                                          |
+| Provenance hashes  | `configurationOrigin`, `configurationBytesSha256`, `defaultConfigurationSha256`, `policyResolverInputsSha256`, `effectiveConfigurationSha256` |
+| `resourcePolicy`   | Limit mode, effective execution ceilings, origins, profile identity and external constraints                                                  |
+| `runtime`          | Node, ICU and Unicode versions                                                                                                                |
+| `root`             | The resolved root, reported by `inspect`                                                                                                      |
 
-Formatting compares maintained parsed structure and literals before replacement and verifies convergence.
-When canonical dots would merge adjacent ordered lists, or an ATX heading cannot retain a literal or hard break, formatting stops before writing.
-Consolidate the lists or add a separating block explicitly; edit the heading explicitly rather than relying on an invented separator or lost content.
-The owner-approved stricter whitespace policy updates `authored-gfm@1` directly; no second preset is provided.
-This change is currently unreleased; existing published npm archives retain their original behavior.
-Trailing spaces and tabs are errors outside parsed literal payloads.
-This includes blank lines, headings, lists, tables, and opening or closing fence lines.
-Space-based hard breaks are forbidden; formatting replaces actual parsed hard breaks with an explicit backslash followed by a newline, preserving the break.
-The whitespace policy cannot be disabled through lint overrides or editor settings.
-Code, raw HTML and recognized front matter retain literal content under the selected EOL policy, including whitespace-only lines and trailing spaces; embedded code formatting remains disabled.
-The default normalizes physical CRLF and lone CR to LF throughout every selected file, including literal payloads.
-Written `\r\n` escape sequences, Unicode normalization and Unicode separators are unchanged.
-Explicit `layout.endOfLine: "crlf"` selects file-wide CRLF; `"preserve"` selects CRLF when the input contains CRLF, otherwise LF, rather than preserving mixed separators byte-for-byte.
-Formatting uses open ATX headings, star emphasis, sequential ordered markers retaining the start, hyphen bullets, lowercase task markers and safe backtick fences.
-Indented code converts to fences; the required language must come from its author, so unlabeled conversions block the complete batch without inserting a label.
-Inline code compares [CommonMark code-span semantics](https://spec.commonmark.org/0.31.2/#code-spans): each line ending means one space, while interior spaces, tabs and other literal characters remain significant.
-Delimiter padding is already handled by the maintained parser; the comparison does not collapse or trim additional whitespace.
-The parsed comparison is an additional backstop, not a universal rendered-equivalence guarantee.
-It conservatively refuses unsupported semantic or literal changes.
-YAML front matter is recognized only at the leading boundary and is preserved without interpreting its metadata.
-`syntax.frontmatter` explicitly selects `"yaml"` (default), `"toml"`, `"json"`, or `false`.
-TOML uses `+++` fences; JSON uses `---` fences around JSON content, matching the native ESLint parser.
-Recognition supplies no site schema validation or metadata execution.
-GitHub alerts, HTML, bare URLs, Unicode emoji, emoji shortcodes, and author punctuation remain allowed.
-The default advisory rules report duplicate sibling headings and generic link text at warning, and heading punctuation, prose lines over 120 characters and non-NFC prose at information.
-URLs, literals, tables and code are excluded from prose-width observations; question-mark headings are legitimate.
-Each advisory is individually disableable or severity-selectable in `lint`; no advisory rewrites author content.
-Meaningful image descriptions remain an author judgement; missing-alt checks cannot certify accessibility.
-Check first prepares the guarded candidate; drifting inputs defer structural lint until canonical source exists, avoiding candidate coordinates attributed to original bytes.
-Both checking and formatting validate the selected documents; checking never changes checkout files, and formatting writes only after every candidate passes validation.
-Native checks may group exact document snapshots and complete list-item continuations in a private temporary directory outside the checkout.
-Groups have at most 32 independent files and 4 MiB of input, with the existing native deadline and output cap.
-The package supplies its own immutable native configuration and EditorConfig boundary; consumer settings do not control these checks.
-If private staging cannot be established, checking uses the original standard-input path.
-Payloads are removed after each native invocation, and the owned directory is removed after all analysis workers stop, before any formatting replacement.
-Changed staging identities or incomplete cleanup cause an operational failure and block formatting writes.
-Abrupt process or host termination can leave private temporary files for operating-system or owner cleanup; deletion does not promise secure erasure.
-No persistent syntax, formatting or filesystem-validity cache is created.
-Use explicit selection exclusions for signed, byte-sensitive, or verbatim upstream documents that must remain unchanged.
-Git whitespace checks can supplement this policy but do not replace full-document checking.
-Ordinary file permission bits are preserved; ownership changes, alternate streams, ACL inheritance, arbitrary metadata, and adversarial filesystem races are not promised as preserved.
-Use a clean baseline or retained preimages when original uncommitted bytes must be recoverable.
-
-## Adopting the replacement defaults
-
-Capture incumbent package/lock/configuration/workflow identities, the authored selection and exact document preimages before upgrading.
-Keep consumer scopes and exclusions, especially generated, vendor, signed, verbatim or byte-sensitive documents; upgrading the producer does not expand them.
-On the same original files, capture read-only incumbent and candidate JSON reports with their shipped schemas and path/byte-count/SHA-256 manifests.
-The library's `compareQualityReports` and maintainer `scripts/compare-quality-reports.js` validate supplied report schemas 1/2/3 and require identical source identities, selection mode and selected paths.
-Comparison schema 2 retains each complete selection digest, so changed provenance remains visible across report schema transitions.
-The harness never acquires or executes a package from report data and never changes documents.
-It identifies added/resolved/retained findings, reworded messages, explicit would-format paths and both effective report/configuration/policy identities.
-Incumbent reports that predate policy inspection retain a `null` policy identity; the harness does not reconstruct dependency defaults.
-Errored or unaccounted reports are rejected.
-For a completely checked batch blocked by findings, `unprocessed` records paths whose writes were not admitted; this is a valid read-only comparison input.
-Input manifests are reported evidence, not authenticated attestations.
-Review changed formatting and findings, then make mechanical formatting and content fixes reviewable separately.
-Run canonical drift/correctness checks before optional strict editorial checks and retain the consumer's complete product checks.
-An upgrade or read-only check does not automatically format files.
-Restore every recorded package/lock/configuration/workflow/document preimage on an aborted migration and rerun incumbent checks; downgrading the package alone cannot restore document bytes.
-
-CI acquisition uses the exact public release and a trusted reviewed graph without registry credentials.
-The checking process receives no publication, repository-write or OIDC credentials.
-The package itself needs no registry credentials at runtime.
-Fork content cannot supply the executable, dependency graph, workflow, scripts, or trusted policy.
-An unavailable check is a blocked required check, not a successful skip.
-The [CI trust decision](ci-trust.md) records the actual pilot constraints.
+`analysisStatus` is `not-requested`, `completed` or `incomplete`; `writeStatus` is `not-requested`, `unchanged`, `refused`, `written` or `pending`.
+Absent, `{}` and equivalent explicit configurations share `effectiveConfigurationSha256` while keeping distinct origins.
+No excerpts, document bodies or absolute root paths are emitted by default, except the root in inspection.
+Machine output follows the result schema even for CLI input failures.

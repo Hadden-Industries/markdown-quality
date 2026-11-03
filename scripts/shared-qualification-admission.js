@@ -34,11 +34,11 @@ export function qualificationRequest(environment = process.env) {
     repository: repository(environment.GITHUB_REPOSITORY),
     runId,
     producerRepository: repository(environment.MQ_WORKFLOW_REPOSITORY),
-    producerSha: sha(environment.MQ_WORKFLOW_SHA),
+    producerCommitId: sha(environment.MQ_WORKFLOW_COMMIT_ID),
     trustedRepository: repository(environment.MQ_TRUSTED_REPOSITORY),
-    trustedSha: sha(environment.MQ_TRUSTED_SHA),
+    trustedCommitId: sha(environment.MQ_TRUSTED_COMMIT_ID),
     candidateRepository: repository(environment.MQ_CANDIDATE_REPOSITORY),
-    candidateSha: sha(environment.MQ_CANDIDATE_SHA),
+    candidateCommitId: sha(environment.MQ_CANDIDATE_COMMIT_ID),
     profile,
   };
 }

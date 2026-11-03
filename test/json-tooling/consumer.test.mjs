@@ -9,7 +9,7 @@ import {
   rmSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -120,14 +120,33 @@ test("repository policy keeps release JSON ordinary and preservation limited to 
     "dist/json-qualification/core.tgz!/package/node_modules/a/node_modules/b/package.json",
   ])
     assert.equal(jsonContract(path, policy).exclude, false, path);
+  const core =
+    "dist/json-qualification/hadden-industries-markdown-quality-[0-9]*.tgz!/package/node_modules/**";
   assert.deepEqual(
     policy.preserveSourcePresentation.flatMap((rule) => rule.paths).sort(),
     [
-      "dist/json-qualification/hadden-industries-markdown-quality-1.0.3.tgz!/package/node_modules/**",
+      core,
       "packages/linux-x64/MPL-SOURCE.tar.xz!/webpki-roots-0.25.4/.cargo_vcs_info.json",
       "packages/win32-x64/MPL-SOURCE.tar.xz!/webpki-roots-0.25.4/.cargo_vcs_info.json",
     ],
   );
+  // Packed-archive rules name no version, so a bump cannot silently drop them,
+  // yet they still reach only the core archive's bundled dependencies.
+  const archive = "dist/json-qualification/hadden-industries-markdown-quality-";
+  for (const [path, matches] of [
+    [archive + "9.9.9-rc.1.tgz!/package/node_modules/a/package.json", true],
+    [archive + "9.9.9.tgz!/package/package.json", false],
+    [archive + "linux-x64-9.9.9.tgz!/package/node_modules/a.json", false],
+  ])
+    assert.equal(posix.matchesGlob(path, core), matches, path);
+  for (const platform of ["linux", "win32"])
+    assert.equal(
+      jsonContract(
+        `${archive}${platform}-x64-9.9.9-rc.1.tgz!/package/component.json`,
+        policy,
+      ).formatContract,
+      "producer-json-indent",
+    );
 });
 
 test("hidden and ignored peers stay included while root and nested installations are pruned", async (t) => {

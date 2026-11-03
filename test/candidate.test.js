@@ -7,23 +7,27 @@ import {
   writeFileSync,
   symlinkSync,
   mkdirSync,
+  mkdtempSync,
+  rmSync,
 } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as api from "../src/quality.js";
+import { canonicalJson } from "../src/contracts.js";
 import { consumer } from "./helpers.js";
 
 const profile = {
-  schemaVersion: 1,
-  samples: 2,
-  checkerMs: 30000,
-  windowMs: 60000,
-  memoryBytes: 536870912,
-  nodeOldSpaceMb: 256,
-  reportBytes: 8388608,
-  requestBytes: 8388608,
-  stagingBytes: 134217728,
-  stagingEntries: 100000,
-  limits: {},
+  schemaVersion: 2,
+  requiredConsecutiveSamples: 2,
+  executionTimeoutMs: 30000,
+  sampleTimeoutMs: 60000,
+  maxObservedMemoryBytes: 536870912,
+  maxNodeOldGenerationMiB: 256,
+  maxOutputBytes: 8388608,
+  maxRequestBytes: 8388608,
+  maxStagedDataBytes: 134217728,
+  maxStagedEntries: 100000,
+  analyzerLimits: {},
   runtimes: {
     node: { file: ".node-version" },
     python: { file: ".python-version" },
@@ -31,7 +35,8 @@ const profile = {
 };
 
 test("trusted staging treats candidate code/config as data and binds every staged byte", async (t) => {
-  assert.equal(typeof api.stageCandidate, "function");
+  assert.equal(typeof api.stageCandidateData, "function");
+  assert.equal(api.stageCandidate, undefined);
   const trustedRoot = consumer(
     t,
     { ".node-version": process.versions.node, ".python-version": "3.15.0" },
@@ -41,37 +46,49 @@ test("trusted staging treats candidate code/config as data and binds every stage
     join(trustedRoot, ".markdown-quality-execution.json"),
     JSON.stringify(profile),
   );
-  const sourceRoot = consumer(t, {
+  const candidateRoot = consumer(t, {
     "README.md": "Alpha.\n",
     "docs/reviews/nested/bad.md": Buffer.from([0xff]),
     "candidate.js": "throw new Error('Candidate script ran');",
     ".gitignore": "README.md\n",
   });
   writeFileSync(
-    join(sourceRoot, ".markdown-quality.json"),
+    join(candidateRoot, ".markdown-quality.json"),
     "candidate controls must not parse",
   );
   const scratch = consumer(t);
   const outputRoot = join(scratch, "staged");
-  const staging = api.stageCandidate({ sourceRoot, trustedRoot, outputRoot });
+  const staging = api.stageCandidateData({
+    candidateRoot,
+    trustedRoot,
+    outputRoot,
+  });
   assert.equal(
     staging.configPath,
     ".markdown-quality-trusted-inputs/policy.json",
   );
-  assert.deepEqual(
-    readFileSync(join(outputRoot, staging.configPath)),
-    readFileSync(join(trustedRoot, ".markdown-quality.json")),
+  assert.equal(staging.configurationSource.kind, "file");
+  const snapshot = readFileSync(join(outputRoot, staging.configPath), "utf8");
+  // The snapshot is the canonical complete effective trusted configuration, not a byte copy.
+  assert.notEqual(
+    snapshot,
+    readFileSync(join(trustedRoot, ".markdown-quality.json"), "utf8"),
   );
-  const result = await api.executeQuality({
+  const effective = JSON.parse(snapshot);
+  assert.equal(snapshot, canonicalJson(effective) + "\n");
+  assert.equal(effective.schemaVersion, 3);
+  assert.deepEqual(effective.exclude, ["docs/reviews/*"]);
+  const result = await api.executeQualityRequest({
     mode: "check",
     root: outputRoot,
     config: staging.configPath,
-    limits: staging.profile.limits,
+    analyzerLimits: staging.profile.analyzerLimits,
   });
   assert.equal(result.exitCode, 0);
+  assert.equal(result.operationStatus, "completed");
   assert.deepEqual(result.selection.files, ["README.md"]);
   assert.equal(
-    result.selection.exclusions[0].path,
+    result.selection.omissions[0].path,
     "docs/reviews/nested/bad.md",
   );
   assert.equal(
@@ -79,36 +96,86 @@ test("trusted staging treats candidate code/config as data and binds every stage
     "throw new Error('Candidate script ran');",
   );
   assert.equal(
-    existsSync(join(sourceRoot, ".markdown-quality-trusted-inputs")),
+    existsSync(join(candidateRoot, ".markdown-quality-trusted-inputs")),
     false,
   );
   assert.throws(
     () =>
-      api.stageCandidate({
-        sourceRoot,
+      api.stageCandidateData({
+        candidateRoot,
         trustedRoot,
-        outputRoot: join(sourceRoot, "staged"),
+        outputRoot: join(candidateRoot, "staged"),
       }),
     { code: "UNSAFE_STAGING" },
   );
 });
 
+test("trusted absence of configuration stages package defaults and keeps candidate policy as data", async (t) => {
+  const trustedRoot = mkdtempSync(join(tmpdir(), "markdown-quality-trusted-"));
+  t.after(() => rmSync(trustedRoot, { recursive: true, force: true }));
+  writeFileSync(join(trustedRoot, ".node-version"), process.versions.node);
+  writeFileSync(join(trustedRoot, ".python-version"), "3.15.0");
+  writeFileSync(
+    join(trustedRoot, ".markdown-quality-execution.json"),
+    JSON.stringify(profile),
+  );
+  // json-identity-contract: bytes; owner: candidate staging fixture; reason: The staged candidate file must retain these exact serialized bytes as data.
+  const candidateConfig = JSON.stringify({
+    lint: { "quality/non-nfc-prose": "off" },
+  });
+  const candidateRoot = consumer(t, { "README.md": "Alpha.\n" });
+  writeFileSync(join(candidateRoot, ".markdown-quality.json"), candidateConfig);
+  const reference = mkdtempSync(join(tmpdir(), "markdown-quality-default-"));
+  t.after(() => rmSync(reference, { recursive: true, force: true }));
+  writeFileSync(join(reference, "package.json"), "{}");
+  const defaults = await api.executeQualityRequest({
+    mode: "inspect",
+    root: reference,
+  });
+  const scratch = consumer(t);
+  const outputRoot = join(scratch, "staged");
+  const staging = api.stageCandidateData({
+    candidateRoot,
+    trustedRoot,
+    outputRoot,
+  });
+  assert.equal(staging.configurationSource.kind, "default-absent");
+  assert.equal(staging.configurationSource.bytesSha256, null);
+  const snapshot = readFileSync(join(outputRoot, staging.configPath), "utf8");
+  assert.deepEqual(JSON.parse(snapshot), defaults.configuration);
+  // The candidate file is staged only as opaque data, never as policy.
+  assert.equal(
+    readFileSync(join(outputRoot, ".markdown-quality.json"), "utf8"),
+    candidateConfig,
+  );
+  const result = await api.executeQualityRequest({
+    mode: "check",
+    root: outputRoot,
+    config: staging.configPath,
+  });
+  assert.equal(result.exitCode, 0);
+  assert.equal(
+    result.effectiveConfigurationSha256,
+    defaults.effectiveConfigurationSha256,
+  );
+});
+
 test("trusted staging rejects reserved inputs, links and admission overflow before checking", (t) => {
-  assert.equal(typeof api.stageCandidate, "function");
+  assert.equal(typeof api.stageCandidateData, "function");
   const trustedRoot = consumer(t, {
     ".node-version": process.versions.node,
     ".python-version": "3.15.0",
   });
   writeFileSync(
     join(trustedRoot, ".markdown-quality-execution.json"),
-    JSON.stringify({ ...profile, stagingBytes: 4 }),
+    JSON.stringify({ ...profile, maxStagedDataBytes: 4 }),
   );
-  const sourceRoot = consumer(t, { "README.md": "Alpha.\n" });
+  const candidateRoot = consumer(t, { "README.md": "Alpha.\n" });
   const scratch = consumer(t);
   assert.throws(
     () =>
-      api.stageCandidate({
-        sourceRoot,
+      api.stageCandidateData({
+        candidateRoot,
         trustedRoot,
         outputRoot: join(scratch, "staged"),
       }),
@@ -119,11 +186,11 @@ test("trusted staging rejects reserved inputs, links and admission overflow befo
     join(trustedRoot, ".markdown-quality-execution.json"),
     JSON.stringify(profile),
   );
-  mkdirSync(join(sourceRoot, ".markdown-quality-trusted-inputs"));
+  mkdirSync(join(candidateRoot, ".markdown-quality-trusted-inputs"));
   assert.throws(
     () =>
-      api.stageCandidate({
-        sourceRoot,
+      api.stageCandidateData({
+        candidateRoot,
         trustedRoot,
         outputRoot: join(scratch, "reserved"),
       }),
@@ -137,8 +204,8 @@ test("trusted staging rejects reserved inputs, links and admission overflow befo
   );
   assert.throws(
     () =>
-      api.stageCandidate({
-        sourceRoot: linkedSource,
+      api.stageCandidateData({
+        candidateRoot: linkedSource,
         trustedRoot,
         outputRoot: join(scratch, "linked"),
       }),

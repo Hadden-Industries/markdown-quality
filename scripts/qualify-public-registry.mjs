@@ -20,6 +20,7 @@ import { verifyReleaseProvenance } from "./provenance.js";
 import { validatePublicationOrigins } from "./publication-origins.js";
 import { waitForRegistryIntegrity } from "./wait-registry-integrity.js";
 import { qualifyRuntime } from "./qualify-runtime.js";
+import { qualifyMinimalConsumer } from "./qualify-minimal-consumer.js";
 import { bindRecipientSbom } from "./distribution-sbom.js";
 import { reportCiResult } from "./ci-result.js";
 import { repositoryPython, supportsPython } from "./python-target.js";
@@ -381,16 +382,10 @@ try {
         nativeAudit: audit,
       });
     }
-    let run, runtimeQualification;
+    let run, runtimeQualification, dependencyOnlyConsumer;
     if (includesCore) {
-      writeFileSync(
-        join(consumer, ".markdown-quality.json"),
-        JSON.stringify({
-          schemaVersion: 2,
-          preset: "authored-gfm@1",
-          include: ["*.md"],
-        }),
-      );
+      // Dependency-only consumer: no policy file, wrapper or script; package
+      // defaults and hard operational boundaries own the scope.
       const document = join(consumer, "a.md");
       const original = "# Heading\n\nAlpha.\nBeta.\n\n`literal  value`\n";
       writeFileSync(document, original);
@@ -420,7 +415,9 @@ try {
         assert.equal(result.status, 0, result.stdout + result.stderr);
         const report = JSON.parse(result.stdout);
         assert.equal(report.package.version, expected.version);
-        assert.equal(report.outcome, "clean");
+        assert.equal(report.operationStatus, "completed");
+        assert.equal(report.qualityStatus, "clean");
+        assert.equal(report.configurationOrigin.kind, "default-absent");
         return report;
       };
       const checked = run("check");
@@ -428,8 +425,14 @@ try {
       assert.equal(readFileSync(document, "utf8"), original);
       run("format");
       assert.equal(readFileSync(document, "utf8"), original);
-      assert.deepEqual(run("format").written, []);
+      assert.deepEqual(run("format").writtenPaths, []);
       runtimeQualification = qualifyRuntime(cli, consumer, runtimeEnvironment);
+      // Exact public npm exec shapes from the real installation root, offline.
+      dependencyOnlyConsumer = qualifyMinimalConsumer({
+        install,
+        root: consumer,
+        environment: { ...process.env, ...runtimeEnvironment },
+      });
     }
     npmCommand(
       [
@@ -550,6 +553,7 @@ try {
             credentialFreeOfflineRuntime: true,
             unchangedDocumentAndConvergentFormatting: true,
             runtimeQualification,
+            dependencyOnlyConsumer,
           }
         : { scope: "Retained native package only; no core CLI runtime claim" }),
     };

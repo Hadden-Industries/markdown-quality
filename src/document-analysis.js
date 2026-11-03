@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { Worker } from "node:worker_threads";
-import { OperationError, limits } from "./contracts.js";
+import { OperationError } from "./contracts.js";
+import { defaultAnalyzerLimits } from "./analyzer-limits.js";
 export function createDocumentAnalyzer(context, tool) {
-  const budgets = context.config.limits ?? limits;
+  const budgets = context.config.analyzerLimits ?? defaultAnalyzerLimits;
   const worker = new Worker(new URL("./document-worker.js", import.meta.url), {
     workerData: { context, tool },
     // Omission removes the package request. An explicit negative old-generation
     // value is clamped by Node to a tiny finite heap, not treated as unlimited.
     resourceLimits: {
-      ...(budgets.workerHeapMb === null
+      ...(budgets.maxWorkerOldGenerationMiB === null
         ? {}
-        : { maxOldGenerationSizeMb: budgets.workerHeapMb }),
-      ...(budgets.workerStackMb === null
+        : { maxOldGenerationSizeMb: budgets.maxWorkerOldGenerationMiB }),
+      ...(budgets.workerStackMiB === null
         ? {}
-        : { stackSizeMb: budgets.workerStackMb }),
+        : { stackSizeMb: budgets.workerStackMiB }),
     },
     env: {},
   });
@@ -59,11 +60,14 @@ export function createDocumentAnalyzer(context, tool) {
     if (value.progress) {
       if (!pending) return;
       if (
-        !(budgets.analysisMs === null && value.remainingMs === null) &&
+        !(
+          budgets.documentAnalysisTimeoutMs === null &&
+          value.remainingMs === null
+        ) &&
         (!Number.isFinite(value.remainingMs) ||
           value.remainingMs <= 0 ||
-          (budgets.analysisMs !== null &&
-            value.remainingMs > budgets.analysisMs))
+          (budgets.documentAnalysisTimeoutMs !== null &&
+            value.remainingMs > budgets.documentAnalysisTimeoutMs))
       ) {
         settle(
           new OperationError("ANALYSIS_FAILURE", "Invalid analysis deadline."),
@@ -94,7 +98,7 @@ export function createDocumentAnalyzer(context, tool) {
       ),
     );
   });
-  function request(data, milliseconds = budgets.analysisMs) {
+  function request(data, milliseconds = budgets.documentAnalysisTimeoutMs) {
     if (closed || pending)
       return Promise.reject(
         new OperationError(
@@ -112,12 +116,15 @@ export function createDocumentAnalyzer(context, tool) {
     });
   }
   return {
-    prepare(data, milliseconds = budgets.analysisMs) {
+    prepare(data, milliseconds = budgets.documentAnalysisTimeoutMs) {
       if (
-        !(budgets.analysisMs === null && milliseconds === null) &&
+        !(
+          budgets.documentAnalysisTimeoutMs === null && milliseconds === null
+        ) &&
         (!Number.isFinite(milliseconds) ||
           milliseconds <= 0 ||
-          (budgets.analysisMs !== null && milliseconds > budgets.analysisMs))
+          (budgets.documentAnalysisTimeoutMs !== null &&
+            milliseconds > budgets.documentAnalysisTimeoutMs))
       )
         return Promise.reject(
           new OperationError(

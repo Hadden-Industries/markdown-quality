@@ -2,17 +2,12 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "schemaVersion",
-    "preset",
-    "include"
-  ],
   "properties": {
     "schemaVersion": {
-      "const": 2
+      "const": 3
     },
     "preset": {
-      "const": "authored-gfm@1"
+      "const": "authored-gfm@2"
     },
     "include": {
       "type": "array",
@@ -58,13 +53,13 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "localFiles": {
+        "checkLocalTargets": {
           "type": "boolean"
         },
         "rootRelative": {
           "enum": [
             "reject",
-            "root"
+            "consumer-root"
           ]
         }
       }
@@ -87,7 +82,7 @@
         }
       }
     },
-    "limits": {
+    "analyzerLimits": {
       "anyOf": [
         {
           "const": false
@@ -96,7 +91,7 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "fileBytes": {
+            "maxDocumentBytes": {
               "type": [
                 "integer",
                 "null"
@@ -104,7 +99,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "totalBytes": {
+            "maxTotalDocumentBytes": {
               "type": [
                 "integer",
                 "null"
@@ -112,7 +107,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "files": {
+            "maxPathsPerSelectionStage": {
               "type": [
                 "integer",
                 "null"
@@ -120,7 +115,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "entries": {
+            "maxEnumeratedEntries": {
               "type": [
                 "integer",
                 "null"
@@ -128,7 +123,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "configBytes": {
+            "maxConfigurationBytes": {
               "type": [
                 "integer",
                 "null"
@@ -136,7 +131,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "nativeMs": {
+            "nativeInvocationTimeoutMs": {
               "type": [
                 "integer",
                 "null"
@@ -144,7 +139,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "nativeOutputBytes": {
+            "maxNativeOutputBytes": {
               "type": [
                 "integer",
                 "null"
@@ -152,7 +147,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "diagnostics": {
+            "maxTotalDiagnostics": {
               "type": [
                 "integer",
                 "null"
@@ -160,7 +155,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "documentDiagnostics": {
+            "maxDocumentDiagnostics": {
               "type": [
                 "integer",
                 "null"
@@ -168,7 +163,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "diagnosticBytes": {
+            "maxDiagnosticJsonBytes": {
               "type": [
                 "integer",
                 "null"
@@ -176,7 +171,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "selectionBytes": {
+            "maxInventoryBytes": {
               "type": [
                 "integer",
                 "null"
@@ -184,7 +179,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "analysisMs": {
+            "documentAnalysisTimeoutMs": {
               "type": [
                 "integer",
                 "null"
@@ -192,7 +187,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "workerHeapMb": {
+            "maxWorkerOldGenerationMiB": {
               "type": [
                 "integer",
                 "null"
@@ -200,7 +195,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "workerStackMb": {
+            "workerStackMiB": {
               "type": [
                 "integer",
                 "null"
@@ -208,7 +203,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "stagingMs": {
+            "nativeStagingAccessTimeoutMs": {
               "type": [
                 "integer",
                 "null"
@@ -216,7 +211,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "stagingOutputBytes": {
+            "maxNativeStagingCommandOutputBytes": {
               "type": [
                 "integer",
                 "null"
@@ -224,7 +219,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "patterns": {
+            "maxPatternsPerList": {
               "type": [
                 "integer",
                 "null"
@@ -232,7 +227,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "patternLength": {
+            "maxPatternCodePoints": {
               "type": [
                 "integer",
                 "null"
@@ -240,7 +235,15 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "lintRules": {
+            "maxRuleOverrideCount": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "maxReadDependencyDocuments": {
               "type": [
                 "integer",
                 "null"
@@ -253,5 +256,5 @@
       ]
     }
   },
-  "$id": "urn:hadden-industries:markdown-quality:configuration:2"
+  "$id": "urn:hadden-industries:markdown-quality:configuration:3"
 }

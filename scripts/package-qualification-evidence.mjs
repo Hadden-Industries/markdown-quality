@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { packageQualificationEvidence } from "../src/qualification-evidence.js";
 
 const index = packageQualificationEvidence({
-  sourceRoot: join(process.env.RUNNER_TEMP, "shared-markdown-evidence"),
+  evidenceRoot: join(process.env.RUNNER_TEMP, "shared-markdown-evidence"),
   outputRoot: join(process.env.RUNNER_TEMP, "shared-markdown-upload"),
 });
 process.stdout.write(

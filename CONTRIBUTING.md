@@ -56,15 +56,17 @@ Keep the complete `npm test` and `check:full` paths for final assurance.
 
 ## Markdown ownership
 
-Use semantic sentence lines and the existing `authored-gfm@1` policy.
-`format:markdown` and `check:markdown` invoke this source CLI directly; no self-dependency is installed.
+Use semantic sentence lines and the package's `authored-gfm@2` defaults.
+`format:markdown` and `check:markdown` invoke this source CLI directly with `--reconcile-inventory git`, so selection is reconciled with tracked Git Markdown; no self-dependency is installed.
 `format` combines `format:code` and guarded Markdown formatting; Prettier's generic invocation excludes Markdown.
 The `prettier` package script declares the generic formatting scope once: the repository root with `.gitignore` and `.prettierignore` boundaries, including every supported file under `.github`.
 `format:code` and `format:code:check` reuse that script with `--write` and `--check`; the full verifier delegates to `format:code:check`.
-`format:check` combines that read-only check with `check:markdown`, matching the two owners used by `format`.
+`check:formatting-and-markdown` combines that read-only check with `check:markdown`, matching the two owners used by `format`.
+`check:dependency-audit` runs the dependency security audit; the former `inspect:json` and `format:json:check` scripts are removed.
 New workflow files enter both formatting and verification automatically; Markdown and JSON-family exclusions keep their dedicated tools responsible for presentation and guarded writes.
-The checked authored scope is declared in `.markdown-quality.json`, including `.github` Markdown templates; retained review evidence and literal test fixtures remain outside that scope.
-Keep its explicit `ignoreFiles: [".gitignore"]`: Markdown checks must not inherit `.prettierignore`, whose `**/*.md` entry separates generic Prettier ownership from this native Markdown pipeline.
+The repository's sparse `.markdown-quality.json` declares only its scope exceptions: `include` adds root, `docs` and `.github` Markdown, and `exclude` omits retained research and review evidence.
+Every other setting comes from the package defaults; literal test fixtures stay outside the included scope.
+Markdown checks never read `.prettierignore`, whose `**/*.md` entry separates generic Prettier ownership from this native Markdown pipeline.
 
 Physical local link targets must exist.
 Trailing spaces and two-space hard breaks are disallowed outside the documented literal-code exceptions; use explicit backslash breaks where needed.
@@ -88,4 +90,4 @@ Use the repository issue forms or concise PR template; do not upload credentials
 Dependabot proposes npm and Action updates for review; it does not merge them or upgrade frozen native assets automatically.
 Native upgrades require fresh source/component, rights, parity and platform evidence.
 Follow [release operations](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/release-operations.md) for coordinated immutable archives and recoverable publication.
-Changing source metadata or guidance does not republish 1.0.3, promote tags or authorize a new release.
+Changing source metadata or guidance does not republish an existing version, publish 2.0.0, promote tags or authorize a new release.

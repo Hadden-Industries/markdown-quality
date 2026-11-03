@@ -1,6 +1,4 @@
 {
-  "schemaVersion": 2,
-  "preset": "authored-gfm@1",
   "include": [
     "*.md",
     "docs/**/*.md",
@@ -9,13 +7,5 @@
   "exclude": [
     "docs/research/**",
     "docs/reviews/**"
-  ],
-  "lint": {},
-  "links": {
-    "localFiles": true,
-    "rootRelative": "reject"
-  },
-  "layout": {
-    "endOfLine": "lf"
-  }
+  ]
 }

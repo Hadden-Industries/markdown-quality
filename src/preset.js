@@ -30,8 +30,10 @@ export const lintDefaults = Object.freeze({
     "error",
     { allowLabels: ["!NOTE", "!TIP", "!IMPORTANT", "!WARNING", "!CAUTION"] },
   ],
+  // The package's quality/unresolved-local-fragment rule owns same- and
+  // cross-document fragments; the upstream rule stays explicitly selectable.
   "markdown/no-missing-link-fragments": [
-    "error",
+    "off",
     { ignoreCase: true, allowPattern: "" },
   ],
   "markdown/no-multiple-h1": ["error", { frontmatterTitle: "(?!)" }],
@@ -49,14 +51,23 @@ export const lintDefaults = Object.freeze({
   "markdown/require-alt-text": "error",
   "markdown/table-column-count": ["error", { checkMissingCells: true }],
   "markdown/no-html": ["off", { allowed: [], allowedIgnoreCase: false }],
-  "markdown/no-bare-urls": "off",
+  // Angle-bracket autolinks remain allowed by the upstream rule.
+  "markdown/no-bare-urls": "error",
 });
-export const advisoryDefaults = Object.freeze({
-  "quality/duplicate-sibling-heading": "warn",
-  "quality/generic-link-text": "warn",
-  "quality/heading-trailing-punctuation": "info",
+/** Package quality-rule severities; any rule can be configured from off to error. */
+export const qualityRuleDefaults = Object.freeze({
+  "quality/duplicate-sibling-heading": "error",
+  "quality/generic-link-text": "error",
+  "quality/heading-trailing-punctuation": "warn",
   "quality/long-prose-line": "info",
-  "quality/non-nfc-prose": "info",
+  // Owner-selected default: decomposed prose blocks; only normalize repairs it.
+  "quality/non-nfc-prose": "error",
+  "quality/placeholder-image-alt": "error",
+  "quality/unlabeled-image-link": "error",
+  "quality/disallowed-html-construct": "error",
+  "quality/missing-html-image-alt": "error",
+  "quality/local-path-case-mismatch": "error",
+  "quality/unresolved-local-fragment": "error",
 });
 export const formatterDefaults = Object.freeze({
   parser: "markdown",
@@ -75,9 +86,35 @@ export const formatterDefaults = Object.freeze({
 });
 export { sentenceDefaults } from "./native-policy.js";
 import { sentenceDefaults } from "./native-policy.js";
+import { deepFreeze } from "./contracts.js";
 
-/** Effective native rule settings, with info mapped to ESLint's supported warn. */
-export function nativeLintRules(config) {
+export const presetIdentity = "authored-gfm@2";
+/** Markdown dialects that are not GitHub Flavored Markdown; formatting them as GFM
+ * could corrupt their syntax, so they are refused rather than treated as Markdown.
+ */
+export const refusedDialectExtensions = Object.freeze([".mdx"]);
+export const configurationSchemaVersion = 3;
+
+/** Package-owned declarative defaults. Sparse consumer input describes exceptions. */
+export const packageConfigurationDefaults = deepFreeze({
+  include: ["**/*.md"],
+  exclude: ["**/vendor/**", "**/.cache/**", "**/coverage/**"],
+  lint: {
+    ...Object.fromEntries(
+      Object.entries(lintDefaults).map(([rule, setting]) => [
+        rule,
+        Array.isArray(setting) ? setting[0] : setting,
+      ]),
+    ),
+    ...qualityRuleDefaults,
+  },
+  syntax: { frontmatter: "yaml" },
+  links: { checkLocalTargets: true, rootRelative: "reject" },
+  layout: { endOfLine: "lf", tabWidth: 2 },
+});
+
+/** Effective upstream ESLint rule settings, with info mapped to ESLint's supported warn. */
+export function eslintRuleSettings(config) {
   const rules = {};
   for (const [rule, selected] of Object.entries(config.lint)) {
     if (!rule.startsWith("markdown/")) continue;
@@ -93,9 +130,9 @@ export function effectivePolicy(config) {
   return {
     dialect: "gfm",
     frontmatter: config.syntax.frontmatter,
-    lint: nativeLintRules(config),
+    eslintRules: eslintRuleSettings(config),
     formatter: { ...formatterDefaults, ...config.layout, plugins: [] },
-    sentence: sentenceDefaults,
-    limits: { ...config.limits },
+    sentenceLayout: sentenceDefaults,
+    analyzerLimits: { ...config.analyzerLimits },
   };
 }

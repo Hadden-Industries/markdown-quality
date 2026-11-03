@@ -7,7 +7,10 @@ test("inline HTML anchors keep a continued list paragraph intact through literal
   const result = await runQuality({ root, mode: "format" });
   assert.equal(result.exitCode, 0, JSON.stringify(result.errors));
   assert.equal(readFileSync(join(root, "a.md"), "utf8"), input);
-  assert.deepEqual((await runQuality({ root, mode: "format" })).written, []);
+  assert.deepEqual(
+    (await runQuality({ root, mode: "format" })).writtenPaths,
+    [],
+  );
 });
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -19,16 +22,16 @@ import { createLinter } from "../src/analysis.js";
 import { parse } from "../src/analysis.js";
 import { consumer } from "./helpers.js";
 import markdown from "@eslint/markdown";
-import { checkAdvisories } from "../src/advisory-diagnostics.js";
+import { checkQualityRules } from "../src/quality-diagnostics.js";
 import { formatDocument } from "../src/formatting.js";
 import { resolveTool } from "../src/native-tool.js";
 
-test("current configurations inspect explicit replacement defaults and report schema 3", async (t) => {
+test("current configurations inspect explicit replacement defaults and report schema 4", async (t) => {
   const root = consumer(t);
   const result = await runQuality({ root, mode: "inspect", files: [] });
   assert.equal(result.exitCode, 0);
-  assert.equal(result.schemaVersion, 3);
-  assert.equal(result.preset, "authored-gfm@1");
+  assert.equal(result.schemaVersion, 4);
+  assert.equal(result.preset, "authored-gfm@2");
   assert.equal(result.configuration.layout.endOfLine, "lf");
   assert.equal(result.configuration.syntax.frontmatter, "yaml");
   const native = await createLinter(
@@ -60,18 +63,22 @@ test("LF applies only to physical separators while all other YAML, HTML and code
     assert.equal(readFileSync(join(root, "a.md"), "utf8"), source);
     const again = await runQuality({ root, mode: "format" });
     assert.equal(again.exitCode, 0, JSON.stringify(again));
-    assert.deepEqual(again.written, []);
+    assert.deepEqual(again.writtenPaths, []);
   }
 });
 
 test("warning format admits writes ordinarily and strict prevents the whole batch", async (t) => {
-  const root = consumer(t, {
-    "a.md": "# A\n\n## Same\n\n## Same\n",
-    "b.md": "# B\n\n_text_\n",
-  });
+  const root = consumer(
+    t,
+    {
+      "a.md": "# A\n\n## Same\n\n## Same\n",
+      "b.md": "# B\n\n_text_\n",
+    },
+    { lint: { "quality/duplicate-sibling-heading": "warn" } },
+  );
   const blocked = await runQuality({ root, mode: "format", strict: true });
   assert.equal(blocked.exitCode, 1, JSON.stringify(blocked));
-  assert.deepEqual(blocked.written, []);
+  assert.deepEqual(blocked.writtenPaths, []);
   assert.ok(
     blocked.diagnostics.some(
       (d) =>
@@ -81,8 +88,8 @@ test("warning format admits writes ordinarily and strict prevents the whole batc
   );
   const admitted = await runQuality({ root, mode: "format" });
   assert.equal(admitted.exitCode, 0, JSON.stringify(admitted));
-  assert.equal(admitted.outcome, "findings");
-  assert.ok(admitted.written.includes("b.md"));
+  assert.equal(admitted.qualityStatus, "findings");
+  assert.ok(admitted.writtenPaths.includes("b.md"));
   assert.equal(readFileSync(join(root, "b.md"), "utf8"), "# B\n\n*text*\n");
 });
 
@@ -97,7 +104,7 @@ test("canonical style covers headings, emphasis, numbering, tasks, safe fences a
   assert.equal(readFileSync(join(root, "a.md"), "utf8"), expected);
   const again = await runQuality({ root, mode: "format" });
   assert.equal(again.exitCode, 0, JSON.stringify(again));
-  assert.deepEqual(again.written, []);
+  assert.deepEqual(again.writtenPaths, []);
 });
 
 test("indented code converts without guessing a language and blocks all writes", async (t) => {
@@ -108,15 +115,24 @@ test("indented code converts without guessing a language and blocks all writes",
   assert.ok(
     result.diagnostics.some((d) => d.rule === "markdown/fenced-code-language"),
   );
-  assert.deepEqual(result.written, []);
+  assert.deepEqual(result.writtenPaths, []);
   assert.equal(readFileSync(join(root, "a.md"), "utf8"), original);
 });
 
 test("info survives strict, editorial literals stay excluded, hierarchy errors block", async (t) => {
-  const root = consumer(t, {
-    "a.md":
-      "# Question?\n\n## Punctuation.\n\ne\u0301 prose.\n\n```text\ne\u0301\n```\n",
-  });
+  const root = consumer(
+    t,
+    {
+      "a.md":
+        "# Question?\n\n## Punctuation.\n\ne\u0301 prose.\n\n```text\ne\u0301\n```\n",
+    },
+    {
+      lint: {
+        "quality/heading-trailing-punctuation": "info",
+        "quality/non-nfc-prose": "info",
+      },
+    },
+  );
   const result = await runQuality({ root, strict: true });
   assert.equal(result.exitCode, 0, JSON.stringify(result));
   assert.deepEqual(
@@ -210,7 +226,10 @@ test("nested numbering across digit widths and indented conversions preserve lis
     const formatted = await runQuality({ root, mode: "format" });
     assert.equal(formatted.exitCode, 0, JSON.stringify(formatted));
     assert.equal(readFileSync(join(root, "a.md"), "utf8"), expected);
-    assert.deepEqual((await runQuality({ root, mode: "format" })).written, []);
+    assert.deepEqual(
+      (await runQuality({ root, mode: "format" })).writtenPaths,
+      [],
+    );
   }
 });
 
@@ -229,20 +248,23 @@ test("native recommendations cannot add package rules and inspection exposes the
   const result = await runQuality({ root, mode: "inspect", files: [] });
   assert.equal(result.policy.formatter.endOfLine, "lf");
   assert.equal(result.policy.formatter.embeddedLanguageFormatting, "off");
-  assert.deepEqual(result.policy.sentence, {
+  assert.deepEqual(result.policy.sentenceLayout, {
     format: "markdown",
     max_width: 0,
     clause_breaks: false,
   });
-  assert.equal(result.policy.lint["markdown/no-bare-urls"], "off");
-  assert.equal(result.policy.lint["markdown/no-duplicate-headings"], undefined);
-  assert.equal(result.policy.lint["markdown/invented-rule"], undefined);
+  assert.equal(result.policy.eslintRules["markdown/no-bare-urls"], "error");
+  assert.equal(
+    result.policy.eslintRules["markdown/no-duplicate-headings"],
+    undefined,
+  );
+  assert.equal(result.policy.eslintRules["markdown/invented-rule"], undefined);
   const native = await createLinter(
     loadConfiguration({ root }),
   ).calculateConfigForFile(join(root, "a.md"));
-  assert.equal(native.rules["markdown/no-bare-urls"][0], 0);
+  assert.equal(native.rules["markdown/no-bare-urls"][0], 2);
   assert.equal(native.rules["markdown/invented-rule"], undefined);
-  assert.deepEqual(result.policy.lint["markdown/table-column-count"], [
+  assert.deepEqual(result.policy.eslintRules["markdown/table-column-count"], [
     "error",
     { checkMissingCells: true },
   ]);
@@ -272,7 +294,10 @@ test("multiline headings and first-block list literals preserve meaning", async 
     const result = await runQuality({ root, mode: "format" });
     assert.equal(result.exitCode, 0, JSON.stringify(result));
     assert.equal(readFileSync(join(root, "a.md"), "utf8"), expected);
-    assert.deepEqual((await runQuality({ root, mode: "format" })).written, []);
+    assert.deepEqual(
+      (await runQuality({ root, mode: "format" })).writtenPaths,
+      [],
+    );
   }
   const root = consumer(t, { "a.md": "1. First\n\n1) Second\n" });
   const result = await runQuality({ root, mode: "format" });
@@ -295,27 +320,31 @@ test("strict failure identity and informational line positions remain accurate",
     assert.equal(invalid.strict, true);
   }
   const config = { lint: {} };
-  assert.deepEqual(checkAdvisories("x".repeat(120) + "\n", config), []);
+  assert.deepEqual(checkQualityRules("x".repeat(120) + "\n", config), []);
   const source =
     "[Long](https://example.invalid/" +
     "x".repeat(200) +
     ") " +
     "😀".repeat(120) +
     "x\n";
-  const findings = checkAdvisories(source, config);
+  const findings = checkQualityRules(source, config);
   assert.deepEqual(
     findings.map(({ rule, line, column }) => [rule, line, column]),
     [["quality/long-prose-line", 1, source.indexOf("😀") + 239]],
   );
   const linkHeavy = "[a](https://example.invalid/x)".repeat(10000) + "\n";
-  assert.deepEqual(checkAdvisories(linkHeavy, config), []);
+  assert.deepEqual(checkQualityRules(linkHeavy, config), []);
 });
 
 test("editorial scope excludes literal width and separates sibling parents", async (t) => {
   const long = "Word ".repeat(25).trim() + ".";
   const url = "https://example.invalid/" + "x".repeat(160);
-  const source = `# A\n\n## One\n\n### Same\n\n## Two\n\n### Same\n\n${long}\n\n${url}\n\n[click here](https://example.invalid)\n\n\`\`\`text\n${long}\n\`\`\`\n`;
-  const root = consumer(t, { "a.md": source });
+  const source = `# A\n\n## One\n\n### Same\n\n## Two\n\n### Same\n\n${long}\n\n<${url}>\n\n[click here](https://example.invalid)\n\n\`\`\`text\n${long}\n\`\`\`\n`;
+  const root = consumer(
+    t,
+    { "a.md": source },
+    { lint: { "quality/generic-link-text": "warn" } },
+  );
   const result = await runQuality({ root });
   assert.equal(result.exitCode, 0, JSON.stringify(result));
   assert.deepEqual(
@@ -329,7 +358,27 @@ test("editorial scope excludes literal width and separates sibling parents", asy
   assert.equal(strict.exitCode, 1);
 });
 
-test("native info overrides and disabled advisories retain accurate severities", async (t) => {
+test("long prose messages name the informational threshold only at info severity", async (t) => {
+  const source = `# A\n\n${"Word ".repeat(25).trim()}.\n`;
+  for (const [severity, message] of [
+    ["info", "Prose line exceeds the informational 120-character threshold."],
+    ["warn", "Prose line exceeds the 120-character threshold."],
+    ["error", "Prose line exceeds the 120-character threshold."],
+  ]) {
+    const root = consumer(
+      t,
+      { "a.md": source },
+      { lint: { "quality/long-prose-line": severity } },
+    );
+    const { diagnostics } = await runQuality({ root });
+    assert.deepEqual(
+      diagnostics.map((d) => [d.rule, d.message]),
+      [["quality/long-prose-line", message]],
+    );
+  }
+});
+
+test("native info overrides and disabled quality rules retain accurate severities", async (t) => {
   for (const severity of ["off", "info", "warn", "error"]) {
     const root = consumer(
       t,

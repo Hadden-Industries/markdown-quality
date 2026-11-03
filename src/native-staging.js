@@ -17,7 +17,8 @@ import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { fail, limits } from "./contracts.js";
+import { fail } from "./contracts.js";
+import { defaultAnalyzerLimits } from "./analyzer-limits.js";
 
 import { sentenceToml } from "./native-policy.js";
 import { nativeGroupCapacity, isNativeInputName } from "./native-protocol.js";
@@ -36,7 +37,10 @@ function same(stat, expected) {
   return Object.keys(expected).every((key) => stat[key] === expected[key]);
 }
 /** Establish a private external capability, or preserve the stdin path if unavailable. */
-export function createNativeStaging(consumerRoot, budgets = limits) {
+export function createNativeStaging(
+  consumerRoot,
+  budgets = defaultAnalyzerLimits,
+) {
   let token;
   try {
     const parent = realpathSync(tmpdir());
@@ -78,9 +82,9 @@ export function createNativeStaging(consumerRoot, budgets = limits) {
 
 function restrictWindowsAccess(path, budgets) {
   const deadline =
-    budgets.stagingMs === null
+    budgets.nativeStagingAccessTimeoutMs === null
       ? Infinity
-      : performance.now() + budgets.stagingMs;
+      : performance.now() + budgets.nativeStagingAccessTimeoutMs;
   const systemRoot = process.env.SystemRoot ?? process.env.WINDIR;
   if (!systemRoot || !isAbsolute(systemRoot))
     throw Error("No system directory.");
@@ -90,7 +94,7 @@ function restrictWindowsAccess(path, budgets) {
     env: { SystemRoot: systemRoot, WINDIR: systemRoot },
     shell: false,
     windowsHide: true,
-    maxBuffer: budgets.stagingOutputBytes ?? Infinity,
+    maxBuffer: budgets.maxNativeStagingCommandOutputBytes ?? Infinity,
   };
   function run(command, args) {
     const remaining =

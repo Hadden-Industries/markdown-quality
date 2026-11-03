@@ -2,7 +2,7 @@ name: Manual qualification model fixture
 on:
   workflow_dispatch:
     inputs:
-      trusted-sha:
+      trusted-commit-id:
         type: string
         required: true
 permissions:
@@ -11,8 +11,8 @@ jobs:
   shared:
     uses: ./.github/workflows/markdown-quality.yml
     with:
-      trusted-sha: ${{ inputs.trusted-sha }}
-      candidate-sha: ${{ inputs.trusted-sha }}
+      trusted-commit-id: ${{ inputs.trusted-commit-id }}
+      candidate-commit-id: ${{ inputs.trusted-commit-id }}
       trusted-repository: example/trusted
       candidate-repository: example/candidate
       profile: .markdown-quality-execution.json
