@@ -20,6 +20,7 @@ import { verifyReleaseProvenance } from "./provenance.js";
 import { validatePublicationOrigins } from "./publication-origins.js";
 import { waitForRegistryIntegrity } from "./wait-registry-integrity.js";
 import { qualifyRuntime } from "./qualify-runtime.js";
+import { qualifyMinimalConsumer } from "./qualify-minimal-consumer.js";
 import { bindRecipientSbom } from "./distribution-sbom.js";
 import { reportCiResult } from "./ci-result.js";
 import { repositoryPython, supportsPython } from "./python-target.js";
@@ -381,7 +382,7 @@ try {
         nativeAudit: audit,
       });
     }
-    let run, runtimeQualification;
+    let run, runtimeQualification, dependencyOnlyConsumer;
     if (includesCore) {
       // Dependency-only consumer: no policy file, wrapper or script; package
       // defaults and hard operational boundaries own the scope.
@@ -426,6 +427,12 @@ try {
       assert.equal(readFileSync(document, "utf8"), original);
       assert.deepEqual(run("format").writtenPaths, []);
       runtimeQualification = qualifyRuntime(cli, consumer, runtimeEnvironment);
+      // Exact public npm exec shapes from the real installation root, offline.
+      dependencyOnlyConsumer = qualifyMinimalConsumer({
+        install,
+        root: consumer,
+        environment: { ...process.env, ...runtimeEnvironment },
+      });
     }
     npmCommand(
       [
@@ -546,6 +553,7 @@ try {
             credentialFreeOfflineRuntime: true,
             unchangedDocumentAndConvergentFormatting: true,
             runtimeQualification,
+            dependencyOnlyConsumer,
           }
         : { scope: "Retained native package only; no core CLI runtime claim" }),
     };

@@ -23,6 +23,7 @@ import {
 import { checkLinks } from "../src/analysis.js";
 import { digest, metadata as producerMetadata } from "../src/contracts.js";
 import { qualifyRuntime } from "../scripts/qualify-runtime.js";
+import { qualifyMinimalConsumer } from "../scripts/qualify-minimal-consumer.js";
 import { checkArchitecture } from "../scripts/architecture.js";
 import { verifyBundledShipment } from "../scripts/bundled-dependencies.js";
 
@@ -350,6 +351,17 @@ test("packed root and isolated consumers install without lifecycle scripts and e
     phase(`${layout} runtime qualification`, () =>
       qualifyRuntime(cli, consumer, process.env),
     );
+    // The dependency-only shapes run through npm exec from the real installation
+    // root; unpublished native companions are routed as disclosed fixture archives.
+    const minimal = phase(`${layout} dependency-only npm exec`, () =>
+      qualifyMinimalConsumer({
+        install,
+        root: consumer,
+        packageName: core.package,
+      }),
+    );
+    assert.equal(minimal.layout, layout);
+    assert.ok(minimal.commands >= 30, String(minimal.commands));
     assert.deepEqual(
       readFileSync(join(install, "package-lock.json")),
       lockBefore,
