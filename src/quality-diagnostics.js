@@ -64,6 +64,12 @@ export function checkQualityRules(text, config, memo) {
       unlabeledEnabled;
   if (!ownedRules.some(enabled)) return [];
   const collector = diagnosticCollector(config.analyzerLimits);
+  // A message names the informational threshold only when that is the selected
+  // severity; the default info wording matches the retained incumbent oracles.
+  const longLineMessage =
+    severity("quality/long-prose-line") === "info"
+      ? "Prose line exceeds the informational 120-character threshold."
+      : "Prose line exceeds the 120-character threshold.";
   const lines = longLinesEnabled ? text.split(/\r\n|\r|\n/u) : undefined;
   const lineOffsets = longLinesEnabled ? [0] : undefined;
   if (longLinesEnabled)
@@ -274,12 +280,10 @@ export function checkQualityRules(text, config, memo) {
           const codePoint = lines[line - 1].codePointAt(column);
           length++;
           if (length === 121) {
-            report(
-              "quality/long-prose-line",
-              node,
-              "Prose line exceeds the 120-character threshold.",
-              { line, column: column + 1 },
-            );
+            report("quality/long-prose-line", node, longLineMessage, {
+              line,
+              column: column + 1,
+            });
             break;
           }
           column += codePoint > 0xffff ? 2 : 1;

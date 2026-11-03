@@ -358,6 +358,26 @@ test("editorial scope excludes literal width and separates sibling parents", asy
   assert.equal(strict.exitCode, 1);
 });
 
+test("long prose messages name the informational threshold only at info severity", async (t) => {
+  const source = `# A\n\n${"Word ".repeat(25).trim()}.\n`;
+  for (const [severity, message] of [
+    ["info", "Prose line exceeds the informational 120-character threshold."],
+    ["warn", "Prose line exceeds the 120-character threshold."],
+    ["error", "Prose line exceeds the 120-character threshold."],
+  ]) {
+    const root = consumer(
+      t,
+      { "a.md": source },
+      { lint: { "quality/long-prose-line": severity } },
+    );
+    const { diagnostics } = await runQuality({ root });
+    assert.deepEqual(
+      diagnostics.map((d) => [d.rule, d.message]),
+      [["quality/long-prose-line", message]],
+    );
+  }
+});
+
 test("native info overrides and disabled quality rules retain accurate severities", async (t) => {
   for (const severity of ["off", "info", "warn", "error"]) {
     const root = consumer(
