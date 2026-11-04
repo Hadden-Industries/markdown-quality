@@ -59,6 +59,22 @@ test("bounded public execution preserves logical identity and rejects report ove
   );
 });
 
+test("refused logical paths keep their real error code through bounded execution", async (t) => {
+  const root = consumer(t, { "target.md": "Target.\n" });
+  const result = await api.executeQualityRequest({
+    root,
+    mode: "format",
+    document: {
+      path: "../outside.md",
+      requestId: "r1",
+      contentBase64: Buffer.from("Alpha.\n").toString("base64"),
+    },
+  });
+  assert.equal(result.operationStatus, "failed");
+  assert.equal(result.document, null);
+  assert.equal(result.errors[0].code, "UNSAFE_PATH");
+});
+
 test("logical CLI bounded JSON framing uses the public operation", (t) => {
   const root = consumer(t);
   const input = JSON.stringify({

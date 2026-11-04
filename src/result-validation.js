@@ -48,13 +48,17 @@ export function validateQualityResult(report, expected = {}) {
       "RESULT_IDENTITY",
       "Quality result package identity differs from the installed package.",
     );
+  // A request that failed before admission has no document to bind; its caller
+  // needs the real error. Every other report must prove its request identity.
+  const unadmitted =
+    report.document === null && report.operationStatus === "failed";
   for (const [key, actual] of Object.entries({
     operation: report.operation,
     exitCode: report.exitCode,
     configurationBytesSha256: report.configurationBytesSha256,
     effectiveConfigurationSha256: report.effectiveConfigurationSha256,
     selectionMode: report.selection.mode,
-    requestId: report.document?.requestId ?? null,
+    ...(unadmitted ? {} : { requestId: report.document?.requestId ?? null }),
     dryRun: report.dryRun,
     updateLinks: report.updateLinks,
   }))

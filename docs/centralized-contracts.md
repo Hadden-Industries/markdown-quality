@@ -47,6 +47,8 @@ No checkout file is written, and `writtenPaths` stays empty.
 Excluded content is returned exactly, including invalid UTF-8 and original line endings.
 Selected content must satisfy UTF-8 and the selected input limits.
 Failure retains original content and prevents the caller from treating returned bytes as admitted output.
+A request refused before its document is admitted, such as an unsafe path, returns `document: null` with its real code in `errors`.
+`validateQualityResult` skips the `requestId` check for that failed report only, so callers see the refusal rather than an identity error.
 
 `markdown-quality format --stdin-request --root PATH --json`, or the same with `normalize`, reads one JSON object from standard input with `path`, optional `requestId`, and canonical `contentBase64`.
 Its request framing is bounded by the effective `maxRequestBytes` (8 MiB by default), resolved from the execution profile and invocation before standard input is read.
