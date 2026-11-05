@@ -1,5 +1,10 @@
 # Deliberate release operations
 
+The current source selects the 3.0.0 package family; this is not publication or release acceptance.
+Select the version once in root `package.json`, run `npm run sync:version`, and admit `npm run check:version` before freezing or packing.
+Projection changes only companion/lock versions, preserving dependency resolution, retained Snapper bytes, rights provenance and policy identity.
+The installed consumer `selection: "cli"` corpus covers changed CLI boundaries in root and isolated layouts; it does not replace the complete supported-platform release gates below.
+
 The sole maintainer can commit directly to main after local tests pass.
 Releases use the manual workflows below.
 A push, tag, successful ordinary CI run, or staging result does not publish a stable release.

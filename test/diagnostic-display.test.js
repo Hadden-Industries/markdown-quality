@@ -11,7 +11,14 @@ const cli = fileURLToPath(new URL("../src/cli.js", import.meta.url));
 function run(root, ...args) {
   const child = spawnSync(
     process.execPath,
-    [cli, args[0], "--root", root, ...args.slice(1)],
+    [
+      cli,
+      args[0],
+      ...(args[0] === "format" ? ["--write"] : []),
+      "--root",
+      root,
+      ...args.slice(1),
+    ],
     {
       encoding: "utf8",
       timeout: 30000,
@@ -57,17 +64,19 @@ test("display thresholds preserve complete JSON results, exit behavior and defau
     const text = run(root, "check", "--diagnostic-display-level", level);
     assert.equal(text.status, 0, text.stdout);
     assert.equal(
-      text.stdout.includes("a.md:1:1: quality/heading-trailing-punctuation:"),
+      text.stderr.includes(
+        "a.md:1:1: info: quality/heading-trailing-punctuation:",
+      ),
       level === "info",
     );
     assert.equal(
-      text.stdout.includes("quality/generic-link-text:"),
+      text.stderr.includes("quality/generic-link-text:"),
       level !== "error",
     );
-    if (level === "info") assert.equal(text.stdout, defaultText.stdout);
-    else assert.match(text.stdout, /2 information diagnostics hidden/u);
+    if (level === "info") assert.equal(text.stderr, defaultText.stderr);
+    else assert.match(text.stderr, /2 information diagnostics hidden/u);
     if (level === "error")
-      assert.match(text.stdout, /1 warning diagnostic hidden/u);
+      assert.match(text.stderr, /1 warning diagnostic hidden/u);
   }
 });
 
@@ -91,8 +100,8 @@ test("hidden warnings enforce strict write admission and permit ordinary formatt
     "error",
   );
   assert.equal(strict.status, 1, strict.stdout);
-  assert.ok(!strict.stdout.includes("quality/generic-link-text:"));
-  assert.match(strict.stdout, /Strict mode blocked on 1 hidden warning/u);
+  assert.ok(!strict.stderr.includes("quality/generic-link-text:"));
+  assert.match(strict.stderr, /Strict mode blocked on 1 hidden warning/u);
   assert.equal(readFileSync(join(root, "a.md"), "utf8"), original);
   const ordinary = run(root, "format", "--diagnostic-display-level", "error");
   assert.equal(ordinary.status, 0, ordinary.stdout);
@@ -107,7 +116,7 @@ test("errors and operational failures remain visible and invalid display levels 
   const root = consumer(t, { "a.md": original });
   const errors = run(root, "format", "--diagnostic-display-level", "error");
   assert.equal(errors.status, 1, errors.stdout);
-  assert.match(errors.stdout, /markdown\/fenced-code-language:/u);
+  assert.match(errors.stderr, /markdown\/fenced-code-language:/u);
   const invalidRoot = consumer(t, { "a.md": "_text_\n" });
   const invalid = run(
     invalidRoot,
@@ -133,5 +142,5 @@ test("errors and operational failures remain visible and invalid display levels 
     "error",
   );
   assert.equal(operational.status, 2, operational.stdout);
-  assert.match(operational.stdout, /DIAGNOSTIC_LIMIT:/u);
+  assert.match(operational.stderr, /DIAGNOSTIC_LIMIT:/u);
 });

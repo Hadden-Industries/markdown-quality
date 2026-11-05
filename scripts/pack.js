@@ -20,9 +20,11 @@ import { nodeSupport, candidateJobNames } from "./node-matrix.js";
 import { stageCore } from "./core-package-stage.js";
 import { verifyBundledShipment } from "./bundled-dependencies.js";
 import { checkGeneratedSchemas } from "./generate-schemas.js";
+import { checkPackageVersions } from "./project-package-version.js";
 import { repositoryPython } from "./python-target.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
 export function packRelease(output, qualificationMatrix) {
+  checkPackageVersions();
   checkGeneratedSchemas();
   checkNativePolicy();
   checkWindowsJob();

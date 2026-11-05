@@ -265,14 +265,14 @@ test("the CLI exposes normalize, preview and update-links with explicit flag adm
     JSON.parse(rejected.stdout).errors[0].message,
     /only to normalize/u,
   );
-  const human = run("normalize");
+  const human = run("normalize", "--write");
   assert.equal(human.status, 0, human.stdout);
-  assert.match(human.stdout, /normalize completed; quality clean \(applied\)/u);
+  assert.match(human.stderr, /normalize completed; quality clean \(applied\)/u);
   assert.equal(read(root, "a.md"), `# A\n\nCaf${C}.\n`);
-  const empty = run("normalize", "--files-json", "[]", "--json");
+  const empty = run("normalize", "--write", "--files-json", "[]", "--json");
   assert.equal(JSON.parse(empty.stdout).exitCode, 0);
   writeFileSync(join(root, "b.md"), `# B\n\nCaf${D}.\n`);
-  const literal = run("normalize", "--json", "--", "b.md");
+  const literal = run("normalize", "--write", "--json", "--", "b.md");
   assert.deepEqual(JSON.parse(literal.stdout).writtenPaths, ["b.md"]);
   const stdin = spawnSync(
     process.execPath,

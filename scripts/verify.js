@@ -71,6 +71,7 @@ if (
 )
   throw new Error("Original AGPL-3.0-only license bytes changed.");
 resolveTool();
+node(["scripts/project-package-version.js", "--check"]);
 node(["scripts/project-node-support.js", "--check"]);
 node(["scripts/check-workflows.js"]);
 node(["scripts/check-architecture.js"]);

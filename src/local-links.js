@@ -175,6 +175,30 @@ export function checkLocalLinks(context, tree, file, collector, spelling) {
       // is diagnosed below instead of being reported as missing.
       const path = safePath(root, absolute, { missing: true });
       relativePath = slash(relative(root, path));
+      if (context.logicalPath === relativePath) {
+        if (links && target.rawFragment !== null) {
+          if (target.malformedFragment)
+            fragmentFinding(
+              node,
+              relativePath,
+              target.rawFragment,
+              "missing",
+              node.position.start,
+            );
+          else {
+            const verdict = resolveFragment(anchors, target.fragment);
+            if (verdict !== "resolved")
+              fragmentFinding(
+                node,
+                relativePath,
+                target.fragment,
+                verdict,
+                node.position.start,
+              );
+          }
+        }
+        return;
+      }
       const expected = spelling(relativePath);
       if (expected === undefined) throw new Error("Missing target.");
       if (expected !== null) {

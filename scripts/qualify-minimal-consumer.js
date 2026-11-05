@@ -63,7 +63,12 @@ export function qualifyMinimalConsumer({
   packageName = "@hadden-industries/markdown-quality",
   environment = process.env,
   npmCli = environment.MARKDOWN_QUALITY_CONSUMER_NPM ?? npmCliPath(),
+  selection = "all",
 }) {
+  assert.ok(
+    ["all", "cli"].includes(selection),
+    "Unknown consumer corpus selection",
+  );
   const manifest = JSON.parse(readFileSync(join(install, "package.json")));
   assert.equal(manifest.scripts, undefined, "Consumer declares no scripts");
   // Consumers usually save the tool as a devDependency; either section may hold
@@ -134,6 +139,97 @@ export function qualifyMinimalConsumer({
     writeFixture(root, files);
   };
   const read = (path) => readFileSync(join(root, path), "utf8");
+  const summary = () => ({
+    layout: root === install ? "root" : "isolated",
+    install: resolve(install),
+    commands: cases.length,
+    cases,
+  });
+  // This closed subset exercises the installed public bin and actual companion,
+  // without the unrelated release/runtime campaigns below.
+  const installed = JSON.parse(
+    readFileSync(
+      join(install, "node_modules", ...packageName.split("/"), "package.json"),
+    ),
+  );
+  assert.equal(
+    npmExec(["--version"], { status: 0 }).stdout,
+    installed.version + "\n",
+  );
+  npmExec(["format", "--help"], { status: 0 });
+  scenario({ "a.md": "_text_\n", "peer.md": "```\nbad\n```\n" });
+  npmExec(["format", "--root", rootArgument, "--", "a.md"], { status: 2 });
+  assert.equal(read("a.md"), "_text_\n");
+  const formatPreview = json(
+    ["format", "--dry-run", "--root", rootArgument, "--json", "--", "a.md"],
+    { status: 0 },
+  );
+  assert.equal(formatPreview.schemaVersion, 5);
+  assert.equal(formatPreview.documentResults[0].candidate.changed, true);
+  assert.equal(read("a.md"), "_text_\n");
+  const formatWrite = json(
+    ["format", "--write", "--root", rootArgument, "--json", "--", "a.md"],
+    { status: 0 },
+  );
+  assert.deepEqual(
+    formatWrite.documentResults[0].candidate,
+    formatPreview.documentResults[0].candidate,
+  );
+  assert.equal(read("a.md"), "*text*\n");
+  scenario({ "a.md": "Caf" + D + ".\n" });
+  const normalizePreview = json(
+    ["normalize", "--dry-run", "--root", rootArgument, "--json"],
+    { status: 0 },
+  );
+  assert.equal(normalizePreview.operationStatus, "previewed");
+  assert.equal(read("a.md"), "Caf" + D + ".\n");
+  npmExec(["normalize", "--write", "--root", rootArgument], { status: 0 });
+  assert.equal(read("a.md"), "Caf" + C + ".\n");
+  const raw = npmExec(
+    [
+      "format",
+      "--stdin",
+      "--stdin-filepath",
+      "virtual.md",
+      "--root",
+      rootArgument,
+    ],
+    { input: "_buffer_\n", status: 0 },
+  );
+  assert.equal(raw.stdout, "*buffer*\n");
+  assert.ok(!existsSync(join(root, "virtual.md")));
+  const rawCheck = json(
+    [
+      "check",
+      "--stdin",
+      "--stdin-filepath",
+      "virtual.md",
+      "--root",
+      rootArgument,
+      "--json",
+    ],
+    { input: "Plain prose.\n", status: 0 },
+  );
+  assert.equal(rawCheck.document.path, "virtual.md");
+  const envelope = json(
+    ["format", "--stdin-request", "--root", rootArgument, "--json"],
+    {
+      input: JSON.stringify({
+        path: "virtual.md",
+        requestId: "cli-corpus",
+        contentBase64: Buffer.from("_envelope_\n").toString("base64"),
+      }),
+      status: 0,
+    },
+  );
+  assert.equal(
+    Buffer.from(envelope.document.contentBase64, "base64").toString(),
+    "*envelope*\n",
+  );
+  if (selection === "cli") {
+    resetFixture(root, keep);
+    return summary();
+  }
 
   // Clean input, literal names and explicit empty selection.
   scenario({
@@ -170,7 +266,7 @@ export function qualifyMinimalConsumer({
   // Formatting drift: format repairs presentation and check then passes.
   scenario({ "a.md": "# A\n\n*   item\n" });
   npmExec(["check", "--root", rootArgument], { status: 1 });
-  npmExec(["format", "--root", rootArgument], { status: 0 });
+  npmExec(["format", "--write", "--root", rootArgument], { status: 0 });
   assert.equal(read("a.md"), "# A\n\n- item\n");
   npmExec(["check", "--root", rootArgument], { status: 0 });
 
@@ -184,7 +280,7 @@ export function qualifyMinimalConsumer({
   assert.equal(preview.operationStatus, "previewed");
   assert.equal(preview.proposedChanges.length, 1);
   assert.equal(read("a.md"), `# A\n\nCaf${D} prose.\n`);
-  npmExec(["normalize", "--root", rootArgument], { status: 0 });
+  npmExec(["normalize", "--write", "--root", rootArgument], { status: 0 });
   assert.equal(read("a.md"), `# A\n\nCaf${C} prose.\n`);
   npmExec(["check", "--root", rootArgument], { status: 0 });
 
@@ -194,9 +290,9 @@ export function qualifyMinimalConsumer({
     ["normalize", "format"],
   ]) {
     scenario({ "a.md": `# A\n\n*   Caf${D}\n` });
-    npmExec([order[0], "--root", rootArgument], { status: 0 });
+    npmExec([order[0], "--write", "--root", rootArgument], { status: 0 });
     npmExec(["check", "--root", rootArgument], { status: 1 });
-    npmExec([order[1], "--root", rootArgument], { status: 0 });
+    npmExec([order[1], "--write", "--root", rootArgument], { status: 0 });
     npmExec(["check", "--root", rootArgument], { status: 0 });
     assert.equal(read("a.md"), `# A\n\n- Caf${C}\n`);
   }
@@ -206,7 +302,7 @@ export function qualifyMinimalConsumer({
     "a.md": `# Caf${D}\n`,
     "b.md": `# B\n\nSee [a](a.md#caf${D}).\n`,
   });
-  npmExec(["normalize", "--root", rootArgument], { status: 1 });
+  npmExec(["normalize", "--write", "--root", rootArgument], { status: 1 });
   const anchors = json(
     [
       "normalize",
@@ -221,7 +317,7 @@ export function qualifyMinimalConsumer({
   assert.equal(anchors.anchorChanges.length, 1);
   assert.equal(anchors.backlinkCoverage.externalReferences, "unverified");
   assert.equal(read("b.md"), `# B\n\nSee [a](a.md#caf${D}).\n`);
-  npmExec(["normalize", "--root", rootArgument, "--update-links"], {
+  npmExec(["normalize", "--write", "--root", rootArgument, "--update-links"], {
     status: 0,
   });
   assert.equal(read("b.md"), `# B\n\nSee [a](a.md#caf${C}).\n`);

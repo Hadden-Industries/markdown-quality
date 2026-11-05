@@ -29,7 +29,7 @@ function unchanged(root, item, budgets) {
     );
 }
 /** Replace only an unchanged single-link preimage, using the operation's resolved read budget. */
-export function replaceDocument(root, item, output, budgets) {
+export function assertReplacementPreimage(root, item, budgets) {
   unchanged(root, item, budgets);
   if (
     typeof process.getuid === "function" &&
@@ -39,6 +39,9 @@ export function replaceDocument(root, item, output, budgets) {
       "FILE_OWNERSHIP",
       "Formatting a file owned by another user is unsupported.",
     );
+}
+export function replaceDocument(root, item, output, budgets) {
+  assertReplacementPreimage(root, item, budgets);
   const temp = join(
     dirname(item.path),
     `.markdown-quality-${randomUUID()}.tmp`,

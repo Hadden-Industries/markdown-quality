@@ -24,14 +24,14 @@ The package preserves the existing AGPL-3.0-only license.
 ## Install and run
 
 ```sh
-npm install --save-dev --save-exact @hadden-industries/markdown-quality@2.0.0
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.0
 npm exec -- markdown-quality check --root .
 ```
 
-This documentation describes version 2.0.0.
+This documentation describes the 3.0.0 source candidate; the installation example applies after that version is published.
 Releases are first published under npm's `pilot` tag and move to `latest` only after pilot acceptance and stable promotion.
-Until then, install 2.0.0 by exact version: an unversioned install selects the `latest` 1.x release, which has different commands, configuration and results.
-The [migration guide](docs/migration-guide.md) maps 1.x usage to 2.0.
+Pin the exact qualified version; an unversioned install follows the mutable `latest` tag.
+The [migration guide](docs/migration-guide.md) maps 2.0 usage to 3.0 and retains the earlier 1.x migration.
 
 A local dependency does not put a bare `markdown-quality` executable on every shell's PATH.
 Run it through [npm exec](https://docs.npmjs.com/cli/v11/commands/npm-exec/), an npm script, or another runner that resolves local package binaries.
@@ -43,27 +43,36 @@ The optional `.markdown-quality.json` is looked up only at that root.
 ```sh
 npm exec -- markdown-quality check --root .
 npm exec -- markdown-quality check --root . --strict
-npm exec -- markdown-quality format --root .
+npm exec -- markdown-quality format --write --root .
+npm exec -- markdown-quality format --dry-run --root .
 npm exec -- markdown-quality normalize --root . --dry-run
 npm exec -- markdown-quality normalize --root . --dry-run --update-links
-npm exec -- markdown-quality normalize --root . --update-links
+npm exec -- markdown-quality normalize --write --root . --update-links
 npm exec -- markdown-quality inspect --root . --json
 npm exec -- markdown-quality inspect-profile --root . --json
 npm exec -- markdown-quality format --stdin-request --root . --json
 npm exec -- markdown-quality check --root . -- "docs/literal [1].md"
 npm exec -- markdown-quality check --root . --files-json '[]'
+npm exec -- markdown-quality --version
+npm exec -- markdown-quality format --help
+npm exec -- markdown-quality format --stdin --stdin-filepath docs/buffer.md --root . < editor-buffer.md
 ```
 
 `check` is read-only and establishes the policy verdict for the selected scope.
 `format` applies canonical presentation; it may leave only `quality/non-nfc-prose` findings, which it never repairs.
 `normalize` repairs eligible prose to NFC with source-aware edits; it may leave only presentation drift for `format`.
-`normalize --dry-run` performs the same preparation and reports proposed changes with zero writes; a preview is not write authority.
+Physical `format` and `normalize` require exactly one of `--write` or `--dry-run`, even for an empty selection.
+Both previews perform the same candidate preparation and report exact input/output hashes, byte counts and change decisions with zero writes; a preview is not write authority.
 `normalize --update-links` permits changed generated heading anchors and updates supported local fragments inside the selected write set.
 It refuses dependent references outside that set, inside raw HTML or with ambiguous targets, and always reports external backlinks as unverified.
 `inspect` resolves configuration, policy and selection without a content verdict.
 `inspect-profile` resolves the execution profile without analysis or qualification.
 `format --stdin-request` and `normalize --stdin-request` read one bounded JSON request `{path, requestId, contentBase64}` from standard input and never write the checkout.
 Literal filenames follow `--`; `--files-json '[]'` is an intentional empty selection that succeeds without launching tools.
+Raw `--stdin --stdin-filepath` accepts one UTF-8 buffer under the ordinary root policy; the path is root-relative context, not permission to read or replace disk content there.
+Raw transforms return only admitted source bytes on stdout; raw check supports `--json`.
+The envelope remains available for complete results and excluded arbitrary bytes; raw input must always be UTF-8.
+Never redirect output onto the input path: the shell can truncate it before reading begins.
 
 Both repair orders work: format, normalize, check, or normalize, format, check.
 Formatting and normalization validate the complete selected batch before the first replacement.
@@ -81,6 +90,9 @@ Results report `operationStatus` (`completed`, `previewed`, `refused`, `failed`)
 Only `check` establishes the policy verdict; a successful repair or preview is never check evidence.
 Errors block; warnings block only under `--strict`; information never blocks.
 `--diagnostic-display-level info|warning|error` filters human-readable output only.
+Human operation output uses stderr; help, version and complete JSON reports use stdout.
+`--quiet` suppresses routine success summaries, while diagnostics, refusals and failures remain visible.
+Delivery failure is exit 2: discard partial stdout, and inspect confirmed filesystem effects before retrying a writer.
 
 ## Resource controls
 
@@ -93,7 +105,7 @@ Unlimited mode cannot remove Node, V8, operating-system or hosting-provider limi
 ## Guides
 
 - The [consumer guide](docs/consumer-guide.md) covers installation, configuration, defaults, links, normalization, resources and the library API.
-- The [migration guide](docs/migration-guide.md) maps 1.x and unreleased development configuration, CLI, API and result names to the 2.0 contracts.
+- The [migration guide](docs/migration-guide.md) maps 2.0 CLI/result usage to 3.0 and retains earlier configuration/API migrations.
 - The [support and release guide](docs/support-and-release.md) describes compatibility and release gates.
 - The [centralized contracts guide](docs/centralized-contracts.md) and [CI trust guide](docs/ci-trust.md) describe logical documents, execution profiles and trusted qualification.
 - The [third-party notices](THIRD-PARTY-NOTICES.md) distinguish package code from upstream assets.

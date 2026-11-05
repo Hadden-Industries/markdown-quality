@@ -212,7 +212,7 @@ test("the current compatibility guide describes the actual exported schema versi
   );
   for (const [name, version] of [
     ["Configuration", 3],
-    ["Result", 4],
+    ["Result", 5],
     ["Execution", 2],
   ])
     assert.match(

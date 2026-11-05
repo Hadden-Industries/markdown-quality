@@ -325,10 +325,10 @@ test("comparison preserves policy and distinguishes rewording from changed findi
   );
 });
 
-test("schema-4 complete check reports compare with current provenance identities", async (t) => {
+test("schema-5 complete check reports compare with current provenance identities", async (t) => {
   const root = consumer(t, { "a.md": "Alpha.\n" });
   const incumbent = await executeQualityRequest({ mode: "check", root });
-  assert.equal(incumbent.schemaVersion, 4);
+  assert.equal(incumbent.schemaVersion, 5);
   assert.equal(incumbent.operationStatus, "completed");
   assert.equal(incumbent.qualityBasis, "input");
   const candidate = structuredClone(incumbent);
@@ -359,7 +359,7 @@ test("schema-4 complete check reports compare with current provenance identities
     candidateInputs: inputs,
   });
   assert.equal(comparison.schemaVersion, 3);
-  assert.equal(comparison.incumbent.reportSchemaVersion, 4);
+  assert.equal(comparison.incumbent.reportSchemaVersion, 5);
   assert.equal(
     comparison.incumbent.configurationBytesSha256,
     incumbent.configurationBytesSha256,
@@ -384,7 +384,7 @@ test("schema-4 complete check reports compare with current provenance identities
   const validate = new Ajv({ strict: true }).compile(comparisonSchema);
   assert.ok(validate(comparison), JSON.stringify(validate.errors));
   const repair = await runQuality({ mode: "format", root });
-  assert.equal(repair.schemaVersion, 4);
+  assert.equal(repair.schemaVersion, 5);
   assert.equal(repair.operation, "format");
   assert.throws(
     () =>

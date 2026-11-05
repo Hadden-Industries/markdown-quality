@@ -17,7 +17,16 @@ export function qualifyRuntime(cli, consumer, environment) {
   function run(operation, selection, status) {
     const result = spawnSync(
       process.execPath,
-      [cli, operation, "--root", root, "--json", "--", ...[selection].flat()],
+      [
+        cli,
+        operation,
+        ...(["format", "normalize"].includes(operation) ? ["--write"] : []),
+        "--root",
+        root,
+        "--json",
+        "--",
+        ...[selection].flat(),
+      ],
       {
         cwd: consumer,
         env: environment,

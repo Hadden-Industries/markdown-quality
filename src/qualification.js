@@ -410,7 +410,10 @@ export async function qualifyGitMarkdown(options) {
     if (receipt.schemaVersion !== 2)
       fail("INVALID_RESULT", "Sample receipt uses an unsupported schema.");
     // Qualification evidence is a complete check; repair receipts never qualify.
-    admitCheckEvidence(receipt.result, { exitCode: sample.exitCode });
+    admitCheckEvidence(receipt.result, {
+      exitCode: sample.exitCode,
+      selectionMode: "full",
+    });
   }
   return report;
 }

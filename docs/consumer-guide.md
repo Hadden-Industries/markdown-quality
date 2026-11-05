@@ -1,16 +1,17 @@
 # Consumer guide
 
-This guide describes zero-config consumption of version 2.0.0: configuration schema 3, preset `authored-gfm@2` and result schema 4.
+This guide describes the 3.0.0 source candidate: configuration schema 3, preset `authored-gfm@2` and result schema 5.
+Publication and complete supported-platform qualification remain separate release steps.
 Published 1.x archives are immutable and keep their previous behavior; the [migration guide](migration-guide.md) maps old names to these contracts.
 
 ## Installation
 
 ```sh
-npm install --save-dev --save-exact @hadden-industries/markdown-quality@2.0.0
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.0
 npm exec -- markdown-quality check --root .
 ```
 
-While 2.0.0 is under npm's `pilot` tag, install it by exact version; an unversioned install selects the `latest` 1.x release.
+Use this example after 3.0.0 is released; pin the exact qualified version rather than relying on mutable `pilot` or `latest` tags.
 No configuration file is required.
 A local dependency does not put a bare `markdown-quality` executable on every shell's PATH; use [npm exec](https://docs.npmjs.com/cli/v11/commands/npm-exec/) or an npm script.
 Keep the consumer lockfile, and disable lifecycle scripts with `--ignore-scripts` where your acquisition policy requires it.
@@ -18,6 +19,31 @@ An isolated `tooling/markdown` npm project supports consumers that do not use No
 Version 2.0 adds `parse5` 8.1.0 (MIT) and `github-slugger` 2.0.0 (ISC) as direct runtime dependencies; the [third-party notices](../THIRD-PARTY-NOTICES.md) list them all.
 
 ## Root discovery
+
+Raw editor buffers use `format --stdin --stdin-filepath docs/buffer.md --root .` with input piped or redirected from a separate file.
+For a report, use `check --stdin --stdin-filepath docs/buffer.md --root . --json`.
+The supplied strict UTF-8 bytes are authoritative over disk content; safe absent virtual files and named self-links are supported.
+The virtual filename is canonical and root-relative, including from nested directories, and retains ordinary root policy and bounded dependency reads.
+Normalization requires `--update-links` for changed anchors and refuses dependent edits outside the supplied buffer.
+Raw transforms reject `--json`, `--write`, `--dry-run`, `--stdin-request` and filesystem selections; they emit only admitted source on stdout after cleanup.
+The existing envelope retains full result details and excluded arbitrary-byte pass-through; raw input is always UTF-8, including excluded input.
+Never redirect onto the input path: the shell can truncate it before reading starts.
+
+Human findings and summaries use stderr, visibly including severity, rule and location.
+Help, version, `inspect-profile` and complete `--json` reports use stdout.
+`--quiet` suppresses routine successful summaries, preserving diagnostics, strict blockers and failure explanations.
+Layout drift calls for `format --write`; `quality/non-nfc-prose` calls for `normalize --write`.
+A missing link requires a content edit; `ANCHOR_CHANGE_REQUIRES_UPDATE_LINKS` requires reviewing anchor impact; a hidden warning still blocks with `--strict`.
+Repairs do not infer meaning, labels or alternative text.
+
+Both physical repair commands require exactly one of `--write` or `--dry-run`, even for an empty selection.
+Both previews report result-5 candidate hashes, byte counts and change decisions without changing sources; successful previews are not formatting-check verdicts.
+Selected, empty and supplied-buffer checks establish only their actual scope, with dependency reads listed separately.
+`maxRequestBytes` counts the actual internal JSON/base64 framing, and `maxOutputBytes` bounds complete reports and raw delivery.
+One raw deadline covers stdin through complete output, with separate checker cleanup.
+Delivery failure is exit 2: discard partial stdout, and inspect confirmed physical writes before retrying.
+
+### Root resolution
 
 An explicit `--root` or API `root` selects exactly that directory, including a subdirectory of a checkout.
 Otherwise the root is the nearest Git checkout, verified through host Git, else the nearest directory with a regular `package.json`, else the current directory.
@@ -186,7 +212,7 @@ Preview first, then authorize anchor changes:
 ```sh
 npm exec -- markdown-quality normalize --root . --dry-run
 npm exec -- markdown-quality normalize --root . --dry-run --update-links
-npm exec -- markdown-quality normalize --root . --update-links
+npm exec -- markdown-quality normalize --write --root . --update-links
 npm exec -- markdown-quality check --root .
 ```
 
@@ -205,8 +231,8 @@ A later write reruns preparation; a preview is never a stored write token.
 Either order reaches a passing check for otherwise valid input:
 
 ```sh
-npm exec -- markdown-quality format --root .
-npm exec -- markdown-quality normalize --root .
+npm exec -- markdown-quality format --write --root .
+npm exec -- markdown-quality normalize --write --root .
 npm exec -- markdown-quality check --root .
 ```
 

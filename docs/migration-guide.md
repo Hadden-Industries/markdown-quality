@@ -1,5 +1,34 @@
 # Migration guide
 
+## From 2.0 to 3.0
+
+Version 3.0.0 is the selected source candidate; this guide does not establish publication or release acceptance.
+Configuration schema 3, `authored-gfm@2`, execution schema 2, comparison schema 3 and Snapper 0.11.9 are retained.
+
+- Add `--write` to physical `format` and `normalize` invocations, or select `--dry-run` for a real preview.
+  Missing/conflicting modes fail before policy, stdin or source effects, including empty selections.
+  SDK `runQuality` repair calls keep their existing write semantics; logical envelope calls do not accept `--write`.
+- Consume result schema 5: each selected document has a nullable `candidate` with exact input/output SHA-256, byte counts and `changed`.
+  A completed nonempty repair requires candidates; confirmed writes remain separately reported.
+  Historical comparisons retain schemas 1 through 4 and accept 5 without rewriting old reports.
+- Human operation output moves to stderr; `--json`, help and version stay on stdout.
+  `--quiet` changes presentation only, preserving findings, strict blockers and failure explanations.
+- Editors may use `--stdin --stdin-filepath docs/buffer.md` with `check`, `format` or `normalize` under normal root policy.
+  Raw transforms return source only, and reject `--json`, `--dry-run`, `--write` and filesystem selections.
+  The virtual filename is canonical and root-relative, even when invoked from a nested directory.
+  Supplied UTF-8 is authoritative over different disk bytes; absent safe parents and virtual self-links are supported.
+  Existing JSON/base64 `--stdin-request` remains available, including excluded arbitrary bytes; raw input is always strict UTF-8.
+- Continue using `check` for the actual selected policy verdict.
+  Successful preview, repair, selected-file, empty or logical checks never certify complete repository acceptance.
+  Required link dependencies remain bounded, fresh and separately reported.
+- Internal JSON/base64 overhead counts against `maxRequestBytes`; complete reports and raw output count against `maxOutputBytes`.
+  One raw execution deadline covers stdin through output completion, with separate owned checker cleanup.
+  Exit 2 after delivery begins requires discarding partial stdout; physical writes already confirmed are not restored automatically.
+
+Do not redirect transformed output over its input file; use a separate destination and inspect the process exit.
+Consumers using open-ended dependency ranges such as `>=2.0.0` must migrate commands before refreshing locks to 3.0.0.
+No other repository's dependency range is changed by this implementation.
+
 This guide migrates consumers of published 1.x releases and of unreleased configuration schema 2 development source to version 2.0.0: configuration schema 3, preset `authored-gfm@2` and result schema 4.
 Old names in the tables below come from 1.0.3 or from that unreleased development source.
 The new names are not aliases: removed keys, flags, markers and options fail with guidance instead of being ignored.
@@ -233,8 +262,8 @@ npm install --save-dev --save-exact @hadden-industries/markdown-quality@2.0.0
 npm exec -- markdown-quality inspect --root . --json
 npm exec -- markdown-quality check --root .
 npm exec -- markdown-quality normalize --root . --dry-run
-npm exec -- markdown-quality normalize --root .
-npm exec -- markdown-quality format --root .
+npm exec -- markdown-quality normalize --write --root .
+npm exec -- markdown-quality format --write --root .
 npm exec -- markdown-quality check --root .
 ```
 

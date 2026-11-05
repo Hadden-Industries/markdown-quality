@@ -30,7 +30,7 @@ test("current configurations inspect explicit replacement defaults and report sc
   const root = consumer(t);
   const result = await runQuality({ root, mode: "inspect", files: [] });
   assert.equal(result.exitCode, 0);
-  assert.equal(result.schemaVersion, 4);
+  assert.equal(result.schemaVersion, 5);
   assert.equal(result.preset, "authored-gfm@2");
   assert.equal(result.configuration.layout.endOfLine, "lf");
   assert.equal(result.configuration.syntax.frontmatter, "yaml");

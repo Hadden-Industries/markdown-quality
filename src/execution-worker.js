@@ -33,8 +33,8 @@ if (
   throw new Error("Invalid logical document framing.");
 if (
   !logical &&
-  (options.mode === "format" ||
-    (options.mode === "normalize" && options.dryRun !== true))
+  ["format", "normalize"].includes(options.mode) &&
+  options.dryRun !== true
 )
   throw new Error("Bounded transport cannot write checkout documents.");
 const admitted = {

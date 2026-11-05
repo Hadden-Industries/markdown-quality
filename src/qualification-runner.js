@@ -9,7 +9,7 @@ import { runQualityRequest } from "./execution.js";
 import { admitCheckEvidence } from "./result-validation.js";
 import { fail, digest, exceeds } from "./contracts.js";
 import { checkoutIdentity } from "./qualification.js";
-import { markdownPathPredicate } from "./documents.js";
+import { markdownPathPredicate, createPathDecision } from "./documents.js";
 
 const [requestPath, outputRoot, receiptPath] = process.argv.slice(2);
 const request = JSON.parse(readFileSync(requestPath, "utf8"));
@@ -36,9 +36,10 @@ if (profile.profileSha256 !== request.profile.profileSha256)
   fail("PROFILE_CHANGED", "Trusted profile changed before execution.");
 const before = staging.stagedDataSha256;
 // The staged trusted snapshot is the effective policy, including its include scope.
-const { include } = JSON.parse(
+const trustedConfiguration = JSON.parse(
   readFileSync(join(outputRoot, staging.configPath), "utf8"),
 );
+const { include } = trustedConfiguration;
 const markdown = markdownPathPredicate(include);
 // Receipts keep each checkout's Markdown inventory, not every tracked path.
 const recorded = ({ trackedPaths, ...identity }) => ({
@@ -86,6 +87,12 @@ const checkerElapsedMs = Math.round(performance.now() - started);
 admitCheckEvidence(result, {
   configurationBytesSha256: staging.trustedConfigurationSnapshotSha256,
   selectionMode: "full",
+  files: recorded(candidate)
+    .markdownPaths.filter(
+      (path) =>
+        createPathDecision(trustedConfiguration)(path).decision === "selected",
+    )
+    .sort(),
 });
 if (
   result.configurationOrigin?.kind !== "trusted-snapshot" ||

@@ -98,8 +98,8 @@ function admitRequest(request) {
     fail("INVALID_DOCUMENT", "Invalid logical document framing.");
   if (
     !logical &&
-    (request.mode === "format" ||
-      (request.mode === "normalize" && request.dryRun !== true))
+    ["format", "normalize"].includes(request.mode) &&
+    request.dryRun !== true
   )
     fail(
       "INVALID_EXECUTION",
@@ -293,6 +293,13 @@ export async function runQualityRequest(request, options = {}, internal = {}) {
         validateQualityResult(report, {
           operation: request.mode ?? (logical ? "format" : "check"),
           exitCode: code,
+          ...(report.operationStatus === "failed"
+            ? {}
+            : {
+                dryRun: request.dryRun === true,
+                updateLinks: request.updateLinks === true,
+                documentPath: logical ? request.document.path : null,
+              }),
           ...(logical ? { requestId: request.document.requestId ?? null } : {}),
         });
         resolve(report);

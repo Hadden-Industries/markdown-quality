@@ -6,25 +6,8 @@ import { defaultAnalyzerLimits } from "./analyzer-limits.js";
 import { fail } from "./contracts.js";
 
 /** Configured execution ceilings outside the analyzer vocabulary. Null disables one. */
-export const defaultExecutionLimits = Object.freeze({
-  executionTimeoutMs: 180_000,
-  maxOutputBytes: 8_388_608,
-  maxRequestBytes: 8_388_608,
-  maxNodeOldGenerationMiB: 256,
-  maxProfileBytes: 65_536,
-  maxRuntimeDeclarationBytes: 65_536,
-  gitTimeoutMs: 10_000,
-  runtimeProbeTimeoutMs: 10_000,
-  maxRuntimeProbeOutputBytes: 4_096,
-  maxQualificationSamples: 100,
-  maxEvidenceInputBytes: 67_108_864,
-  maxUnboundEvidenceSamples: 1_000,
-  maxMemoParseBytes: 4_194_304,
-  maxMemoLayoutBytes: 4_194_304,
-  maxMemoEntriesPerStage: 4,
-  cleanupTimeoutMs: 5_000,
-  maxComparisonInputBytes: 8_388_608,
-});
+import { defaultExecutionLimits } from "./execution-defaults.js";
+export { defaultExecutionLimits };
 
 /** Ceilings whose configured default follows another effective ceiling. */
 export const derivedExecutionLimits = Object.freeze({

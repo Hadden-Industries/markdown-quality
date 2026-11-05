@@ -36,17 +36,18 @@ test("CLI concurrency reaches real analysis and rejects counts below one before 
       path,
       analysisStatus: "completed",
       writeStatus: "not-requested",
+      candidate: null,
     })),
   );
   const invalid = spawnSync(
     process.execPath,
-    [cli, "format", "--root", root, "--concurrency", "0", "--json"],
+    [cli, "format", "--write", "--root", root, "--concurrency", "0", "--json"],
     { encoding: "utf8", timeout: 30_000 },
   );
   assert.equal(invalid.status, 2, invalid.stdout + invalid.stderr);
   const rejected = JSON.parse(invalid.stdout);
   assert.ok(validate(rejected), JSON.stringify(validate.errors));
-  assert.equal(rejected.errors[0].code, "INVALID_CONCURRENCY");
+  assert.equal(rejected.errors[0].code, "CLI_INPUT");
   assert.deepEqual(rejected.writtenPaths, []);
 });
 test("CLI literal and JSON selections preserve boundaries and schema on every exit", (t) => {
@@ -96,6 +97,7 @@ test("oversized files, outside paths and alternate streams fail before analysis 
       path: "a.md",
       analysisStatus: "not-requested",
       writeStatus: "not-requested",
+      candidate: null,
     },
   ]);
 });
@@ -110,8 +112,9 @@ test(
       timeout: 30_000,
     });
     assert.equal(text.status, 1, text.stdout + text.stderr);
-    assert.ok(!text.stdout.includes("\u001b"));
-    assert.ok(text.stdout.includes("\\u001b[2J\\u000anotice.md"));
+    assert.equal(text.stdout, "");
+    assert.ok(!text.stderr.includes("\u001b"));
+    assert.ok(text.stderr.includes("\\u001b[2J\\u000anotice.md"));
     const json = spawnSync(
       process.execPath,
       [cli, "check", "--root", root, "--json"],

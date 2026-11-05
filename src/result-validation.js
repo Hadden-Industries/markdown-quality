@@ -2,7 +2,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { readFileSync } from "node:fs";
 import Ajv from "ajv";
-import { fail, metadata } from "./contracts.js";
+import { fail, metadata, digest } from "./contracts.js";
 
 const schema = JSON.parse(
   readFileSync(
@@ -58,6 +58,7 @@ export function validateQualityResult(report, expected = {}) {
     configurationBytesSha256: report.configurationBytesSha256,
     effectiveConfigurationSha256: report.effectiveConfigurationSha256,
     selectionMode: report.selection.mode,
+    documentPath: report.document?.path ?? null,
     ...(unadmitted ? {} : { requestId: report.document?.requestId ?? null }),
     dryRun: report.dryRun,
     updateLinks: report.updateLinks,
@@ -68,6 +69,64 @@ export function validateQualityResult(report, expected = {}) {
         "Quality result does not match the requested " + key + ".",
       );
   const { selection, documentResults } = report;
+  const repair = ["format", "normalize"].includes(report.operation);
+  if (
+    (!repair && report.dryRun) ||
+    (report.operation !== "normalize" && report.updateLinks)
+  )
+    invalid("Repair controls do not belong to this operation.");
+  if (report.document !== null) {
+    const selected = report.document.decision === "selected";
+    if (
+      selection.mode !== "explicit" ||
+      selection.reconciliationDecisions.length ||
+      !isDeepStrictEqual(
+        selection.files,
+        selected ? [report.document.path] : [],
+      ) ||
+      (!selected &&
+        !selection.omissions.some(
+          (item) =>
+            item.path === report.document.path &&
+            item.reason === report.document.decision,
+        )) ||
+      report.writtenPaths.length
+    )
+      invalid("Logical identity and selection disagree.");
+  }
+  for (const record of documentResults) {
+    const candidate = record.candidate;
+    if (candidate === null) {
+      if (repair && ["completed", "previewed"].includes(report.operationStatus))
+        invalid("Completed repair lacks a verified candidate.");
+      continue;
+    }
+    if (
+      !repair ||
+      record.analysisStatus !== "completed" ||
+      candidate.changed !==
+        (candidate.inputSha256 !== candidate.outputSha256) ||
+      (!candidate.changed && candidate.inputBytes !== candidate.outputBytes) ||
+      (record.writeStatus === "written" && !candidate.changed) ||
+      (record.writeStatus === "unchanged" && candidate.changed)
+    )
+      invalid("Candidate identity contradicts analysis or write effects.");
+    if (
+      report.document &&
+      ["completed", "previewed", "refused"].includes(report.operationStatus)
+    ) {
+      const bytes = Buffer.from(report.document.contentBase64, "base64");
+      const side =
+        report.dryRun || report.operationStatus === "refused"
+          ? "input"
+          : "output";
+      if (
+        candidate[side + "Sha256"] !== digest(bytes) ||
+        candidate[side + "Bytes"] !== bytes.length
+      )
+        invalid("Logical content disagrees with its candidate identity.");
+    }
+  }
   if (
     new Set(selection.files).size !== selection.files.length ||
     new Set(selection.reconciliationDecisions.map((d) => d.path)).size !==
@@ -238,6 +297,9 @@ export function admitCheckEvidence(report, expected = {}) {
   validateQualityResult(report, expected);
   if (
     report.operation !== "check" ||
+    report.document !== null ||
+    report.dryRun ||
+    report.updateLinks ||
     report.operationStatus !== "completed" ||
     report.qualityBasis !== "input" ||
     report.exitCode === 2 ||
@@ -247,5 +309,10 @@ export function admitCheckEvidence(report, expected = {}) {
       "INVALID_RESULT",
       "Quality acceptance requires a complete read-only check result.",
     );
+  if (
+    Object.hasOwn(expected, "files") &&
+    !isDeepStrictEqual(report.selection.files, expected.files)
+  )
+    invalid("Check evidence differs from the intended physical selection.");
   return report;
 }
