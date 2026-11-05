@@ -33,6 +33,14 @@ Admission inspects native GitHub publication history independently of the chosen
 An attempted package/version must retain its original bytes and origin; omitting a recovery input or choosing an older native-only run cannot authorize another request.
 Staging workflow reruns are rejected.
 Missing, expired, truncated or ambiguous prior effect evidence blocks staging and requires evidence recovery; public metadata absence is not proof that no pending stage exists.
+Version-reuse checks acquire full publication records only for the requested version or an attempt whose version cannot be established.
+The collector derives version bindings from authenticated manifests and retained provider histories, comparing complete native attempt and write-execution identities before reusing a binding.
+Run names, controller checkout versions and registry absence do not establish a publication's version.
+An authenticated binding for another version avoids acquiring that version's historical archives; matching versions retain the original byte, origin and retry checks.
+The existing publication-history journal retains these bindings in publication artifacts and the immutable release inventory, so classification does not depend on a hand-maintained historical allowlist.
+An explicit continuation after a pre-write failure can acquire the original admission artifact only when complete current native attempt history proves that no publication request ran.
+That route retains the original manifest and origin-map digest, preserves already retained package origins and requires fresh admission under the continuation controller.
+Any possible prior request still requires its original publication artifact; an admission artifact cannot replace a staging journal.
 Do not delete publication runs or their recovery evidence while they remain relevant.
 Never blindly rerun a job that attempted an external effect.
 Publishing operations share a non-cancelling concurrency group.

@@ -199,6 +199,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     ...(process.env.RECOVERY_RUN
       ? {
           previous: {
+            prewrite: existsSync("previous-publication/prewrite-provider.json")
+              ? json("previous-publication/prewrite-provider.json")
+              : undefined,
             run: json(join(providerDirectory, "previous-run.json")),
             jobs: json(join(providerDirectory, "previous-jobs.json")),
             manifestBytes: bytes(

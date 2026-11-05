@@ -127,6 +127,7 @@ export function verifyQualification(qualified) {
       "security-evidence.json",
       "public-security-evidence.json",
       "staging-provider.json",
+      "publication-history.json",
       "signed-tag.json",
       "release-review.json",
       "release-acceptance.json",

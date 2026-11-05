@@ -30,7 +30,6 @@ export async function downloadEvidence({
   assert.ok(Number.isSafeInteger(id) && id > 0);
   const admit = (metadata) => {
     assert.equal(metadata.id, id);
-    assert.equal(metadata.expired, false);
     assert.match(metadata.digest, /^sha256:[a-f0-9]{64}$/u);
     assert.equal(metadata.workflow_run.id, runId);
     assert.equal(metadata.workflow_run.repository_id, repositoryId);
@@ -40,6 +39,12 @@ export async function downloadEvidence({
       metadata.size_in_bytes > 0 &&
         metadata.size_in_bytes <= maximum + artifactLimits.envelopeBytes,
     );
+    if (metadata.expired === true) {
+      const error = new Error(`Authenticated artifact ${id} has expired`);
+      error.code = "EVIDENCE_ARTIFACT_EXPIRED";
+      throw error;
+    }
+    assert.equal(metadata.expired, false);
   };
   const metadata = await read(`/actions/artifacts/${id}`);
   admit(metadata);
@@ -57,9 +62,9 @@ export async function downloadEvidence({
   // Finish the shared network lookup before the separate extraction phase.
   // Provider conflict/expiry must fail before any payload is materialized.
   const retained = await read(`/actions/artifacts/${id}`);
-  admit(retained);
   assert.equal(retained.digest, digest);
   assert.equal(retained.size_in_bytes, size);
+  admit(retained);
   assert.ok(
     now() < deadline,
     "Artifact transfer budget exhausted before extraction",

@@ -3,6 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { nodeSupport, qualificationMatrix } from "../scripts/node-matrix.js";
 import { nodeMatrixFixture } from "./node-matrix-fixture.js";
+import { publicationHistoryFixture } from "./publication-history-fixture.js";
 import {
   mkdtempSync,
   mkdirSync,
@@ -418,6 +419,52 @@ function provenanceFixture() {
   serialize();
   return { expected, archive, statement, audit, serialize };
 }
+test("prewrite controller continuation preserves the qualified tuple and plans only never-attempted requests", (t) => {
+  const { input, manifest } = fixture(t);
+  const original = verifyPublication(input).publicationOrigins;
+  const prior = publicationHistoryFixture(1);
+  Object.assign(prior.run, {
+    id: Number(original.run),
+    head_sha: source,
+    status: "completed",
+    conclusion: "failure",
+  });
+  prior.attempts[0].run = { ...prior.run };
+  prior.set(1, [{ ...prior.job(1, "skipped"), steps: [] }]);
+  const originsBytes = Buffer.from(JSON.stringify(original));
+  Object.assign(input.context, {
+    head: "b".repeat(40),
+    publicationRun: "789",
+    recoveryRun: original.run,
+    recoveryAttempt: "1",
+    recoveryOriginsSha: sha(originsBytes),
+  });
+  input.currentRef.object.sha = input.context.head;
+  input.previous = {
+    run: prior.run,
+    jobs: prior.attempts[0].jobs,
+    manifestBytes: readFileSync(join(input.directory, "release-manifest.json")),
+    originsBytes,
+    prewrite: prior,
+  };
+  const map = verifyPublication(input).publicationOrigins;
+  assert.equal(map.artifactSource, source);
+  assert.equal(map.manifestSha, input.manifestSha);
+  assert.equal(map.version, manifest.version);
+  assert.ok(
+    map.records.every(
+      (record) =>
+        record.state === "planned" &&
+        record.run === "789" &&
+        record.source === input.context.head,
+    ),
+  );
+  prior.set(1, [prior.job(1, "failure")]);
+  input.previous.jobs = prior.attempts[0].jobs;
+  assert.throws(() => verifyPublication(input), /possible prior request/u);
+  assert.equal(JSON.parse(originsBytes).controlSource, source);
+});
+
 test("verified native provenance is bound to publication source and run", () => {
   const data = provenanceFixture();
   assert.equal(
