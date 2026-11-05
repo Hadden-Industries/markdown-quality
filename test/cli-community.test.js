@@ -368,10 +368,15 @@ test("version projection preserves dependency resolution and validates all input
 
 function streamCli(root, args, action) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [cli, ...args, "--root", root], {
-      env: { ...process.env, NODE_DISABLE_COMPILE_CACHE: "1" },
-      windowsHide: true,
-    });
+    const child = spawn(
+      process.execPath,
+      [action.entrypoint ?? cli, ...args, "--root", root],
+      {
+        env: { ...process.env, NODE_DISABLE_COMPILE_CACHE: "1" },
+        windowsHide: true,
+        stdio: action.message ? ["pipe", "pipe", "pipe", "ipc"] : "pipe",
+      },
+    );
     let stderr = "",
       stdoutBytes = 0;
     const deadline = setTimeout(() => {
@@ -384,6 +389,7 @@ function streamCli(root, args, action) {
       );
     }, 15000);
     child.on("error", reject);
+    child.on("message", (message) => action.message?.(child, message));
     child.stdin.on("error", () => {});
     child.stderr.on("data", (chunk) => (stderr += chunk));
     child.stdout.on("data", (chunk) => {
@@ -395,7 +401,7 @@ function streamCli(root, args, action) {
       clearTimeout(deadline);
       resolve({ code, stderr, stdoutBytes });
     });
-    action.input(child);
+    action.input?.(child);
   });
 }
 test("raw input awaits EOF and decodes split UTF-8 without replacement", async (t) => {
@@ -539,14 +545,39 @@ test("one raw deadline covers incomplete input and blocked output after worker c
   assert.equal(input.code, 2, input.stderr);
   assert.equal(input.stdoutBytes, 0);
   assert.match(input.stderr, /CANCELLED/u);
+  // Advance the same operation clock across input and blocked output. Real
+  // worker startup/cleanup must not race a short wall-clock budget on busy hosts.
+  const controlledCli = join(root, "controlled-cli-clock.mjs");
+  writeFileSync(
+    controlledCli,
+    `import {mock} from 'node:test';
+    import {main} from ${JSON.stringify(new URL("../src/cli.js", import.meta.url).href)};
+    let now=0;
+    mock.method(performance, 'now', () => now);
+    mock.timers.enable({apis:['setTimeout']});
+    process.on('message', ({advance}) => {
+      now+=advance;
+      mock.timers.tick(advance);
+      process.send({advanced:now});
+    });
+    const operation=main();
+    process.send({started:true});
+    await operation;
+    process.disconnect();`,
+  );
   let reached = false;
   const output = await streamCli(root, args, {
-    input(child) {
-      child.stdin.end("x".repeat(1024 * 1024));
+    entrypoint: controlledCli,
+    message(child, message) {
+      if (message.started) child.send({ advance: 1000 });
+      else if (message.advanced === 1000)
+        child.stdin.end("x".repeat(1024 * 1024));
     },
     output(child) {
+      if (reached) return;
       reached = true;
       child.stdout.pause();
+      child.send({ advance: 1000 });
     },
   });
   assert.equal(reached, true, "Output must follow actual worker cleanup");

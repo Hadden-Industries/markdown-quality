@@ -1,6 +1,6 @@
 # Markdown quality
 
-This package supplies one CLI and library for Markdown layout, sentence lines, GFM linting, NFC prose, static accessibility checks and contained local links and fragments.
+This package supplies one Node.js CLI and SDK for Markdown layout, sentence lines, GFM linting, NFC prose, static accessibility checks and contained local links and fragments.
 It works without a configuration file: package defaults discover every lowercase `.md` file under the consumer root, and files you name are checked whatever their extension.
 The package preserves the existing AGPL-3.0-only license.
 
@@ -20,6 +20,15 @@ The package preserves the existing AGPL-3.0-only license.
 - You want to choose your own layout style; canonical layout and whitespace policy are fixed.
 - You need external URLs, site routes or extensionless targets verified; only repository-local targets are checked.
 - You need spelling, grammar or prose-style review.
+
+## Runtime support
+
+The CLI and SDK run in Node.js for local development, builds and CI.
+They require filesystem access and platform-native executables; see the [supported runtimes and platforms](docs/support-and-release.md).
+Frontend projects can install the package as a development dependency and run it in their Node.js tooling.
+Browser execution is not supported: conditional exports reject the SDK root in browser builds and environments without the `node` condition.
+The published JSON schemas remain available independently of the SDK.
+Browser support is a separate future feature and is not included in the current runtime contract.
 
 ## Install and run
 

@@ -179,8 +179,8 @@ test("CLI installed metadata failures use operational exit without fabricated ve
     `import {mock} from 'node:test';
     const mockExports=${JSON.stringify(moduleMockExportOption)};
     mock.module(${JSON.stringify(target)}, {[mockExports]:{installedToolVersions(){throw Object.assign(new Error('Missing metadata'),{code:'TOOL_METADATA'});}}});
-    process.argv=[process.execPath,'cli','inspect','--root',${JSON.stringify(root)},'--unknown-option','--json'];
-    await import(${JSON.stringify(cli)});`,
+    const {main}=await import(${JSON.stringify(cli)});
+    await main(['inspect','--root',${JSON.stringify(root)},'--unknown-option','--json']);`,
   );
   const result = spawnSync(
     process.execPath,
@@ -191,7 +191,7 @@ test("CLI installed metadata failures use operational exit without fabricated ve
   assert.equal(result.stdout, "");
   assert.match(
     result.stderr,
-    /TOOL_METADATA: Cannot construct installed result metadata/u,
+    /TOOL_METADATA: Cannot deliver installed result metadata/u,
   );
 });
 

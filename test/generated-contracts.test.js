@@ -35,6 +35,9 @@ const expectedLimits = {
   maxPatternCodePoints: 512,
   maxRuleOverrideCount: 60,
   maxReadDependencyDocuments: 10000,
+  maxLinkDiagnosticCodePoints: 200,
+  maxPathDiagnosticCodePoints: 300,
+  nativeThreads: 1,
 };
 // Independently maintained execution ceiling names accepted by profile schema 2.
 const expectedExecutionCeilings = [

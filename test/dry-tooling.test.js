@@ -40,12 +40,24 @@ test("metadata decoding preserves supplied target shapes without path classifica
     ],
     [{ bin: ["./a.js"], exports: {} }, ["./a.js"]],
     [{ bin: 42 }, []],
+    [
+      {
+        exports: {
+          ".": { browser: null, node: { import: "./index.js" }, default: null },
+          "./schema": "./schema.json",
+          "./private": null,
+        },
+      },
+      ["./index.js", "./schema.json"],
+    ],
   ])
     assert.deepEqual(declaredTargets(metadata), expected);
   for (const metadata of [
     { exports: "./index.js" },
     { exports: [] },
-    { exports: { ".": { import: "./index.js" } } },
+    { exports: { ".": { node: false } } },
+    { exports: { ".": { node: ["./index.js"] } } },
+    { exports: { ".": { node: "./*.js" } } },
     { bin: { cli: 1 } },
     { bin: "./*.js" },
   ])

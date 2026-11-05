@@ -271,7 +271,10 @@ test("comparison preserves policy and distinguishes rewording from changed findi
     () =>
       compareCheckReports({
         incumbent: original,
-        candidate: { ...candidate, schemaVersion: 5 },
+        candidate: {
+          ...candidate,
+          schemaVersion: currentSchema.properties.schemaVersion.const + 1,
+        },
         incumbentSchema: schema,
         candidateSchema: futureSchema,
         incumbentInputs: inputs,

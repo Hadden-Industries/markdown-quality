@@ -4,6 +4,16 @@ This guide describes the 3.0.0 source candidate: configuration schema 3, preset 
 Publication and complete supported-platform qualification remain separate release steps.
 Published 1.x archives are immutable and keep their previous behavior; the [migration guide](migration-guide.md) maps old names to these contracts.
 
+## Runtime support
+
+The CLI and SDK require Node.js, filesystem access and the [supported platform-native executables](support-and-release.md).
+Use the package in local development, builds and CI, including as a development dependency of a frontend project.
+Import the SDK only from Node.js code; browser execution is unsupported and remains a separate future feature.
+The root export selects `./src/quality.js` for the `node` condition and rejects `browser` or unmatched environments with a `null` target.
+Browser rejection takes precedence if a resolver supplies both `browser` and `node` conditions.
+The JSON schema and qualification-observer resource exports remain independently resolvable; resolving the Python observer does not make it executable in a browser.
+Bundlers must honor package exports and use their Node.js target when bundling SDK consumers.
+
 ## Installation
 
 ```sh

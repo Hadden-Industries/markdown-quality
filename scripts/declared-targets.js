@@ -1,5 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-/** Preserve supplied metadata decoding; callers own paths and classification. */
+/** Inventory every conditional export branch, not only this host's resolution. */
+function exportTargets(value) {
+  if (value === null) return [];
+  if (typeof value === "string") return [value];
+  if (typeof value !== "object" || Array.isArray(value))
+    throw new Error("Unsupported entrypoint shape");
+  return Object.values(value).flatMap(exportTargets);
+}
+
+/** Collect concrete bin/export targets; callers own paths and classification. */
 export function declaredTargets(metadata) {
   const exports = metadata.exports ?? {};
   if (typeof exports !== "object" || Array.isArray(exports))
@@ -8,7 +17,7 @@ export function declaredTargets(metadata) {
     typeof metadata.bin === "string"
       ? [metadata.bin]
       : Object.values(metadata.bin ?? {});
-  const targets = [...bins, ...Object.values(exports)];
+  const targets = [...bins, ...exportTargets(exports)];
   for (const target of targets)
     if (typeof target !== "string" || target.includes("*"))
       throw new Error("Unsupported entrypoint shape");

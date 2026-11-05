@@ -5,6 +5,10 @@
 Version 3.0.0 is the selected source candidate; this guide does not establish publication or release acceptance.
 Configuration schema 3, `authored-gfm@2`, execution schema 2, comparison schema 3 and Snapper 0.11.9 are retained.
 
+- Import the SDK from Node.js code only; the package root now explicitly rejects browser and unmatched resolver environments.
+  Frontend projects can continue running the CLI and SDK in Node.js development, build and CI tooling.
+  Node.js bundlers must select the `node` condition; JSON schemas and the qualification-observer resource keep their existing exports.
+  Browser execution remains unsupported and is a separate future feature.
 - Add `--write` to physical `format` and `normalize` invocations, or select `--dry-run` for a real preview.
   Missing/conflicting modes fail before policy, stdin or source effects, including empty selections.
   SDK `runQuality` repair calls keep their existing write semantics; logical envelope calls do not accept `--write`.
