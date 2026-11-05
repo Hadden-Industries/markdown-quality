@@ -402,7 +402,14 @@ try {
       run = (mode) => {
         const result = spawnSync(
           process.execPath,
-          [cli, mode, "--root", consumer, "--json"],
+          [
+            cli,
+            mode,
+            ...(mode === "format" ? ["--write"] : []),
+            "--root",
+            consumer,
+            "--json",
+          ],
           {
             cwd: temporary,
             env: runtimeEnvironment,
