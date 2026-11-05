@@ -167,7 +167,7 @@ export function packageQualificationEvidence({
     );
   const bound = profile
     ? tighter(profile.maxOutputBytes, maxEvidenceInputBytes)
-    : tighter(defaultExecutionLimits.maxOutputBytes, maxEvidenceInputBytes);
+    : maxEvidenceInputBytes;
   const sampleCeiling = profile
     ? profile.requiredConsecutiveSamples
     : maxUnboundEvidenceSamples;

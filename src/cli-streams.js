@@ -143,8 +143,12 @@ export async function writeFailure(
     cleanupTimeoutMs = defaultExecutionLimits.cleanupTimeoutMs,
     maxOutputBytes = defaultExecutionLimits.maxOutputBytes,
   } = {},
+  stream = process.stderr,
 ) {
-  if (failedOutputs.has(process.stderr)) return;
+  if (failedOutputs.has(stream))
+    return Object.assign(new Error("Output sink already failed."), {
+      code: "OUTPUT_FAILED",
+    });
   const controller = new AbortController();
   let timer;
   if (cleanupTimeoutMs !== null) {
@@ -157,12 +161,14 @@ export async function writeFailure(
     expire();
   }
   try {
-    await writeOutput(process.stderr, message, {
+    await writeOutput(stream, message, {
       signal: controller.signal,
       maxOutputBytes,
     });
-  } catch {
+    return null;
+  } catch (error) {
     /* The operational exit remains authoritative when no error sink works. */
+    return error;
   } finally {
     clearTimeout(timer);
   }

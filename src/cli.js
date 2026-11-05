@@ -6,6 +6,8 @@ import {
   isEntrypoint,
   packageVersion,
   usage,
+  cliResourceInvocation,
+  cliFailureControls,
 } from "./cli-admission.js";
 import { writeFailure } from "./cli-streams.js";
 
@@ -16,13 +18,16 @@ export async function main(args = process.argv.slice(2)) {
     outputStarted = false,
     cancellation,
     timer;
-  let outputCeiling = null;
-  let failureDelivery;
+  let failureDelivery = cliFailureControls();
+  let outputCeiling = failureDelivery.maxOutputBytes;
   let json = args
     .slice(0, args.indexOf("--") < 0 ? args.length : args.indexOf("--"))
     .includes("--json");
   const cancel = () => cancellation?.abort();
   try {
+    const invocation = cliResourceInvocation(args);
+    failureDelivery = cliFailureControls(invocation);
+    outputCeiling = failureDelivery.maxOutputBytes;
     const admitted = admitCli(args);
     if (admitted.discovery !== undefined || admitted.version) {
       const { writeOutput } = await import("./cli-streams.js");
@@ -54,17 +59,25 @@ export async function main(args = process.argv.slice(2)) {
       import("./result-validation.js"),
       import("./cli-output.js"),
     ]);
-    const mode = values["resource-limit-mode"];
-    const invocation = {
-      origin: "invocation",
-      resourceLimitMode: mode,
-      executionLimits:
-        values["max-profile-bytes"] === undefined
-          ? {}
-          : { maxProfileBytes: Number(values["max-profile-bytes"]) },
-      analyzerLimits: values["no-analyzer-limits"] ? false : undefined,
-    };
+    const mode = invocation.resourceLimitMode;
+    invocation.analyzerLimits = values["no-analyzer-limits"]
+      ? false
+      : undefined;
     const root = resolveConsumerRoot(values.root);
+    const profileSnapshot = profiles.loadExecutionProfile({
+      root,
+      profile: values["execution-profile"],
+      invocation,
+    });
+    const limits = resolveResourcePolicy([
+      profiles.profileLayer(profileSnapshot.value),
+      invocation,
+    ]).executionLimits;
+    outputCeiling = limits.maxOutputBytes;
+    failureDelivery = {
+      cleanupTimeoutMs: limits.cleanupTimeoutMs,
+      maxOutputBytes: limits.maxOutputBytes,
+    };
     if (command === "inspect-profile") {
       await writeOutput(
         process.stdout,
@@ -75,14 +88,10 @@ export async function main(args = process.argv.slice(2)) {
             invocation,
           }),
         ) + "\n",
+        { maxOutputBytes: limits.maxOutputBytes },
       );
       return;
     }
-    const profileSnapshot = profiles.loadExecutionProfile({
-      root,
-      profile: values["execution-profile"],
-      invocation,
-    });
     if (
       profileSnapshot.value.runtimes &&
       profiles.readExecutionProfile({
@@ -95,15 +104,6 @@ export async function main(args = process.argv.slice(2)) {
         "RUNTIME_MISMATCH",
         "Installed Node differs from the execution profile.",
       );
-    const limits = resolveResourcePolicy([
-      profiles.profileLayer(profileSnapshot.value),
-      invocation,
-    ]).executionLimits;
-    outputCeiling = limits.maxOutputBytes;
-    failureDelivery = {
-      cleanupTimeoutMs: limits.cleanupTimeoutMs,
-      maxOutputBytes: limits.maxOutputBytes,
-    };
     if (raw) {
       const { canonicalRelativePath } = await import("./documents.js");
       canonicalRelativePath(values["stdin-filepath"]);
@@ -294,10 +294,16 @@ export async function main(args = process.argv.slice(2)) {
           await import("./result-construction.js");
         const failure = createInitialQualityResult(args[0]);
         failure.errors = [{ code, message: error.message }];
-        const { writeOutput } = await import("./cli-output.js");
-        await writeOutput(process.stdout, JSON.stringify(failure) + "\n", {
-          maxOutputBytes: outputCeiling,
-        });
+        const deliveryError = await writeFailure(
+          JSON.stringify(failure) + "\n",
+          { ...failureDelivery, maxOutputBytes: outputCeiling },
+          process.stdout,
+        );
+        if (deliveryError)
+          await writeFailure(
+            `${deliveryError.code ?? "CLI_FAILURE"}: Cannot deliver installed result metadata.\n`,
+            failureDelivery,
+          );
       } else {
         // Never mix an error report into a source stream or a partial JSON report.
         const { terminalText } = await import("./contracts.js");

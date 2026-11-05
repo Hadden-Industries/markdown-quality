@@ -88,6 +88,13 @@ It does not authenticate caller-supplied reports or confer acceptance.
 
 ## One trusted execution profile
 
+Trusted callers may pass `resourceLimitMode` and `executionLimits` to `qualifyGitMarkdown` and `stageCandidateData` before the profile is read.
+For example, `executionLimits: { maxProfileBytes: null }` disables only that bootstrap ceiling; `resourceLimitMode: "unlimited"` disables all package ceilings.
+The qualification request retains the caller layer separately from the profile bytes, reapplies it during staging and checking, and binds the complete effective profile rather than its file hash alone.
+Both bins expose `--resource-limit-mode`, `--max-profile-bytes`, `--max-output-bytes` and `--cleanup-timeout-ms`; the numeric ceiling flags also accept `null`.
+Early failure reporting uses admitted caller controls before imports or profile admission, then adopts the actual admitted profile policy.
+No candidate document or unread profile can change its own admission budget, and failed/partial output remains an operational failure.
+
 `readExecutionProfile({ root, profile })` reads `.markdown-quality-execution.json` at the root by default.
 The supported `execution-schema` export describes schema 2.
 Ordinary profiles are sparse: every key is optional, and an absent default file keeps the package defaults.

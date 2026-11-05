@@ -48,3 +48,24 @@ test("unlimited mode projects every inventoried ceiling to null without exceptio
   for (const [key, value] of Object.entries(policy.executionLimits))
     assert.equal(value, null, key);
 });
+
+test("every inventoried ceiling accepts individual finite and null overrides", () => {
+  for (const [scope, keys] of [
+    ["analyzerLimits", Object.keys(defaultAnalyzerLimits)],
+    [
+      "executionLimits",
+      [
+        ...Object.keys(defaultExecutionLimits),
+        ...Object.keys(derivedExecutionLimits),
+        ...qualificationLimitKeys,
+      ],
+    ],
+  ])
+    for (const key of keys)
+      for (const value of [123, null]) {
+        const policy = resolveResourcePolicy([
+          { origin: "invocation", [scope]: { [key]: value } },
+        ]);
+        assert.equal(policy[scope][key], value, key);
+      }
+});

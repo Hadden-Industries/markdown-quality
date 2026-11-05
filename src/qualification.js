@@ -165,7 +165,7 @@ function boundExecutable(path, roots) {
  * Runtime/profile input is trusted; candidate requests cannot relax its limits. A
  * trusted owner may disable ceilings, and the receipt then records that exact policy.
  */
-export async function qualifyGitMarkdown(options) {
+export async function qualifyGitMarkdown(options, internal = {}) {
   admitKeys(
     options,
     [
@@ -179,6 +179,8 @@ export async function qualifyGitMarkdown(options) {
       "profile",
       "producer",
       "workflow",
+      "resourceLimitMode",
+      "executionLimits",
     ],
     {
       sourceRoot: "candidateRoot",
@@ -188,6 +190,7 @@ export async function qualifyGitMarkdown(options) {
       python: "pythonExecutablePath",
     },
   );
+  const invocation = resourceInvocation(options);
   let {
     candidateRoot,
     trustedRoot,
@@ -227,7 +230,10 @@ export async function qualifyGitMarkdown(options) {
     root: trustedRoot,
     profile: profilePath,
     purpose: "qualification",
+    invocation,
   });
+  // The CLI observes admitted scalar controls, never an unread profile's claims.
+  internal.profileObserved?.(structuredClone(profile));
   if (profile.runtimes.node !== process.versions.node)
     fail(
       "RUNTIME_MISMATCH",
@@ -345,6 +351,7 @@ export async function qualifyGitMarkdown(options) {
       gitExecutablePath,
       profile,
       profilePath,
+      resourceInvocation: invocation,
       producer: {
         ...producer,
         package: { name: metadata.name, version: metadata.version },
@@ -417,5 +424,7 @@ export async function qualifyGitMarkdown(options) {
   }
   return report;
 }
+
+import { resourceInvocation } from "./resource-controls.js";
 
 import { contained } from "./path-containment.js";

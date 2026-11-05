@@ -64,6 +64,25 @@ function checkedProduct(left, right) {
 const ceiling = (value) =>
   value === null || (Number.isSafeInteger(value) && value >= 1);
 
+/** Trusted caller controls are separate from the file they admit. Validate the
+ * closed execution vocabulary before reads, staging or process effects. */
+export function resourceInvocation(options) {
+  if (
+    options.executionLimits !== undefined &&
+    (options.executionLimits === null ||
+      typeof options.executionLimits !== "object" ||
+      Array.isArray(options.executionLimits))
+  )
+    fail("INVALID_RESOURCE_POLICY", "executionLimits must be an object.");
+  const layer = {
+    origin: "invocation",
+    resourceLimitMode: options.resourceLimitMode,
+    executionLimits: { ...options.executionLimits },
+  };
+  resolveResourcePolicy([layer]);
+  return layer;
+}
+
 /** Validate one sparse layer; unknown keys were already rejected by its schema. */
 function admitLayer(layer) {
   const mode = layer.resourceLimitMode;
