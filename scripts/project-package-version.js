@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync, writeFileSync, lstatSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 const repository = fileURLToPath(new URL("../", import.meta.url));
 
 /** Compute the complete version-only projection before any writes. */
@@ -63,10 +64,7 @@ export function checkPackageVersions(root = repository) {
 export function syncPackageVersions(root = repository) {
   const projection = packageVersionProjection(root);
   for (const [path, value] of projection)
-    if (
-      JSON.stringify(JSON.parse(readFileSync(join(root, path)))) !==
-      JSON.stringify(value)
-    )
+    if (!isDeepStrictEqual(JSON.parse(readFileSync(join(root, path))), value))
       writeFileSync(join(root, path), JSON.stringify(value, null, 2) + "\n");
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
