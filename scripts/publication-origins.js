@@ -2,17 +2,9 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 
-// Immutable historical provider labels are read only during explicit recovery.
-export const legacyPublicationSteps = [
-  "Publish Windows package under pilot and verify integrity",
-  "Publish Linux package under pilot and verify integrity",
-  "Publish coherent core under pilot and verify integrity",
-];
-export const stagingSteps = [
-  "Stage Windows package under pilot",
-  "Stage Linux package under pilot",
-  "Stage coherent core under pilot",
-];
+import { legacyPublicationSteps, stagingSteps } from "./publication-steps.js";
+import { verifyNoPublicationEffects } from "./publication-attempts.js";
+export { legacyPublicationSteps, stagingSteps };
 const repository = "Hadden-Industries/markdown-quality";
 const keys = (value, expected) => {
   assert.ok(value && typeof value === "object" && !Array.isArray(value));
@@ -121,6 +113,15 @@ export function planPublicationOrigins({
       "Recovery requires retained provider and manifest evidence",
     );
     const { run, jobs, manifestBytes, originsBytes } = previous;
+    const prewrite = previous.prewrite;
+    if (prewrite) {
+      verifyNoPublicationEffects(prewrite, {
+        run: recovery.run,
+        attempt: recovery.attempt,
+        source: run.head_sha,
+      });
+      assert.deepEqual(jobs, prewrite.attempts.at(-1).jobs);
+    }
     assert.equal(String(run.id), recovery.run);
     assert.equal(String(run.run_attempt), recovery.attempt);
     assert.equal(run.repository.full_name, repository);
@@ -146,14 +147,16 @@ export function planPublicationOrigins({
     const effectJobs = jobs.jobs.filter((job) =>
       ["stage", "publish"].includes(job.name),
     );
-    assert.equal(effectJobs.length, 1);
+    assert.ok(prewrite ? effectJobs.length <= 1 : effectJobs.length === 1);
     const job = effectJobs[0];
     const effectSteps =
-      job.name === "stage" ? stagingSteps : legacyPublicationSteps;
-    assert.equal(job.status, "completed");
-    assert.equal(String(job.run_id), recovery.run);
-    assert.equal(String(job.run_attempt), recovery.attempt);
-    assert.equal(job.head_sha, run.head_sha);
+      job?.name === "stage" ? stagingSteps : legacyPublicationSteps;
+    if (job) {
+      assert.equal(job.status, "completed");
+      assert.equal(String(job.run_id), recovery.run);
+      assert.equal(String(job.run_attempt), recovery.attempt);
+      assert.equal(job.head_sha, run.head_sha);
+    }
     let priorRecords;
     if (originsBytes) {
       assert.match(
@@ -193,29 +196,32 @@ export function planPublicationOrigins({
         state: "planned",
       }));
     }
-    for (let index = 0; index < release.archives.length; index++) {
-      const record = priorRecords[index];
-      const steps = job.steps.filter(
-        (step) => step.name === effectSteps[index],
-      );
-      assert.equal(
-        steps.length,
-        1,
-        "Missing or duplicate publication-effect step",
-      );
-      const step = steps[0];
-      assert.equal(step.status, "completed");
-      assert.ok(
-        ["success", "failure", "cancelled", "skipped", "timed_out"].includes(
-          step.conclusion,
-        ),
-      );
-      // Only a never-executed planned effect is eligible for first publication.
-      // Any attempted or previously retained effect needs exact registry proof;
-      // a 404 cannot turn an unknown outcome into permission to publish again.
-      if (record.state === "retained" || step.conclusion !== "skipped")
-        retained.push({ ...record, state: "retained" });
-    }
+    if (prewrite)
+      retained = priorRecords.filter((record) => record.state === "retained");
+    else
+      for (let index = 0; index < release.archives.length; index++) {
+        const record = priorRecords[index];
+        const steps = job.steps.filter(
+          (step) => step.name === effectSteps[index],
+        );
+        assert.equal(
+          steps.length,
+          1,
+          "Missing or duplicate publication-effect step",
+        );
+        const step = steps[0];
+        assert.equal(step.status, "completed");
+        assert.ok(
+          ["success", "failure", "cancelled", "skipped", "timed_out"].includes(
+            step.conclusion,
+          ),
+        );
+        // Only a never-executed planned effect is eligible for first publication.
+        // Any attempted or previously retained effect needs exact registry proof;
+        // a 404 cannot turn an unknown outcome into permission to publish again.
+        if (record.state === "retained" || step.conclusion !== "skipped")
+          retained.push({ ...record, state: "retained" });
+      }
   } else {
     assert.ok(!previous);
     assert.ok(!context.recoveryAttempt && !context.recoveryOriginsSha);

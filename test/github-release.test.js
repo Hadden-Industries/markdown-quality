@@ -366,6 +366,7 @@ function fixture(t, current = true) {
     for (const name of [
       "distribution-sbom.cdx.json",
       "staging-provider.json",
+      "publication-history.json",
       "signed-tag.json",
     ])
       qualified.evidence[name] = put(name, {});
@@ -566,12 +567,19 @@ test("archival binds original source, all tuple bytes and independent native ori
   const f = fixture(t);
   assert.equal(
     verifyBundle(f.qualified, f.directory, gitSource(f.qualified, cwd)).length,
-    46,
+    47,
   );
   const manifest = JSON.parse(
     readFileSync(join(f.directory, "release-evidence-manifest.json")),
   );
   assert.deepEqual(manifest.native, f.qualified.native);
+  assert.equal(
+    manifest.payloads.filter(
+      (asset) => asset.name === "publication-history.json",
+    ).length,
+    1,
+    "The authenticated version bindings survive Actions artifact expiry",
+  );
   assert.ok(
     !manifest.payloads.some((a) => a.name === "release-evidence-manifest.json"),
   );

@@ -25,10 +25,23 @@ import {
   verifyFirstStagingAttempt,
 } from "./publication-attempts.js";
 import { downloadPublicationArtifact } from "./publication-artifact.js";
+import {
+  publicationSubject,
+  readPublicationSubjects,
+  matchPublicationSubject,
+  readArchivedPublicationSubjects,
+} from "./publication-subjects.js";
 
 export { attemptedPublicationJobs } from "./publication-attempts.js";
 
 const repository = "Hadden-Industries/markdown-quality";
+// Serialized subject fields are observations, not authority. Only this live
+// authenticated collector can admit a lookup for the corresponding entry.
+const admittedSubjects = new WeakMap();
+const admitSubject = (entry, subject) => {
+  entry.subject = Object.freeze({ ...subject });
+  admittedSubjects.set(entry, entry.subject);
+};
 export function verifyPublicationHistory(release, map, history) {
   assert.match(String(map.attempt), /^[1-9]\d{0,15}$/u);
   const current = history.filter(
@@ -65,6 +78,13 @@ export function verifyPublicationHistory(release, map, history) {
       "completed",
       "Prior publication must be quiescent",
     );
+    const subject = admittedSubjects.get(entry);
+    if (subject && subject.version !== release.version) {
+      assert.deepEqual(entry.subject, subject);
+      if (manifestBytes)
+        assert.deepEqual(publicationSubject(manifestBytes), subject);
+      continue;
+    }
     assert.ok(
       manifestBytes,
       "Missing prior manifest; restore evidence before staging",
@@ -137,7 +157,10 @@ export async function readPublicationHistory(
   currentRun,
   gh = (args) => native("gh", args),
   download = downloadPublicationArtifact,
+  { version, archives = readArchivedPublicationSubjects } = {},
 ) {
+  if (version !== undefined)
+    assert.match(version, /^[1-9]\d*\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u);
   const pages = JSON.parse(
     gh([
       "api",
@@ -182,31 +205,90 @@ export async function readPublicationHistory(
       entry.jobs = { total_count: effects.length, jobs: effects };
       if (effects.length) {
         assert.equal(run.head_branch, "main", "Historical writes require main");
-        const directory = join(scratch, String(run.id));
         assert.equal(
           effects.length,
           1,
           "Multiple publication executions require reconciliation",
         );
-        await download({
-          run,
-          attempt: effects[0].run_attempt,
-          destination: directory,
-        });
-        entry.manifestBytes = readFileSync(
-          join(directory, "frozen-release/release-manifest.json"),
-        );
-        // Historical direct publications may predate origin maps.
-        try {
-          entry.originsBytes = readFileSync(
-            join(directory, "frozen-release/publication-origins.json"),
-          );
-        } catch (error) {
-          if (error.code !== "ENOENT") throw error;
-        }
       }
       history.push(entry);
     }
+    const subjects = [],
+      missing = new Map();
+    const classify = (entry) => {
+      const matches = subjects.filter((cached) =>
+        matchPublicationSubject(cached, entry),
+      );
+      for (const cached of matches) {
+        if (entry.subject)
+          assert.deepEqual(
+            entry.subject,
+            cached.subject,
+            "Conflicting publication version evidence",
+          );
+        admitSubject(entry, cached.subject);
+      }
+      return version && entry.subject && entry.subject.version !== version;
+    };
+    for (const entry of history) {
+      if (
+        String(entry.run.id) === String(currentRun) ||
+        !entry.jobs.jobs.length ||
+        !attemptedPublicationJobs(entry.jobs).length
+      )
+        continue;
+      if (classify(entry)) continue;
+      const directory = join(scratch, String(entry.run.id));
+      const attempt = entry.jobs.jobs[0].run_attempt;
+      try {
+        await download({ run: entry.run, attempt, destination: directory });
+      } catch (error) {
+        // Only authenticated unavailability can be discharged by an independently
+        // verified other-version subject; digest/provider/ambiguity failures stop here.
+        if (
+          ![
+            "PUBLICATION_ARTIFACT_MISSING",
+            "EVIDENCE_ARTIFACT_EXPIRED",
+          ].includes(error.code)
+        )
+          throw error;
+        missing.set(entry, error);
+        continue;
+      }
+      entry.manifestBytes = readFileSync(
+        join(directory, "frozen-release/release-manifest.json"),
+      );
+      const subject = publicationSubject(entry.manifestBytes);
+      if (entry.subject) assert.deepEqual(entry.subject, subject);
+      admitSubject(entry, subject);
+      try {
+        entry.originsBytes = readFileSync(
+          join(directory, "frozen-release/publication-origins.json"),
+        );
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+      }
+      if (
+        entry.run.status === "completed" &&
+        entry.run.conclusion === "success"
+      )
+        subjects.push(
+          ...readPublicationSubjects(
+            directory,
+            { run: entry.run, attempt, attempts: entry.attempts },
+            entry.manifestBytes,
+          ),
+        );
+    }
+    if (version && [...missing.keys()].some((entry) => !classify(entry)))
+      subjects.push(...archives(gh, scratch));
+    for (const entry of history)
+      if (
+        String(entry.run.id) !== String(currentRun) &&
+        attemptedPublicationJobs(entry.jobs).length
+      )
+        classify(entry);
+    for (const [entry, error] of missing) if (!classify(entry)) throw error;
     return history;
   } finally {
     rmSync(scratch, { recursive: true, force: true });
@@ -228,7 +310,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       ...publicationContext(process.env),
       job: process.env.GITHUB_JOB,
     };
-    const history = await readPublicationHistory(context.publicationRun);
+    const history = await readPublicationHistory(
+      context.publicationRun,
+      undefined,
+      undefined,
+      { version: release.version },
+    );
     const map = admitStagingAttempt({
       release,
       map: JSON.parse(originalBytes),
@@ -266,7 +353,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     );
     assert.equal(map.run, process.env.GITHUB_RUN_ID);
     assert.equal(map.attempt, process.env.GITHUB_RUN_ATTEMPT);
-    const history = await readPublicationHistory(map.run);
+    const history = await readPublicationHistory(
+      map.run,
+      undefined,
+      undefined,
+      { version: release.version },
+    );
     verifyPublicationHistory(release, map, history);
     writeFileSync(
       output,
@@ -282,11 +374,21 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
             readFileSync(join(directory, "publication-origins.json")),
           ),
           history: history.map(
-            ({ run, jobs, attempts, manifestBytes, originsBytes }) => ({
+            ({
               run,
               jobs,
               attempts,
-              manifestSha256: manifestBytes ? hash(manifestBytes) : null,
+              subject,
+              manifestBytes,
+              originsBytes,
+            }) => ({
+              run,
+              jobs,
+              attempts,
+              subject,
+              manifestSha256: manifestBytes
+                ? hash(manifestBytes)
+                : (subject?.manifestSha256 ?? null),
               originsSha256: originsBytes ? hash(originsBytes) : null,
             }),
           ),

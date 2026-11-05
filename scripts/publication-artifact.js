@@ -2,11 +2,17 @@
 /** Resolve the immutable archive from its actual staging attempt, including legacy names. */
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { resolve } from "node:path";
 import { createRepositoryReader } from "./github-evidence.js";
 import { downloadEvidence } from "./download-evidence.js";
 import { publicationRepository } from "./publication-context.js";
-import { publicationWorkflow } from "./publication-attempts.js";
+import {
+  publicationWorkflow,
+  readPublicationAttempts,
+  verifyNoPublicationEffects,
+} from "./publication-attempts.js";
 
 export const publicationArtifactName = (attempt) => {
   assert.match(String(attempt), /^[1-9]\d{0,15}$/u);
@@ -22,6 +28,7 @@ export async function downloadPublicationArtifact({
     token: process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN,
   }),
   download = downloadEvidence,
+  prewrite,
 }) {
   assert.ok(Number.isSafeInteger(run.id) && run.id > 0);
   assert.equal(run.repository?.full_name, publicationRepository);
@@ -68,9 +75,26 @@ export async function downloadPublicationArtifact({
   const matching = (value) =>
     artifacts.filter((artifact) => artifact.name === value);
   const modern = matching(name);
-  const matches = modern.length
+  let matches = modern.length
     ? modern
     : matching("publication-source-and-manifest");
+  let admissionOnly = false;
+  if (matches.length === 0 && prewrite) {
+    verifyNoPublicationEffects(prewrite, {
+      run: run.id,
+      attempt,
+      source: run.head_sha,
+    });
+    matches = matching(`publication-admission-${attempt}`);
+    admissionOnly = matches.length > 0;
+  }
+  if (matches.length === 0) {
+    const error = new Error(
+      `Missing original publication artifact for run ${run.id} attempt ${attempt}`,
+    );
+    error.code = "PUBLICATION_ARTIFACT_MISSING";
+    throw error;
+  }
   assert.equal(
     matches.length,
     1,
@@ -86,14 +110,16 @@ export async function downloadPublicationArtifact({
     headSha: run.head_sha,
     maximum: 64 * 1024 * 1024,
   });
-  return matches[0];
+  return { ...matches[0], admissionOnly };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   assert.equal(
-    process.argv.length,
-    5,
-    "Usage: publication-artifact.js RUN ATTEMPT DIRECTORY",
+    process.argv.length === 5 ||
+      (process.argv.length === 6 &&
+        process.argv[5] === "--allow-prewrite-admission"),
+    true,
+    "Usage: publication-artifact.js RUN ATTEMPT DIRECTORY [--allow-prewrite-admission]",
   );
   const [runId, attempt, destination] = process.argv.slice(2);
   assert.match(runId, /^[1-9]\d{0,15}$/u);
@@ -105,10 +131,18 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const run = await read(`/actions/runs/${runId}/attempts/${attempt}`);
   assert.equal(String(run.id), runId);
   assert.equal(String(run.run_attempt), attempt);
-  await downloadPublicationArtifact({
+  const prewrite = process.argv[5] ? readPublicationAttempts(runId) : undefined;
+  const artifact = await downloadPublicationArtifact({
     run,
     attempt,
     destination: resolve(destination),
     read,
+    prewrite,
   });
+  if (artifact.admissionOnly)
+    writeFileSync(
+      join(resolve(destination), "prewrite-provider.json"),
+      JSON.stringify(prewrite, null, 2) + "\n",
+      { flag: "wx" },
+    );
 }

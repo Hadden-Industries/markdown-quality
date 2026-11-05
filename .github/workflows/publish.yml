@@ -120,7 +120,7 @@ jobs:
         if: inputs.recovery-run != ''
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node scripts/publication-artifact.js "$RECOVERY_RUN" "$RECOVERY_ATTEMPT" previous-publication
+        run: node scripts/publication-artifact.js "$RECOVERY_RUN" "$RECOVERY_ATTEMPT" previous-publication --allow-prewrite-admission
         timeout-minutes: 15
       - name: Verify approved archives and bind publication origins before any effect
         run: node scripts/verify-publication.js frozen-release "$MANIFEST_SHA" provider

@@ -5,10 +5,31 @@ import { isDeepStrictEqual } from "node:util";
 import { native } from "./commands.js";
 import { sameJobExecution } from "./github-job-execution.js";
 import { publicationRepository } from "./publication-context.js";
-import { legacyPublicationSteps, stagingSteps } from "./publication-origins.js";
+import { legacyPublicationSteps, stagingSteps } from "./publication-steps.js";
 
 const positive = (value) => Number.isSafeInteger(value) && value > 0;
 export const publicationWorkflow = ".github/workflows/publish.yml";
+
+/** A control-only continuation may reuse admission evidence only before any possible request. */
+export function verifyNoPublicationEffects(history, { run, attempt, source }) {
+  const observed = authenticatePublicationAttempts(
+    history.run,
+    history.attempts,
+  );
+  assert.equal(String(observed.run.id), String(run));
+  assert.equal(String(observed.run.run_attempt), String(attempt));
+  assert.equal(observed.run.head_sha, source);
+  assert.equal(observed.run.head_branch, "main");
+  assert.equal(observed.run.event, "workflow_dispatch");
+  assert.equal(observed.run.status, "completed");
+  for (const prior of observed.attempts)
+    assert.equal(
+      attemptedPublicationJobs(prior.jobs).length,
+      0,
+      "A possible prior request requires its original publication artifact",
+    );
+  return observed;
+}
 
 function authenticateRun(run, expected, attempt) {
   assert.ok(positive(run.id));

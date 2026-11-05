@@ -258,6 +258,20 @@ try {
       ),
     );
   }
+  const historyDirectory = join(
+    scratch,
+    `staging-${stage.run.id}-${stage.run.run_attempt}`,
+  );
+  if (!downloaded.has(historyDirectory))
+    await downloadPublicationArtifact({
+      run: stage.run,
+      attempt: stage.run.run_attempt,
+      destination: historyDirectory,
+    });
+  evidence(
+    "publication-history.json",
+    join(historyDirectory, "provider/publication-history.json"),
+  );
   const materials = readJson(
     new URL("./release-materials.json", import.meta.url),
   ).nativeSource;

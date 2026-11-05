@@ -5,6 +5,7 @@ import {
   authenticatePublicationAttempts,
   verifyFirstStagingAttempt,
   readPublicationAttempts,
+  verifyNoPublicationEffects,
 } from "../scripts/publication-attempts.js";
 import {
   admitStagingAttempt,
@@ -18,6 +19,45 @@ import { checkWorkflows } from "../scripts/check-workflows.js";
 import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse, stringify } from "yaml";
+
+test("prewrite continuation admits only complete native proof and an authenticated admission artifact", async () => {
+  const f = publicationHistoryFixture(1);
+  Object.assign(f.run, { status: "completed", conclusion: "failure" });
+  f.attempts[0].run = { ...f.run };
+  f.set(1, [{ ...f.job(1, "skipped"), steps: [] }]);
+  const request = { run: 11, attempt: 1, source: f.run.head_sha };
+  verifyNoPublicationEffects(f, request);
+  let downloaded = 0;
+  const input = {
+    run: f.run,
+    attempt: 1,
+    destination: "fixture",
+    prewrite: f,
+    read: async () => ({
+      total_count: 1,
+      artifacts: [{ id: 77, name: "publication-admission-1" }],
+    }),
+    download: async ({ id }) => {
+      assert.equal(id, 77);
+      downloaded++;
+    },
+  };
+  assert.equal((await downloadPublicationArtifact(input)).admissionOnly, true);
+  assert.equal(downloaded, 1);
+  f.set(1, [f.job(1, "failure")]);
+  await assert.rejects(
+    () => downloadPublicationArtifact(input),
+    /possible prior request/u,
+  );
+  assert.equal(
+    downloaded,
+    1,
+    "A possible request cannot acquire admission-only evidence",
+  );
+  assert.throws(() =>
+    verifyNoPublicationEffects(f, { ...request, attempt: 2 }),
+  );
+});
 
 const context = (f) => ({
   repository: f.run.repository.full_name,
