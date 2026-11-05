@@ -11,10 +11,15 @@ import {
   resolveResourcePolicy,
 } from "../src/resource-controls.js";
 
-const guide = readFileSync(
-  fileURLToPath(new URL("../docs/consumer-guide.md", import.meta.url)),
-  "utf8",
-);
+const guide =
+  readFileSync(
+    fileURLToPath(new URL("../docs/consumer-guide.md", import.meta.url)),
+    "utf8",
+  ) +
+  readFileSync(
+    new URL("../docs/centralized-contracts.md", import.meta.url),
+    "utf8",
+  );
 const row = (key) =>
   guide.split("\n").find((line) => line.startsWith(`| \`${key}\``));
 const spelled = (value) =>

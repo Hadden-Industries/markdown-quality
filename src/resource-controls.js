@@ -45,7 +45,7 @@ export const executionLimitKeys = Object.freeze([
 //   maxNativeOutputBytes; Snapper's long_threshold, which disables its unrelated
 //   length advisory; CommonMark character-reference digit and name lengths.
 // - Representation bounds: timers clamp to Node's 2,147,483,647 ms maximum and
-//   re-arm; diagnostic messages quote at most 200 or 300 characters of input.
+//   re-arm. Diagnostic excerpts and native thread selection are public controls.
 
 /** Disclosed with every resolved policy; package modes cannot remove these. */
 export const externalResourceConstraints =

@@ -305,7 +305,10 @@
             "maxPatternsPerList",
             "maxPatternCodePoints",
             "maxRuleOverrideCount",
-            "maxReadDependencyDocuments"
+            "maxReadDependencyDocuments",
+            "maxLinkDiagnosticCodePoints",
+            "maxPathDiagnosticCodePoints",
+            "nativeThreads"
           ],
           "properties": {
             "maxDocumentBytes": {
@@ -461,6 +464,30 @@
               "maximum": 9007199254740991
             },
             "maxReadDependencyDocuments": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "maxLinkDiagnosticCodePoints": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "maxPathDiagnosticCodePoints": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "nativeThreads": {
               "type": [
                 "integer",
                 "null"
@@ -772,6 +799,9 @@
             "analyzerLimits.maxPatternCodePoints",
             "analyzerLimits.maxRuleOverrideCount",
             "analyzerLimits.maxReadDependencyDocuments",
+            "analyzerLimits.maxLinkDiagnosticCodePoints",
+            "analyzerLimits.maxPathDiagnosticCodePoints",
+            "analyzerLimits.nativeThreads",
             "executionTimeoutMs",
             "maxOutputBytes",
             "maxRequestBytes",
@@ -874,6 +904,18 @@
               "minLength": 1
             },
             "analyzerLimits.maxReadDependencyDocuments": {
+              "type": "string",
+              "minLength": 1
+            },
+            "analyzerLimits.maxLinkDiagnosticCodePoints": {
+              "type": "string",
+              "minLength": 1
+            },
+            "analyzerLimits.maxPathDiagnosticCodePoints": {
+              "type": "string",
+              "minLength": 1
+            },
+            "analyzerLimits.nativeThreads": {
               "type": "string",
               "minLength": 1
             },
@@ -1582,7 +1624,10 @@
                 "maxPatternsPerList",
                 "maxPatternCodePoints",
                 "maxRuleOverrideCount",
-                "maxReadDependencyDocuments"
+                "maxReadDependencyDocuments",
+                "maxLinkDiagnosticCodePoints",
+                "maxPathDiagnosticCodePoints",
+                "nativeThreads"
               ],
               "properties": {
                 "maxDocumentBytes": {
@@ -1738,6 +1783,30 @@
                   "maximum": 9007199254740991
                 },
                 "maxReadDependencyDocuments": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "maxLinkDiagnosticCodePoints": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "maxPathDiagnosticCodePoints": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "nativeThreads": {
                   "type": [
                     "integer",
                     "null"

@@ -6,16 +6,21 @@
 import { join } from "node:path";
 import { parse } from "./analysis.js";
 import { collectAnchors, resolveFragment } from "./anchors.js";
-import { decode, digest, exceeds, fail } from "./contracts.js";
+import {
+  decode,
+  digest,
+  exceeds,
+  fail,
+  diagnosticExcerpt,
+} from "./contracts.js";
 import { readDocument } from "./documents.js";
 import { qualityRuleDefaults } from "./preset.js";
-
-const bounded = (value, length = 200) =>
-  value.length > length ? value.slice(0, length) + "…" : value;
 
 export function createLinkGraph(context, { admitBytes }) {
   const { root, config } = context;
   const budgets = config.analyzerLimits;
+  const bounded = (value) =>
+    diagnosticExcerpt(value, budgets.maxLinkDiagnosticCodePoints);
   const batch = new Map();
   const dependencies = new Map();
   const pending = [];

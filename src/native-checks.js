@@ -158,7 +158,7 @@ function checkFiles(tool, texts, staging, budgets) {
               .filter((key) => process.env[key])
               .map((key) => [key, process.env[key]]),
           ),
-          RAYON_NUM_THREADS: "1",
+          ...nativeThreadEnvironment(budgets),
         },
         shell: false,
         timeout: budgets.nativeInvocationTimeoutMs ?? 0,
@@ -237,7 +237,10 @@ function readReports(result, files, texts) {
   return checked;
 }
 
-import { nativeFormatArguments } from "./native-policy.js";
+import {
+  nativeFormatArguments,
+  nativeThreadEnvironment,
+} from "./native-policy.js";
 import {
   nativeDiagnostic,
   nativeDiagnosticKinds,

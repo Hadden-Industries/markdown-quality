@@ -1,5 +1,15 @@
 # Centralized producer contracts
 
+Link and path diagnostic excerpts and native scheduling use the caller-owned analyzer controls.
+Execution profiles and SDK `analyzerLimits` can raise a finite value or set it to `null`; unlimited mode removes these ceilings as well.
+Diagnostic byte/count and final output quotas still apply to complete expanded excerpts.
+
+| Control                       | Default | Meaning of `null`                                                                 |
+| ----------------------------- | ------: | --------------------------------------------------------------------------------- |
+| `maxLinkDiagnosticCodePoints` |     200 | Keep complete link and fragment excerpts.                                         |
+| `maxPathDiagnosticCodePoints` |     300 | Keep complete case-mismatch path excerpts.                                        |
+| `nativeThreads`               |       1 | Leave Rayon scheduling to the native runtime without a package thread constraint. |
+
 These version 3.0.0 source contracts retain the producer centralization boundaries and add explicit CLI effects and candidate identities.
 They are separate from published 1.x releases, hosted qualification, and consumer adoption acceptance.
 The latest producer commit can be adopted after its exact transported tuple is qualified; npm publication and a new release are not prerequisites.

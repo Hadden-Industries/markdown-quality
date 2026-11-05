@@ -111,7 +111,7 @@ export function runNative(
   const result = spawnSync(tool.executable, args, {
     input: Buffer.from(text),
     cwd: fileURLToPath(new URL("../assets/", import.meta.url)),
-    env,
+    env: { ...env, ...nativeThreadEnvironment(budgets) },
     shell: false,
     timeout: budgets.nativeInvocationTimeoutMs ?? 0,
     maxBuffer: budgets.maxNativeOutputBytes ?? Infinity,
@@ -126,5 +126,8 @@ export function runNative(
   return decode(result.stdout);
 }
 
-import { nativeFormatArguments } from "./native-policy.js";
+import {
+  nativeFormatArguments,
+  nativeThreadEnvironment,
+} from "./native-policy.js";
 import { nativeDiagnostic, nativeDiagnosticKinds } from "./native-protocol.js";
