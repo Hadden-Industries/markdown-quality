@@ -11,7 +11,7 @@ import {
 import { resolveTool } from "./native-tool.js";
 import { createDocumentAnalyzer } from "./document-analysis.js";
 import { createDocumentAnalyzerPool } from "./document-analysis-pool.js";
-import { replaceDocument } from "./replacement.js";
+import { replaceDocument, assertReplacementPreimage } from "./replacement.js";
 import { createNativeStaging } from "./native-staging.js";
 import { effectivePolicy } from "./preset.js";
 import { createLinter } from "./analysis.js";
@@ -77,12 +77,13 @@ export function admitOperationOptions(options, extra = []) {
     if (options[key] !== undefined && typeof options[key] !== "boolean")
       fail("INVALID_OPTION", `Option ${key} must be a boolean.`);
   if (
-    (options.dryRun || options.updateLinks) &&
-    (options.mode ?? "check") !== "normalize"
+    (options.updateLinks && (options.mode ?? "check") !== "normalize") ||
+    (options.dryRun &&
+      !["format", "normalize"].includes(options.mode ?? "check"))
   )
     fail(
       "INVALID_OPTION",
-      "dryRun and updateLinks apply only to the normalize operation.",
+      "dryRun requires format or normalize; updateLinks requires normalize.",
     );
   if (
     options.executionLimits !== undefined &&
@@ -200,6 +201,7 @@ export async function analyzeOperation(
         path,
         analysisStatus: "not-requested",
         writeStatus: "not-requested",
+        candidate: null,
       };
       records.set(path, record);
       return record;
@@ -273,6 +275,7 @@ export async function analyzeOperation(
       };
       if (reason === "selected")
         safePath(context.root, document.path, { missing: true, file: true });
+      context.logicalPath = document.path;
     } else
       result.selection = await selectDocuments(context, options.files, {
         reconciliationInventory: options.reconciliationInventory,
@@ -505,7 +508,7 @@ export async function analyzeOperation(
       const item = document
         ? { bytes: document.content }
         : readDocument(context.root, file, budgets);
-      if (physicalWrite && item.stat.nlink !== 1n)
+      if (repair && !document && item.stat.nlink !== 1n)
         fail("HARD_LINK", "Hard-linked documents cannot be repaired.");
       total += item.bytes.length;
       if (exceeds(total, budgets.maxTotalDocumentBytes))
@@ -522,6 +525,8 @@ export async function analyzeOperation(
       );
       if (options.updateLinks)
         reversePaths = await listReverseInventory(context, options);
+      if (document && reversePaths !== undefined)
+        reversePaths = [...new Set([...reversePaths, document.path])].sort();
       batch = prepareNormalizeBatch(
         context,
         [...members].map(([path, { text }]) => ({ path, text })),
@@ -534,14 +539,6 @@ export async function analyzeOperation(
       for (const [path, plan] of batch.plans) normalized.set(path, plan.output);
       // Previews and the first replacement require every member to keep its bytes;
       // later replacements rely on each file's own guarded preimage.
-      for (const [path, { item }] of members)
-        if (!document)
-          memberObservations.push({
-            role: "dependency",
-            kind: "file",
-            path: join(context.root, path),
-            sha256: digest(item.bytes),
-          });
     }
     for (const file of result.selection.files) {
       let item, original;
@@ -554,6 +551,13 @@ export async function analyzeOperation(
         await flushInputs();
         throw error;
       }
+      if (repair && !document)
+        memberObservations.push({
+          role: "dependency",
+          kind: "file",
+          path: join(context.root, file),
+          sha256: digest(item.bytes),
+        });
       if (
         inputs.length >= 32 ||
         inputBytes + item.bytes.length > 4 * 1024 * 1024
@@ -578,8 +582,22 @@ export async function analyzeOperation(
     result.diagnostics.sort(sortDiagnostics);
     // Refuse stale success: policy and dependency inputs must still match.
     recheckObservations([...observations, ...memberObservations]);
+    if (repair && !document)
+      for (const candidate of candidates)
+        assertReplacementPreimage(context.root, candidate.item, budgets);
+    for (const candidate of candidates) {
+      const output = Buffer.from(candidate.output);
+      records.get(candidate.file).candidate = {
+        inputSha256: digest(candidate.item.bytes),
+        inputBytes: candidate.item.bytes.length,
+        outputSha256: digest(output),
+        outputBytes: output.length,
+        changed: !candidate.item.bytes.equals(output),
+      };
+    }
     if (reversePaths !== undefined) {
-      const current = await listReverseInventory(context, options);
+      let current = await listReverseInventory(context, options);
+      if (document) current = [...new Set([...current, document.path])].sort();
       if (
         current.length !== reversePaths.length ||
         current.some((path, index) => path !== reversePaths[index])

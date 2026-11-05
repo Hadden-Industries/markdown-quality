@@ -43,6 +43,7 @@ const resolverInputs = [
   "src/preset.js",
   "src/analyzer-limits.js",
   "src/resource-controls.js",
+  "src/execution-defaults.js",
   "schemas/configuration.schema.json",
   "schemas/effective-configuration.schema.json",
 ];

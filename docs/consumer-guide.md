@@ -1,16 +1,27 @@
 # Consumer guide
 
-This guide describes zero-config consumption of version 2.0.0: configuration schema 3, preset `authored-gfm@2` and result schema 4.
+This guide describes the 3.0.0 source candidate: configuration schema 3, preset `authored-gfm@2` and result schema 5.
+Publication and complete supported-platform qualification remain separate release steps.
 Published 1.x archives are immutable and keep their previous behavior; the [migration guide](migration-guide.md) maps old names to these contracts.
+
+## Runtime support
+
+The CLI and SDK require Node.js, filesystem access and the [supported platform-native executables](support-and-release.md).
+Use the package in local development, builds and CI, including as a development dependency of a frontend project.
+Import the SDK only from Node.js code; browser execution is unsupported and remains a separate future feature.
+The root export selects `./src/quality.js` for the `node` condition and rejects `browser` or unmatched environments with a `null` target.
+Browser rejection takes precedence if a resolver supplies both `browser` and `node` conditions.
+The JSON schema and qualification-observer resource exports remain independently resolvable; resolving the Python observer does not make it executable in a browser.
+Bundlers must honor package exports and use their Node.js target when bundling SDK consumers.
 
 ## Installation
 
 ```sh
-npm install --save-dev --save-exact @hadden-industries/markdown-quality@2.0.0
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.0
 npm exec -- markdown-quality check --root .
 ```
 
-While 2.0.0 is under npm's `pilot` tag, install it by exact version; an unversioned install selects the `latest` 1.x release.
+Use this example after 3.0.0 is released; pin the exact qualified version rather than relying on mutable `pilot` or `latest` tags.
 No configuration file is required.
 A local dependency does not put a bare `markdown-quality` executable on every shell's PATH; use [npm exec](https://docs.npmjs.com/cli/v11/commands/npm-exec/) or an npm script.
 Keep the consumer lockfile, and disable lifecycle scripts with `--ignore-scripts` where your acquisition policy requires it.
@@ -18,6 +29,31 @@ An isolated `tooling/markdown` npm project supports consumers that do not use No
 Version 2.0 adds `parse5` 8.1.0 (MIT) and `github-slugger` 2.0.0 (ISC) as direct runtime dependencies; the [third-party notices](../THIRD-PARTY-NOTICES.md) list them all.
 
 ## Root discovery
+
+Raw editor buffers use `format --stdin --stdin-filepath docs/buffer.md --root .` with input piped or redirected from a separate file.
+For a report, use `check --stdin --stdin-filepath docs/buffer.md --root . --json`.
+The supplied strict UTF-8 bytes are authoritative over disk content; safe absent virtual files and named self-links are supported.
+The virtual filename is canonical and root-relative, including from nested directories, and retains ordinary root policy and bounded dependency reads.
+Normalization requires `--update-links` for changed anchors and refuses dependent edits outside the supplied buffer.
+Raw transforms reject `--json`, `--write`, `--dry-run`, `--stdin-request` and filesystem selections; they emit only admitted source on stdout after cleanup.
+The existing envelope retains full result details and excluded arbitrary-byte pass-through; raw input is always UTF-8, including excluded input.
+Never redirect onto the input path: the shell can truncate it before reading starts.
+
+Human findings and summaries use stderr, visibly including severity, rule and location.
+Help, version, `inspect-profile` and complete `--json` reports use stdout.
+`--quiet` suppresses routine successful summaries, preserving diagnostics, strict blockers and failure explanations.
+Layout drift calls for `format --write`; `quality/non-nfc-prose` calls for `normalize --write`.
+A missing link requires a content edit; `ANCHOR_CHANGE_REQUIRES_UPDATE_LINKS` requires reviewing anchor impact; a hidden warning still blocks with `--strict`.
+Repairs do not infer meaning, labels or alternative text.
+
+Both physical repair commands require exactly one of `--write` or `--dry-run`, even for an empty selection.
+Both previews report result-5 candidate hashes, byte counts and change decisions without changing sources; successful previews are not formatting-check verdicts.
+Selected, empty and supplied-buffer checks establish only their actual scope, with dependency reads listed separately.
+`maxRequestBytes` counts the actual internal JSON/base64 framing, and `maxOutputBytes` bounds complete reports and raw delivery.
+One raw deadline covers stdin through complete output, with separate checker cleanup.
+Delivery failure is exit 2: discard partial stdout, and inspect confirmed physical writes before retrying.
+
+### Root resolution
 
 An explicit `--root` or API `root` selects exactly that directory, including a subdirectory of a checkout.
 Otherwise the root is the nearest Git checkout, verified through host Git, else the nearest directory with a regular `package.json`, else the current directory.
@@ -186,7 +222,7 @@ Preview first, then authorize anchor changes:
 ```sh
 npm exec -- markdown-quality normalize --root . --dry-run
 npm exec -- markdown-quality normalize --root . --dry-run --update-links
-npm exec -- markdown-quality normalize --root . --update-links
+npm exec -- markdown-quality normalize --write --root . --update-links
 npm exec -- markdown-quality check --root .
 ```
 
@@ -205,8 +241,8 @@ A later write reruns preparation; a preview is never a stored write token.
 Either order reaches a passing check for otherwise valid input:
 
 ```sh
-npm exec -- markdown-quality format --root .
-npm exec -- markdown-quality normalize --root .
+npm exec -- markdown-quality format --write --root .
+npm exec -- markdown-quality normalize --write --root .
 npm exec -- markdown-quality check --root .
 ```
 
@@ -238,6 +274,14 @@ Every ceiling accepts a positive safe integer or `null`, which disables that cei
 `resourceLimitMode: "unlimited"` projects every package ceiling to `null`, including bootstrap reads; a finite value in the same layer is contradictory and fails.
 `--no-analyzer-limits` or `analyzerLimits: false` disables analyzer ceilings only.
 A file cannot authorize reading itself beyond its bootstrap ceiling, so use `--max-profile-bytes N` or invocation unlimited mode for an unusually large profile.
+Both binaries accept `--max-profile-bytes N|null`, `--max-output-bytes N|null`, `--cleanup-timeout-ms N|null` and `--resource-limit-mode configured|unlimited` from the trusted caller.
+These independent controls also apply to early errors before operational imports, command admission or profile validation; flags after the literal-path delimiter have no control authority.
+Once a profile is admitted, its limits and higher-precedence caller overrides govern failure delivery too; malformed or unread profiles cannot grant themselves a larger read or output budget.
+`qualifyGitMarkdown` and `stageCandidateData` accept `resourceLimitMode` and a closed `executionLimits` object, including `maxProfileBytes: null`.
+Qualification retains these caller controls through staging and the checker; candidate content never supplies them.
+Unbound failed-evidence packaging uses its caller-selected `maxEvidenceInputBytes`, including `null`, without a hidden report-size fallback.
+Keep finite defaults for untrusted workloads and expose these overrides only to the trusted consumer owner, rather than forwarding candidate/request fields into control options.
+This preserves [pre-parse resource validation](https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html#parse-safely-then-validate) while supporting the explicit disabled-timeout convention used by [GNU timeout](https://www.gnu.org/software/coreutils/manual/html_node/timeout-invocation.html).
 Unlimited mode cannot remove Node, V8, JavaScript representation, operating-system, filesystem or hosting-provider limits, and it is not a speed claim.
 Inspection and results report each effective ceiling, its origin and `resourceLimitMode`.
 
@@ -327,21 +371,21 @@ const result = await runQuality({ root: ".", mode: "check" });
 - `processLogicalDocument({ content, path, requestId, ...options })` processes supplied Buffer bytes at a logical path, defaulting to `format`, and never writes the checkout; excluded input is returned unchanged.
 - `executeQualityRequest(request, options)` runs one request in a fresh Node process with `signal`, `processGroup`, `resourceLimitMode` and execution ceilings; it refuses physical repairs and is not a sandbox.
 - `readExecutionProfile({ root, profile, invocation, purpose })` resolves a profile's resource policy without analysis.
-- `validateQualityResult(report, expected)` validates a result against schema 4 and returns the original report.
+- `validateQualityResult(report, expected)` validates a result against schema 5 and returns the original report.
 - `compareCheckReports({ incumbent, candidate, incumbentSchema, candidateSchema, incumbentInputs, candidateInputs })` compares complete read-only check reports and refuses repair or preview receipts.
 - `stageCandidateData` and `qualifyGitMarkdown` support trusted qualification; see the [centralized contracts guide](centralized-contracts.md) and [CI trust guide](ci-trust.md).
 
 Unknown and removed option keys fail rather than restoring defaults.
 Schemas are exported as `./configuration-schema`, `./effective-configuration-schema`, `./result-schema`, `./execution-schema` and `./comparison-schema`.
 
-## Result schema 4 essentials
+## Result schema 5 essentials
 
 | Field              | Meaning                                                                                                                                       |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `operationStatus`  | `completed`, `previewed`, `refused` or `failed`                                                                                               |
 | `qualityStatus`    | `clean`, `findings`, `incomplete` or `not-checked` over the complete selected scope                                                           |
 | `qualityBasis`     | `input`, `candidate`, `applied` or null                                                                                                       |
-| `documentResults`  | One record per selected path with `analysisStatus` and `writeStatus`                                                                          |
+| `documentResults`  | One record per selected path with `analysisStatus`, `writeStatus` and nullable candidate input/output identities                              |
 | `writtenPaths`     | Confirmed `written` paths only; empty for check, inspect, preview and logical documents                                                       |
 | `proposedChanges`  | Kind `prose-nfc` or `local-fragment`, original UTF-8 half-open byte span, one-based line and UTF-16 column, before/after lengths and SHA-256  |
 | `anchorChanges`    | Path, heading ordinal, source position, `oldAnchor` and `newAnchor`                                                                           |

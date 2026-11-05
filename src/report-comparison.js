@@ -63,6 +63,11 @@ function currentCheck(report) {
   );
   return (
     report.operation === "check" &&
+    report.document === null &&
+    !report.dryRun &&
+    !report.updateLinks &&
+    (report.schemaVersion !== 5 ||
+      report.documentResults.every((record) => record.candidate === null)) &&
     report.operationStatus === "completed" &&
     report.qualityBasis === "input" &&
     report.qualityStatus ===
@@ -96,14 +101,19 @@ export function compareCheckReports({
 }) {
   const ajv = new Ajv({ strict: true, allErrors: true });
   function identity(report, schema, inputs) {
+    if (report.document != null)
+      fail(
+        "INVALID_REPORT",
+        "Comparison requires complete read-only physical check reports; logical buffers are not disk-manifest evidence.",
+      );
     if (!new Ajv({ strict: true, allErrors: true }).compile(schema)(report))
       fail("INVALID_REPORT", "Report does not match its supplied schema.");
-    if (![1, 2, 3, 4].includes(report.schemaVersion))
+    if (![1, 2, 3, 4, 5].includes(report.schemaVersion))
       fail(
         "INVALID_REPORT",
         "Comparison cannot interpret an unsupported report schema.",
       );
-    if (!(report.schemaVersion === 4 ? currentCheck : historicalCheck)(report))
+    if (!(report.schemaVersion >= 4 ? currentCheck : historicalCheck)(report))
       fail(
         "INVALID_REPORT",
         "Comparison requires complete read-only check reports.",
@@ -148,11 +158,11 @@ export function compareCheckReports({
       tools: report.tools,
       // Historical configDigest was the same exact configuration-byte digest.
       configurationBytesSha256:
-        report.schemaVersion === 4
+        report.schemaVersion >= 4
           ? report.configurationBytesSha256
           : report.configDigest,
       effectiveConfigurationSha256:
-        report.schemaVersion === 4 ? report.effectiveConfigurationSha256 : null,
+        report.schemaVersion >= 4 ? report.effectiveConfigurationSha256 : null,
       configuration: report.configuration,
       policy: report.policy ?? null,
       strict: report.strict ?? false,

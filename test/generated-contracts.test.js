@@ -35,6 +35,9 @@ const expectedLimits = {
   maxPatternCodePoints: 512,
   maxRuleOverrideCount: 60,
   maxReadDependencyDocuments: 10000,
+  maxLinkDiagnosticCodePoints: 200,
+  maxPathDiagnosticCodePoints: 300,
+  nativeThreads: 1,
 };
 // Independently maintained execution ceiling names accepted by profile schema 2.
 const expectedExecutionCeilings = [
@@ -212,7 +215,7 @@ test("the current compatibility guide describes the actual exported schema versi
   );
   for (const [name, version] of [
     ["Configuration", 3],
-    ["Result", 4],
+    ["Result", 5],
     ["Execution", 2],
   ])
     assert.match(

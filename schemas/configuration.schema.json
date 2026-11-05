@@ -250,6 +250,30 @@
               ],
               "minimum": 1,
               "maximum": 9007199254740991
+            },
+            "maxLinkDiagnosticCodePoints": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "maxPathDiagnosticCodePoints": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "nativeThreads": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 9007199254740991
             }
           }
         }

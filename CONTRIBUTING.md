@@ -30,6 +30,12 @@ Retain the lockfile and follow [native build requirements](https://github.com/Ha
 
 ## Changes and verification
 
+The root `package.json` selects the release version once.
+Run `npm run sync:version` to project it into both companion manifests and owned lock entries; `npm run check:version` refuses drift before packing or full verification.
+Projection validates the complete update set before writing and preserves dependency resolution, native bytes, policy inputs and historical release evidence.
+For CLI changes, use exact Node test selectors and the existing installed consumer corpus's `selection: "cli"` subset before broader release qualification.
+The 3.0 CLI requires `--write` for physical repair; SDK calls retain their existing semantics.
+
 Use JavaScript ES modules and repository-native parser, schema and CLI boundaries.
 Describe the consumer problem and scope before a substantive change; keep unrelated edits separate.
 Preserve meaningful independent fixtures for changed behavior, including exact output, native exit meanings, real paths, literal content and operational failures.
@@ -90,4 +96,4 @@ Use the repository issue forms or concise PR template; do not upload credentials
 Dependabot proposes npm and Action updates for review; it does not merge them or upgrade frozen native assets automatically.
 Native upgrades require fresh source/component, rights, parity and platform evidence.
 Follow [release operations](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/release-operations.md) for coordinated immutable archives and recoverable publication.
-Changing source metadata or guidance does not republish an existing version, publish 2.0.0, promote tags or authorize a new release.
+Changing source metadata or guidance does not republish an existing version, publish 3.0.0, promote tags or authorize a new release.

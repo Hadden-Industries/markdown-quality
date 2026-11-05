@@ -99,9 +99,19 @@ test("focused reports retain literal two-hop dependents, native metrics and mixe
     );
   fixture.put(
     "package.json",
-    JSON.stringify({ exports: { ".": { node: "./src/entry.js" } } }),
+    JSON.stringify({
+      exports: {
+        ".": { browser: null, node: "./src/entry.js", default: null },
+        "./schema": "./schemas/result.json",
+      },
+    }),
   );
-  assert.throws(() => entrypointInventory(fixture.root), /entrypoint shape/u);
+  const conditionalInventory = entrypointInventory(fixture.root);
+  assert.deepEqual(conditionalInventory.javascript, [
+    "src/entry.js",
+    "src/worker.js",
+  ]);
+  assert.deepEqual(conditionalInventory.resources, ["schemas/result.json"]);
 });
 
 test("external output link is rejected before creating missing checkout descendants", async (t) => {

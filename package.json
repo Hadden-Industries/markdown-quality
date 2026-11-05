@@ -1,7 +1,7 @@
 {
   "name": "@hadden-industries/markdown-quality",
-  "version": "2.0.0",
-  "description": "Zero-config Markdown formatter and GFM checker with NFC prose repair, accessibility checks and local link and fragment validation",
+  "version": "3.0.0",
+  "description": "Node.js-only, zero-config Markdown formatter and GFM checker with NFC prose repair, accessibility checks and local link and fragment validation",
   "type": "module",
   "license": "AGPL-3.0-only",
   "engines": {
@@ -12,7 +12,11 @@
     "markdown-quality-qualify-git": "src/qualify-git-cli.js"
   },
   "exports": {
-    ".": "./src/quality.js",
+    ".": {
+      "browser": null,
+      "node": "./src/quality.js",
+      "default": null
+    },
     "./configuration-schema": "./schemas/configuration.schema.json",
     "./result-schema": "./schemas/result.schema.json",
     "./effective-configuration-schema": "./schemas/effective-configuration.schema.json",
@@ -66,6 +70,8 @@
     "nodejs"
   ],
   "scripts": {
+    "sync:version": "node scripts/project-package-version.js --write",
+    "check:version": "node scripts/project-package-version.js --check",
     "sync:node": "node scripts/project-node-support.js --write",
     "check:node": "node scripts/project-node-support.js --check",
     "test": "node --test test/*.test.js",
@@ -75,7 +81,7 @@
     "prettier": "prettier --ignore-unknown . --ignore-path .gitignore --ignore-path .prettierignore",
     "format:code": "npm run prettier -- --write",
     "format:code:check": "npm run prettier -- --check",
-    "format:markdown": "node src/cli.js format --root . --reconcile-inventory git",
+    "format:markdown": "node src/cli.js format --write --root . --reconcile-inventory git",
     "format": "npm run format:code && npm run format:markdown",
     "check:formatting-and-markdown": "npm run format:code:check && npm run check:markdown",
     "check:markdown": "node src/cli.js check --root . --reconcile-inventory git",

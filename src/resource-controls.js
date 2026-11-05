@@ -6,25 +6,8 @@ import { defaultAnalyzerLimits } from "./analyzer-limits.js";
 import { fail } from "./contracts.js";
 
 /** Configured execution ceilings outside the analyzer vocabulary. Null disables one. */
-export const defaultExecutionLimits = Object.freeze({
-  executionTimeoutMs: 180_000,
-  maxOutputBytes: 8_388_608,
-  maxRequestBytes: 8_388_608,
-  maxNodeOldGenerationMiB: 256,
-  maxProfileBytes: 65_536,
-  maxRuntimeDeclarationBytes: 65_536,
-  gitTimeoutMs: 10_000,
-  runtimeProbeTimeoutMs: 10_000,
-  maxRuntimeProbeOutputBytes: 4_096,
-  maxQualificationSamples: 100,
-  maxEvidenceInputBytes: 67_108_864,
-  maxUnboundEvidenceSamples: 1_000,
-  maxMemoParseBytes: 4_194_304,
-  maxMemoLayoutBytes: 4_194_304,
-  maxMemoEntriesPerStage: 4,
-  cleanupTimeoutMs: 5_000,
-  maxComparisonInputBytes: 8_388_608,
-});
+import { defaultExecutionLimits } from "./execution-defaults.js";
+export { defaultExecutionLimits };
 
 /** Ceilings whose configured default follows another effective ceiling. */
 export const derivedExecutionLimits = Object.freeze({
@@ -62,7 +45,7 @@ export const executionLimitKeys = Object.freeze([
 //   maxNativeOutputBytes; Snapper's long_threshold, which disables its unrelated
 //   length advisory; CommonMark character-reference digit and name lengths.
 // - Representation bounds: timers clamp to Node's 2,147,483,647 ms maximum and
-//   re-arm; diagnostic messages quote at most 200 or 300 characters of input.
+//   re-arm. Diagnostic excerpts and native thread selection are public controls.
 
 /** Disclosed with every resolved policy; package modes cannot remove these. */
 export const externalResourceConstraints =
@@ -80,6 +63,25 @@ function checkedProduct(left, right) {
 
 const ceiling = (value) =>
   value === null || (Number.isSafeInteger(value) && value >= 1);
+
+/** Trusted caller controls are separate from the file they admit. Validate the
+ * closed execution vocabulary before reads, staging or process effects. */
+export function resourceInvocation(options) {
+  if (
+    options.executionLimits !== undefined &&
+    (options.executionLimits === null ||
+      typeof options.executionLimits !== "object" ||
+      Array.isArray(options.executionLimits))
+  )
+    fail("INVALID_RESOURCE_POLICY", "executionLimits must be an object.");
+  const layer = {
+    origin: "invocation",
+    resourceLimitMode: options.resourceLimitMode,
+    executionLimits: { ...options.executionLimits },
+  };
+  resolveResourcePolicy([layer]);
+  return layer;
+}
 
 /** Validate one sparse layer; unknown keys were already rejected by its schema. */
 function admitLayer(layer) {

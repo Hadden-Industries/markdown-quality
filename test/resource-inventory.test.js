@@ -11,10 +11,15 @@ import {
   resolveResourcePolicy,
 } from "../src/resource-controls.js";
 
-const guide = readFileSync(
-  fileURLToPath(new URL("../docs/consumer-guide.md", import.meta.url)),
-  "utf8",
-);
+const guide =
+  readFileSync(
+    fileURLToPath(new URL("../docs/consumer-guide.md", import.meta.url)),
+    "utf8",
+  ) +
+  readFileSync(
+    new URL("../docs/centralized-contracts.md", import.meta.url),
+    "utf8",
+  );
 const row = (key) =>
   guide.split("\n").find((line) => line.startsWith(`| \`${key}\``));
 const spelled = (value) =>
@@ -47,4 +52,25 @@ test("unlimited mode projects every inventoried ceiling to null without exceptio
     assert.equal(value, null, key);
   for (const [key, value] of Object.entries(policy.executionLimits))
     assert.equal(value, null, key);
+});
+
+test("every inventoried ceiling accepts individual finite and null overrides", () => {
+  for (const [scope, keys] of [
+    ["analyzerLimits", Object.keys(defaultAnalyzerLimits)],
+    [
+      "executionLimits",
+      [
+        ...Object.keys(defaultExecutionLimits),
+        ...Object.keys(derivedExecutionLimits),
+        ...qualificationLimitKeys,
+      ],
+    ],
+  ])
+    for (const key of keys)
+      for (const value of [123, null]) {
+        const policy = resolveResourcePolicy([
+          { origin: "invocation", [scope]: { [key]: value } },
+        ]);
+        assert.equal(policy[scope][key], value, key);
+      }
 });

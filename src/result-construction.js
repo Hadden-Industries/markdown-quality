@@ -7,7 +7,7 @@ import { installedToolVersions } from "./tool-versions.js";
 import { manifest } from "./native-tool.js";
 import { presetIdentity } from "./preset.js";
 
-export const resultSchemaVersion = 4;
+export const resultSchemaVersion = 5;
 export const operations = Object.freeze([
   "check",
   "format",

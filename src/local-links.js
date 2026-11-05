@@ -5,14 +5,12 @@
 import { lstatSync, readdirSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { safePath } from "./consumer-root.js";
-import { exceeds, fail } from "./contracts.js";
+import { exceeds, fail, diagnosticExcerpt } from "./contracts.js";
 import { collectAnchors, resolveFragment } from "./anchors.js";
 import { qualityRuleDefaults } from "./preset.js";
 import { markdownPathPredicate } from "./documents.js";
 
 const slash = (path) => path.split(sep).join("/");
-const bounded = (value, length = 200) =>
-  value.length > length ? value.slice(0, length) + "…" : value;
 
 /** Split URL structure first: the fragment begins at the first `#`; a query is only
  * a `?` before it. Path and fragment are each percent-decoded exactly once.
@@ -100,6 +98,10 @@ function severity(config, rule) {
  */
 export function checkLocalLinks(context, tree, file, collector, spelling) {
   const { config, root } = context;
+  const bounded = (
+    value,
+    maximum = config.analyzerLimits.maxLinkDiagnosticCodePoints,
+  ) => diagnosticExcerpt(value, maximum);
   const filesystem = config.links.checkLocalTargets;
   const fragmentRule = severity(config, "quality/unresolved-local-fragment");
   const caseRule = severity(config, "quality/local-path-case-mismatch");
@@ -175,6 +177,30 @@ export function checkLocalLinks(context, tree, file, collector, spelling) {
       // is diagnosed below instead of being reported as missing.
       const path = safePath(root, absolute, { missing: true });
       relativePath = slash(relative(root, path));
+      if (context.logicalPath === relativePath) {
+        if (links && target.rawFragment !== null) {
+          if (target.malformedFragment)
+            fragmentFinding(
+              node,
+              relativePath,
+              target.rawFragment,
+              "missing",
+              node.position.start,
+            );
+          else {
+            const verdict = resolveFragment(anchors, target.fragment);
+            if (verdict !== "resolved")
+              fragmentFinding(
+                node,
+                relativePath,
+                target.fragment,
+                verdict,
+                node.position.start,
+              );
+          }
+        }
+        return;
+      }
       const expected = spelling(relativePath);
       if (expected === undefined) throw new Error("Missing target.");
       if (expected !== null) {
@@ -182,7 +208,7 @@ export function checkLocalLinks(context, tree, file, collector, spelling) {
           "quality/local-path-case-mismatch",
           caseRule,
           node,
-          `Local target spelling differs from the directory entry; expected ${bounded(expected, 300)}.`,
+          `Local target spelling differs from the directory entry; expected ${bounded(expected, config.analyzerLimits.maxPathDiagnosticCodePoints)}.`,
         );
         return;
       }

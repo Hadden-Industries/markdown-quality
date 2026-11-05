@@ -4,10 +4,50 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
-import { runQuality, validateQualityResult } from "../src/quality.js";
+import {
+  processLogicalDocument,
+  runQuality,
+  validateQualityResult,
+} from "../src/quality.js";
 import { admitCheckEvidence } from "../src/result-validation.js";
 import { createInitialQualityResult } from "../src/result-construction.js";
 import { consumer } from "./helpers.js";
+
+test("request identity binds every report except a failure before admission", async (t) => {
+  const root = consumer(t, { "a.md": "Alpha.\n" });
+  const content = Buffer.from("Alpha.\n");
+  const identity = { code: "RESULT_IDENTITY" };
+
+  const logical = await processLogicalDocument({
+    root,
+    path: "new.md",
+    requestId: "r1",
+    content,
+  });
+  assert.equal(validateQualityResult(logical, { requestId: "r1" }), logical);
+  assert.throws(
+    () => validateQualityResult(logical, { requestId: "other" }),
+    identity,
+  );
+
+  const unrelated = await runQuality({ root });
+  assert.equal(unrelated.document, null);
+  assert.throws(
+    () => validateQualityResult(unrelated, { requestId: "r1" }),
+    identity,
+  );
+
+  const refused = await processLogicalDocument({
+    root,
+    path: "../outside.md",
+    requestId: "r1",
+    content,
+  });
+  assert.equal(refused.operationStatus, "failed");
+  assert.equal(refused.document, null);
+  assert.equal(refused.errors[0].code, "UNSAFE_PATH");
+  assert.equal(validateQualityResult(refused, { requestId: "r1" }), refused);
+});
 
 test("supported validator rejects semantic lies and permits complete advisory success", async (t) => {
   const root = consumer(t, { "a.md": "# Heading!\n\nAlpha.\n" });

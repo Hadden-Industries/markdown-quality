@@ -286,3 +286,51 @@ test("successful projection reconciles immutable request identities with receipt
     assert.throws(() => packageQualificationEvidence(paths), /identit/iu);
   }
 });
+
+test("unbound failed evidence uses only the caller's finite or null input ceiling", (t) => {
+  const scratch = consumer(t),
+    evidenceRoot = join(scratch, "original");
+  mkdirSync(join(evidenceRoot, "sample-1"), { recursive: true });
+  writeFileSync(
+    join(evidenceRoot, "window.json"),
+    JSON.stringify({ schemaVersion: 2, passed: false, samples: [] }),
+  );
+  const original = Buffer.alloc(8388609, 0x61);
+  writeFileSync(join(evidenceRoot, "sample-1", "stdout.txt"), original);
+  // A 1-KiB total ceiling cannot hold the index itself: retain that finite refusal.
+  assert.throws(
+    () =>
+      packageQualificationEvidence({
+        evidenceRoot,
+        outputRoot: join(scratch, "too-small"),
+        maxEvidenceInputBytes: 1024,
+      }),
+    { code: "EVIDENCE_LIMIT" },
+  );
+  for (const [name, maxEvidenceInputBytes] of [
+    ["raised", 16777216],
+    ["disabled", null],
+    ["finite", 4096],
+  ]) {
+    const outputRoot = join(scratch, name),
+      index = packageQualificationEvidence({
+        evidenceRoot,
+        outputRoot,
+        maxEvidenceInputBytes,
+      });
+    const file = index.files.find(
+      (file) => file.path === "sample-1/stdout.txt",
+    );
+    assert.equal(
+      file.size,
+      maxEvidenceInputBytes === 4096 ? 4096 : original.length,
+    );
+    assert.equal(file.truncated === true, maxEvidenceInputBytes === 4096);
+    assert.equal(index.passed, false);
+    assert.equal(index.samples[0].complete, false);
+    assert.deepEqual(
+      readFileSync(join(outputRoot, file.path)),
+      original.subarray(0, file.size),
+    );
+  }
+});

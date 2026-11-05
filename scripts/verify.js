@@ -17,6 +17,15 @@ if (
   throw new Error("Use check:full or check:product.");
 const productOnly = process.argv[2] === "--product";
 const python = repositoryPython(root);
+// Reject an unsupported interpreter before launching any verification checks.
+const pythonRuntime = spawnSync(python, pythonProbeArgs(), {
+  cwd: root,
+  stdio: "inherit",
+  timeout: 30_000,
+  windowsHide: true,
+});
+if (pythonRuntime.error || pythonRuntime.status !== 0)
+  process.exit(pythonRuntime.status ?? 2);
 // Existing product subprocesses inherit the same explicitly selected environment.
 process.env.VIRTUAL_ENV = dirname(dirname(python));
 process.env.PATH = dirname(python) + delimiter + process.env.PATH;
@@ -71,17 +80,10 @@ if (
 )
   throw new Error("Original AGPL-3.0-only license bytes changed.");
 resolveTool();
+node(["scripts/project-package-version.js", "--check"]);
 node(["scripts/project-node-support.js", "--check"]);
 node(["scripts/check-workflows.js"]);
 node(["scripts/check-architecture.js"]);
-const pythonRuntime = spawnSync(python, pythonProbeArgs(), {
-  cwd: root,
-  stdio: "inherit",
-  timeout: 30_000,
-  windowsHide: true,
-});
-if (pythonRuntime.error || pythonRuntime.status !== 0)
-  process.exit(pythonRuntime.status ?? 2);
 const nativeEvidence = spawnSync(python, ["test/native-evidence.py"], {
   cwd: root,
   stdio: "inherit",

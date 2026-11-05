@@ -126,6 +126,18 @@ export function terminalText(value) {
       "\\u" + character.codePointAt(0).toString(16).padStart(4, "0"),
   );
 }
+/** A presentation ceiling never splits a Unicode scalar. Null retains the full
+ * excerpt; aggregate diagnostic and output quotas still apply afterward. */
+export function diagnosticExcerpt(value, maximum) {
+  if (maximum === null) return value;
+  let end = 0,
+    count = 0;
+  for (const character of value) {
+    if (count++ === maximum) return value.slice(0, end) + "…";
+    end += character.length;
+  }
+  return value;
+}
 export function decode(bytes) {
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);

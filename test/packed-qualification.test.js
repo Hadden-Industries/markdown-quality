@@ -14,6 +14,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 import { consumer } from "./helpers.js";
 import { npmCommand } from "../scripts/commands.js";
+import { repositoryPython } from "../scripts/python-target.js";
 
 const source = fileURLToPath(new URL("../", import.meta.url));
 import {
@@ -53,6 +54,12 @@ test("clean frozen source archives qualify through the installed public boundary
   symlinkSync(
     join(source, "node_modules"),
     join(frozen, "node_modules"),
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  // Packing validates native inputs with the same approved producer interpreter.
+  symlinkSync(
+    dirname(dirname(repositoryPython(source))),
+    join(frozen, ".venv"),
     process.platform === "win32" ? "junction" : "dir",
   );
   const sourceCommitId = freeze(frozen);

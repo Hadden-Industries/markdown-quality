@@ -1,5 +1,10 @@
 # Deliberate release operations
 
+The current source selects the 3.0.0 package family; this is not publication or release acceptance.
+Select the version once in root `package.json`, run `npm run sync:version`, and admit `npm run check:version` before freezing or packing.
+Projection changes only companion/lock versions, preserving dependency resolution, retained Snapper bytes, rights provenance and policy identity.
+The installed consumer `selection: "cli"` corpus covers changed CLI boundaries in root and isolated layouts; it does not replace the complete supported-platform release gates below.
+
 The sole maintainer can commit directly to main after local tests pass.
 Releases use the manual workflows below.
 A push, tag, successful ordinary CI run, or staging result does not publish a stable release.
@@ -192,6 +197,10 @@ The 1.0.3 latest-on-publication exception is historical and is not inherited.
 
 ## Stable promotion and recovery
 
+Add the promotion connection to all three packages only when promotion can run within two days, because npm expires a new connection that has no successful first use by then.
+Use the Trusted Publisher settings on npmjs.com, since `npm trust` cannot set the dist-tag permission: this repository, `promote-release.yml` and `npm-promotion`, with **Allow npm dist-tag** enabled and direct publishing disabled.
+Read back every connection with `npm trust list` before dispatching; an expired connection cannot be edited, so delete and recreate it.
+
 Dispatch `promote-release.yml` with the completed archival run/attempt, approved qualification digest, expected prior coherent npm latest version and expected prior GitHub latest release numeric ID.
 Prior identities are deliberate inputs, not values silently accepted from current provider state.
 Promotion must advance the previous stable version.
@@ -199,7 +208,7 @@ Promotion must advance the previous stable version.
 Admission revalidates the bundle, owner decisions, completed archival provider, immutable release, tag and every asset.
 Only the `npm` job has OIDC, through `npm-promotion`; it has no release-write permission.
 The promotion connection enables dist-tag management and disables direct publication.
-npm may inherently allow staging on that connection, so it is not technically tag-only.
+npm always allows staging on that connection, so it is not technically tag-only.
 The workflow changes only latest labels on already qualified versions.
 
 Before each effect, re-read all three tags.

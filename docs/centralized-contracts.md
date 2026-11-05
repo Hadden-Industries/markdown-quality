@@ -1,6 +1,16 @@
 # Centralized producer contracts
 
-These version 2.0.0 contracts implement the producer portions of the centralization plan.
+Link and path diagnostic excerpts and native scheduling use the caller-owned analyzer controls.
+Execution profiles and SDK `analyzerLimits` can raise a finite value or set it to `null`; unlimited mode removes these ceilings as well.
+Diagnostic byte/count and final output quotas still apply to complete expanded excerpts.
+
+| Control                       | Default | Meaning of `null`                                                                 |
+| ----------------------------- | ------: | --------------------------------------------------------------------------------- |
+| `maxLinkDiagnosticCodePoints` |     200 | Keep complete link and fragment excerpts.                                         |
+| `maxPathDiagnosticCodePoints` |     300 | Keep complete case-mismatch path excerpts.                                        |
+| `nativeThreads`               |       1 | Leave Rayon scheduling to the native runtime without a package thread constraint. |
+
+These version 3.0.0 source contracts retain the producer centralization boundaries and add explicit CLI effects and candidate identities.
 They are separate from published 1.x releases, hosted qualification, and consumer adoption acceptance.
 The latest producer commit can be adopted after its exact transported tuple is qualified; npm publication and a new release are not prerequisites.
 
@@ -10,7 +20,7 @@ The latest producer commit can be adopted after its exact transported tuple is q
 | ----------------------- | ------- |
 | Configuration           | 3       |
 | Effective configuration | 3       |
-| Result                  | 4       |
+| Result                  | 5       |
 | Execution               | 2       |
 | Comparison              | 3       |
 
@@ -47,21 +57,23 @@ No checkout file is written, and `writtenPaths` stays empty.
 Excluded content is returned exactly, including invalid UTF-8 and original line endings.
 Selected content must satisfy UTF-8 and the selected input limits.
 Failure retains original content and prevents the caller from treating returned bytes as admitted output.
+A request refused before its document is admitted, such as an unsafe path, returns `document: null` with its real code in `errors`.
+`validateQualityResult` skips the `requestId` check for that failed report only, so callers see the refusal rather than an identity error.
 
 `markdown-quality format --stdin-request --root PATH --json`, or the same with `normalize`, reads one JSON object from standard input with `path`, optional `requestId`, and canonical `contentBase64`.
 Its request framing is bounded by the effective `maxRequestBytes` (8 MiB by default), resolved from the execution profile and invocation before standard input is read.
-It returns the same result schema 4 and never renames a generated file into an unrelated basename.
+It returns result schema 5 and never renames a generated file into an unrelated basename.
 Non-JavaScript callers own framing, request correlation and domain freshness, then write only admitted bytes.
 
 `runQuality`, `inspectSelection` and `processLogicalDocument` analyze in the current process.
 `executeQualityRequest(request, options)` invokes the installed analyzer in a fresh Node process with sanitized environment, resolved request/output/deadline/heap ceilings and optional `AbortSignal`.
 Its logical request replaces Buffer content with `document: { path, requestId, contentBase64 }`.
 Providing malformed logical content fails before dispatch; it never becomes a checkout operation.
-This bounded transport supports read-only checking/inspection, `normalize` previews, and logical supplied-content formatting and normalization.
+This bounded transport supports read-only checking/inspection, format and normalize previews, and logical supplied-content checks and repairs.
 Checkout formatting and normalization use `runQuality` and the CLI `format` and `normalize` commands in the caller process, retaining guarded actual partial-replacement reports without a killable transport guessing which writes occurred.
 Default ceilings are 8 MiB request and output (`maxRequestBytes`, `maxOutputBytes`), 180 seconds (`executionTimeoutMs`) and 256 MiB Node old generation (`maxNodeOldGenerationMiB`); each accepts `null`.
 No credentials, PATH, Node injection, npm configuration or GitHub/OIDC variables reach that checker.
-CLI checking, inspection, normalize previews and logical documents use this same transport.
+CLI checking, inspection, both previews and logical documents use this same transport.
 `--execution-profile PATH` selects its controls and analyzer limits from the same execution schema.
 The profile's Python declaration is enforced when qualification launches the observer.
 CLI SIGINT/SIGTERM cancellation aborts the checker and waits for cleanup before reporting failure on hosts delivering those signals.
@@ -73,7 +85,10 @@ Qualification uses an observer-owned process group so all descendants remain obs
 `operationStatus` is `completed`, `previewed`, `refused` or `failed`; `qualityStatus` is `clean`, `findings`, `incomplete` or `not-checked`.
 `qualityBasis` names whether findings describe the `input`, a previewed `candidate` or `applied` content.
 Each `documentResults` entry records its `analysisStatus` and `writeStatus`, and `writtenPaths` lists every replaced file.
-`admitCheckEvidence` additionally requires a completed read-only `check` of the input.
+It also contains `candidate`: null for checks, inspection or incomplete preparation, otherwise a closed `{inputSha256, inputBytes, outputSha256, outputBytes, changed}` identity over exact UTF-8 bytes.
+Successful nonempty repairs and previews require a candidate for every member; partial writes keep candidate identities separate from confirmed effects.
+Logical ordinary repairs return output bytes, while previews and refusals return input bytes.
+`admitCheckEvidence` additionally requires a completed physical read-only `check` of the intended selection; a logical buffer cannot substitute for staged checkout evidence.
 Only complete checks are quality evidence; a successful repair, preview or inspection never substitutes for one.
 Provenance binds `configurationOrigin`, `configurationBytesSha256`, `defaultConfigurationSha256`, `policyResolverInputsSha256` and `effectiveConfigurationSha256`, with the resolved `resourcePolicy` and `runtime` identity.
 All four installed tool-version keys are required and independently checked against package/native metadata in producer tests.
@@ -82,6 +97,13 @@ Non-blocking findings can coexist with successful exit.
 It does not authenticate caller-supplied reports or confer acceptance.
 
 ## One trusted execution profile
+
+Trusted callers may pass `resourceLimitMode` and `executionLimits` to `qualifyGitMarkdown` and `stageCandidateData` before the profile is read.
+For example, `executionLimits: { maxProfileBytes: null }` disables only that bootstrap ceiling; `resourceLimitMode: "unlimited"` disables all package ceilings.
+The qualification request retains the caller layer separately from the profile bytes, reapplies it during staging and checking, and binds the complete effective profile rather than its file hash alone.
+Both bins expose `--resource-limit-mode`, `--max-profile-bytes`, `--max-output-bytes` and `--cleanup-timeout-ms`; the numeric ceiling flags also accept `null`.
+Early failure reporting uses admitted caller controls before imports or profile admission, then adopts the actual admitted profile policy.
+No candidate document or unread profile can change its own admission budget, and failed/partial output remains an operational failure.
 
 `readExecutionProfile({ root, profile })` reads `.markdown-quality-execution.json` at the root by default.
 The supported `execution-schema` export describes schema 2.
@@ -233,7 +255,7 @@ No consumer caller, governance fingerprint, lock or document changes are authori
 
 ## Report comparison
 
-`compareCheckReports` (schema exported as `./comparison-schema`) compares an incumbent and a candidate check report of schemas 1 through 4.
+`compareCheckReports` (schema exported as `./comparison-schema`) compares physical incumbent and candidate check reports of schemas 1 through 5, retaining each historical interpretation.
 Both must describe identical input manifests, selection mode and selected paths.
 Each side records `reportSchemaVersion`, `selectionSha256`, `configurationBytesSha256`, `effectiveConfigurationSha256` (`null` before result schema 4) and `inputManifestSha256`.
 The comparison (schema 3) reports `added`, `resolved`, `retained`, `messageChanges` and `formattingDriftPaths`.

@@ -169,9 +169,18 @@ function stagedIdentity(root, profile, includeManifest) {
 export function stageCandidateData(options) {
   admitKeys(
     options,
-    ["candidateRoot", "trustedRoot", "outputRoot", "profile", "config"],
+    [
+      "candidateRoot",
+      "trustedRoot",
+      "outputRoot",
+      "profile",
+      "config",
+      "resourceLimitMode",
+      "executionLimits",
+    ],
     { sourceRoot: "candidateRoot" },
   );
+  const invocation = resourceInvocation(options);
   let { candidateRoot, trustedRoot, outputRoot } = options;
   const { profile: profilePath, config } = options;
   candidateRoot = resolve(candidateRoot);
@@ -207,10 +216,16 @@ export function stageCandidateData(options) {
     root: trustedRoot,
     profile: profilePath,
     purpose: "qualification",
+    invocation,
   });
   // The trusted profile owns analyzer resources; candidate data has no authority.
   const trusted = loadConfiguration(
-    { root: trustedRoot, config },
+    {
+      root: trustedRoot,
+      config,
+      resourceLimitMode: options.resourceLimitMode,
+      executionLimits: options.executionLimits,
+    },
     {
       profileSnapshot: {
         origin: {
@@ -292,5 +307,7 @@ export function stageCandidateData(options) {
     stagedDataSha256: stagedDataDigest(outputRoot, profile),
   };
 }
+
+import { resourceInvocation } from "./resource-controls.js";
 
 import { contained } from "./path-containment.js";

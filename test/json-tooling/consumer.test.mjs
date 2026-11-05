@@ -147,6 +147,33 @@ test("repository policy keeps release JSON ordinary and preservation limited to 
       ).formatContract,
       "producer-json-indent",
     );
+  const originalNotices = jsonContract(
+    "packages/linux-x64/cargo-notices.json",
+    policy,
+  );
+  assert.equal(originalNotices.preserveNfcValues.length, 2);
+  const { version } = JSON.parse(
+    readFileSync(new URL("../../package.json", import.meta.url)),
+  );
+  const packedNotices = jsonContract(
+    `${archive}linux-x64-${version}.tgz!/package/cargo-notices.json`,
+    policy,
+  );
+  assert.equal(packedNotices.normalization, "NFC");
+  assert.equal(packedNotices.allowFormatWrites, false);
+  assert.deepEqual(
+    packedNotices.preserveNfcValues,
+    originalNotices.preserveNfcValues,
+    "Packed notices must preserve only the same two pinned source values",
+  );
+  // Value preservation admits one exact protected file, never arbitrary releases.
+  assert.equal(
+    jsonContract(
+      `${archive}linux-x64-9.9.9-rc.1.tgz!/package/cargo-notices.json`,
+      policy,
+    ).preserveNfcValues,
+    undefined,
+  );
 });
 
 test("hidden and ignored peers stay included while root and nested installations are pruned", async (t) => {
