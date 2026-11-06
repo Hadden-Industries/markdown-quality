@@ -65,7 +65,9 @@ test("one producer owns packing and both ordinary and release qualification use 
   const q = workflow("qualification");
   assert.deepEqual(Object.keys(q.on), ["workflow_call"]);
   assert.equal(q.jobs.producer.name, "Reference producer");
-  assert.ok(q.jobs.producer.steps.some((s) => s.run === "npm run check:full"));
+  assert.ok(
+    q.jobs.producer.steps.some((s) => s.run === "npm run check:qualification"),
+  );
   assert.equal(
     q.jobs.qualification.strategy.matrix,
     "${{ fromJSON(inputs.matrix) }}",

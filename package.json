@@ -77,6 +77,8 @@
     "test": "node --test test/*.test.js",
     "check:focused": "node --test test/contracts.test.js",
     "check:affected": "node scripts/affected-tests.js",
+    "check:source": "node scripts/verify.js --source",
+    "check:qualification": "node scripts/verify.js --qualification",
     "check:full": "node scripts/verify.js",
     "prettier": "prettier --ignore-unknown . --ignore-path .gitignore --ignore-path .prettierignore",
     "format:code": "npm run prettier -- --write",

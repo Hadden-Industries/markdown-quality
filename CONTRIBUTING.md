@@ -63,6 +63,10 @@ The maintainer may iterate directly on `main`; these instructions do not require
 Development-only [dependency graphs and affected JavaScript tests](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/dependency-graph-and-tests.md) support explicit baseline inspection, selected execution and shadow comparisons.
 Without an explicit baseline, `check:affected` runs the full JavaScript inventory.
 Keep the complete `npm test` and `check:full` paths for final assurance.
+Full verification checks code formatting and source identity lint before native evidence and the test suite, and checks Markdown before those expensive stages.
+CI and release admission run source formatting, identity lint, version, runtime, workflow and architecture checks once through `check:source`, then the reusable producer runs `check:qualification` without repeating them.
+The default `check:full` command still runs both stages, and `check:product` retains its standalone product-only contract.
+Packed JSON consumers and final generated JSON checks retain their producer prerequisites.
 
 ## Markdown ownership
 
