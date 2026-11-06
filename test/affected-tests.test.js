@@ -275,10 +275,18 @@ test("output exhaustion returns incomplete nonzero evidence", async (t) => {
       "import test from 'node:test'; test('too much output', async () => { for(let i=0;i<20;i++) console.log('x'.repeat(1024*1024)); await new Promise(() => setInterval(() => {}, 1000)); });",
   });
   const report = await planAffected({ root: f.root, base: f.base });
+  assert.ok(report.selected.includes("test/unrelated.test.js"));
   const result = await runAffected(report, { timeout: 10000 });
+  const observed = result.outcome.selected;
+  const context = JSON.stringify({
+    signal: observed.signal,
+    elapsedMs: observed.elapsedMs,
+    stdoutBytes: Buffer.byteLength(observed.stdout),
+    stderrTail: observed.stderr.slice(-1000),
+  });
   assert.equal(result.outcome.code, 2);
-  assert.equal(result.outcome.selected.outputLimit, true);
-  assert.equal(result.outcome.selected.signal, "output-limit");
+  assert.equal(observed.outputLimit, true, context);
+  assert.equal(observed.signal, "output-limit", context);
 });
 
 test("explicit baseline selects independent leaf consumers through barrel and staged/untracked changes", async (t) => {

@@ -71,7 +71,9 @@ Repairs do not infer meaning, labels or alternative text.
 
 Both physical repair commands require exactly one of `--write` or `--dry-run`, even for an empty selection.
 Both previews report result-5 candidate hashes, byte counts and change decisions without changing sources; successful previews are not formatting-check verdicts.
+
 Selected, empty and supplied-buffer checks establish only their actual scope, with dependency reads listed separately.
+For filesystem input, an explicit `--files-json '[]'` or a trailing `--` selects no files in `check`, `format`, `normalize` and `inspect`; neither spelling falls back to discovery.
 
 `maxRequestBytes` counts the actual internal JSON/base64 framing, and `maxOutputBytes` bounds complete reports and raw delivery.
 One raw deadline covers stdin through complete output, with separate checker cleanup.
@@ -427,3 +429,7 @@ Schemas are exported as `./configuration-schema`, `./effective-configuration-sch
 Absent, `{}` and equivalent explicit configurations share `effectiveConfigurationSha256` while keeping distinct origins.
 No excerpts, document bodies or absolute root paths are emitted by default, except the root in inspection.
 Machine output follows the result schema even for CLI input failures.
+
+Completed results, including policy refusals and empty selections, retain resolved configuration, policy, resource controls and their provenance identities.
+The schema and SDK validator reject completed reports with missing evidence; failures before policy admission may retain null metadata.
+Validation checks the report's consistency, not the current filesystem or the authenticity of its claims.

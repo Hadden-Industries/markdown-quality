@@ -3,6 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import Ajv from "ajv";
 import { dirname, join } from "node:path";
 import {
   processLogicalDocument,
@@ -12,6 +13,88 @@ import {
 import { admitCheckEvidence } from "../src/result-validation.js";
 import { createInitialQualityResult } from "../src/result-construction.js";
 import { consumer } from "./helpers.js";
+
+test("completed results require policy and resource evidence in the exported schema and SDK", async (t) => {
+  const root = consumer(t);
+  const schema = JSON.parse(
+    readFileSync(new URL("../schemas/result.schema.json", import.meta.url)),
+  );
+  const validate = new Ajv({ strict: true }).compile(schema);
+  for (const options of [
+    {},
+    { mode: "inspect" },
+    { mode: "format", dryRun: true },
+    { mode: "normalize" },
+  ]) {
+    const result = await runQuality({ root, files: [], ...options });
+    assert.equal(result.exitCode, 0);
+    assert.equal(validate(result), true, JSON.stringify(validate.errors));
+    for (const key of [
+      "configurationOrigin",
+      "defaultConfigurationSha256",
+      "policyResolverInputsSha256",
+      "effectiveConfigurationSha256",
+      "configuration",
+      "policy",
+      "resourcePolicy",
+    ]) {
+      const incomplete = structuredClone(result);
+      incomplete[key] = null;
+      assert.equal(validate(incomplete), false, `${result.operation}: ${key}`);
+      assert.throws(() => validateQualityResult(incomplete), {
+        code: "INVALID_RESULT",
+      });
+    }
+  }
+  // Input admission can fail before any policy is available; keep that real error.
+  const failed = await runQuality({ root, config: "missing.json" });
+  assert.equal(failed.exitCode, 2);
+  assert.equal(failed.configuration, null);
+  assert.equal(validate(failed), true, JSON.stringify(validate.errors));
+  assert.equal(validateQualityResult(failed), failed);
+  assert.equal(schema.$id, "urn:hadden-industries:markdown-quality:result:5");
+});
+
+test("large reconciled reports retain exact scope and reject late contradictions", async (t) => {
+  const root = consumer(t);
+  const result = await runQuality({ root, files: [] });
+  for (const count of [3000, 6000, 12000]) {
+    const report = structuredClone(result);
+    report.selection.files = Array.from(
+      { length: count },
+      (_, index) => `docs/${index}.md`,
+    );
+    report.selection.reconciliationDecisions = report.selection.files.map(
+      (path) => ({
+        path,
+        decision: "selected",
+        pattern: null,
+        matchedPath: null,
+      }),
+    );
+    report.documentResults = report.selection.files.map((path) => ({
+      path,
+      analysisStatus: "completed",
+      writeStatus: "not-requested",
+      candidate: null,
+    }));
+    const started = performance.now();
+    assert.equal(validateQualityResult(report), report);
+    t.diagnostic(
+      `${count} reconciled paths: ${Math.round(performance.now() - started)} ms`,
+    );
+    const last = report.selection.reconciliationDecisions.at(-1);
+    last.decision = "excluded";
+    assert.throws(() => validateQualityResult(report), {
+      code: "INVALID_RESULT",
+    });
+    last.decision = "selected";
+    report.documentResults.at(-1).path = "unselected.md";
+    assert.throws(() => validateQualityResult(report), {
+      code: "INVALID_RESULT",
+    });
+  }
+});
 
 test("request identity binds every report except a failure before admission", async (t) => {
   const root = consumer(t, { "a.md": "Alpha.\n" });
