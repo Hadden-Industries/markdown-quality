@@ -24,6 +24,24 @@ import { join } from "node:path";
 import childProcess from "node:child_process";
 import { syncBuiltinESMExports } from "node:module";
 
+test("root ESLint configuration remains a graph input without being executed", (t) => {
+  const fixture = impactFixture(t, {
+    "eslint.config.mjs":
+      "import policy from './scripts/lint-policy.mjs'; throw new Error('configuration executed'); export default policy;\n",
+    "scripts/lint-policy.mjs": "export default [];\n",
+  });
+  const graph = captureGraph(fixture.root);
+  const configuration = graph.modules.find(
+    (module) => module.source === "eslint.config.mjs",
+  );
+  assert.ok(configuration, "Root lint configuration must remain visible");
+  assert.ok(
+    configuration.dependencies.some(
+      (dependency) => dependency.resolved === "scripts/lint-policy.mjs",
+    ),
+  );
+});
+
 test("the actual repository satisfies architecture and shipped closure", () => {
   const result = checkArchitecture();
   assert.ok(result.runtime.includes("src/quality.js"));

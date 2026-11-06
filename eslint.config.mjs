@@ -8,7 +8,7 @@ export default [
       "src/**/*.{js,mjs,cjs}",
       "scripts/**/*.{js,mjs,cjs}",
       "test/**/*.{js,mjs,cjs}",
-      "tooling/json/*.mjs",
+      "eslint.config.mjs",
     ],
     plugins: { "json-quality": jsonQualityEslint },
     rules: { "json-quality/no-json-stringify-identity": "error" },

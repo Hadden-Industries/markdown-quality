@@ -112,7 +112,7 @@ test("repository policy keeps release JSON ordinary and preservation limited to 
   );
   for (const path of [
     "node_modules/a/node_modules/b/package.json",
-    "tooling/json/node_modules/a/node_modules/b/package.json",
+    "tooling/example/node_modules/a/node_modules/b/package.json",
   ])
     assert.equal(jsonContract(path, policy).exclude, true, path);
   for (const path of [
@@ -180,14 +180,14 @@ test("hidden and ignored peers stay included while root and nested installations
   const root = await fixture(t);
   for (const path of [
     "node_modules",
-    "tooling/json/node_modules",
+    "tooling/example/node_modules",
     ".hidden",
     "ignored",
   ])
     mkdirSync(join(root, path), { recursive: true });
   for (const path of [
     "node_modules/bad.json",
-    "tooling/json/node_modules/bad.json",
+    "tooling/example/node_modules/bad.json",
     ".hidden/bad.json",
     "ignored/bad.json",
   ])

@@ -48,7 +48,9 @@ An invalid included peer blocks the batch before otherwise eligible files are ch
 Native locks, provenance authorities and original archive members remain protected from generic writes.
 
 Repairs belong in their actual producer, followed by re-admission and quality checking.
-The source identity lint imports the public ESLint rule directly; semantic object comparisons use structural equality, while the established candidate digest retains its explicitly documented ordered encoding.
+The root `eslint.config.mjs` imports the public JSON identity rule and applies it to repository JavaScript and the config itself.
+`lint:json:identity` invokes ESLint's native CLI with zero allowed warnings; the full verifier uses that same npm command.
+Semantic object comparisons use structural equality, while the established candidate digest retains its explicitly documented ordered encoding.
 
 ## Scope and exact preservation
 

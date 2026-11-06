@@ -90,7 +90,7 @@
     "check:json": "node scripts/runRepositoryJsonQuality.mjs check",
     "format:json": "node scripts/runRepositoryJsonQuality.mjs format",
     "normalize:json": "node scripts/runRepositoryJsonQuality.mjs normalize",
-    "lint:json:identity": "node scripts/lint-json-identity.mjs",
+    "lint:json:identity": "eslint --max-warnings 0 src scripts test eslint.config.mjs",
     "test:json": "node --test test/json-tooling/*.test.mjs",
     "check:product": "node scripts/verify.js --product",
     "qualify:json:packages": "node scripts/qualify-json-packages.mjs",

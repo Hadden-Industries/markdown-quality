@@ -131,7 +131,11 @@ if (!productOnly) {
   // JSON integration checks admit the actual packed tuple, including its
   // generated manifests; produce those inputs before the first consumer.
   node(["scripts/qualify-json-packages.mjs"]);
-  node(["scripts/lint-json-identity.mjs"]);
+  npmCommand(["run", "lint:json:identity"], {
+    cwd: root,
+    stdio: "inherit",
+    timeout: 600_000,
+  });
   node([
     "--test",
     ...readdirSync(new URL("../test/json-tooling/", import.meta.url))

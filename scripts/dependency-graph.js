@@ -213,6 +213,13 @@ function authoredRoots(root) {
   }
   for (const path of ["src", "scripts", "test"]) visit(path);
   if (existsSync(join(root, "tooling"))) visit("tooling");
+  if (existsSync(join(root, "eslint.config.mjs"))) {
+    if (++entries > limits.files)
+      throw new Error("Graph directory inventory limit");
+    readOwned(root, "eslint.config.mjs");
+    files.push("eslint.config.mjs");
+    if (files.length > limits.files) throw new Error("Graph inventory limit");
+  }
   if (!files.length) throw new Error("Empty graph roots");
   return files.sort();
 }

@@ -97,7 +97,7 @@ test("a complete check cannot be filtered through old file-selection options", (
 });
 
 test("a caller cannot redirect the fixed repository adapter root", () => {
-  const result = cli(["check", "--root", "tooling/json"]);
+  const result = cli(["check", "--root", "other-repository"]);
   assert.equal(result.status, 2);
   assert.equal(result.terminal.type, "failure");
   assert.equal(
