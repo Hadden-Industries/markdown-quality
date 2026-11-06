@@ -1,5 +1,11 @@
 # Centralized producer contracts
 
+Use the [contract versions](#contract-versions) when integrating a producer.
+For an editor or service that supplies bytes directly, start with [logical documents and bounded invocation](#logical-documents-and-bounded-invocation).
+For CI that checks an untrusted change, start with [trusted staging and observation](#trusted-staging-and-observation).
+
+## Analyzer controls
+
 Link and path diagnostic excerpts and native scheduling use the caller-owned analyzer controls.
 Execution profiles and SDK `analyzerLimits` can raise a finite value or set it to `null`; unlimited mode removes these ceilings as well.
 Diagnostic byte/count and final output quotas still apply to complete expanded excerpts.

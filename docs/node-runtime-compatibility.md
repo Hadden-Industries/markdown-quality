@@ -1,9 +1,12 @@
 # Node runtime compatibility
 
-Consumer compatibility, current-version testing and the development/release runtime serve different purposes.
-The consumer minimum is the oldest version justified by the product and its dependencies and qualified with real installed consumers.
-Use the latest security-patched release in a supported family for ordinary operation.
-Admitting an older compatible patch does not recommend its security posture.
+**Running Markdown Quality in your project?**
+Use a security-patched release in one of the tested LTS families listed under [consumer bounds](#consumer-bounds).
+The compatibility floor is the oldest runtime qualified with installed consumers.
+
+**Building or releasing Markdown Quality?**
+Use the pinned development/release reference.
+See [CI and tooling](#ci-and-tooling) to update the pin or reproduce the test matrix.
 
 ## Consumer bounds
 
@@ -17,6 +20,8 @@ Producer npm: 12.2.1; consumer npm: 11.21.1.
 Development/release reference: 26.13.0.
 
 <!-- node-support:end -->
+
+### Why the Windows staging checks matter
 
 The 2026-10-15 inspection covered all 158 locked production dependency entries.
 All three candidates satisfy their declared engines; Node 22.12.0 does not satisfy the ESLint graph.

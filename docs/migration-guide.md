@@ -1,5 +1,12 @@
 # Migration guide
 
+Choose the section for the version you are upgrading **from**.
+
+- **2.x consumers** can keep configuration schema 3.
+  Start with [CLI, SDK and report changes in 3.0](#from-20-to-30).
+- **1.x consumers and users of development schema 2** should apply the [2.0 configuration and contract changes](#from-1x-to-20) first.
+  If your destination is 3.0, continue with [the 3.0 changes](#from-20-to-30).
+
 ## From 2.0 to 3.0
 
 Version 3.0.0 is the selected source candidate; this guide does not establish publication or release acceptance.
@@ -33,7 +40,10 @@ Do not redirect transformed output over its input file; use a separate destinati
 Consumers using open-ended dependency ranges such as `>=2.0.0` must migrate commands before refreshing locks to 3.0.0.
 No other repository's dependency range is changed by this implementation.
 
-This guide migrates consumers of published 1.x releases and of unreleased configuration schema 2 development source to version 2.0.0: configuration schema 3, preset `authored-gfm@2` and result schema 4.
+## From 1.x to 2.0
+
+The following tables describe **the 2.0 destination** for published 1.x releases and unreleased configuration schema 2.
+Version 2.0 uses configuration schema 3, preset `authored-gfm@2` and result schema 4.
 
 Old names in the tables below come from 1.0.3 or from that unreleased development source.
 The new names are not aliases: removed keys, flags, markers and options fail with guidance instead of being ignored.
@@ -47,7 +57,7 @@ Archived release records, reports and their schema identities are not rewritten.
 
 ## Schema family
 
-| Contract                | Old                            | Current                                      |
+| Contract                | Before 2.0                     | In 2.0                                       |
 | ----------------------- | ------------------------------ | -------------------------------------------- |
 | Configuration input     | 1 (1.0.3) or 2 (development)   | 3, sparse, export `./configuration-schema`   |
 | Effective configuration | Not exported                   | 3, export `./effective-configuration-schema` |

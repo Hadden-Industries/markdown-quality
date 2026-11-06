@@ -275,12 +275,21 @@ Only a complete `check` on the intended input establishes the verdict; CI gates 
 
 ## Partial-write recovery
 
-Repairs validate the complete batch before the first replacement, so a known refusal writes nothing.
-Replacement is per-file guarded, not a transaction: each file's identity and bytes are rechecked immediately before it is replaced.
+Before a repair, retain the original bytes or start from a clean commit.
+Unicode normalization can change those bytes irreversibly.
 
-If a later replacement fails, `documentResults` keeps `written` for completed files and `pending` for unapplied changes, and `qualityStatus` is `incomplete`.
-Retain preimages or start from a clean commit; applying NFD cannot restore the original bytes of normalized text.
-Reconcile recorded effects and rerun from current inputs rather than replaying a preview.
+A refusal during batch validation writes nothing.
+Once replacement starts, the tool checks each file's identity and bytes immediately before writing it.
+If a later file fails, `qualityStatus` is `incomplete`.
+
+1. Inspect `documentResults`.
+   Files marked `written` were replaced.
+   Files marked `pending` still have unapplied changes.
+2. Compare the confirmed writes with your originals.
+   To recover exact bytes, use those originals.
+   Applying NFD cannot reconstruct them.
+3. Resolve the reported failure and rerun from the current inputs.
+   A previous preview describes the earlier inputs.
 
 ## Execution profiles and resource controls
 
