@@ -34,6 +34,7 @@ Consumers using open-ended dependency ranges such as `>=2.0.0` must migrate comm
 No other repository's dependency range is changed by this implementation.
 
 This guide migrates consumers of published 1.x releases and of unreleased configuration schema 2 development source to version 2.0.0: configuration schema 3, preset `authored-gfm@2` and result schema 4.
+
 Old names in the tables below come from 1.0.3 or from that unreleased development source.
 The new names are not aliases: removed keys, flags, markers and options fail with guidance instead of being ignored.
 The [consumer guide](consumer-guide.md) describes the current contracts in full.
@@ -105,9 +106,12 @@ Analyzer limit leaves keep their defaults, populations and `null` meaning:
 Compare effective configurations with `inspect --json` before and after each edit; `effectiveConfigurationSha256` must stay equal unless a change is intended.
 Remove markers and values only where they equal the new defaults.
 An old narrow `include` must stay: removing it selects every `**/*.md` file under the root.
+
 A supplied `exclude` replaces the defaults `**/vendor/**`, `**/.cache/**` and `**/coverage/**`, so add any of those you still need; `[]` clears ordinary exclusions but never the hard boundaries `.git`, `node_modules`, `.venv`, `venv`, `.hi` and `.markdown-quality-trusted-inputs`.
 Keep explicit exclusions for generated, vendored, signed or byte-sensitive documents.
+
 Files named on the command line, in `files` or as a logical document path are now checked whatever their extension and whether or not `include` matches them, instead of being omitted as `not-included`; only an exclusion omits them, and a named `.mdx` file fails with `UNSUPPORTED_DIALECT`.
+
 An `include` pattern that names another extension, such as `**/*.markdown`, now selects those files; broad patterns such as `docs/**` still select only `.md`.
 Note that the default `layout.endOfLine` is `"lf"`; keep an explicit `"preserve"` or `"crlf"` if you relied on one.
 
@@ -273,8 +277,10 @@ npm exec -- markdown-quality check --root .
 
 The install pins 2.0.0 exactly in the manifest and lock; while it is under npm's `pilot` tag, an unversioned install selects the `latest` 1.x release.
 `inspect` confirms the root, selection, omissions and effective policy.
+
 The first `check` reports the new default errors: non-NFC prose, generic link text, duplicate sibling headings, bare URLs, unresolved fragments, path case, image alternatives and disallowed HTML.
 Fix semantic findings by editing content; no repair command rewrites link text, alternatives or HTML.
+
 Preview normalization, and add `--update-links` only after reviewing `anchorChanges` and the unverified external backlink coverage.
 Keep mechanical normalization and formatting changes reviewable separately from content fixes.
 To abort, restore every recorded preimage together and rerun the incumbent checks; downgrading the package alone cannot restore document bytes.

@@ -1,8 +1,34 @@
 # Markdown quality
 
-This package supplies one Node.js CLI and SDK for Markdown layout, sentence lines, GFM linting, NFC prose, static accessibility checks and contained local links and fragments.
-It works without a configuration file: package defaults discover every lowercase `.md` file under the consumer root, and files you name are checked whatever their extension.
-The package preserves the existing AGPL-3.0-only license.
+Check GitHub Flavored Markdown for layout drift, decomposed Unicode in prose, missing image descriptions and broken local links or heading fragments.
+The Node.js CLI and SDK use the same rules.
+A repository can start with the defaults and no configuration file.
+
+## Install and run
+
+From the repository root, install the exact version you intend to use.
+This example targets the 3.0.0 contract.
+
+```sh
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.0
+npm exec -- markdown-quality check --root .
+```
+
+The check reads the selected documents and prints findings on stderr.
+Exit `0` means the check completed without blockers.
+See [exit and status](#exit-and-status) for refusals and operational failures.
+
+This documentation describes the 3.0.0 source candidate.
+Use the installation example with a published, qualified version matching the documented contract.
+Releases are first published under npm's `pilot` tag and move to `latest` only after pilot acceptance and stable promotion.
+
+Pin the exact qualified version; an unversioned install follows the mutable `latest` tag.
+The [migration guide](docs/migration-guide.md) maps 2.0 usage to 3.0 and retains the earlier 1.x migration.
+
+A local dependency does not put a bare `markdown-quality` executable on every shell's PATH.
+Run it through [npm exec](https://docs.npmjs.com/cli/v11/commands/npm-exec/), an npm script, or another runner that resolves local package binaries.
+Without `--root`, the root is the nearest Git checkout verified with host Git, else the nearest package root, else the current directory.
+The optional `.markdown-quality.json` is looked up only at that root.
 
 ## Why use it
 
@@ -26,66 +52,76 @@ The package preserves the existing AGPL-3.0-only license.
 The CLI and SDK run in Node.js for local development, builds and CI.
 They require filesystem access and platform-native executables; see the [supported runtimes and platforms](docs/support-and-release.md).
 Frontend projects can install the package as a development dependency and run it in their Node.js tooling.
+
 Browser execution is not supported: conditional exports reject the SDK root in browser builds and environments without the `node` condition.
 The published JSON schemas remain available independently of the SDK.
 Browser support is a separate future feature and is not included in the current runtime contract.
 
-## Install and run
-
-```sh
-npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.0
-npm exec -- markdown-quality check --root .
-```
-
-This documentation describes the 3.0.0 source candidate; the installation example applies after that version is published.
-Releases are first published under npm's `pilot` tag and move to `latest` only after pilot acceptance and stable promotion.
-Pin the exact qualified version; an unversioned install follows the mutable `latest` tag.
-The [migration guide](docs/migration-guide.md) maps 2.0 usage to 3.0 and retains the earlier 1.x migration.
-
-A local dependency does not put a bare `markdown-quality` executable on every shell's PATH.
-Run it through [npm exec](https://docs.npmjs.com/cli/v11/commands/npm-exec/), an npm script, or another runner that resolves local package binaries.
-Without `--root`, the root is the nearest Git checkout verified with host Git, else the nearest package root, else the current directory.
-The optional `.markdown-quality.json` is looked up only at that root.
-
 ## Commands
+
+### Check the whole repository or selected files
 
 ```sh
 npm exec -- markdown-quality check --root .
 npm exec -- markdown-quality check --root . --strict
-npm exec -- markdown-quality format --write --root .
-npm exec -- markdown-quality format --dry-run --root .
-npm exec -- markdown-quality normalize --root . --dry-run
-npm exec -- markdown-quality normalize --root . --dry-run --update-links
-npm exec -- markdown-quality normalize --write --root . --update-links
-npm exec -- markdown-quality inspect --root . --json
-npm exec -- markdown-quality inspect-profile --root . --json
-npm exec -- markdown-quality format --stdin-request --root . --json
 npm exec -- markdown-quality check --root . -- "docs/literal [1].md"
-npm exec -- markdown-quality check --root . --files-json '[]'
-npm exec -- markdown-quality --version
-npm exec -- markdown-quality format --help
+```
+
+Use `--strict` to make warnings blocking.
+Put literal paths after `--`.
+The explicit empty selection `--files-json '[]'` succeeds without launching tools.
+
+### Preview a repair before writing
+
+Use `format` for layout and sentence lines.
+Use `normalize` to repair eligible prose to Unicode Normalization Form C (NFC).
+A layout repair preserves decoded prose, and Unicode repair can leave layout drift.
+
+```sh
+npm exec -- markdown-quality format --dry-run --root . -- README.md
+npm exec -- markdown-quality normalize --root . --dry-run
+```
+
+Review the candidates, then use `--write` in the chosen command to apply the repair.
+Run `check` afterwards for the policy verdict.
+Both repair orders work.
+
+Each filesystem repair requires exactly one of `--dry-run` and `--write`.
+A preview reports input and output hashes, byte counts and proposed changes.
+A write validates the whole selected batch first, then rechecks each file immediately before replacing it.
+
+If normalization changes a generated heading anchor, preview with `normalize --dry-run --update-links`.
+It can update supported local fragments inside the selected set.
+Raw HTML, ambiguous targets and dependent edits outside the set can prevent a repair.
+External backlinks remain unverified.
+
+### Work with an editor buffer
+
+The virtual path gives a buffer the same root policy as a file.
+In a POSIX shell, use a separate input path for redirection.
+
+```sh
 npm exec -- markdown-quality format --stdin --stdin-filepath docs/buffer.md --root . < editor-buffer.md
 ```
 
-`check` is read-only and establishes the policy verdict for the selected scope.
-`format` applies canonical presentation; it may leave only `quality/non-nfc-prose` findings, which it never repairs.
-`normalize` repairs eligible prose to NFC with source-aware edits; it may leave only presentation drift for `format`.
-Physical `format` and `normalize` require exactly one of `--write` or `--dry-run`, even for an empty selection.
-Both previews perform the same candidate preparation and report exact input/output hashes, byte counts and change decisions with zero writes; a preview is not write authority.
-`normalize --update-links` permits changed generated heading anchors and updates supported local fragments inside the selected write set.
-It refuses dependent references outside that set, inside raw HTML or with ambiguous targets, and always reports external backlinks as unverified.
-`inspect` resolves configuration, policy and selection without a content verdict.
-`inspect-profile` resolves the execution profile without analysis or qualification.
-`format --stdin-request` and `normalize --stdin-request` read one bounded JSON request `{path, requestId, contentBase64}` from standard input and never write the checkout.
-Literal filenames follow `--`; `--files-json '[]'` is an intentional empty selection that succeeds without launching tools.
-Raw `--stdin --stdin-filepath` accepts one UTF-8 buffer under the ordinary root policy; the path is root-relative context, not permission to read or replace disk content there.
-Raw transforms return only admitted source bytes on stdout; raw check supports `--json`.
-The envelope remains available for complete results and excluded arbitrary bytes; raw input must always be UTF-8.
-Never redirect output onto the input path: the shell can truncate it before reading begins.
+Raw transforms read UTF-8 and write the admitted source bytes to stdout.
+Redirect to a different file if you need to save the result.
+Redirecting onto the input can truncate it before the shell starts the command.
 
-Both repair orders work: format, normalize, check, or normalize, format, check.
-Formatting and normalization validate the complete selected batch before the first replacement.
-Each file's identity and bytes are rechecked immediately before its replacement; this is per-file guarded replacement, not a transaction.
+For complete results or excluded arbitrary bytes, use `format --stdin-request --root . --json` or the corresponding `normalize` command with a bounded JSON envelope containing `path`, `requestId` and `contentBase64`.
+
+### Inspect the selected policy
+
+```sh
+npm exec -- markdown-quality inspect --root . --json
+npm exec -- markdown-quality inspect-profile --root . --json
+npm exec -- markdown-quality --version
+npm exec -- markdown-quality format --help
+```
+
+`inspect` reports configuration, policy and selection.
+`inspect-profile` resolves execution controls.
+Use `check` to establish the content verdict.
 
 ## Exit and status
 
@@ -98,6 +134,7 @@ Each file's identity and bytes are rechecked immediately before its replacement;
 Results report `operationStatus` (`completed`, `previewed`, `refused`, `failed`) separately from `qualityStatus` (`clean`, `findings`, `incomplete`, `not-checked`) and `qualityBasis` (`input`, `candidate`, `applied` or null).
 Only `check` establishes the policy verdict; a successful repair or preview is never check evidence.
 Errors block; warnings block only under `--strict`; information never blocks.
+
 `--diagnostic-display-level info|warning|error` filters human-readable output only.
 Human operation output uses stderr; help, version and complete JSON reports use stdout.
 `--quiet` suppresses routine success summaries, while diagnostics, refusals and failures remain visible.
@@ -107,6 +144,7 @@ Delivery failure is exit 2: discard partial stdout, and inspect confirmed filesy
 
 Every package resource ceiling has a finite default that consumers can raise, lower or disable with `null`.
 `--resource-limit-mode unlimited`, or `{"resourceLimitMode": "unlimited"}` in `.markdown-quality-execution.json`, removes all package ceilings, including bootstrap reads.
+
 `--no-analyzer-limits` removes only analyzer ceilings, and `--max-profile-bytes N` sets the profile bootstrap ceiling.
 Precedence is package defaults, configuration `analyzerLimits`, execution profile, then invocation.
 Unlimited mode cannot remove Node, V8, operating-system or hosting-provider limits and is not a speed claim.
@@ -117,7 +155,8 @@ Unlimited mode cannot remove Node, V8, operating-system or hosting-provider limi
 - The [migration guide](docs/migration-guide.md) maps 2.0 CLI/result usage to 3.0 and retains earlier configuration/API migrations.
 - The [support and release guide](docs/support-and-release.md) describes compatibility and release gates.
 - The [centralized contracts guide](docs/centralized-contracts.md) and [CI trust guide](docs/ci-trust.md) describe logical documents, execution profiles and trusted qualification.
-- The [third-party notices](THIRD-PARTY-NOTICES.md) distinguish package code from upstream assets.
+- The package is licensed under [AGPL-3.0-only](LICENSE).
+  The [third-party notices](THIRD-PARTY-NOTICES.md) cover distributed upstream assets.
 - For development and proposals, read [Contributing](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
 - Report vulnerabilities through the private channel in the [security policy](SECURITY.md).
 

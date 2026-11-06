@@ -9,6 +9,7 @@ Vulnerabilities use the private reporting channel in [SECURITY.md](SECURITY.md),
 
 Use the reference Node version in [node-support.json](https://github.com/Hadden-Industries/markdown-quality/blob/main/assets/node-support.json) and an existing stable Python interpreter at least as new as [.python-version](https://github.com/Hadden-Industries/markdown-quality/blob/main/.python-version) for explicit native asset preparation.
 Change Node selections in that policy and run `npm run sync:node`; `npm run check:node` verifies the generated declarations.
+
 The [support policy](docs/support-and-release.md) records the qualified source matrix and explains why published 1.0.3 still has different immutable runtime metadata.
 Do not assume an unreleased source qualification changes an installed npm release.
 
@@ -24,6 +25,7 @@ Asset acquisition downloads only frozen manifest inputs and verifies their ident
 Create `.venv` with the declared stable Python version before native preparation.
 On Windows its interpreter is `.venv/Scripts/python.exe`; on Linux it is `.venv/bin/python`.
 The verification driver selects that interpreter explicitly, or uses the hosted action's activated `VIRTUAL_ENV`.
+
 To use already verified archives offline, run `python scripts/prepare-native.py --archives /path/to/verified/archives` instead.
 Check and format operations never acquire native executables; consumers do not need Python.
 Retain the lockfile and follow [native build requirements](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/native-builds.md) for an actual native upgrade.
@@ -33,6 +35,7 @@ Retain the lockfile and follow [native build requirements](https://github.com/Ha
 The root `package.json` selects the release version once.
 Run `npm run sync:version` to project it into both companion manifests and owned lock entries; `npm run check:version` refuses drift before packing or full verification.
 Projection validates the complete update set before writing and preserves dependency resolution, native bytes, policy inputs and historical release evidence.
+
 For CLI changes, use exact Node test selectors and the existing installed consumer corpus's `selection: "cli"` subset before broader release qualification.
 The 3.0 CLI requires `--write` for physical repair; SDK calls retain their existing semantics.
 
@@ -53,6 +56,7 @@ npm run check:full
 
 Run the focused checks while iterating and affected checks for the final change.
 Use the full profile for a consolidated source candidate; installed/transported package checks remain separate evidence where packaging is affected.
+
 Record commands, results and actual gaps in the PR or task; a local pass is not hosted, release or consumer acceptance.
 The maintainer may iterate directly on `main`; these instructions do not require a PR or change branch controls.
 
@@ -65,11 +69,14 @@ Keep the complete `npm test` and `check:full` paths for final assurance.
 Use semantic sentence lines and the package's `authored-gfm@2` defaults.
 `format:markdown` and `check:markdown` invoke this source CLI directly with `--reconcile-inventory git`, so selection is reconciled with tracked Git Markdown; no self-dependency is installed.
 `format` combines `format:code` and guarded Markdown formatting; Prettier's generic invocation excludes Markdown.
+
 The `prettier` package script declares the generic formatting scope once: the repository root with `.gitignore` and `.prettierignore` boundaries, including every supported file under `.github`.
 `format:code` and `format:code:check` reuse that script with `--write` and `--check`; the full verifier delegates to `format:code:check`.
 `check:formatting-and-markdown` combines that read-only check with `check:markdown`, matching the two owners used by `format`.
+
 `check:dependency-audit` runs the dependency security audit; the former `inspect:json` and `format:json:check` scripts are removed.
 New workflow files enter both formatting and verification automatically; Markdown and JSON-family exclusions keep their dedicated tools responsible for presentation and guarded writes.
+
 The repository's sparse `.markdown-quality.json` declares only its scope exceptions: `include` adds root, `docs` and `.github` Markdown, and `exclude` omits retained research and review evidence.
 Every other setting comes from the package defaults; literal test fixtures stay outside the included scope.
 Markdown checks never read `.prettierignore`, whose `**/*.md` entry separates generic Prettier ownership from this native Markdown pipeline.
@@ -83,6 +90,7 @@ Review any actual formatting diff and rerun the check for convergence.
 
 Root `npm ci --ignore-scripts` installs JSON Quality as an ordinary `>=1.0.0-rc.2` devDependency on the supported development runtime.
 Follow [JSON development checks](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/json-quality.md) for complete discovery, protected native evidence, real package qualification and guarded formatting.
+
 Generic Prettier excludes JSON; `npm run check:full` composes product checks, source identity lint, consumer tests, actual packed JSON and the final complete-root JSON check.
 `check:product` retains the product suite on Node 22 and future declared product runtimes; it does not claim JSON-tool qualification there.
 Architecture inspection uses the root development dependencies installed on the reference tooling runtime.
