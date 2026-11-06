@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -16,6 +17,7 @@ import {
   recheckObservations,
 } from "../src/configuration.js";
 import { createLinkGraph } from "../src/link-graph.js";
+import { createSpellingObserver } from "../src/local-links.js";
 import { consumer } from "./helpers.js";
 
 const findings = (report, rules) =>
@@ -200,4 +202,40 @@ test("spelling observation never descends through a linked component", async (t)
     report.diagnostics.map((d) => d.rule),
     ["local-target"],
   );
+});
+
+test("spelling snapshots reuse enumeration budgets while checking live components", (t) => {
+  const root = consumer(t, { "Docs/B.md": "# B\n", "plain.txt": "data" });
+  const spelling = createSpellingObserver(root, { maxEnumeratedEntries: 4 });
+  for (let repeat = 0; repeat < 3; repeat++) {
+    assert.equal(spelling("Docs/B.md"), null);
+    assert.equal(spelling("docs/b.md"), "Docs/B.md");
+    assert.equal(spelling("missing.md"), undefined);
+    assert.equal(spelling("plain.txt/child.md"), undefined);
+  }
+  const limited = createSpellingObserver(root, { maxEnumeratedEntries: 3 });
+  assert.throws(
+    () => limited("Docs/B.md"),
+    (error) => error.code === "LINK_LIMIT",
+  );
+  // Cached names cannot authorize traversal after a real directory becomes a link.
+  const outside = consumer(t, { "B.md": "# Outside\n" });
+  rmSync(join(root, "Docs"), { recursive: true });
+  symlinkSync(outside, join(root, "Docs"), "junction");
+  assert.equal(spelling("Docs/B.md"), undefined);
+  assert.equal(spelling("docs/b.md"), undefined);
+});
+
+test("exact spelling wins over ambiguous case-folded entries", (t) => {
+  const root = consumer(t, { "Name.txt": "one" });
+  writeFileSync(join(root, "name.txt"), "two");
+  const names = readdirSync(root);
+  if (!(names.includes("Name.txt") && names.includes("name.txt"))) {
+    t.skip("requires a case-sensitive directory");
+    return;
+  }
+  const spelling = createSpellingObserver(root, { maxEnumeratedEntries: 3 });
+  assert.equal(spelling("Name.txt"), null);
+  assert.equal(spelling("name.txt"), null);
+  assert.equal(spelling("NAME.txt"), undefined);
 });

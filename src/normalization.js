@@ -139,12 +139,22 @@ function planValue(text, start, end, value, at, refuse) {
     return [];
   }
   const edits = [];
+  let segmentIndex = 0;
   for (const change of changes) {
-    const covering = segments.filter(
-      (segment) =>
-        segment.valueTo > change.valueFrom &&
-        segment.valueFrom < change.valueTo,
-    );
+    // Changes are ordered, disjoint graphemes. Walk the alignment once instead of
+    // rescanning every source segment for every changed grapheme.
+    while (
+      segmentIndex < segments.length &&
+      segments[segmentIndex].valueTo <= change.valueFrom
+    )
+      segmentIndex++;
+    let segmentEnd = segmentIndex;
+    while (
+      segmentEnd < segments.length &&
+      segments[segmentEnd].valueFrom < change.valueTo
+    )
+      segmentEnd++;
+    const covering = segments.slice(segmentIndex, segmentEnd);
     if (
       !covering.length ||
       covering[0].valueFrom !== change.valueFrom ||
@@ -388,13 +398,60 @@ export function verifyNormalization(
     : null;
 }
 
-/** Byte-exact proposed-change records with original UTF-8 half-open spans. */
+/** Index requested original UTF-16 offsets with one forward source scan. */
+function sourcePositions(text, offsets) {
+  const positions = new Map();
+  let cursor = 0,
+    line = 1,
+    lineStart = 0,
+    byteCursor = 0,
+    bytes = 0;
+  for (const offset of [...new Set(offsets)].sort((a, b) => a - b)) {
+    while (cursor < offset) {
+      const character = text[cursor];
+      if (character === "\r") {
+        line++;
+        lineStart = cursor + 1;
+      } else if (character === "\n") {
+        if (cursor === 0 || text[cursor - 1] !== "\r") line++;
+        lineStart = cursor + 1;
+      }
+      cursor++;
+    }
+    // Encode disjoint slices with Node's UTF-8 rules. A requested offset inside a
+    // surrogate pair counts its dangling high surrogate as 3 bytes, but the next
+    // slice must still encode the complete pair as 4 bytes.
+    const splitsPair =
+      offset > 0 &&
+      text.charCodeAt(offset - 1) >= 0xd800 &&
+      text.charCodeAt(offset - 1) <= 0xdbff &&
+      text.charCodeAt(offset) >= 0xdc00 &&
+      text.charCodeAt(offset) <= 0xdfff;
+    const byteEnd = splitsPair ? offset - 1 : offset;
+    bytes += Buffer.byteLength(text.slice(byteCursor, byteEnd));
+    byteCursor = byteEnd;
+    positions.set(offset, {
+      byte: bytes + (splitsPair ? 3 : 0),
+      line,
+      column: offset - lineStart + 1,
+    });
+  }
+  return positions;
+}
+
+/** Byte-exact proposed-change records for valid original UTF-16 edit spans.
+ * Scan source positions once; retain caller order, UTF-8 spans and exact hashes.
+ */
 export function changeRecords(path, text, edits, kind = "prose-nfc") {
+  const positions = sourcePositions(
+    text,
+    edits.map((edit) => edit.start),
+  );
   return edits.map((edit) => {
     const before = Buffer.from(text.slice(edit.start, edit.end));
     const after = Buffer.from(edit.replacement);
-    const sourceByteStart = Buffer.byteLength(text.slice(0, edit.start));
-    const at = coordinates(text, edit.start);
+    const at = positions.get(edit.start);
+    const sourceByteStart = at.byte;
     return {
       path,
       kind: edit.kind ?? kind,
