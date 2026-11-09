@@ -2,7 +2,11 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { nodeSupport, validatePolicy } from "./node-matrix.js";
+import {
+  nodeSupport,
+  producerNpmRange,
+  validatePolicy,
+} from "./node-matrix.js";
 const root = new URL("../", import.meta.url);
 
 /** One inventory for both projection and its regression guard. */
@@ -33,7 +37,7 @@ export function projectNodeSupport(files, policy = nodeSupport) {
         metadata.devEngines = {
           packageManager: {
             name: "npm",
-            version: policy.producerNpm.range,
+            version: producerNpmRange(policy.producerNpm),
             onFail: "error",
           },
         };
