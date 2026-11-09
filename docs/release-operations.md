@@ -223,10 +223,12 @@ It uploads only missing matching draft assets, downloads every draft asset for b
 GitHub requires repository Administration read access to inspect the immutability setting before a draft write.
 If the archive job's token cannot read it, authenticate `gh` locally as a repository administrator and acquire the verified `archive-inputs-ATTEMPT` artifact.
 Run `node scripts/github-release.js archive-inputs/qualification.json archive-inputs/bundle archive-journal` with those original inputs and a new journal directory.
-Dispatch archival again with the same inputs after the release is immutable. The hosted job verifies the published release and assets without making draft writes.
+Dispatch archival again with the same inputs after the release is immutable.
+The hosted job verifies the published release and assets without making draft writes.
 
 It requires native `gh release verify` and `gh release verify-asset` for every asset plus complete final readback.
-Empty performance stderr logs are verified in the retained bundle and listed with their zero size and digest in the evidence manifest. GitHub receives the nonempty logs as release assets.
+Empty performance stderr logs are verified in the retained bundle and listed with their zero size and digest in the evidence manifest.
+GitHub receives the nonempty logs as release assets.
 Unexpected or changed assets stop delivery; no clobber operation exists.
 Keep `qualification.json` and its digest from `archive-inputs-ATTEMPT` for promotion.
 
