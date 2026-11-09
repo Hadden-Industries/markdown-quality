@@ -15,6 +15,21 @@ module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
 
+def write_core_archive(path, files):
+    declared = []
+    with tarfile.open(path, "w:gz") as archive:
+        for name, body in files.items():
+            member = tarfile.TarInfo("package/" + name)
+            member.size = len(body)
+            archive.addfile(member, io.BytesIO(body))
+            declared.append({
+                "path": name,
+                "size": len(body),
+                "sha256": hashlib.sha256(body).hexdigest(),
+            })
+    return hashlib.sha256(path.read_bytes()).hexdigest(), declared
+
+
 class PackageModeTests(unittest.TestCase):
     def test_core_requires_exact_inventory_without_raising_native_member_bound(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -37,6 +52,62 @@ class PackageModeTests(unittest.TestCase):
                             [{**declared[0], 'size': 8 * 1024 * 1024 + 1}, *declared[1:]]):
                 with self.assertRaises(ValueError):
                     module.read_archive_members(path, digest, package_only=True, core_inventory=invalid)
+
+    def test_incidental_bundled_json_is_bound_to_staged_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "core.tgz"
+            incidental = "node_modules/format/component.json"
+            files = {
+                "node_modules/format/package.json": b'{"name":"format","version":"0.2.2"}',
+                incidental: b"invalid json",
+            }
+            digest, declared = write_core_archive(path, files)
+            _, _, _, bodies = module.read_archive_members(path, digest, package_only=True, core_inventory=declared)
+            self.assertEqual(bodies["package/" + incidental], files[incidental])
+
+            # The new tarball digest is correct but this member differs from stage.
+            files[incidental] = b"altered json"
+            digest, _ = write_core_archive(path, files)
+            with self.assertRaisesRegex(ValueError, "Core member differs from declared digest"):
+                module.read_archive_members(path, digest, package_only=True, core_inventory=declared)
+
+    def test_bundled_manifest_requires_strict_json_even_with_matching_digest(self):
+        name = "node_modules/eslint/node_modules/@scope/dependency/package.json"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "core.tgz"
+            for body in (
+                b'{"name":',
+                br'{"name":"dependency","\u006eame":"other","version":"1.0.0"}',
+                b'{"name":"dependency","version":"1.0.0","value":NaN}',
+                b'{"name":"\xff","version":"1.0.0"}',
+                b"[]",
+            ):
+                with self.subTest(body=body):
+                    digest, declared = write_core_archive(path, {name: body})
+                    with self.assertRaisesRegex(ValueError, "Invalid required bundled JSON"):
+                        module.read_archive_members(path, digest, package_only=True, core_inventory=declared)
+
+    def test_eslint_runtime_json_is_required_and_checked(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "core.tgz"
+            schema = "node_modules/eslint/node_modules/ajv/lib/refs/json-schema-draft-04.json"
+            files = {
+                "node_modules/eslint/package.json": b'{"name":"eslint","version":"10.0.0"}',
+                "node_modules/eslint/conf/replacements.json": b"{}",
+                "node_modules/eslint/node_modules/ajv/lib/refs/json-schema-draft-07.json": b"{}",
+            }
+            digest, declared = write_core_archive(path, files)
+            with self.assertRaisesRegex(ValueError, "Missing required bundled JSON"):
+                module.read_archive_members(path, digest, package_only=True, core_inventory=declared)
+
+            files[schema] = b"{"
+            digest, declared = write_core_archive(path, files)
+            with self.assertRaisesRegex(ValueError, "Invalid required bundled JSON"):
+                module.read_archive_members(path, digest, package_only=True, core_inventory=declared)
+
+            files[schema] = b"{}"
+            digest, declared = write_core_archive(path, files)
+            module.read_archive_members(path, digest, package_only=True, core_inventory=declared)
 
     def test_case_colliding_members_are_refused_before_replacement(self):
         with tempfile.TemporaryDirectory() as directory:

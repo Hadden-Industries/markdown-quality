@@ -7,9 +7,53 @@ import json
 import lzma
 import os
 from pathlib import Path
+import re
 import sys
 import tarfile
 import tempfile
+
+
+BUNDLED_PREFIX = "package/node_modules/"
+BUNDLED_MANIFEST = re.compile(r"package/(?:node_modules/(?:@[^/]+/)?[^/@]+/)+package\.json")
+ESLINT_MANIFEST = BUNDLED_PREFIX + "eslint/package.json"
+# These bundled inputs are loaded by the ESLint Markdown lint path.
+ESLINT_RUNTIME_JSON = (
+    BUNDLED_PREFIX + "eslint/conf/replacements.json",
+    BUNDLED_PREFIX + "eslint/node_modules/ajv/lib/refs/json-schema-draft-04.json",
+    BUNDLED_PREFIX + "eslint/node_modules/ajv/lib/refs/json-schema-draft-07.json",
+)
+
+
+def unique_json_keys(pairs):
+    value = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError(f"Duplicate JSON key: {key!r}")
+        value[key] = item
+    return value
+
+
+def reject_json_constant(token):
+    raise ValueError(f"Invalid JSON constant: {token}")
+
+
+def verify_bundled_json(bodies):
+    required = {name for name in bodies if BUNDLED_MANIFEST.fullmatch(name)}
+    if ESLINT_MANIFEST in required:
+        required.update(ESLINT_RUNTIME_JSON)
+    for name in sorted(required):
+        if name not in bodies:
+            raise ValueError(f"Missing required bundled JSON: {name}")
+        try:
+            value = json.loads(
+                bodies[name].decode("utf-8"),
+                object_pairs_hook=unique_json_keys,
+                parse_constant=reject_json_constant,
+            )
+        except (ValueError, RecursionError) as error:
+            raise ValueError(f"Invalid required bundled JSON: {name}: {error}") from error
+        if not isinstance(value, dict):
+            raise ValueError(f"Invalid required bundled JSON: {name}: expected an object")
 
 
 def read_archive_members(archive_path: Path, expected_sha256=None, package_only=False, core_inventory=None):
@@ -81,8 +125,10 @@ def read_archive_members(archive_path: Path, expected_sha256=None, package_only=
                 raise ValueError('Core member differs from declared digest')
             bodies[member.name] = body
             members.append(member)
-        if declared is not None and set(inventory) != set(declared):
-            raise ValueError('Core archive omitted declared members')
+        if declared is not None:
+            if set(inventory) != set(declared):
+                raise ValueError('Core archive omitted declared members')
+            verify_bundled_json(bodies)
     return source_sha256, members, inventory, bodies
 
 

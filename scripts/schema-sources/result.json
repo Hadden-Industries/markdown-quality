@@ -834,6 +834,56 @@
       }
     }
   },
+  "$comment": "Policy metadata may be unavailable only when an operation fails before admission; completed outcomes retain their resolved evidence.",
+  "if": {
+    "properties": {
+      "exitCode": {
+        "enum": [
+          0,
+          1
+        ]
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "configurationOrigin": {
+        "not": {
+          "type": "null"
+        }
+      },
+      "defaultConfigurationSha256": {
+        "not": {
+          "type": "null"
+        }
+      },
+      "policyResolverInputsSha256": {
+        "not": {
+          "type": "null"
+        }
+      },
+      "effectiveConfigurationSha256": {
+        "not": {
+          "type": "null"
+        }
+      },
+      "configuration": {
+        "not": {
+          "type": "null"
+        }
+      },
+      "policy": {
+        "not": {
+          "type": "null"
+        }
+      },
+      "resourcePolicy": {
+        "not": {
+          "type": "null"
+        }
+      }
+    }
+  },
   "definitions": {
     "paths": {
       "type": "array",
@@ -843,5 +893,5 @@
       }
     }
   },
-  "$id": "urn:hadden-industries:markdown-quality:result:4"
+  "$id": "urn:hadden-industries:markdown-quality:result:5"
 }

@@ -54,16 +54,18 @@ export function collectAnchors(tree) {
   return { generated: [...generated], explicit: [...explicit], headings };
 }
 
-/** Resolve a decoded fragment against a compact anchor inventory. Generated heading
- * anchors retain case-insensitive matching; explicit HTML identifiers match exactly.
+/** Snapshot a compact anchor inventory into one reusable decoded-fragment resolver.
+ * Generated headings match case-insensitively; explicit HTML IDs match exactly.
+ * Keep indexes local to their consumer: inventories also cross worker boundaries.
  */
-export function resolveFragment(inventory, fragment) {
-  if (fragment === "" || lineReference.test(fragment)) return "resolved";
+export function createFragmentResolver(inventory) {
   const explicit = new Map(inventory.explicit);
-  const count = explicit.get(fragment);
-  if (count > 1) return "ambiguous";
-  if (count === 1) return "resolved";
-  return new Set(inventory.generated).has(fragment.toLowerCase())
-    ? "resolved"
-    : "missing";
+  const generated = new Set(inventory.generated);
+  return (fragment) => {
+    if (fragment === "" || lineReference.test(fragment)) return "resolved";
+    const count = explicit.get(fragment);
+    if (count > 1) return "ambiguous";
+    if (count === 1) return "resolved";
+    return generated.has(fragment.toLowerCase()) ? "resolved" : "missing";
+  };
 }

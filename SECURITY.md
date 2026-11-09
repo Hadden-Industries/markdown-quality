@@ -1,17 +1,25 @@
 # Security policy
 
-Before stable promotion, security support covers only the single candidate designated by npm's `pilot` tag.
-After stable promotion, it covers only the latest stable release designated by `latest`, unless an explicit policy accepts another line.
-Consumers should pin exact versions and qualify upgrades.
-Older releases remaining downloadable does not imply maintenance or backport support.
-For published 1.0.3, the supported runtime remains Node 24.21.0 on Windows x64 and Ubuntu 24.04 x64 with glibc 2.39, with the qualified core/native tuple and explicit preset.
-Version 2.0.0 declares Node `>=22.13.0`, and its CI matrix covers Node 22/24/26 at the patched minima and latest versions described in the [support policy](docs/support-and-release.md).
-That qualification does not change an existing release's immutable metadata or establish support for an unpublished release.
+## Report a vulnerability
 
 Report suspected vulnerabilities privately through [GitHub private vulnerability reporting](https://github.com/Hadden-Industries/markdown-quality/security/advisories/new).
 If unavailable or unsuitable, use `security@haddenindustries.com`.
 Avoid public disclosure in issues or pull requests.
 Include affected release, environment, impact, reproduction and possible mitigation, while minimizing credentials, personal data and unrelated document content.
+
+## Supported releases
+
+Before stable promotion, security support covers only the single candidate designated by npm's `pilot` tag.
+After stable promotion, it covers only the latest stable release designated by `latest`, unless an explicit policy accepts another line.
+
+Consumers should pin exact versions and qualify upgrades.
+Older releases remaining downloadable does not imply maintenance or backport support.
+For published 1.0.3, the supported runtime remains Node 24.21.0 on Windows x64 and Ubuntu 24.04 x64 with glibc 2.39, with the qualified core/native tuple and explicit preset.
+
+Version 2.0.0 declares Node `>=22.13.0`, and its CI matrix covers Node 22/24/26 at the patched minima and latest versions described in the [support policy](docs/support-and-release.md).
+That qualification does not change an existing release's immutable metadata or establish support for an unpublished release.
+
+## Response and disclosure
 
 Maksym Shostak / Hadden Industries owns manual report handling and dependency/advisory review.
 No unattended monitoring or notification service is assumed.
@@ -37,6 +45,7 @@ Containment, credential changes, registry deprecation and external messages requ
 
 Review dependency/advisory health at every release preparation and monthly while a release is maintained.
 Native upgrades require fresh source/component rights, output/parity and platform qualification; no unattended adoption is authorized.
+
 Retain release source, build inputs, notices, recipient delivery/qualification evidence and accepted recovery inputs for the maintained lifetime plus three years after support ends, honoring license obligations requiring more.
 The retention period is an operational floor, not a legal interpretation.
 Preserve AGPL-3.0-only and provide corresponding source/build materials and third-party notices to recipients.

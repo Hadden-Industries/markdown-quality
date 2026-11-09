@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import Ajv from "ajv";
 import { consumer } from "./helpers.js";
-import { runQuality } from "../src/quality.js";
+import { runQuality, validateQualityResult } from "../src/quality.js";
 import { safePath } from "../src/configuration.js";
 import { defaultAnalyzerLimits } from "../src/analyzer-limits.js";
 const validate = new Ajv({ strict: true }).compile(
@@ -19,6 +19,59 @@ const validate = new Ajv({ strict: true }).compile(
   ),
 );
 const cli = fileURLToPath(new URL("../src/cli.js", import.meta.url));
+
+test("explicit empty CLI repairs never discover or rewrite a peer", (t) => {
+  const source = "Alpha. Beta.\n";
+  const root = consumer(t, { "peer.md": source });
+  for (const command of ["check", "format", "normalize"]) {
+    const modes = command === "check" ? [[]] : [["--write"], ["--dry-run"]];
+    for (const mode of modes)
+      for (const selection of [["--"], ["--files-json", "[]"]]) {
+        const child = spawnSync(
+          process.execPath,
+          [cli, command, "--root", root, "--json", ...mode, ...selection],
+          { encoding: "utf8", timeout: 30_000, windowsHide: true },
+        );
+        assert.equal(child.error, undefined);
+        assert.equal(child.status, 0, child.stdout + child.stderr);
+        const report = JSON.parse(child.stdout);
+        validateQualityResult(report);
+        assert.equal(report.selection.mode, "explicit");
+        assert.deepEqual(report.selection.files, []);
+        assert.deepEqual(report.documentResults, []);
+        assert.deepEqual(report.writtenPaths, []);
+        assert.equal(readFileSync(join(root, "peer.md"), "utf8"), source);
+      }
+  }
+});
+
+test("CLI quality refusals keep exit 1 across check, preview and write", (t) => {
+  const source = "```\nvalue\n```\n";
+  const root = consumer(t, { "bad.md": source });
+  for (const [command, modes] of [
+    ["check", []],
+    ["format", ["--dry-run"]],
+    ["format", ["--write"]],
+    ["normalize", ["--dry-run"]],
+    ["normalize", ["--write"]],
+  ]) {
+    const child = spawnSync(
+      process.execPath,
+      [cli, command, "--root", root, "--json", ...modes, "--", "bad.md"],
+      { encoding: "utf8", timeout: 30_000, windowsHide: true },
+    );
+    assert.equal(child.error, undefined);
+    assert.equal(child.status, 1, child.stdout + child.stderr);
+    const report = JSON.parse(child.stdout);
+    validateQualityResult(report, { exitCode: 1 });
+    assert.equal(report.errors.length, 0);
+    assert.ok(
+      report.diagnostics.some((finding) => finding.severity === "error"),
+    );
+    assert.deepEqual(report.writtenPaths, []);
+    assert.equal(readFileSync(join(root, "bad.md"), "utf8"), source);
+  }
+});
 test("CLI concurrency reaches real analysis and rejects counts below one before writes", (t) => {
   const root = consumer(t, { "a.md": "Alpha.\n", "b.md": "Beta.\n" });
   const result = spawnSync(

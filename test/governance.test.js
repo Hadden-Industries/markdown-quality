@@ -33,6 +33,34 @@ test("workflow contracts reject broken metadata, callers and shared deadline dri
     );
   for (const [name, path, change, expected] of [
     [
+      "skipped source admission",
+      ci,
+      (data) => {
+        data.jobs.policy.steps.find(
+          (step) => step.run === "npm run check:source",
+        ).if = "false";
+      },
+      /one blocking source gate/u,
+    ],
+    [
+      "disconnected source admission",
+      ci,
+      (data) => {
+        data.jobs.product.needs = [];
+      },
+      /one blocking source gate/u,
+    ],
+    [
+      "missing release source tools",
+      ".github/workflows/release-qualification.yml",
+      (data) => {
+        data.jobs.resolve.steps = data.jobs.resolve.steps.filter(
+          (step) => step.name !== "Install locked Node source-check tools",
+        );
+      },
+      /one blocking source gate with locked tools/u,
+    ],
+    [
       "composite timeout",
       download,
       (data) => {
@@ -312,7 +340,7 @@ test("deliberate triggers and skip-resistant acceptance remain explicit", () => 
     );
   const ci = read("ci.yml");
   assert.ok(
-    ci.jobs.policy.steps.some((step) => step.run === "npm run check:ci"),
+    ci.jobs.policy.steps.some((step) => step.run === "npm run check:source"),
   );
   assert.deepEqual(ci.on.pull_request, {
     branches: ["main"],

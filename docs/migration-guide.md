@@ -1,8 +1,28 @@
 # Migration guide
 
+Choose the section for the version you are upgrading **from**.
+
+- **3.0.0 consumers** retain their CLI, SDK and configuration contracts.
+  See [the 3.0.1 repairs](#from-300-to-301).
+- **2.x consumers** can keep configuration schema 3.
+  Start with [CLI, SDK and report changes in 3.0](#from-20-to-30).
+- **1.x consumers and users of development schema 2** should apply the [2.0 configuration and contract changes](#from-1x-to-20) first.
+  If your destination is 3.0, continue with [the 3.0 changes](#from-20-to-30).
+
+## From 3.0.0 to 3.0.1
+
+Version 3.0.1 is the selected source candidate; this guide does not establish publication or release acceptance.
+No CLI, SDK, configuration, preset or contract-version migration is required from 3.0.0.
+Successful and quality-refused reports require complete policy and resource evidence; failed admission can still report unavailable policy metadata.
+The result schema remains version 5, with its logical identifier corrected to that version.
+Fragment resolution, NFC planning, change reporting and path spelling avoid repeated work while retaining their existing findings and preservation rules.
+
+Repository contributors now use JSON Quality 1.0.0 with configuration schema 4, event schema 5 and cohort 6.
+See [JSON development checks](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/json-quality.md) for the repository tooling migration.
+
 ## From 2.0 to 3.0
 
-Version 3.0.0 is the selected source candidate; this guide does not establish publication or release acceptance.
+The 3.0 CLI and SDK contracts introduced the following major-version changes, retained by the 3.0.1 candidate.
 Configuration schema 3, `authored-gfm@2`, execution schema 2, comparison schema 3 and Snapper 0.11.9 are retained.
 
 - Import the SDK from Node.js code only; the package root now explicitly rejects browser and unmatched resolver environments.
@@ -33,7 +53,11 @@ Do not redirect transformed output over its input file; use a separate destinati
 Consumers using open-ended dependency ranges such as `>=2.0.0` must migrate commands before refreshing locks to 3.0.0.
 No other repository's dependency range is changed by this implementation.
 
-This guide migrates consumers of published 1.x releases and of unreleased configuration schema 2 development source to version 2.0.0: configuration schema 3, preset `authored-gfm@2` and result schema 4.
+## From 1.x to 2.0
+
+The following tables describe **the 2.0 destination** for published 1.x releases and unreleased configuration schema 2.
+Version 2.0 uses configuration schema 3, preset `authored-gfm@2` and result schema 4.
+
 Old names in the tables below come from 1.0.3 or from that unreleased development source.
 The new names are not aliases: removed keys, flags, markers and options fail with guidance instead of being ignored.
 The [consumer guide](consumer-guide.md) describes the current contracts in full.
@@ -46,7 +70,7 @@ Archived release records, reports and their schema identities are not rewritten.
 
 ## Schema family
 
-| Contract                | Old                            | Current                                      |
+| Contract                | Before 2.0                     | In 2.0                                       |
 | ----------------------- | ------------------------------ | -------------------------------------------- |
 | Configuration input     | 1 (1.0.3) or 2 (development)   | 3, sparse, export `./configuration-schema`   |
 | Effective configuration | Not exported                   | 3, export `./effective-configuration-schema` |
@@ -105,9 +129,12 @@ Analyzer limit leaves keep their defaults, populations and `null` meaning:
 Compare effective configurations with `inspect --json` before and after each edit; `effectiveConfigurationSha256` must stay equal unless a change is intended.
 Remove markers and values only where they equal the new defaults.
 An old narrow `include` must stay: removing it selects every `**/*.md` file under the root.
+
 A supplied `exclude` replaces the defaults `**/vendor/**`, `**/.cache/**` and `**/coverage/**`, so add any of those you still need; `[]` clears ordinary exclusions but never the hard boundaries `.git`, `node_modules`, `.venv`, `venv`, `.hi` and `.markdown-quality-trusted-inputs`.
 Keep explicit exclusions for generated, vendored, signed or byte-sensitive documents.
+
 Files named on the command line, in `files` or as a logical document path are now checked whatever their extension and whether or not `include` matches them, instead of being omitted as `not-included`; only an exclusion omits them, and a named `.mdx` file fails with `UNSUPPORTED_DIALECT`.
+
 An `include` pattern that names another extension, such as `**/*.markdown`, now selects those files; broad patterns such as `docs/**` still select only `.md`.
 Note that the default `layout.endOfLine` is `"lf"`; keep an explicit `"preserve"` or `"crlf"` if you relied on one.
 
@@ -273,8 +300,10 @@ npm exec -- markdown-quality check --root .
 
 The install pins 2.0.0 exactly in the manifest and lock; while it is under npm's `pilot` tag, an unversioned install selects the `latest` 1.x release.
 `inspect` confirms the root, selection, omissions and effective policy.
+
 The first `check` reports the new default errors: non-NFC prose, generic link text, duplicate sibling headings, bare URLs, unresolved fragments, path case, image alternatives and disallowed HTML.
 Fix semantic findings by editing content; no repair command rewrites link text, alternatives or HTML.
+
 Preview normalization, and add `--update-links` only after reviewing `anchorChanges` and the unverified external backlink coverage.
 Keep mechanical normalization and formatting changes reviewable separately from content fixes.
 To abort, restore every recorded preimage together and rerun the incumbent checks; downgrading the package alone cannot restore document bytes.

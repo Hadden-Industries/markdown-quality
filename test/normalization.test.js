@@ -116,3 +116,60 @@ test("heading normalization reports old and new generated anchors with suffix ca
     ],
   );
 });
+
+test("dense NFC edits retain source alignment across references and container lines", () => {
+  const source = `> ${"e&#x301; ".repeat(64)}\r\n> ${"\\*e\u0301\\* ".repeat(64)}\r\n`;
+  const expected = `> ${"é ".repeat(64)}\r\n> ${"\\*é\\* ".repeat(64)}\r\n`;
+  const result = prepareNormalization(source, syntax);
+  assert.deepEqual(result.refusals, []);
+  assert.equal(result.output, expected);
+  assert.equal(result.edits.length, 128);
+  assert.ok(result.edits.every((edit) => edit.replacement === "é"));
+  assert.equal(prepareNormalization(result.output, syntax).edits.length, 0);
+});
+
+test("change coordinates preserve unsorted/repeated starts and UTF-16 boundary semantics", () => {
+  // UTF-16 offsets: A=0, emoji=1..2, CR=3, LF=4, é=5, CR=6, Z=7,
+  // LF=8, lone high surrogate=9, Q=10, lone low surrogate=11.
+  const source = "A😀\r\né\rZ\n\ud800Q\udc00";
+  const starts = [12, 2, 4, 5, 7, 9, 10, 11, 1, 3, 0, 8, 6, 2];
+  const positions = [
+    [19, 4, 4],
+    [4, 1, 3],
+    [6, 2, 1],
+    [7, 2, 1],
+    [10, 3, 1],
+    [12, 4, 1],
+    [15, 4, 2],
+    [16, 4, 3],
+    [1, 1, 2],
+    [5, 1, 4],
+    [0, 1, 1],
+    [11, 3, 2],
+    [9, 2, 2],
+    [4, 1, 3],
+  ];
+  const edits = starts.map((start) => ({
+    start,
+    end: start,
+    replacement: "é",
+  }));
+  const records = changeRecords("a.md", source, edits, "link-fragment");
+  assert.deepEqual(
+    records.map((record) => [
+      record.sourceByteStart,
+      record.sourceLine,
+      record.sourceColumn,
+    ]),
+    positions,
+  );
+  assert.ok(
+    records.every(
+      (record) =>
+        record.kind === "link-fragment" &&
+        record.beforeByteLength === 0 &&
+        record.afterByteLength === 2,
+    ),
+  );
+  assert.deepEqual(changeRecords("a.md", source, []), []);
+});

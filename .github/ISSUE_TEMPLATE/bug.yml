@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: >-
-        Report vulnerabilities privately through the repository's Security tab.
+        Report security issues through [private vulnerability reporting](https://github.com/Hadden-Industries/markdown-quality/security/advisories/new).
         Do not include credentials, private documents or personal information here.
   - type: input
     id: version
@@ -31,6 +31,6 @@ body:
     id: result
     attributes:
       label: Expected and actual behavior
-      description: Include the exit code, the diagnostics and the command used (check, format, normalize or inspect).
+      description: Give the command, exit code and diagnostics. For a repair, say whether you used preview or write mode.
     validations:
       required: true

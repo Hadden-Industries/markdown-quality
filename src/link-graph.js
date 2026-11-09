@@ -5,7 +5,7 @@
 // linted, formatted or recursively traversed, and graph cycles cannot cause a crawl.
 import { join } from "node:path";
 import { parse } from "./analysis.js";
-import { collectAnchors, resolveFragment } from "./anchors.js";
+import { collectAnchors, createFragmentResolver } from "./anchors.js";
 import {
   decode,
   digest,
@@ -25,7 +25,7 @@ export function createLinkGraph(context, { admitBytes }) {
   const dependencies = new Map();
   const pending = [];
   const observations = [];
-  function inventory(path) {
+  function documentFor(path) {
     if (batch.has(path)) return batch.get(path);
     if (dependencies.has(path)) return dependencies.get(path);
     if (exceeds(dependencies.size + 1, budgets.maxReadDependencyDocuments))
@@ -37,19 +37,20 @@ export function createLinkGraph(context, { admitBytes }) {
     const { bytes } = readDocument(root, path, budgets);
     admitBytes(bytes.length);
     const anchors = collectAnchors(parse(decode(bytes), config.syntax));
-    dependencies.set(path, anchors);
+    const document = { anchors, resolveFragment: undefined };
+    dependencies.set(path, document);
     observations.push({
       role: "dependency",
       kind: "file",
       path: join(root, path),
       sha256: digest(bytes),
     });
-    return anchors;
+    return document;
   }
   return {
     /** Register a batch member's anchors from the content this operation proposes. */
     addDocument(path, anchors, references) {
-      batch.set(path, anchors);
+      batch.set(path, { anchors, resolveFragment: undefined });
       if (references.length) pending.push({ path, references });
     },
     /** Resolve every pending reference once the whole batch is known. */
@@ -59,10 +60,10 @@ export function createLinkGraph(context, { admitBytes }) {
         qualityRuleDefaults["quality/unresolved-local-fragment"];
       for (const { path, references } of pending)
         for (const reference of references) {
-          const verdict = resolveFragment(
-            inventory(reference.target),
-            reference.fragment,
-          );
+          const document = documentFor(reference.target);
+          // Index only referenced targets; many selected documents have no inbound links.
+          document.resolveFragment ??= createFragmentResolver(document.anchors);
+          const verdict = document.resolveFragment(reference.fragment);
           if (verdict === "resolved" || severity === "off") continue;
           report({
             path,

@@ -40,10 +40,10 @@ jobs:
           FROZEN_MATRIX: ${{ inputs.matrix }}
         run: npm run ci:node-policy
       - run: python scripts/acquire-native.py
-      - name: Check source, pack once, and validate final generated JSON
+      - name: Qualify behavior after source admission and validate generated JSON
         env:
           NODE_QUALIFICATION_MATRIX: ${{ inputs.matrix }}
-        run: npm run check:full
+        run: npm run check:qualification
       - id: archive
         uses: ./.github/actions/upload-evidence
         timeout-minutes: 5

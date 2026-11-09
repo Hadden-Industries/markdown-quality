@@ -1,14 +1,11 @@
 ## Problem and change
 
-Describe the consumer or contributor problem and resulting behavior.
+<!-- Who encounters the problem, and what changes for them? -->
 
 ## Verification
 
-Record commands, results and gaps for focused/affected checks and `check:markdown`.
-Include full, transported-package or hosted evidence when the changed contract requires it.
+<!-- List the commands, results and remaining gaps for focused or affected checks and check:markdown. Include full-suite, transported-package or hosted evidence if the changed contract requires it. -->
 
 ## Impact
 
-State relevant CLI/API/schema/output, runtime/native, literal-preservation, dependency/license and performance effects.
-Describe recovery for any material tooling or package change.
-Keep unrelated edits separate; report vulnerabilities through the private security channel.
+<!-- Describe effects on the CLI, API, schemas, output, runtimes, literal preservation, dependencies, licenses or performance where applicable. Explain recovery for a material tooling or package change. Keep unrelated edits separate and report vulnerabilities privately. -->

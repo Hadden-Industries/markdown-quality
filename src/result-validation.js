@@ -69,6 +69,9 @@ export function validateQualityResult(report, expected = {}) {
         "Quality result does not match the requested " + key + ".",
       );
   const { selection, documentResults } = report;
+  // Scope is reused across diagnostics, omissions and per-document records;
+  // indexing once avoids rescanning the whole selection for each item.
+  const selectedPaths = new Set(selection.files);
   const repair = ["format", "normalize"].includes(report.operation);
   if (
     (!repair && report.dryRun) ||
@@ -128,20 +131,17 @@ export function validateQualityResult(report, expected = {}) {
     }
   }
   if (
-    new Set(selection.files).size !== selection.files.length ||
+    selectedPaths.size !== selection.files.length ||
     new Set(selection.reconciliationDecisions.map((d) => d.path)).size !==
       selection.reconciliationDecisions.length
   )
     invalid("Selection contains duplicate identities.");
-  if (report.diagnostics.some((d) => !selection.files.includes(d.path)))
+  if (report.diagnostics.some((d) => !selectedPaths.has(d.path)))
     invalid("Diagnostic does not belong to the selected scope.");
-  if (selection.omissions.some((item) => selection.files.includes(item.path)))
+  if (selection.omissions.some((item) => selectedPaths.has(item.path)))
     invalid("A selected path is also reported omitted.");
   for (const decision of selection.reconciliationDecisions)
-    if (
-      (decision.decision === "selected") !==
-      selection.files.includes(decision.path)
-    )
+    if ((decision.decision === "selected") !== selectedPaths.has(decision.path))
       invalid("Tracked path decision differs from actual selection.");
   if (
     report.operationStatus !== "failed" &&
@@ -154,7 +154,7 @@ export function validateQualityResult(report, expected = {}) {
   if (
     new Set(documentResults.map((record) => record.path)).size !==
       documentResults.length ||
-    documentResults.some((record) => !selection.files.includes(record.path))
+    documentResults.some((record) => !selectedPaths.has(record.path))
   )
     invalid("Document results contain duplicate or unselected identities.");
   // writtenPaths is a projection of confirmed writes, never a second source of truth.
@@ -224,7 +224,7 @@ export function validateQualityResult(report, expected = {}) {
   if (
     report.proposedChanges.some(
       (change) =>
-        !selection.files.includes(change.path) ||
+        !selectedPaths.has(change.path) ||
         change.sourceByteEndExclusive - change.sourceByteStart !==
           change.beforeByteLength,
     )

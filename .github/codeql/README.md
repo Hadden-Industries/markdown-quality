@@ -7,12 +7,14 @@ Other events and checkouts retain their native treatment.
 
 The Actions suite retains the complete default stock query inventory.
 It replaces one query with the same query identity, metadata and body, adding only the model import.
+
 The original query is from [GitHub CodeQL commit a1575b98a8cc19bcfa7bb6cb41be688cb3dae65c](https://github.com/github/codeql/blob/a1575b98a8cc19bcfa7bb6cb41be688cb3dae65c/actions/ql/src/Security/CWE-349/CachePoisoningViaPoisonableStep.ql); its unchanged MIT license is in `actions/LICENSE-MIT.txt`.
 No findings are filtered, dismissed or removed from SARIF.
 JavaScript and Python keep the native default configuration, and release qualification still requires zero raw results.
 
 The required **Validate Actions approval model** job compares query identities, stock bodies and pack versions with the installed native bundle, compiles the production query and runs native QL regression fixtures.
 Tool updates that change this inventory fail closed until the model is reconciled.
+
 The fixture templates use `.yml.fixture`; deliberately unsafe workflows are generated only under the runner's temporary directory, outside the analyzed checkout.
 Frozen expected rows require a real manual caller and include both successful protection and broken approval/input/checkout variants.
 

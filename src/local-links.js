@@ -6,7 +6,7 @@ import { lstatSync, readdirSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { safePath } from "./consumer-root.js";
 import { exceeds, fail, diagnosticExcerpt } from "./contracts.js";
-import { collectAnchors, resolveFragment } from "./anchors.js";
+import { collectAnchors, createFragmentResolver } from "./anchors.js";
 import { qualityRuleDefaults } from "./preset.js";
 import { markdownPathPredicate } from "./documents.js";
 
@@ -37,7 +37,7 @@ export function parseLocalTarget(url) {
   return { rawPath, rawFragment, fragment, malformedFragment };
 }
 
-/** Observe exact directory-entry spelling for every component under the root. */
+/** Index each observed directory once, retaining live lstat checks per component. */
 export function createSpellingObserver(root, budgets) {
   const entries = new Map();
   let observed = 0;
@@ -50,7 +50,13 @@ export function createSpellingObserver(root, budgets) {
           "LINK_LIMIT",
           "Link target spelling observation exceeds the entry limit.",
         );
-      entries.set(directory, names);
+      const folded = new Map();
+      for (const name of names) {
+        const key = name.toLowerCase();
+        // A folded collision is ambiguous; exact spelling still takes precedence.
+        folded.set(key, folded.has(key) ? null : name);
+      }
+      entries.set(directory, { exact: new Set(names), folded });
     }
     return entries.get(directory);
   }
@@ -64,13 +70,11 @@ export function createSpellingObserver(root, budgets) {
     let mismatch = false;
     for (const [index, part] of parts.entries()) {
       const names = list(directory);
-      if (names.includes(part)) expected.push(part);
+      if (names.exact.has(part)) expected.push(part);
       else {
-        const folded = names.filter(
-          (name) => name.toLowerCase() === part.toLowerCase(),
-        );
-        if (folded.length !== 1) return undefined;
-        expected.push(folded[0]);
+        const match = names.folded.get(part.toLowerCase());
+        if (match === undefined || match === null) return undefined;
+        expected.push(match);
         mismatch = true;
       }
       directory = join(directory, expected.at(-1));
@@ -106,6 +110,10 @@ export function checkLocalLinks(context, tree, file, collector, spelling) {
   const fragmentRule = severity(config, "quality/unresolved-local-fragment");
   const caseRule = severity(config, "quality/local-path-case-mismatch");
   const anchors = collectAnchors(tree);
+  let fragmentResolver;
+  // Documents without local fragments need no lookup indexes.
+  const resolveFragment = (fragment) =>
+    (fragmentResolver ??= createFragmentResolver(anchors))(fragment);
   const references = [];
   const push = (rule, level, node, message, at = node.position.start) => {
     if (level === "off") return;
@@ -147,7 +155,7 @@ export function checkLocalLinks(context, tree, file, collector, spelling) {
                 "Local fragment has malformed percent-encoding.",
               );
             else {
-              const verdict = resolveFragment(anchors, target.fragment);
+              const verdict = resolveFragment(target.fragment);
               if (verdict !== "resolved")
                 fragmentFinding(
                   node,
@@ -188,7 +196,7 @@ export function checkLocalLinks(context, tree, file, collector, spelling) {
               node.position.start,
             );
           else {
-            const verdict = resolveFragment(anchors, target.fragment);
+            const verdict = resolveFragment(target.fragment);
             if (verdict !== "resolved")
               fragmentFinding(
                 node,

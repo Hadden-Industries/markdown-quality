@@ -12,10 +12,45 @@ import { testFiles } from "./verification-suites.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
 if (
   process.argv.length > 3 ||
-  (process.argv[2] && !["--product", "--runtime"].includes(process.argv[2]))
+  (process.argv[2] &&
+    !["--product", "--runtime", "--source", "--qualification"].includes(
+      process.argv[2],
+    ))
 )
-  throw new Error("Use check:full or check:product.");
+  throw new Error(
+    "Use check:full, check:product, check:runtime, check:source or check:qualification.",
+  );
 const productOnly = process.argv[2] === "--product";
+const qualificationOnly = process.argv[2] === "--qualification";
+function checkSourceQuality() {
+  if (
+    digest(readFileSync(new URL("../LICENSE", import.meta.url))) !==
+    "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
+  )
+    throw new Error("Original AGPL-3.0-only license bytes changed.");
+  node(["scripts/project-package-version.js", "--check"]);
+  node(["scripts/project-node-support.js", "--check"]);
+  node(["scripts/check-workflows.js"]);
+  node(["scripts/check-architecture.js"]);
+  npmCommand(["run", "format:code:check"], {
+    cwd: root,
+    stdio: "inherit",
+    timeout: 600_000,
+  });
+  if (!productOnly) {
+    npmCommand(["run", "lint:json:identity"], {
+      cwd: root,
+      stdio: "inherit",
+      timeout: 600_000,
+    });
+  }
+}
+// The source stage needs only the locked Node toolchain. Qualification retains
+// its Python admission and every native/producer check.
+if (process.argv[2] === "--source") {
+  checkSourceQuality();
+  process.exit(0);
+}
 const python = repositoryPython(root);
 // Reject an unsupported interpreter before launching any verification checks.
 const pythonRuntime = spawnSync(python, pythonProbeArgs(), {
@@ -74,16 +109,16 @@ if (process.argv[2] === "--runtime") {
   ]);
   process.exit(0);
 }
-if (
-  digest(readFileSync(new URL("../LICENSE", import.meta.url))) !==
-  "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
-)
-  throw new Error("Original AGPL-3.0-only license bytes changed.");
+if (!qualificationOnly) checkSourceQuality();
 resolveTool();
-node(["scripts/project-package-version.js", "--check"]);
-node(["scripts/project-node-support.js", "--check"]);
-node(["scripts/check-workflows.js"]);
-node(["scripts/check-architecture.js"]);
+node([
+  "src/cli.js",
+  "check",
+  "--reconcile-inventory",
+  "git",
+  "--diagnostic-display-level",
+  "warning",
+]);
 const nativeEvidence = spawnSync(python, ["test/native-evidence.py"], {
   cwd: root,
   stdio: "inherit",
@@ -113,25 +148,11 @@ for (const folder of ["src", "scripts", "test"])
     new URL("../" + folder + "/", import.meta.url),
   ))
     if (/\.(?:js|mjs|cjs)$/u.test(path)) node(["--check", folder + "/" + path]);
-npmCommand(["run", "format:code:check"], {
-  cwd: root,
-  stdio: "inherit",
-  timeout: 600_000,
-});
 node(["--test", "--test-reporter=./scripts/test-outcomes.js", ...testFiles()]);
-node([
-  "src/cli.js",
-  "check",
-  "--reconcile-inventory",
-  "git",
-  "--diagnostic-display-level",
-  "warning",
-]);
 if (!productOnly) {
   // JSON integration checks admit the actual packed tuple, including its
   // generated manifests; produce those inputs before the first consumer.
   node(["scripts/qualify-json-packages.mjs"]);
-  node(["scripts/lint-json-identity.mjs"]);
   node([
     "--test",
     ...readdirSync(new URL("../test/json-tooling/", import.meta.url))
