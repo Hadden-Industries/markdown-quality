@@ -15,7 +15,7 @@ See [CI and tooling](#ci-and-tooling) to update the pin or reproduce the test ma
 Compatibility floor: Node >=22.13.0.
 Tested LTS families: 22, 24, 26.
 Other engine-compatible releases receive best-effort compatibility.
-Producer npm: 12.2.1; consumer npm: 11.21.1.
+Producer npm: 12.2.2; consumer npm: 11.21.2.
 
 Development/release reference: 26.13.0.
 
