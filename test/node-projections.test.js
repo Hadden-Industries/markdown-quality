@@ -39,7 +39,7 @@ test("one policy edit projects engines and bootstrap pins while preserving dynam
     devEngines: {
       packageManager: {
         name: "npm",
-        version: ">=14.7.3 <15",
+        version: ">=14.7.3",
         onFail: "error",
       },
     },

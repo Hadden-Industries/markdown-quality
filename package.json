@@ -145,7 +145,7 @@
   "devEngines": {
     "packageManager": {
       "name": "npm",
-      "version": ">=12.2.2 <13",
+      "version": ">=12.2.2",
       "onFail": "error"
     }
   }

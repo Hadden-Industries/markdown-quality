@@ -15,10 +15,7 @@ const production = Object.entries(
 ).filter(([path, entry]) => path && !entry.dev);
 
 // Older release manifests carry their original explicit development range.
-export function producerNpmRange({
-  version,
-  range = `>=${version} <${semver.major(version) + 1}`,
-}) {
+export function producerNpmRange({ version, range = `>=${version}` }) {
   return range;
 }
 
