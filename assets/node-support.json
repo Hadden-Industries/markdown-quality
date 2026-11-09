@@ -13,8 +13,7 @@
     "windows-2025"
   ],
   "producerNpm": {
-    "version": "12.2.2",
-    "range": ">=12.2.2 <13"
+    "version": "12.2.2"
   },
   "support": {
     "otherEngineCompatibleReleases": "best-effort"

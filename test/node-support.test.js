@@ -29,7 +29,7 @@ const policy = {
   preLtsMajors: [],
   reference: "24.21.0",
   platforms: ["ubuntu-24.04", "windows-2025"],
-  producerNpm: { version: "12.2.1", range: ">=12.2.1 <13" },
+  producerNpm: { version: "12.2.1", range: "~12.2.1" },
   consumerNpm: "11.21.1",
   support: { otherEngineCompatibleReleases: "best-effort" },
 };
@@ -142,6 +142,10 @@ test("floor policy projects metadata and documentation idempotently", () => {
   };
   const projected = projectNodeSupport(files, policy);
   assert.equal(JSON.parse(projected["package.json"]).engines.node, ">=22.13.0");
+  assert.equal(
+    JSON.parse(projected["package.json"]).devEngines.packageManager.version,
+    "~12.2.1",
+  );
   assert.deepEqual(JSON.parse(projected["package.json"]).dependencies, {
     x: "1.0.0",
   });

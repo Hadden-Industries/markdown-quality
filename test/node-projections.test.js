@@ -29,16 +29,17 @@ test("one policy edit projects engines and bootstrap pins while preserving dynam
     ...nodeSupport,
     minimum: "22.14.1",
     reference: "24.8.4",
+    producerNpm: { version: "14.7.3" },
   };
   const result = projectNodeSupport(source, changed);
   assert.deepEqual(JSON.parse(result["package.json"]), {
     engines: { node: ">=22.14.1", npm: ">=12" },
     name: "sentinel",
-    packageManager: `npm@${nodeSupport.producerNpm.version}`,
+    packageManager: "npm@14.7.3",
     devEngines: {
       packageManager: {
         name: "npm",
-        version: nodeSupport.producerNpm.range,
+        version: ">=14.7.3 <15",
         onFail: "error",
       },
     },

@@ -14,6 +14,14 @@ const production = Object.entries(
     .packages,
 ).filter(([path, entry]) => path && !entry.dev);
 
+// Older release manifests carry their original explicit development range.
+export function producerNpmRange({
+  version,
+  range = `>=${version} <${semver.major(version) + 1}`,
+}) {
+  return range;
+}
+
 /** Installability is a floor; the explicit LTS policy owns qualification. */
 export function validatePolicy(policy) {
   assert.equal(policy.schemaVersion, 2);
@@ -59,7 +67,10 @@ export function validatePolicy(policy) {
     assert.equal(semver.prerelease(version), null);
   }
   assert.ok(
-    semver.satisfies(policy.producerNpm.version, policy.producerNpm.range),
+    semver.satisfies(
+      policy.producerNpm.version,
+      producerNpmRange(policy.producerNpm),
+    ),
   );
   assert.ok(Array.isArray(policy.platforms) && policy.platforms.length > 0);
   assert.equal(new Set(policy.platforms).size, policy.platforms.length);
