@@ -686,10 +686,22 @@ test("interrupted partial draft resumes only missing verified assets", async (t)
   );
   assert.ok(!provider.calls.some((a) => a[1] === "create"));
 });
-test("published immutable release recovery verifies without repeat external writes", async (t) => {
+test("published immutable release recovery works without repository administration access", async (t) => {
   const f = fixture(t, true);
-  const provider = providerAdapter(f, { existing: existingRelease(f, false) });
-  await deliverRelease({ ...f, gh: provider.gh, registry: async () => {} });
+  const provider = providerAdapter(f, {
+    existing: existingRelease(f, false),
+    fail: (args) => args[1]?.endsWith("/immutable-releases"),
+  });
+  const result = await deliverRelease({
+    ...f,
+    gh: provider.gh,
+    registry: async () => {},
+  });
+  assert.equal(result.immutable, true);
+  assert.equal(
+    provider.calls.filter((a) => a[1] === "verify-asset").length,
+    f.assets.length,
+  );
   assert.ok(
     !provider.calls.some((a) => ["create", "upload", "edit"].includes(a[1])),
   );

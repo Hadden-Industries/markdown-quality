@@ -91,12 +91,13 @@ export async function deliverRelease({
     });
     return reference;
   };
-  const checkContext = () => {
+  const checkImmutability = () =>
     assert.equal(
       api("immutable-releases").enabled,
       true,
       "Enable repository release immutability first",
     );
+  const checkContext = () => {
     checkTag();
     for (const expected of [qualified.candidate, qualified.publication]) {
       const path = `actions/runs/${expected.run}/attempts/${expected.attempt}`;
@@ -107,7 +108,6 @@ export async function deliverRelease({
     }
   };
   checkContext();
-  await registry(qualified, directory);
   // GitHub's REST tag endpoint excludes drafts. Successful native GraphQL
   // lookup admits absence without treating permission/network failures as 404.
   const lookup = () => {
@@ -129,6 +129,10 @@ export async function deliverRelease({
     return api(`releases/${found.databaseId}`);
   };
   let release = lookup();
+  // Only draft writes require the repository setting. Recovery verifies the
+  // published release's own immutability and attestations using the job token.
+  if (release === null || release.draft) checkImmutability();
+  await registry(qualified, directory);
   if (release === null) {
     const notes = join(evidenceDirectory, "notes.md");
     writeFileSync(
@@ -204,6 +208,7 @@ export async function deliverRelease({
         asset.sha256,
       );
     checkContext();
+    checkImmutability();
     verifyBundle(qualified, directory, gitSource(qualified, cwd));
     verifyInventory(api(`releases/${id}`), assets);
     call([

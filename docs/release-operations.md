@@ -220,6 +220,11 @@ The separate `archive` job has contents-write permission through main-only `gith
 The existing writer checks fresh registry bytes, signed tag, completed providers and repository immutability.
 It uploads only missing matching draft assets, downloads every draft asset for byte verification, then publishes an immutable prerelease with latest disabled.
 
+GitHub requires repository Administration read access to inspect the immutability setting before a draft write.
+If the archive job's token cannot read it, authenticate `gh` locally as a repository administrator and acquire the verified `archive-inputs-ATTEMPT` artifact.
+Run `node scripts/github-release.js archive-inputs/qualification.json archive-inputs/bundle archive-journal` with those original inputs and a new journal directory.
+Dispatch archival again with the same inputs after the release is immutable. The hosted job verifies the published release and assets without making draft writes.
+
 It requires native `gh release verify` and `gh release verify-asset` for every asset plus complete final readback.
 Unexpected or changed assets stop delivery; no clobber operation exists.
 Keep `qualification.json` and its digest from `archive-inputs-ATTEMPT` for promotion.
