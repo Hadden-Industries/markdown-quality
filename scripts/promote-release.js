@@ -5,7 +5,9 @@ import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { setTimeout as delay } from "node:timers/promises";
 import { npmCliPath, npmCommand, native } from "./commands.js";
+import { budgets } from "./qualification-budgets.js";
 import { gitSource } from "./github-release.js";
 import {
   hash,
@@ -28,6 +30,8 @@ const packages = [
   "@hadden-industries/markdown-quality-linux-x64",
   "@hadden-industries/markdown-quality",
 ];
+const npmTagReadbackBudgetMs = 300_000;
+const npmTagReadbackMaxDelayMs = 16_000;
 
 export function verifyPromotionLabels(labels, version, previous) {
   assert.equal(semver.valid(version), version);
@@ -51,18 +55,36 @@ export async function promoteNpmLabels({
   readLabels,
   command = npmCommand,
   record = () => {},
+  sleep = delay,
+  now = () => performance.now(),
 }) {
-  let labels = await readLabels();
-  verifyPromotionLabels(labels, version, previous);
+  const requiredTargets = new Set();
+  const observeLabels = async () => {
+    const deadline = now() + npmTagReadbackBudgetMs;
+    let backoff = 1_000;
+    for (;;) {
+      const labels = await readLabels(deadline);
+      verifyPromotionLabels(labels, version, previous);
+      const pending = [...requiredTargets].filter(
+        (name) => labels[name] !== version,
+      );
+      const remaining = deadline - now();
+      if (remaining > 0 && pending.length === 0) return labels;
+      if (remaining > 0) await sleep(Math.min(backoff, remaining));
+      if (now() >= deadline) {
+        assert.fail(
+          "Tag update outcome unresolved within five minutes; inspect native registry state before resuming",
+        );
+      }
+      backoff = Math.min(backoff * 2, npmTagReadbackMaxDelayMs);
+    }
+  };
+  await observeLabels();
   for (const name of packages) {
-    // Re-read all labels before each effect; never overwrite a concurrent new
-    // stable release or expose core while either native label is still old.
-    labels = await readLabels();
-    verifyPromotionLabels(labels, version, previous);
-    if (name === packages[2])
-      for (const nativePackage of packages.slice(0, 2))
-        assert.equal(labels[nativePackage], version);
+    // Require all earlier targets to be visible before advancing the next label.
+    const labels = await observeLabels();
     if (labels[name] === version) {
+      requiredTargets.add(name);
       record({ state: "observed-target", package: name, version });
       continue;
     }
@@ -80,38 +102,52 @@ export async function promoteNpmLabels({
         "latest",
         "--registry=https://registry.npmjs.org/",
       ]);
-      const observed = await readLabels();
-      verifyPromotionLabels(observed, version, previous);
-      assert.equal(
-        observed[name],
-        version,
-        "Tag update outcome unresolved; inspect native registry state before resuming",
-      );
+      requiredTargets.add(name);
+      await observeLabels();
       record({ state: "verified", package: name, version });
     } catch (error) {
       record({ state: "outcome-unknown", package: name, target: version });
       throw error;
     }
   }
-  labels = await readLabels();
-  for (const name of packages) assert.equal(labels[name], version);
-  return labels;
+  return observeLabels();
 }
 
 /** The native npm command owns the registry protocol and OIDC exchange. */
-function readNpmLabels() {
+export function readNpmLabels(deadline, command = npmCommand) {
   return Object.fromEntries(
     packages.map((name) => {
-      const tags = JSON.parse(
-        npmCommand([
-          "view",
-          name,
-          "dist-tags",
-          "--json",
-          "--registry=https://registry.npmjs.org/",
-        ]),
+      const remaining =
+        deadline === undefined
+          ? budgets.read
+          : Math.floor(deadline - performance.now());
+      assert.ok(remaining > 0, "npm tag readback budget exhausted");
+      const output = JSON.parse(
+        command(
+          [
+            "view",
+            name,
+            "dist-tags",
+            "--json",
+            "--prefer-online",
+            "--registry=https://registry.npmjs.org/",
+          ],
+          { timeout: Math.min(remaining, budgets.read) },
+        ),
       );
-      return [name, tags.latest];
+      const results = Array.isArray(output) ? output : [output];
+      assert.equal(
+        results.length,
+        1,
+        `Expected one npm tag result for ${name}`,
+      );
+      const latest = results[0]?.latest;
+      assert.equal(
+        typeof latest,
+        "string",
+        `Missing npm latest tag for ${name}`,
+      );
+      return [name, latest];
     }),
   );
 }
@@ -218,20 +254,21 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     ),
     "Unexpected GitHub latest; reconcile before promotion",
   );
+  let labels = readNpmLabels();
   verifyPromotionLabels(
-    readNpmLabels(),
+    labels,
     qualified.version,
     process.env.PRIOR_NPM_VERSION,
   );
   if (phase === "npm") {
-    await promoteNpmLabels({
+    labels = await promoteNpmLabels({
       version: qualified.version,
       previous: process.env.PRIOR_NPM_VERSION,
       readLabels: readNpmLabels,
       record,
     });
   } else if (phase === "github") {
-    const labels = readNpmLabels();
+    labels = readNpmLabels();
     for (const name of packages)
       assert.equal(
         labels[name],
@@ -249,12 +286,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
         "--latest",
       ]);
     release = verifyArchive();
-    verifyStableCompletion(
-      readNpmLabels(),
-      release,
-      api("releases/latest"),
-      qualified,
-    );
+    labels = readNpmLabels();
+    verifyStableCompletion(labels, release, api("releases/latest"), qualified);
   }
   const result = {
     schemaVersion: 1,
@@ -263,7 +296,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     source: qualified.source,
     manifestSha256: qualified.manifestSha256,
     qualificationSha256: hash(qualifiedBytes),
-    labels: readNpmLabels(),
+    labels,
     releaseId: release.id,
     prerelease: release.prerelease,
     wholeReleaseComplete: phase === "github",
