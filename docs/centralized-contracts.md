@@ -16,7 +16,7 @@ Diagnostic byte/count and final output quotas still apply to complete expanded e
 | `maxPathDiagnosticCodePoints` |     300 | Keep complete case-mismatch path excerpts.                                        |
 | `nativeThreads`               |       1 | Leave Rayon scheduling to the native runtime without a package thread constraint. |
 
-These version 3.0.0 source contracts retain the producer centralization boundaries and add explicit CLI effects and candidate identities.
+These version 3.0.1 source contracts retain the producer centralization boundaries, explicit CLI effects and candidate identities introduced in 3.0.0.
 They are separate from published 1.x releases, hosted qualification, and consumer adoption acceptance.
 The latest producer commit can be adopted after its exact transported tuple is qualified; npm publication and a new release are not prerequisites.
 

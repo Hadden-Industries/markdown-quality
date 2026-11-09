@@ -1,8 +1,9 @@
 # JSON development checks
 
-Markdown Quality declares `@hadden-industries/json-quality` as an ordinary `>=1.0.0-rc.2` devDependency in the root [package.json](../package.json).
+Markdown Quality declares `@hadden-industries/json-quality` as an ordinary `>=1.0.0` devDependency in the root [package.json](../package.json).
 Root `npm ci --ignore-scripts` installs it and its matching optional platform package using the root npm lockfile.
 Npm owns dependency resolution and package integrity, as it does for the other development dependencies.
+The current lockfile resolves the published npmjs 1.0.0 core and platform family.
 
 It is development tooling, outside product dependencies, exports and npm contents.
 The package's public API owns discovery, parsing, quality rules, formatting, normalization, budgets, guarded writes and streamed completion.
@@ -17,29 +18,35 @@ The source-only adoption does not republish immutable npm 1.0.3.
 
 ```sh
 npm ci --ignore-scripts
-npm run check:json
 npm run lint:json:identity
-npm run test:json
 npm run qualify:json:packages
+npm run test:json
+npm run check:json
 ```
 
+`qualify:json:packages` prepares the package archives and manifests used by the repository CLI test and the complete JSON check.
 `check:json` runs the complete `check`, including protected presentation; the former `inspect:json` and `format:json:check` scripts are removed.
 The retired `inventory`, `lint`, `check-format`, `format-check` and `producers` operations fail without aliases.
 The adapter fixes the repository root.
 
-The engine uses configuration/event cohort 3 and newline-delimited events with `--json`.
-The adapter's `openRepositoryJsonSession()` streams `events()`; consume the final `execution-terminal` and close the session in `finally`.
+The engine uses cohort 6, configuration schema 4, event schema 5 and native protocol 5, with newline-delimited events selected by `--ndjson`.
+The adapter's `openRepositoryJsonSession()` streams `check()`; consume the final `execution-terminal` and close the session in `finally`.
 Whole-document aggregate results and request/response envelopes are retired.
-Supplied bytes use `openJsonSourceSession()` with a trusted source opener and source contract.
+For supplied bytes, follow the installed package's `openJsonSourceSession()` contract.
 
-Literal writer selection follows `--`; normalization requires a nonempty writable selection.
+Policy admission uses `resolveJsonQualityPolicy()` and path contracts use `resolveJsonSourceContract()`.
+The repository policy migrates `allowFormatWrites`, `preserveNfcValues` and `exclude` to `allowSourceRewrites`, `nfcExemptStringValues` and `excludeUntrackedSources`.
+Exact value pins, protected presentation, tracked-source visibility and native authority checks retain their existing meaning.
+
+Filesystem repairs require `--write` or `--dry-run`; the `format:json` and `normalize:json` scripts select `--write` explicitly.
+Literal writer selection follows `--`; an explicitly empty selection is refused, and normalization requires a nonempty writable selection.
 Checking always covers complete owned physical/native scope and cannot be filtered through the retired `--files` option.
 These JSON-tool spellings do not change Markdown Quality's own CLI.
 
 Policy and API `capacityLimits` correspond to CLI `--capacity-limits` / `--no-capacity-limits`.
-For example, `npm run check:json -- --max-file-bytes 67108864 --json` checks the complete scope with a finite source-admission override.
+For example, `npm run check:json -- --max-source-bytes 67108864 --ndjson` checks the complete scope with a finite source-admission override.
 
-`capacityLimits: false` / `--no-capacity-limits` removes admission ceilings while preserving finite runtime controls, quality rules and write safeguards; it cannot be combined with individual admission overrides.
+`capacityLimits: false` / `--no-capacity-limits` removes admission ceilings while preserving finite runtime controls, quality rules and write safeguards; an explicit scalar override re-enables its named quota.
 The ordinary managed-memory target remains 32 MiB, with separate finite scratch, nesting, elapsed-time and concurrency controls.
 Use the installed package's `docs/resource-limits.md` for the complete settings and defaults.
 
@@ -54,8 +61,8 @@ Semantic object comparisons use structural equality, while the established candi
 
 ## Scope and exact preservation
 
-The owner's directory exclusion covers npm installation trees, including nested dependencies.
-Archive member identities use their archive path and remain mandatory even when their member name contains `node_modules`.
+JSON Quality's built-in policy excludes untracked npm installation trees, including nested dependencies.
+The core tarball's bundled dependency files have their own archive checks, described below.
 Hidden, ignored, untracked, generated, repository-administrative and newly added JSON remains in scope elsewhere.
 
 Repository-owned tracked installation JSON remains checked and write-protected rather than disappearing behind that exclusion.
@@ -72,8 +79,11 @@ Their containing source archive is SHA-256 `252156d485d814a0b00d4ae9a6ea1a8dc704
 Membership and bytes were independently verified inside the registry-SRI-checked immutable [Linux npm 1.0.3 archive](https://registry.npmjs.org/@hadden-industries/markdown-quality-linux-x64/-/markdown-quality-linux-x64-1.0.3.tgz) and [Windows npm 1.0.3 archive](https://registry.npmjs.org/@hadden-industries/markdown-quality-win32-x64/-/markdown-quality-win32-x64-1.0.3.tgz).
 Semantic checks still apply to these original members; the native supplier rejects changed identity.
 
-Bundled dependency JSON in the actual core archive also retains upstream presentation after complete native archive membership, size and hash reconciliation with the staged inventory.
-This preserves original publisher bytes while keeping every strict semantic check; it grants no check exclusion or generic write authority.
+The archive reader verifies the exact staged path, size and hash of every bundled file.
+Bundled `package.json` files must be UTF-8 JSON objects with unique keys.
+The same check covers the ESLint rule replacements and Ajv schemas used by Markdown linting.
+The bundle stage verifies manifest metadata against the npm lock and records any intentional manifest repairs before packing.
+Other bundled files retain their staged bytes and receive the same archive integrity checks.
 
 Exact generated native documents use their producer's JSON indentation contract and receive all semantic checks.
 Two original Linux crate-author strings retain their exact decoded NFC exceptions by JSON pointer, UTF-8 byte length and SHA-256; no whole-file normalization waiver applies.
@@ -91,7 +101,7 @@ Conflicting values, other duplicate names and non-JSON constants fail before rep
 Fresh artifacts must be built, frozen, reconciled and qualified; previously published archives are never edited in place.
 
 The real package qualifier packs the core and both native packages into `dist/json-qualification`.
-The native archive reader reconciles complete tar membership, member sizes and hashes against the actual staged inventory before streaming JSON payloads to the shared analyzer.
+The native archive reader reconciles complete tar membership, member sizes and hashes against the actual staged inventory before streaming Markdown Quality's packed JSON to the shared analyzer.
 It rejects traversal, links, case aliases, duplicates and excessive compressed or expanded input.
 
 The supplier has separate authority, inventory and document streams, with one child process active at a time.

@@ -31,7 +31,10 @@ const release = join(root, "dist/json-qualification/release-manifest.json");
 if (existsSync(release))
   for (const archive of JSON.parse(readFileSync(release, "utf8")).archives)
     for (const member of archive.files)
-      if (/\.(?:json|jsonld|sarif)$/iu.test(member.path))
+      if (
+        /\.(?:json|jsonld|sarif)$/iu.test(member.path) &&
+        !(archive.name === "core" && member.path.startsWith("node_modules/"))
+      )
         expected.add(
           `dist/json-qualification/${archive.filename}!/package/${member.path}`,
         );

@@ -1,6 +1,6 @@
 # Consumer guide
 
-This guide describes the 3.0.0 source candidate: configuration schema 3, preset `authored-gfm@2` and result schema 5.
+This guide describes the 3.0.1 source candidate: configuration schema 3, preset `authored-gfm@2` and result schema 5.
 Publication and complete supported-platform qualification remain separate release steps.
 Published 1.x archives are immutable and keep their previous behavior; the [migration guide](migration-guide.md) maps old names to these contracts.
 
@@ -22,11 +22,11 @@ Bundlers must honor package exports and use their Node.js target when bundling S
 ## Installation
 
 ```sh
-npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.0
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.1
 npm exec -- markdown-quality check --root .
 ```
 
-Use this example after 3.0.0 is released; pin the exact qualified version rather than relying on mutable `pilot` or `latest` tags.
+Use this example after 3.0.1 is released; pin the exact qualified version rather than relying on mutable `pilot` or `latest` tags.
 No configuration file is required.
 A local dependency does not put a bare `markdown-quality` executable on every shell's PATH; use [npm exec](https://docs.npmjs.com/cli/v11/commands/npm-exec/) or an npm script.
 

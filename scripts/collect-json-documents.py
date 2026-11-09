@@ -150,6 +150,10 @@ def admitted_documents():
         pin = identity(path, source)
         del source
         for member in members:
+            # Core bundle bytes already passed exact archive admission and any
+            # required third-party JSON content checks in the archive owner.
+            if item["name"] == "core" and member.name.startswith(archive_owner.BUNDLED_PREFIX):
+                continue
             if member.name.lower().endswith((".json", ".jsonld", ".sarif")):
                 yield path, member.name, bodies[member.name], pin
             elif member.name.lower().endswith(

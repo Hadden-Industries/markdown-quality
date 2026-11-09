@@ -3,7 +3,7 @@
 Start with the [manual workflow sequence](#manual-workflow-sequence) for a new release.
 If a stage, publication or label update may already have occurred, read [promotion and recovery](#stable-promotion-and-recovery) before issuing another request.
 
-The current source selects the 3.0.0 package family; this is not publication or release acceptance.
+The current source selects the 3.0.1 package family; this is not publication or release acceptance.
 Select the version once in root `package.json`, run `npm run sync:version`, and admit `npm run check:version` before freezing or packing.
 
 Projection changes only companion/lock versions, preserving dependency resolution, retained Snapper bytes, rights provenance and policy identity.

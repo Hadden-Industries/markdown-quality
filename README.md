@@ -7,10 +7,10 @@ A repository can start with the defaults and no configuration file.
 ## Install and run
 
 From the repository root, install the exact version you intend to use.
-This example targets the 3.0.0 contract.
+This example targets the 3.0.1 contract.
 
 ```sh
-npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.0
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.1
 npm exec -- markdown-quality check --root .
 ```
 
@@ -18,7 +18,7 @@ The check reads the selected documents and prints findings on stderr.
 Exit `0` means the check completed without blockers.
 See [exit and status](#exit-and-status) for refusals and operational failures.
 
-This documentation describes the 3.0.0 source candidate.
+This documentation describes the 3.0.1 source candidate.
 Use the installation example with a published, qualified version matching the documented contract.
 Releases are first published under npm's `pilot` tag and move to `latest` only after pilot acceptance and stable promotion.
 

@@ -11,9 +11,10 @@ Public release, semver selection, registry qualification and `latest` promotion 
 The [centralized contracts guide](centralized-contracts.md) describes configuration schema 3, result schema 5, execution schema 2, comparison schema 3 and the shared trusted qualification/profile contract.
 Local source tests do not establish hosted Windows/Linux qualification or downstream acceptance of a new tuple.
 
-The selected 3.0.0 source candidate requires explicit physical repair modes, adds real format preview and raw UTF-8 stdin, moves human output to stderr and defaults to result 5.
+The selected 3.0.1 source candidate retains explicit physical repair modes, real format preview and raw UTF-8 stdin, human output on stderr and default result schema 5.
 It preserves the 2.0 policy, preset, configuration, runtime floor and retained Snapper executable bytes.
-All three npm packages select 3.0.0 together; this is version selection, not publication, activation, promotion or release acceptance.
+It includes compatible report-validation and performance repairs and adopts JSON Quality 1.0.0 for development tooling.
+All three npm packages select 3.0.1 together; this is version selection, not publication, activation, promotion or release acceptance.
 
 ## Supported runtimes and platforms
 
@@ -112,7 +113,7 @@ An upstream Cargo lock is a superset of features and development inputs and does
 The original upstream license and per-asset repack identity are retained.
 
 The owner selected public distribution after npm rejected the private publication with E402.
-All three packages declare public access and select candidate version 3.0.0.
+All three packages declare public access and select candidate version 3.0.1.
 Its native packages carry the `snapper-0.11.9-build.2` executables from native run `38742809829`: the Linux executable is byte-identical to its reconciled predecessor and the Windows rebuild keeps the same system DLL imports.
 
 The published 1.0.3 tuple retained alpha.4's qualified native executable/source/notice bytes and added bounded request-local reuse, native checking batches and exact-input check-first formatting while retaining independent prose checks and preservation/convergence checks.

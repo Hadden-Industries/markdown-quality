@@ -7,7 +7,7 @@ import { replaceDocument } from "../src/replacement.js";
 import { digest } from "../src/contracts.js";
 import {
   formatJsonSource,
-  JSON_TRANSFORM_CAPABILITIES,
+  DEFAULT_JSON_TRANSFORM_LIMITS,
 } from "@hadden-industries/json-quality";
 import { provideRepositoryJson } from "./native-json-documents.mjs";
 
@@ -50,7 +50,7 @@ await visitNative(
     if (
       !pin ||
       BigInt(pin.byteLength) >
-        BigInt(JSON_TRANSFORM_CAPABILITIES.maximumSourceBytes)
+        BigInt(DEFAULT_JSON_TRANSFORM_LIMITS.maximumSourceBytes)
     )
       throw new Error(
         "Incumbent exceeds the explicit finite writer capability.",
@@ -89,7 +89,7 @@ if (inputs.length !== 2 || pins.size !== 2)
 for (const input of inputs) {
   const formatted = await formatJsonSource(
     new TextDecoder("utf-8", { fatal: true }).decode(input.bytes),
-    { runtimeControls: { managedMemoryTargetBytes: writerMemoryBytes } },
+    { runtimeControls: { maxManagedMemoryBytes: writerMemoryBytes } },
   );
   input.bytes = undefined;
   changes.push({

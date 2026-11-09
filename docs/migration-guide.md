@@ -2,14 +2,27 @@
 
 Choose the section for the version you are upgrading **from**.
 
+- **3.0.0 consumers** retain their CLI, SDK and configuration contracts.
+  See [the 3.0.1 repairs](#from-300-to-301).
 - **2.x consumers** can keep configuration schema 3.
   Start with [CLI, SDK and report changes in 3.0](#from-20-to-30).
 - **1.x consumers and users of development schema 2** should apply the [2.0 configuration and contract changes](#from-1x-to-20) first.
   If your destination is 3.0, continue with [the 3.0 changes](#from-20-to-30).
 
+## From 3.0.0 to 3.0.1
+
+Version 3.0.1 is the selected source candidate; this guide does not establish publication or release acceptance.
+No CLI, SDK, configuration, preset or contract-version migration is required from 3.0.0.
+Successful and quality-refused reports require complete policy and resource evidence; failed admission can still report unavailable policy metadata.
+The result schema remains version 5, with its logical identifier corrected to that version.
+Fragment resolution, NFC planning, change reporting and path spelling avoid repeated work while retaining their existing findings and preservation rules.
+
+Repository contributors now use JSON Quality 1.0.0 with configuration schema 4, event schema 5 and cohort 6.
+See [JSON development checks](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/json-quality.md) for the repository tooling migration.
+
 ## From 2.0 to 3.0
 
-Version 3.0.0 is the selected source candidate; this guide does not establish publication or release acceptance.
+The 3.0 CLI and SDK contracts introduced the following major-version changes, retained by the 3.0.1 candidate.
 Configuration schema 3, `authored-gfm@2`, execution schema 2, comparison schema 3 and Snapper 0.11.9 are retained.
 
 - Import the SDK from Node.js code only; the package root now explicitly rejects browser and unmatched resolver environments.
