@@ -226,6 +226,7 @@ Run `node scripts/github-release.js archive-inputs/qualification.json archive-in
 Dispatch archival again with the same inputs after the release is immutable. The hosted job verifies the published release and assets without making draft writes.
 
 It requires native `gh release verify` and `gh release verify-asset` for every asset plus complete final readback.
+Empty performance stderr logs are verified in the retained bundle and listed with their zero size and digest in the evidence manifest. GitHub receives the nonempty logs as release assets.
 Unexpected or changed assets stop delivery; no clobber operation exists.
 Keep `qualification.json` and its digest from `archive-inputs-ATTEMPT` for promotion.
 

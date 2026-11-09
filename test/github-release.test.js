@@ -706,6 +706,37 @@ test("published immutable release recovery works without repository administrati
     !provider.calls.some((a) => ["create", "upload", "edit"].includes(a[1])),
   );
 });
+test("empty performance stderr remains bound without a zero-byte release asset", (t) => {
+  const f = fixture(t, true);
+  const emptyLog = "performance-ubuntu-24.04-owlapi-1.driver.stderr.txt";
+  const nonemptyLog = "performance-ubuntu-24.04-owlapi-2.driver.stderr.txt";
+  const empty = Buffer.alloc(0);
+  const nonempty = Buffer.from("Driver diagnostic\n");
+  for (const [name, bytes] of [
+    [emptyLog, empty],
+    [nonemptyLog, nonempty],
+  ]) {
+    writeFileSync(join(f.input, name), bytes);
+    f.qualified.evidence[name] = hash(bytes);
+  }
+  const bundle = join(f.input, "..", "bundle-with-performance");
+  const assets = prepareGithubRelease(f.qualified, f.input, bundle, f.cwd);
+  assert.ok(!assets.some(({ name }) => name === emptyLog));
+  assert.ok(assets.some(({ name }) => name === nonemptyLog));
+  assert.deepEqual(readFileSync(join(bundle, emptyLog)), empty);
+  const evidence = JSON.parse(
+    readFileSync(join(bundle, "release-evidence-manifest.json")),
+  );
+  assert.deepEqual(
+    evidence.payloads.find(({ name }) => name === emptyLog),
+    {
+      name: emptyLog,
+      size: 0,
+      sha256: hash(empty),
+      packageSource: f.qualified.source,
+    },
+  );
+});
 for (const defect of [
   "disabled immutability",
   "wrong tag",

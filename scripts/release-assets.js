@@ -403,7 +403,16 @@ export function verifyBundle(qualified, directory, sourceArchive) {
     readdirSync(directory).sort(),
     assets.map((a) => a.name).sort(),
   );
-  return assets;
+  // GitHub refuses empty uploads. Keep empty performance stderr in the
+  // verified bundle and evidence manifest so the original bytes stay bound.
+  return assets.filter(
+    (asset) =>
+      !(
+        asset.size === 0 &&
+        asset.name.startsWith("performance-") &&
+        asset.name.endsWith(".stderr.txt")
+      ),
+  );
 }
 
 export function verifyInventory(release, assets, allowMissing = false) {
