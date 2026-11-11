@@ -11,6 +11,8 @@ To resolve findings, see [local links and fragments](#links-fragments-path-case-
 
 The CLI and SDK require Node.js, filesystem access and the [supported platform-native executables](support-and-release.md).
 Use the package in local development, builds and CI, including as a development dependency of a frontend project.
+Follow the [consumer runtime policy](node-runtime-compatibility.md#consumer-bounds); Markdown Quality's own contributor npm floor does not become a requirement of your project.
+Packed-package qualification uses a separate consumer npm against the shipped graph.
 
 Import the SDK only from Node.js code; browser execution is unsupported and remains a separate future feature.
 The root export selects `./src/quality.js` for the `node` condition and rejects `browser` or unmatched environments with a `null` target.

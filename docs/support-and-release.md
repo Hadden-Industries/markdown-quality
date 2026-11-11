@@ -23,9 +23,12 @@ Other engine-compatible major releases receive best-effort support without a man
 The [runtime compatibility record](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/node-runtime-compatibility.md) explains the lower bounds and distinguishes compatibility from security patch recommendations.
 The qualification matrix covers the Node policy's declared LTS families and supported platforms.
 
-The coordinator freezes its single minimum, latest releases of explicitly tested LTS families and independent reference from official Node metadata.
+The coordinator freezes its single minimum, exact compatibility pins and independent reference from the canonical runtime policy, validating them against official Node metadata.
 Other engine-compatible majors receive best-effort support, subject to dependency engine restrictions.
 It additionally retains the pinned reference even when that version is neither a minimum nor latest.
+
+Routine CI, release construction and qualification use the same exact producer Node/npm selection.
+Contributor npm eligibility and packed-package consumer npm remain separate; see [the runtime guide](node-runtime-compatibility.md#contributor-and-consumer-npm) for their purpose and the limits of local verification.
 
 It fails rather than silently dropping a missing minimum or reference.
 All lanes run product source checks and real CLI/native consumer probes in root and isolated layouts, with exact formatting bytes, fenced literal preservation, convergence, local-link failure and operational-error contracts.

@@ -3,6 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   qualificationMatrix,
+  resolveQualificationMatrix,
   validatePolicy,
   nodeSupport,
 } from "../scripts/node-matrix.js";
@@ -44,6 +45,14 @@ const releases = [
 ].map(([version, lts]) => ({ version: "v" + version, lts }));
 
 test("matrix has one floor, latest qualified LTS patches and the producer reference", () => {
+  assert.deepEqual(resolveQualificationMatrix(), {
+    os: nodeSupport.platforms,
+    node: [
+      nodeSupport.minimum,
+      ...nodeSupport.compatibilityPins,
+      nodeSupport.reference,
+    ],
+  });
   assert.deepEqual(qualificationMatrix(releases, policy), {
     os: ["ubuntu-24.04", "windows-2025"],
     node: ["22.13.0", "22.23.4", "24.21.0", "24.22.1"],

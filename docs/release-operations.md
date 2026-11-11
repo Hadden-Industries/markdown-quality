@@ -62,7 +62,8 @@ No daemon waits for owner approval.
 ## Qualify and freeze
 
 Commit the coordinated version, source and lockfile before qualification.
-The manual workflow resolves one floor/latest/reference matrix and passes it to `qualification.yml` at the same source commit.
+The manual workflow freezes one floor/compatibility-pin/reference matrix from [the canonical runtime policy](../assets/node-support.json) and passes it to `qualification.yml` at the same source commit.
+Routine CI, release and qualification share that policy's exact producer Node/npm selections; consumer lanes retain its separate floor-compatible npm.
 Release qualification does not reuse the ordinary push-CI shortcut.
 
 One candidate pack produces the three archives used by every consumer lane.

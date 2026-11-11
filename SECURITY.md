@@ -16,7 +16,9 @@ Consumers should pin exact versions and qualify upgrades.
 Older releases remaining downloadable does not imply maintenance or backport support.
 For published 1.0.3, the supported runtime remains Node 24.21.0 on Windows x64 and Ubuntu 24.04 x64 with glibc 2.39, with the qualified core/native tuple and explicit preset.
 
-Version 2.0.0 declares Node `>=22.13.0`, and its CI matrix covers Node 22/24/26 at the patched minima and latest versions described in the [support policy](docs/support-and-release.md).
+Version 2.0.0 declares Node `>=22.13.0`.
+The current source's qualification matrix uses the exact minimum, compatibility pins and producer reference described in the [support policy](docs/support-and-release.md).
+Use current security patches for ordinary operation; compatibility endpoints are qualification targets.
 That qualification does not change an existing release's immutable metadata or establish support for an unpublished release.
 
 ## Response and disclosure

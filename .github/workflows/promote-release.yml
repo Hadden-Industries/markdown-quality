@@ -54,7 +54,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: 26.13.0
+          node-version-file: .node-version
           package-manager-cache: false
       - run: node scripts/publication-npm.js isolate
       - run: node scripts/publication-npm.js acquire
@@ -92,7 +92,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: 26.13.0
+          node-version-file: .node-version
           package-manager-cache: false
       - run: node scripts/publication-npm.js isolate
       - run: node scripts/publication-npm.js acquire
@@ -129,7 +129,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: 26.13.0
+          node-version-file: .node-version
           package-manager-cache: false
       - run: node scripts/publication-npm.js isolate
       - run: node scripts/publication-npm.js acquire

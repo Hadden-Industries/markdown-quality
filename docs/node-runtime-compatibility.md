@@ -21,6 +21,27 @@ Development/release reference: 26.13.0.
 
 <!-- node-support:end -->
 
+### Contributor and consumer npm
+
+| Task                                          | Version source                                                           | Purpose                                                                                        |
+| --------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| Source development                            | Generated `devEngines.packageManager` in [package.json](../package.json) | Enforce the contributor npm minimum before install, clean install and scripts.                 |
+| Routine CI, packing and release qualification | `producerNpm` in [the runtime policy](../assets/node-support.json)       | Select and verify one exact producer npm.                                                      |
+| Packed-package consumer qualification         | `consumerNpm` in the same policy                                         | Exercise installation and public behavior with npm that also supports the consumer Node floor. |
+
+The contributor floor is a conservative known-working requirement.
+A source-lockfile dry run using the older consumer npm exhausted roughly 4 GiB of V8 heap, while the producer npm completed the same dry run.
+That observation concerns the source development graph; it does not establish the lowest working npm version or a failure to install the packed product.
+The older invocation also inherited npm-wrapper configuration warnings, so it does not isolate the underlying npm defect.
+
+On 11 November 2026, the packed working checkout passed clean Windows x64 consumer checks with npm 11.21.2 and Node 26.13.0.
+Both root and isolated installations passed installed-file hash verification, 81 public CLI cases in total, and offline `npm ci` replay with unchanged lockfiles; lifecycle scripts were disabled.
+This was local transported-archive verification of an uncommitted checkout, not public-registry acquisition or hosted platform qualification.
+It did not test Node 22.13.0 in that run, so the minimum-Node/npm pair still needs its own qualification for the candidate being accepted.
+
+The packer removes contributor-only `devEngines` and `packageManager` declarations.
+Keep the consumer npm separate unless real installed-package failures justify changing consumer support.
+
 ### Why the Windows staging checks matter
 
 The 2026-10-15 inspection covered all 158 locked production dependency entries.
@@ -57,7 +78,8 @@ Refresh root lock metadata with native `npm install --package-lock-only --ignore
 `npm run check:node` and both full/product verification reject drift.
 This follows OwlAPI's canonical runtime policy and checked workflow projections; frozen release evidence and deliberately synthetic test policies retain their own recorded versions.
 
-The matrix resolver includes the single floor, the latest stable LTS release of each explicitly tested family and the independent pinned reference, deduplicating equal versions.
+Routine CI, release and qualification share the exact producer reference.
+The compatibility matrix uses the exact floor, compatibility pins and producer reference in the repository's Node support policy.
 An explicit imminent-LTS family exception remains policy-owned; parity alone does not designate an LTS family.
 
 The reference is independently admitted within a supported family; it need not equal a minimum.
@@ -77,7 +99,7 @@ Use official Node distributions with their published SHA-256 identities.
 Qualify real transported core/native archives in root and isolated installations, including fresh engine-strict installation and offline engine-strict lockfile replay.
 The existing consumer corpus exercises public exports and schemas, bounded logical-document execution, exact formatting bytes, check-without-write behavior, convergence, literal preservation and failure preservation.
 
-Run runtime source checks on the floor, latest tested families and reference on Windows 2025 x64 and Ubuntu 24.04 x64.
+Run runtime source checks on the policy's floor, pinned compatibility endpoints and reference on Windows 2025 x64 and Ubuntu 24.04 x64.
 The [qualification plan](plans/2026-10-15-node-runtime-compatibility-qualification.md) records completion evidence.
 
 Tests use the native module-mock option supported by the selected runtime: `namedExports` on Node 22 and Node 24 before 24.15, and `exports` on newer supported runtimes.
