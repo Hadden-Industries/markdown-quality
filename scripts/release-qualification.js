@@ -2,6 +2,7 @@
 /** Bind release admission to the complete fresh, manually requested hosted graph. */
 import assert from "node:assert/strict";
 import { candidateJobNames } from "./node-matrix.js";
+import { assertUbuntuJobLabel } from "./runner-policy.js";
 
 export const releaseQualificationWorkflow =
   ".github/workflows/release-qualification.yml";
@@ -46,6 +47,7 @@ export function verifyReleaseQualificationJob(run, job) {
   assert.equal(job.head_sha, run.head_sha);
   assert.equal(job.run_id, run.id);
   assert.equal(job.run_attempt, run.run_attempt);
+  assertUbuntuJobLabel(job);
 }
 
 /** Reject omitted, skipped, duplicate, stale-attempt and wrong-source gate evidence. */

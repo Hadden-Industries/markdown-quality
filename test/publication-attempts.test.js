@@ -281,9 +281,11 @@ test("successful mixed-attempt staging prerequisites retain their actual origins
     "retained (ubuntu-24.04)",
     "stage",
   ];
-  const earlier = names
-    .slice(0, -1)
-    .map((name, index) => ({ ...f.job(1, "success", name), id: 100 + index }));
+  const earlier = names.slice(0, -1).map((name, index) => ({
+    ...f.job(1, "success", name),
+    id: 100 + index,
+    labels: name === "retained (ubuntu-24.04)" ? ["ubuntu-24.04"] : [],
+  }));
   f.set(1, earlier);
   f.set(2, [
     ...earlier.map((job) => ({ ...job, id: job.id + 400, run_attempt: 2 })),

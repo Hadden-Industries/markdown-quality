@@ -18,12 +18,41 @@ import {
   workflow,
 } from "../scripts/ci-proof.js";
 import { nodeSupport } from "../scripts/node-matrix.js";
-import { pythonVersion } from "../scripts/ci-host.js";
+import {
+  assertHostedPlatform,
+  hostIdentity,
+  pythonVersion,
+} from "../scripts/ci-host.js";
+import { ubuntuRunner, ubuntuRunnerPattern } from "../scripts/runner-policy.js";
 import { budgets } from "../scripts/qualification-budgets.js";
 import { nodeMatrixFixture, nextPatchVersion } from "./node-matrix-fixture.js";
 
 const noWait = async () => {};
 const newerPythonVersion = nextPatchVersion(pythonVersion);
+const linuxRunner = ubuntuRunner();
+const currentImage = `ubuntu${ubuntuRunnerPattern.exec(linuxRunner)[1]}`;
+const otherRunner =
+  linuxRunner === "ubuntu-24.04" ? "ubuntu-26.04" : "ubuntu-24.04";
+const otherImage = `ubuntu${ubuntuRunnerPattern.exec(otherRunner)[1]}`;
+
+test("the recorded Ubuntu lane owns historical image validation", () => {
+  const recorded = {
+    os: "Linux",
+    architecture: "X64",
+    image: otherImage,
+    imageVersion: "20261020.1.0",
+    python: pythonVersion,
+  };
+  assert.doesNotThrow(() => assertHostedPlatform(recorded, otherRunner));
+  assert.throws(
+    () => assertHostedPlatform(recorded, linuxRunner),
+    /image family/u,
+  );
+  assert.throws(
+    () => hostIdentity({ CI_OS: otherRunner }),
+    /current qualification policy/u,
+  );
+});
 
 const sha = (character) => character.repeat(40);
 function fixture(attempt = 1, fork = false) {
@@ -106,7 +135,7 @@ function fixture(attempt = 1, fork = false) {
     lane,
     os: lane.startsWith("windows") ? "Windows" : "Linux",
     architecture: "X64",
-    image: lane.startsWith("windows") ? "win25" : "ubuntu24",
+    image: lane.startsWith("windows") ? "win25" : currentImage,
     imageVersion: "20261020.1.0",
     python: pythonVersion,
   }));
@@ -583,7 +612,7 @@ test("mixed hosted image builds reuse the same qualified platform and preserve t
     const f = fixture();
     for (const record of f.records) {
       record.host.imageVersion =
-        record.lane.os === "ubuntu-24.04" &&
+        record.lane.os === linuxRunner &&
         record.lane.node === nodeSupport.reference
           ? "20261026.354.1"
           : "20261023.334.3";
@@ -630,7 +659,7 @@ test("platform, runtime and image provenance remain mandatory for reuse", async 
     ["node", nextPatchVersion(nodeSupport.minimum)],
     ["npm", nextPatchVersion(nodeSupport.consumerNpm)],
     ["image", "ubuntu22"],
-    ["image", "ubuntu24-slim"],
+    ["image", `${currentImage}-slim`],
     ["imageVersion", undefined],
     ["imageVersion", "unobserved"],
   ]) {
@@ -640,17 +669,17 @@ test("platform, runtime and image provenance remain mandatory for reuse", async 
     await assert.rejects(verifyProof(input), undefined, `PR ${field}`);
   }
   const input = await proof(fixture());
-  input.hosts[0].image = "ubuntu26";
+  input.hosts[0].image = otherImage;
   for (const record of input.receipt.lanes.filter(
-    (record) => record.lane.os === "ubuntu-24.04",
+    (record) => record.lane.os === linuxRunner,
   ))
-    record.host.image = "ubuntu26";
+    record.host.image = otherImage;
   await assert.rejects(verifyProof(input), /image family/u);
 });
 
 test("PR acceptance refuses an unsupported platform even when its image provenance is present", async () => {
   const f = fixture();
-  f.records[0].host.image = "ubuntu26";
+  f.records[0].host.image = otherImage;
   await assert.rejects(
     createReceipt({
       ctx: f.ctx,

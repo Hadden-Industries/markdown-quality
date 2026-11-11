@@ -133,6 +133,20 @@ def run(args, cwd=None, capture=False, timeout=3600):
         return result.stdout
 
 
+def verify_glibc_floor(version_info):
+    """Enforce the supported glibc 2.39 floor on the actual Linux executable."""
+    _, _, requirements = version_info.partition(b'Version needs section')
+    versions = re.findall(rb'\bName:\s+GLIBC_(\S+)', requirements)
+    if not versions:
+        raise ValueError('No GNU libc version requirements in Linux ELF output')
+    for version in versions:
+        if version == b'ABI_DT_RELR':  # Available since glibc 2.36.
+            continue
+        match = re.fullmatch(rb'(\d+)\.(\d+)(?:\.(\d+))?', version)
+        if match is None or tuple(int(part or 0) for part in match.groups()) > (2, 39, 0):
+            raise ValueError(f'Linux executable requires unsupported GLIBC_{version.decode("ascii", "replace")}')
+
+
 def acquire_tool(name, spec, directory, suffix):
     request = urllib.request.Request(spec['url'], headers={'User-Agent': 'markdown-quality-native-build'})
     with urllib.request.urlopen(request, timeout=60) as response:
@@ -402,6 +416,10 @@ def main():
     run(['cargo', 'auditable', 'build', '--locked', '--profile', CONFIG['profile'],
          '--bin', 'snapper-fmt', '--target', target, *features], source)
     executable = source / 'target' / target / CONFIG['profile'] / ('snapper-fmt' + suffix)
+    if args.platform == 'linux-x64':
+        version_info = run(['env', 'LC_ALL=C', 'readelf', '--wide',
+                            '--version-info', str(executable)], capture=True)
+        verify_glibc_floor(version_info)
     binary = read(executable, 100_000_000)
     embedded = json.loads(run([str(extractor), str(executable), '100000000', '8388608'], capture=True))
     shutil.copyfile(source / 'LICENSE', output / 'LICENSE.snapper')

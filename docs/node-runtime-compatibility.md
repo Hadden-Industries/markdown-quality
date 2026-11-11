@@ -72,6 +72,8 @@ Only the policy's explicit tested families receive mandatory qualification; depe
 
 [The runtime policy](../assets/node-support.json) owns one consumer floor, tested LTS families, the pinned producer reference and separate producer/consumer npm versions.
 Change version values there, then run `npm run sync:node`.
+The Ubuntu platform entry also selects the GitHub-hosted Linux runner.
+Run the same command after updating that entry and include the regenerated workflows in the change.
 The checked projections update npm engines, workflow bootstrap selections, `.node-version`, bootstrap JSON and the version list above.
 
 Refresh root lock metadata with native `npm install --package-lock-only --ignore-scripts`; the projector never rewrites the dependency graph.

@@ -56,7 +56,7 @@ env:
 jobs:
   admit:
     if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     outputs:
       artifact-id: ${{ steps.admission.outputs.artifact-id }}
@@ -147,7 +147,7 @@ jobs:
   review:
     needs: admit
     environment: github-release
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     outputs:
       artifact-id: ${{ steps.review.outputs.artifact-id }}
@@ -191,7 +191,7 @@ jobs:
       matrix:
         os:
           - windows-latest
-          - ubuntu-24.04
+          - ubuntu-26.04
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     defaults:
@@ -247,7 +247,7 @@ jobs:
       - retained
     if: always() && needs.admit.result == 'success' && needs.review.result == 'success' && (needs.retained.result == 'success' || (needs.retained.result == 'skipped' && inputs.recovery-run == '')) && github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
     environment: npm-publication
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     permissions:
       contents: read

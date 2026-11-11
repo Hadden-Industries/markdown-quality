@@ -28,7 +28,7 @@ Other engine-compatible majors receive best-effort support, subject to dependenc
 It additionally retains the pinned reference even when that version is neither a minimum nor latest.
 
 Routine CI, release construction and qualification use the same exact producer Node/npm selection.
-Contributor npm eligibility and packed-package consumer npm remain separate; see [the runtime guide](node-runtime-compatibility.md#contributor-and-consumer-npm) for their purpose and the limits of local verification.
+Contributor npm eligibility and packed-package consumer npm remain separate; see [the runtime guide](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/node-runtime-compatibility.md#contributor-and-consumer-npm) for their purpose and the limits of local verification.
 
 It fails rather than silently dropping a missing minimum or reference.
 All lanes run product source checks and real CLI/native consumer probes in root and isolated layouts, with exact formatting bytes, fenced literal preservation, convergence, local-link failure and operational-error contracts.

@@ -96,6 +96,8 @@ function fixture(t, current = true) {
           run_id: +run,
           run_attempt: 1,
           head_sha: source,
+          labels:
+            name.match(/\bubuntu-\d[02468]\.04(?=[ ,)])/u)?.slice(0, 1) ?? [],
           status: "completed",
           conclusion: name === "candidate / shared" ? "skipped" : "success",
           steps: [],

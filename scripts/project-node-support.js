@@ -7,6 +7,7 @@ import {
   producerNpmRange,
   validatePolicy,
 } from "./node-matrix.js";
+import { ubuntuRunner } from "./runner-policy.js";
 const root = new URL("../", import.meta.url);
 
 /** One inventory for both projection and its regression guard. */
@@ -26,6 +27,7 @@ export function nodeSupportProjectionPaths() {
 /** Project current declarations only; historical evidence and synthetic policies stay frozen. */
 export function projectNodeSupport(files, policy = nodeSupport) {
   validatePolicy(policy);
+  const linux = ubuntuRunner(policy);
   const range = `>=${policy.minimum}`;
   return Object.fromEntries(
     Object.entries(files).map(([path, source]) => {
@@ -79,13 +81,18 @@ export function projectNodeSupport(files, policy = nodeSupport) {
       // Narrow scalar projection: matrix/profile expressions and every other byte stay intact.
       return [
         path,
-        source.replace(
-          /^(\s+node-version: )(\d+\.\d+\.\d+|"\d+\.\d+\.\d+"|'\d+\.\d+\.\d+')([ \t]*(?:#.*)?)$/gmu,
-          (_, prefix, scalar, suffix) => {
-            const quote = ["'", '"'].includes(scalar[0]) ? scalar[0] : "";
-            return `${prefix}${quote}${policy.reference}${quote}${suffix}`;
-          },
-        ),
+        source
+          .replace(
+            /\bubuntu-(?:\d{2}\.\d{2}|latest|slim)(?:-[a-z0-9]+)*(?![\w.-])/gu,
+            linux,
+          )
+          .replace(
+            /^(\s+node-version: )(\d+\.\d+\.\d+|"\d+\.\d+\.\d+"|'\d+\.\d+\.\d+')([ \t]*(?:#.*)?)$/gmu,
+            (_, prefix, scalar, suffix) => {
+              const quote = ["'", '"'].includes(scalar[0]) ? scalar[0] : "";
+              return `${prefix}${quote}${policy.reference}${quote}${suffix}`;
+            },
+          ),
       ];
     }),
   );

@@ -11,7 +11,7 @@ Use the reference Node version in [node-support.json](https://github.com/Hadden-
 Change Node selections in that policy and run `npm run sync:node`; `npm run check:node` verifies the generated declarations.
 The same policy owns the exact producer npm and the separate consumer-qualification npm.
 Contributor installs enforce the generated npm minimum in `devEngines.packageManager`; use the producer selection to reproduce CI.
-See [why contributor and consumer npm requirements differ](docs/node-runtime-compatibility.md#contributor-and-consumer-npm) before changing either requirement.
+See [why contributor and consumer npm requirements differ](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/node-runtime-compatibility.md#contributor-and-consumer-npm) before changing either requirement.
 
 The [support policy](docs/support-and-release.md) records the qualified source matrix and explains why published 1.0.3 still has different immutable runtime metadata.
 Do not assume an unreleased source qualification changes an installed npm release.

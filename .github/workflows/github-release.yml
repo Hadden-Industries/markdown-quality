@@ -41,7 +41,7 @@ jobs:
   decisions:
     if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
     environment: github-release
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     permissions:
       contents: write
@@ -71,7 +71,7 @@ jobs:
   prepare:
     needs: decisions
     if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     outputs:
       artifact-id: ${{ steps.inputs.outputs.artifact-id }}
@@ -106,7 +106,7 @@ jobs:
   archive:
     needs: prepare
     environment: github-release
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     permissions:
       contents: write

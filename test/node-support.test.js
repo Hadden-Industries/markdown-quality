@@ -146,6 +146,8 @@ test("floor policy projects metadata and documentation idempotently", () => {
         2,
       ) + "\n",
     ".node-version": "24.21.0\n",
+    ".github/workflows/fixture.yml":
+      "jobs:\n  policy:\n    runs-on: ubuntu-24.04-arm\n  tests:\n    strategy:\n      matrix:\n        os: [ubuntu-slim, windows-2025]\n",
     "docs/node-runtime-compatibility.md":
       "Before\n<!-- node-support:start -->\nold\n<!-- node-support:end -->\nAfter\n",
   };
@@ -164,5 +166,9 @@ test("floor policy projects metadata and documentation idempotently", () => {
   );
   assert.match(projected["docs/node-runtime-compatibility.md"], /^Before\n/u);
   assert.match(projected["docs/node-runtime-compatibility.md"], /\nAfter\n$/u);
+  assert.equal(
+    projected[".github/workflows/fixture.yml"],
+    "jobs:\n  policy:\n    runs-on: ubuntu-24.04\n  tests:\n    strategy:\n      matrix:\n        os: [ubuntu-24.04, windows-2025]\n",
+  );
   assert.deepEqual(projectNodeSupport(projected, policy), projected);
 });

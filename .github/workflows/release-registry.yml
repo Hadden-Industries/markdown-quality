@@ -42,7 +42,7 @@ env:
 jobs:
   admit:
     if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     outputs:
       runtimes: ${{ steps.admit.outputs.runtimes }}
@@ -133,7 +133,7 @@ jobs:
     needs:
       - admit
       - registry
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     permissions:
       contents: read
@@ -174,7 +174,7 @@ jobs:
       - registry
       - security
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     steps:
       - name: Require the complete public tuple and security gate

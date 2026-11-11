@@ -164,7 +164,7 @@ Unlimited mode cannot remove Node, V8, operating-system or hosting-provider limi
 
 Reference builds use the Node reference declared in [node-support.json](https://github.com/Hadden-Industries/markdown-quality/blob/main/assets/node-support.json) and an existing stable Python interpreter at least as new as [.python-version](https://github.com/Hadden-Industries/markdown-quality/blob/main/.python-version) for asset preparation.
 That policy also owns the exact CI/producer npm and the separate consumer-qualification npm.
-Contributor installs enforce a local npm minimum; [the runtime guide](docs/node-runtime-compatibility.md#contributor-and-consumer-npm) explains why it does not apply to packed-package consumers.
+Contributor installs enforce a local npm minimum; [the runtime guide](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/node-runtime-compatibility.md#contributor-and-consumer-npm) explains why it does not apply to packed-package consumers.
 Ordinary checks and logical-document operations need no Python interpreter.
 Trusted candidate qualification additionally needs the Python version declared in its accepted execution profile.
 

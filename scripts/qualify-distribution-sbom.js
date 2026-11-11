@@ -20,6 +20,7 @@ import { reportCiResult } from "./ci-result.js";
 import { npmCliPath } from "./commands.js";
 import { native } from "./commands.js";
 import { hash, readJson } from "./release-assets.js";
+import { ubuntuRunner } from "./runner-policy.js";
 import { verifyArchiveBytes } from "./release-bytes.js";
 import {
   bindNativeSbom,
@@ -251,7 +252,10 @@ export async function qualifyDistributionSbom(
     writeFileSync(join(output, "cyclonedx-validation.txt"), validation, {
       flag: "wx",
     });
-    for (const platform of ["windows-2025", "ubuntu-24.04"]) {
+    for (const platform of [
+      "windows-2025",
+      ubuntuRunner(release.runtimePolicy),
+    ]) {
       for (const layout of ["root", "isolated"]) {
         const source = join(
           recipientDirectory,

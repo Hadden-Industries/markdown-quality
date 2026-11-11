@@ -6,6 +6,11 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { native } from "./commands.js";
 import {
+  assertUbuntuJobLabel,
+  ubuntuRunner,
+  ubuntuRunnerPattern,
+} from "./runner-policy.js";
+import {
   hash,
   readJson,
   repository,
@@ -74,6 +79,8 @@ export function providerFor(run, jobs, workflow, names, attempts) {
     "Unexpected or omitted release jobs",
   );
   for (const job of jobs.jobs) assert.equal(job.head_sha, run.head_sha);
+  if (workflow === publicationWorkflow)
+    for (const job of jobs.jobs) assertUbuntuJobLabel(job);
   return expected;
 }
 
@@ -99,6 +106,8 @@ export function verifyStagingContinuation({
       release.runtimePolicy,
     ),
   );
+  assert.equal(stage.runnerPolicy?.source, stage.run.head_sha);
+  assert.match(stage.runnerPolicy.ubuntu, ubuntuRunnerPattern);
   const staging = providerFor(
     stage.run,
     stage.jobs,
@@ -107,7 +116,7 @@ export function verifyStagingContinuation({
       "admit",
       "review",
       "retained (windows-latest)",
-      "retained (ubuntu-24.04)",
+      `retained (${stage.runnerPolicy.ubuntu})`,
       "stage",
     ],
     stage.attempts,
@@ -162,8 +171,24 @@ export function readProvider(
   const path = `repos/${repository}/actions/runs/${runId}${attempt ? `/attempts/${attempt}` : ""}`;
   const run = JSON.parse(gh(["api", path]));
   assert.equal(String(run.id), String(runId));
-  if (run.path === publicationWorkflow)
-    return readPublicationAttempts(runId, attempt, gh);
+  if (run.path === publicationWorkflow) {
+    const publication = readPublicationAttempts(runId, attempt, gh);
+    const source = publication.run.head_sha;
+    assert.match(source, /^[a-f0-9]{40}$/u);
+    const path = "assets/node-support.json";
+    const file = JSON.parse(
+      gh(["api", `repos/${repository}/contents/${path}?ref=${source}`]),
+    );
+    assert.equal(file.path, path);
+    assert.equal(file.encoding, "base64");
+    const policy = JSON.parse(
+      Buffer.from(file.content, "base64").toString("utf8"),
+    );
+    return {
+      ...publication,
+      runnerPolicy: { source, ubuntu: ubuntuRunner(policy) },
+    };
+  }
   const jobs = JSON.parse(
     gh([
       "api",

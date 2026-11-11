@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { candidateJobNames } from "./node-matrix.js";
+import { assertUbuntuJobLabel, ubuntuRunner } from "./runner-policy.js";
 import {
   releaseQualificationJobNames,
   releaseQualificationWorkflow,
@@ -200,6 +201,8 @@ export function verifyProvider(provider, expected) {
     assert.equal(String(matches[0].run_id), expected.run);
     assert.equal(String(matches[0].run_attempt), expected.attempt);
     assert.equal(matches[0].head_sha ?? run.head_sha, expected.source);
+    if (expected.workflow === registryWorkflow)
+      assertUbuntuJobLabel(matches[0]);
   }
 }
 
@@ -258,7 +261,7 @@ export function verifyPayloads(qualified, directory, sourceArchive) {
       node: expected.node,
       os: expected.platform.startsWith("win32")
         ? "windows-2025"
-        : "ubuntu-24.04",
+        : ubuntuRunner(qualified.candidate.runtimePolicy),
       qualification: expected.qualification,
       policy: qualified.candidate.runtimePolicy,
     });

@@ -5,6 +5,7 @@ import { verifyStagingContinuation } from "../scripts/release-continuation.js";
 import { releaseQualificationJobNames } from "../scripts/release-qualification.js";
 import { hash } from "../scripts/release-bytes.js";
 import { nodeSupport } from "../scripts/node-matrix.js";
+import { ubuntuRunner } from "../scripts/runner-policy.js";
 import { nodeMatrixFixture } from "./node-matrix-fixture.js";
 
 function fixture() {
@@ -12,6 +13,8 @@ function fixture() {
     control = "b".repeat(40),
     manifestSha = "c".repeat(64);
   const matrix = nodeMatrixFixture();
+  const controlUbuntu =
+    ubuntuRunner() === "ubuntu-24.04" ? "ubuntu-26.04" : "ubuntu-24.04";
   const archives = ["win32-x64", "linux-x64", "core"].map((name) => ({
     name,
     package:
@@ -44,6 +47,8 @@ function fixture() {
         run_id: id,
         run_attempt: 1,
         head_sha: head,
+        labels:
+          name.match(/\bubuntu-\d[02468]\.04(?=[ ,)])/u)?.slice(0, 1) ?? [],
         status: "completed",
         conclusion: name === "candidate / shared" ? "skipped" : "success",
         steps:
@@ -88,13 +93,16 @@ function fixture() {
       source,
       releaseQualificationJobNames(matrix, nodeSupport),
     ),
-    stage: provider(11, ".github/workflows/publish.yml", control, [
-      "admit",
-      "review",
-      "retained (windows-latest)",
-      "retained (ubuntu-24.04)",
-      "stage",
-    ]),
+    stage: {
+      ...provider(11, ".github/workflows/publish.yml", control, [
+        "admit",
+        "review",
+        "retained (windows-latest)",
+        `retained (${controlUbuntu})`,
+        "stage",
+      ]),
+      runnerPolicy: { source: control, ubuntu: controlUbuntu },
+    },
   };
 }
 
@@ -103,6 +111,15 @@ test("public qualification admits the original source through a later reviewed c
     result = verifyStagingContinuation(input);
   assert.equal(result.qualification.source, "a".repeat(40));
   assert.equal(result.staging.source, "b".repeat(40));
+  assert.ok(
+    result.staging.jobs.includes(
+      `retained (${input.stage.runnerPolicy.ubuntu})`,
+    ),
+  );
+  assert.notEqual(
+    input.stage.runnerPolicy.ubuntu,
+    ubuntuRunner(input.release.runtimePolicy),
+  );
   assert.deepEqual(
     result.origins.records.map(({ run }) => run),
     ["9", "9", "11"],
@@ -126,10 +143,27 @@ test("ordinary CI, skipped gates, missing core requests and substituted origins 
         "skipped"),
     (f) => (f.originsSha = "e".repeat(64)),
     (f) => (f.stage.run.status = "in_progress"),
+    (f) => (f.stage.runnerPolicy.source = "f".repeat(40)),
+    (f) => (f.stage.runnerPolicy.ubuntu = ubuntuRunner()),
   ]) {
     const input = fixture();
     change(input);
     assert.throws(() => verifyStagingContinuation(input));
+  }
+});
+
+test("an expected Ubuntu job name cannot conceal a different GitHub runner", () => {
+  for (const key of ["candidate", "stage"]) {
+    const input = fixture();
+    const job = input[key].jobs.jobs.find(({ labels }) => labels.length);
+    assert.ok(job);
+    job.labels = [
+      key === "candidate" ? input.stage.runnerPolicy.ubuntu : ubuntuRunner(),
+    ];
+    assert.throws(
+      () => verifyStagingContinuation(input),
+      /runner labels differ/u,
+    );
   }
 });
 
