@@ -131,6 +131,7 @@ export function createRepositoryReader({
             new Error(`GitHub evidence HTTP ${response.status}`),
             {
               httpStatus: response.status,
+              headers: response.headers,
               retryable:
                 [408, 500, 502, 503, 504].includes(response.status) ||
                 rateLimited(response),
@@ -181,7 +182,12 @@ export function createRepositoryReader({
           remainingMs: end - now(),
         }),
       );
-      if (wait >= end - now()) throw limit();
+      if (wait >= end - now())
+        throw Object.assign(limit(), {
+          retryAt: now() + wait,
+          httpStatus: response?.status,
+          headers: response?.headers,
+        });
       await sleep(wait);
     }
   };

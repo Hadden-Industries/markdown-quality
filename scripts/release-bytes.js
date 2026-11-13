@@ -8,7 +8,10 @@ export const hash = (bytes, algorithm = "sha256") =>
 export function releaseBytes(path, maximum, message) {
   const stat = lstatSync(path);
   assert.ok(
-    stat.isFile() && !stat.isSymbolicLink() && stat.size <= maximum,
+    stat.isFile() &&
+      !stat.isSymbolicLink() &&
+      stat.nlink === 1 &&
+      stat.size <= maximum,
     message,
   );
   const bytes = readFileSync(path);

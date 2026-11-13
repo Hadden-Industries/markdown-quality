@@ -26,6 +26,7 @@ export async function waitForReleaseAttestation(
   tagSha,
   {
     gh = (args, options) => native("gh", args, options),
+    verifyTag = verifyReleaseTag,
     now = Date.now,
     sleep = delay,
     deadline = now() + budgets.read,
@@ -58,13 +59,13 @@ export async function waitForReleaseAttestation(
       tagSha,
       "Release tag changed during attestation observation",
     );
-    verifyReleaseTag(reference, read(`git/tags/${tagSha}`), expectedSource);
+    verifyTag(reference, read(`git/tags/${tagSha}`), expectedSource);
     const live = read(`releases/${releaseId}`);
     assert.equal(live.id, releaseId);
     assert.equal(live.tag_name, tag);
     assert.equal(live.immutable, true);
     assert.equal(live.draft, false);
-    assert.equal(live.prerelease, true);
+    assert.equal(live.prerelease, release.prerelease);
     verifyInventory(live, assets);
   };
   for (let observation = 1; ; observation++) {

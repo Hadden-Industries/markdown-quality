@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import assert from "node:assert/strict";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, rmSync, renameSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -10,6 +10,7 @@ import {
   releaseNames,
   verifyPayloads,
   verifyBundle,
+  compactReleaseBundle,
 } from "./release-assets.js";
 import { native } from "./commands.js";
 import { gitSource } from "./github-release.js";
@@ -29,15 +30,17 @@ export function prepareGithubRelease(qualified, input, output, cwd) {
   mkdirSync(output);
   for (const name of names) {
     const bytes =
-      name === sourceName
-        ? source
-        : materialPaths[name]
-          ? native(
-              "git",
-              ["show", `${qualified.source}:${materialPaths[name]}`],
-              { cwd, encoding: null },
-            )
-          : regularBytes(join(input, name));
+      name === "qualification.json"
+        ? Buffer.from(JSON.stringify(qualified, null, 2) + "\n")
+        : name === sourceName
+          ? source
+          : materialPaths[name]
+            ? native(
+                "git",
+                ["show", `${qualified.source}:${materialPaths[name]}`],
+                { cwd, encoding: null },
+              )
+            : regularBytes(join(input, name));
     writeFileSync(join(output, name), bytes, { flag: "wx" });
   }
   const payloads = verifyPayloads(qualified, output, source);
@@ -63,6 +66,14 @@ export function prepareGithubRelease(qualified, input, output, cwd) {
     ) + "\n",
     { flag: "wx" },
   );
+  if (qualified.channel !== undefined) {
+    // Deploy the indexed reader before this format is selected by current owner decisions.
+    const compact = `${output}-indexed`;
+    const assets = compactReleaseBundle(qualified, output, compact, source);
+    rmSync(output, { recursive: true });
+    renameSync(compact, output);
+    return assets;
+  }
   return verifyBundle(qualified, output, source);
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

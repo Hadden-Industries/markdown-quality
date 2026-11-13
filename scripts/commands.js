@@ -32,6 +32,8 @@ export function native(command, args, options = {}) {
     // tail so the caller can classify it without replacing native failure.
     error.stdout = String(result.stdout ?? "").slice(-8192);
     error.stderr = String(result.stderr ?? "").slice(-8192);
+    error.httpStatus =
+      Number(/\(HTTP (\d{3})\)/u.exec(error.stderr)?.[1]) || undefined;
     throw error;
   }
   return result.stdout;
@@ -159,10 +161,24 @@ function runNpm(executable, cli, args, options) {
       ? `Completed npm timings (overall and dependency phases): ${JSON.stringify(slowest)}\n`
       : "";
     const diagnostic = summary + stderr.slice(-(2000 - summary.length));
-    throw new Error(
+    const error = new Error(
       `npm ${args[0]} failed after ${Math.round(performance.now() - started)}ms (status=${result.status}, signal=${result.signal}, error=${result.error?.code ?? "none"}): ${diagnostic}${result.error ? ` ${result.error.message}` : ""}`,
       { cause: result.error },
     );
+    error.stdout = String(result.stdout ?? "").slice(-8192);
+    error.stderr = String(stderr).slice(-8192);
+    error.code = result.error?.code;
+    try {
+      const record = JSON.parse(error.stdout);
+      error.code ??= record.error?.code;
+      error.httpStatus =
+        Number(
+          record.error?.statusCode ?? /^E(\d{3})$/u.exec(error.code ?? "")?.[1],
+        ) || undefined;
+    } catch {
+      /* Native process failures can have no JSON payload. */
+    }
+    throw error;
   }
   return result.stdout;
 }

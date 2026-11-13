@@ -6,15 +6,18 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validatePublicationOrigins } from "./publication-origins.js";
 import { verifyReleaseQualificationContext } from "./verify-publication.js";
+import { releaseVersion, releasePackages } from "./release-coordinates.js";
 
 const boundedBytes = (path, maximum = 1_048_576) => releaseBytes(path, maximum);
 const json = (path) => JSON.parse(boundedBytes(path).toString("utf8"));
 
 export function verifyPublicationArchiveBytes(directory, release) {
   for (const archive of release.archives) {
-    assert.match(
+    assert.ok(releasePackages.includes(archive.package));
+    releaseVersion(archive.version);
+    assert.equal(
       archive.filename,
-      /^hadden-industries-markdown-quality(?:-(?:win32|linux)-x64)?-[1-9]\d*\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.tgz$/u,
+      `${archive.package.slice(1).replace("/", "-")}-${archive.version}.tgz`,
     );
     const bytes = boundedBytes(join(directory, archive.filename), 20_000_000);
     verifyArchiveBytes(bytes, archive);
@@ -61,7 +64,7 @@ export function preparePublicationEnvironment(
     ["natives", "core"].includes(context.phase),
     "Choose an explicit staging phase",
   );
-  assert.match(release.version, /^[1-9]\d*\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u);
+  releaseVersion(release.version);
   assert.deepEqual(
     release.archives.map((a) => a.name),
     ["win32-x64", "linux-x64", "core"],
@@ -87,10 +90,14 @@ export function preparePublicationEnvironment(
       run: String(context.publicationRun),
       attempt: String(context.publicationAttempt),
       recovery,
+      ...(context.decision ? { decision: context.decision } : {}),
     },
     release.archives,
   );
-  const result = { RELEASE_VERSION: release.version };
+  const result = {
+    RELEASE_VERSION: release.version,
+    RELEASE_CHANNEL: map.decision?.channel ?? "pilot",
+  };
   for (let index = 0; index < release.archives.length; index++) {
     const archive = release.archives[index];
     const packageName =

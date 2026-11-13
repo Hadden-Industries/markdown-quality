@@ -6,6 +6,8 @@ import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { releaseBytes, hash } from "./release-bytes.js";
 import { sameJobExecution } from "./github-job-execution.js";
+import { releaseVersion } from "./release-coordinates.js";
+import { acquireIndexedRelease } from "./release-archive-reader.js";
 import {
   authenticatePublicationAttempts,
   attemptedPublicationJobs,
@@ -13,7 +15,7 @@ import {
 
 export function publicationSubject(bytes) {
   const manifest = JSON.parse(bytes);
-  assert.match(manifest.version, /^[1-9]\d*\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u);
+  releaseVersion(manifest.version);
   return { version: manifest.version, manifestSha256: hash(bytes) };
 }
 
@@ -117,10 +119,7 @@ export function readPublicationSubjects(
       subject = original;
     }
     if (!subject) return [];
-    assert.match(
-      subject.version,
-      /^[1-9]\d*\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u,
-    );
+    releaseVersion(subject.version);
     assert.match(subject.manifestSha256, /^[a-f0-9]{64}$/u);
     assert.equal(subject.manifestSha256, entry.manifestSha256);
     // Authenticate the complete original attempt inventory before exposing this derived lookup.
@@ -142,16 +141,57 @@ export function readArchivedPublicationSubjects(gh, scratch) {
   ).flat();
   const subjects = [];
   for (const release of releases) {
+    let version;
+    try {
+      version = releaseVersion(release.tag_name?.slice(1));
+    } catch {
+      continue;
+    }
     if (
       release.draft ||
       !release.immutable ||
-      !/^v[1-9]\d*\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(release.tag_name) ||
-      !release.assets.some((asset) => asset.name === "publication-history.json")
+      release.tag_name !== `v${version}` ||
+      !release.assets.some((asset) =>
+        ["publication-history.json", "release-evidence.zip"].includes(
+          asset.name,
+        ),
+      )
     )
       continue;
     assert.ok(Number.isSafeInteger(release.id) && release.id > 0);
-    const directory = join(scratch, `release-${release.id}`);
+    let directory = join(scratch, `release-${release.id}`);
     mkdirSync(directory);
+    if (release.assets.some((asset) => asset.name === "release-evidence.zip")) {
+      directory = acquireIndexedRelease(release, directory, gh).logical;
+      const manifestBytes = releaseBytes(
+        join(directory, "release-manifest.json"),
+        1_048_576,
+      );
+      const provider = JSON.parse(
+        releaseBytes(
+          join(directory, "staging-provider.json"),
+          16 * 1024 * 1024,
+        ),
+      );
+      effects(provider);
+      subjects.push(
+        ...readPublicationSubjects(
+          directory,
+          {
+            run: provider.run,
+            attempt: provider.run.run_attempt,
+            attempts: provider.attempts,
+          },
+          manifestBytes,
+          { providerDirectory: directory },
+        ),
+      );
+      subjects.push({
+        ...provider,
+        subject: publicationSubject(manifestBytes),
+      });
+      continue;
+    }
     gh([
       "release",
       "verify",

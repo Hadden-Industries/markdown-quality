@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import assert from "node:assert/strict";
+import { ownerDispatchBytes } from "./release-decision-transport.js";
 export const publicationRepository = "Hadden-Industries/markdown-quality";
 /** Pure common controls; every gate calls this against its current input. */
 export function validatePublicationContext(context) {
@@ -13,6 +14,7 @@ export function validatePublicationContext(context) {
   assert.match(context.head, /^[a-f0-9]{40}$/u);
 }
 export function publicationContext(env) {
+  const review = env.REVIEW_JSON ? JSON.parse(ownerDispatchBytes(env)) : null;
   return {
     repository: env.GITHUB_REPOSITORY,
     event: env.GITHUB_EVENT_NAME,
@@ -26,5 +28,14 @@ export function publicationContext(env) {
     recoveryAttempt: env.RECOVERY_ATTEMPT,
     recoveryOriginsSha: env.RECOVERY_ORIGINS_SHA,
     phase: env.STAGING_PHASE,
+    ...(review
+      ? {
+          decision: {
+            channel: review.channel ?? "pilot",
+            reviewSha256: env.REVIEW_SHA,
+            operationId: review.operationId,
+          },
+        }
+      : {}),
   };
 }
