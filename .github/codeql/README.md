@@ -1,6 +1,6 @@
 # Actions approval model
 
-CodeQL 2.27.3's native environment check omits `workflow_dispatch`.
+CodeQL 2.27.4's native environment check omits `workflow_dispatch`.
 Shared qualification instead uses the protected environment and live approval-history admission described in [the trust contract](../../docs/ci-trust.md).
 `actions/QualificationAdmission.qll` models only that exact admission sequence: an immutable producer, matching reviewed input bindings and request summary, an unconditional fail-closed admission command, and subsequent matching checkouts in the same job.
 Other events and checkouts retain their native treatment.

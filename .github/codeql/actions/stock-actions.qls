@@ -1,4 +1,4 @@
 - qlpack: codeql/actions-queries
-  version: 0.6.38
+  version: 0.6.39
 - exclude:
     query path: Security/CWE-349/CachePoisoningViaPoisonableStep.ql

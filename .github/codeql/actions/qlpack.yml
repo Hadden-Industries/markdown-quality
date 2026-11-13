@@ -3,7 +3,7 @@ version: 0.0.1
 library: false
 extractor: actions
 dependencies:
-  codeql/actions-all: 0.7.0
-  codeql/actions-queries: 0.6.38
+  codeql/actions-all: 0.7.1
+  codeql/actions-queries: 0.6.39
 defaultSuiteFile: actions.qls
 tests: tests
