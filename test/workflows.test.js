@@ -10,6 +10,21 @@ const text = (path) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const workflow = (name) => parse(text(`.github/workflows/${name}.yml`));
 
+test("native Python provisioning preserves the minimum selector and isolated hosted environment", () => {
+  const action = parse(text(".github/actions/setup-python/action.yml"));
+  const [target, provider, environment] = action.runs.steps;
+  assert.equal(target.run, "bash .github/actions/setup-python/read-target.sh");
+  assert.match(provider.uses, /^actions\/setup-python@[a-f0-9]{40}$/u);
+  assert.deepEqual(provider.with, {
+    "python-version": "${{ steps.python-target.outputs.version }}",
+  });
+  assert.equal(environment.shell, "bash");
+  assert.match(environment.run, /python -m venv "\$RUNNER_TEMP\/python"/u);
+  assert.match(environment.run, /VIRTUAL_ENV=\$RUNNER_TEMP\/python/u);
+  assert.match(environment.run, /\$RUNNER_TEMP\/python\/Scripts/u);
+  assert.match(environment.run, /\$RUNNER_TEMP\/python\/bin/u);
+});
+
 test("read-only release preparation cannot depend on draft visibility", () => {
   const publish = workflow("publish");
   const tag = publish.jobs.admit.steps.find((step) =>

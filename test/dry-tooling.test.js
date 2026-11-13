@@ -223,14 +223,15 @@ test("dependency-free Bash Python target reader agrees with stable finite JS adm
   const reader = fileURLToPath(
     new URL("../.github/actions/setup-python/read-target.sh", import.meta.url),
   );
-  for (const [value, valid] of [
-    ["3.15.0\n", true],
-    [" 3.16.02 \n", true],
-    ["3.16", false],
-    ["3.16.0rc1", false],
-    ["3.16.0\n3.17.0", false],
-    ["3.9007199254740992.0", false],
-    ["3.9007199254740991.0", true],
+  for (const [value, minimum] of [
+    ["3.15.0\n", "3.15.0"],
+    [" 3.16.02 \n", "3.16.2"],
+    ["3.015.002\n", "3.15.2"],
+    ["3.16", null],
+    ["3.16.0rc1", null],
+    ["3.16.0\n3.17.0", null],
+    ["3.9007199254740992.0", null],
+    ["3.9007199254740991.0", "3.9007199254740991.0"],
   ]) {
     writeFileSync(join(root, ".python-version"), value);
     const output = join(root, "output");
@@ -243,12 +244,10 @@ test("dependency-free Bash Python target reader agrees with stable finite JS adm
       windowsHide: true,
     });
     assert.ifError(result.error);
-    assert.equal(result.status, valid ? 0 : 1, result.stderr);
-    if (valid)
-      assert.equal(
-        readFileSync(output, "utf8"),
-        `version=>=${pythonTarget(root)}\n`,
-      );
-    else assert.throws(() => pythonTarget(root));
+    assert.equal(result.status, minimum ? 0 : 1, result.stderr);
+    if (minimum) {
+      assert.equal(pythonTarget(root), value.trim());
+      assert.equal(readFileSync(output, "utf8"), `version=>=${minimum}\n`);
+    } else assert.throws(() => pythonTarget(root));
   }
 });
