@@ -11,6 +11,7 @@ import {
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { planPublicationOrigins } from "./publication-origins.js";
+import { releaseVersion } from "./release-coordinates.js";
 import {
   releaseQualificationWorkflow,
   verifyReleaseQualificationJobs,
@@ -44,7 +45,8 @@ export function verifyReleaseQualificationContext(run, context) {
   assert.equal(run.conclusion, "success");
   assert.match(run.head_sha, /^[a-f0-9]{40}$/u);
   assert.match(String(run.run_attempt), /^[1-9]\d{0,15}$/u);
-  if (!context.recoveryRun) assert.equal(run.head_sha, context.head);
+  if (!context.recoveryRun && !context.decision)
+    assert.equal(run.head_sha, context.head);
   return { source: run.head_sha, attempt: String(run.run_attempt) };
 }
 
@@ -105,7 +107,7 @@ export function verifyPublication({
   }
   verifyReleaseQualificationJobs(run, jobs, release);
   const metadata = json(join(root, "package.json"));
-  assert.match(metadata.version, /^[1-9]\d*\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u);
+  releaseVersion(metadata.version);
   assert.equal(metadata.name, "@hadden-industries/markdown-quality");
   assert.equal(metadata.license, "AGPL-3.0-only");
   assert.equal(metadata.publishConfig.access, "public");
@@ -185,9 +187,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   );
   const [, , directory, manifestSha, providerDirectory] = process.argv;
   const result = verifyPublication({
-    root: process.env.RECOVERY_RUN
-      ? resolve("artifact-source")
-      : resolve(fileURLToPath(new URL("../", import.meta.url))),
+    root:
+      process.env.RECOVERY_RUN || process.env.REVIEW_JSON
+        ? resolve("artifact-source")
+        : resolve(fileURLToPath(new URL("../", import.meta.url))),
     directory: resolve(directory),
     manifestSha,
     run: json(join(providerDirectory, "run.json")),

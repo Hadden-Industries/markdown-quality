@@ -9,8 +9,9 @@ Include affected release, environment, impact, reproduction and possible mitigat
 
 ## Supported releases
 
-Before stable promotion, security support covers only the single candidate designated by npm's `pilot` tag.
-After stable promotion, it covers only the latest stable release designated by `latest`, unless an explicit policy accepts another line.
+Before the first stable release, security support covers the explicitly designated candidate, normally npm's `pilot` tag.
+Thereafter the maintained security line is the most recently accepted stable GitHub release, unless an explicit policy accepts another line.
+The owner may place an RC under npm `latest`; that default does not replace the maintained stable security line.
 
 Consumers should pin exact versions and qualify upgrades.
 Older releases remaining downloadable does not imply maintenance or backport support.

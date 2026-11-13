@@ -100,6 +100,12 @@ try {
   );
   const qualified = {
     schemaVersion: 2,
+    ...(context.origins.decision
+      ? {
+          channel: context.origins.decision.channel,
+          decision: context.origins.decision,
+        }
+      : {}),
     version: release.version,
     source: release.source.head,
     manifestSha256: hash(bytes),
@@ -325,7 +331,7 @@ try {
   const decisions = resolve(process.env.RELEASE_DECISIONS_DIRECTORY);
   for (const [name, digest, phase] of [
     ["release-review.json", process.env.REVIEW_SHA, "review"],
-    ["release-acceptance.json", process.env.ACCEPTANCE_SHA, "pilot"],
+    ["release-acceptance.json", process.env.ACCEPTANCE_SHA, "acceptance"],
   ]) {
     const bytes = regularBytes(join(decisions, name));
     verifyReleaseAcceptance(
@@ -337,6 +343,11 @@ try {
     );
     qualified.evidence[name] = save(name, bytes);
   }
+  if (qualified.decision)
+    assert.equal(
+      qualified.evidence["release-review.json"],
+      qualified.decision.reviewSha256,
+    );
   verifyQualification(qualified);
   const current = JSON.parse(
     native("gh", ["api", `repos/${repository}/git/ref/heads/main`]),

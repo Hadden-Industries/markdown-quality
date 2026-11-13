@@ -11,7 +11,11 @@ on:
         required: true
         type: string
       review-sha256:
-        description: Owner-approved release-review.json attached to the signed-tag draft
+        description: SHA-256 of the exact public-safe owner decision bytes below
+        required: true
+        type: string
+      review-json:
+        description: Exact schema-2 owner review JSON; pilot is the default channel
         required: true
         type: string
       phase:
@@ -34,6 +38,10 @@ on:
         description: Independently approved prior origin-map SHA-256; blank only for original legacy publication
         required: false
         type: string
+      history-checkpoints:
+        description: Optional JSON array of owner-signed complete release-history refs for earlier writers
+        required: false
+        type: string
 permissions:
   contents: read
   actions: read
@@ -44,6 +52,8 @@ env:
   CANDIDATE_RUN: ${{ inputs.candidate-run }}
   MANIFEST_SHA: ${{ inputs.manifest-sha256 }}
   REVIEW_SHA: ${{ inputs.review-sha256 }}
+  REVIEW_JSON: ${{ inputs.review-json }}
+  HISTORY_CHECKPOINT: ${{ inputs.history-checkpoints }}
   STAGING_PHASE: ${{ inputs.phase }}
   RECOVERY_RUN: ${{ inputs.recovery-run }}
   RECOVERY_ATTEMPT: ${{ inputs.recovery-attempt }}
@@ -144,21 +154,21 @@ jobs:
             previous-publication/frozen-release/*.json
           if-no-files-found: error
           retention-days: 90
-  review:
+  decision:
     needs: admit
-    environment: github-release
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     outputs:
       artifact-id: ${{ steps.review.outputs.artifact-id }}
     permissions:
-      contents: write
+      contents: read
       actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
           ref: ${{ github.sha }}
+          fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version-file: .node-version
@@ -168,10 +178,10 @@ jobs:
           artifact-ids: ${{ needs.admit.outputs.artifact-id }}
           merge-multiple: true
           digest-mismatch: error
-      - name: Verify the live draft and exact owner review with draft visibility
+      - name: Authenticate the owner dispatch and exact reviewed source-to-controller delta
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node scripts/verify-release-tag.js frozen-release/release-manifest.json provider
+        run: node scripts/verify-release-tag.js frozen-release/release-manifest.json provider --owner-decision
       - id: review
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
@@ -243,9 +253,9 @@ jobs:
   stage:
     needs:
       - admit
-      - review
+      - decision
       - retained
-    if: always() && needs.admit.result == 'success' && needs.review.result == 'success' && (needs.retained.result == 'success' || (needs.retained.result == 'skipped' && inputs.recovery-run == '')) && github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
+    if: always() && needs.admit.result == 'success' && needs.decision.result == 'success' && (needs.retained.result == 'success' || (needs.retained.result == 'skipped' && inputs.recovery-run == '')) && github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
     environment: npm-publication
     runs-on: ubuntu-26.04
     timeout-minutes: 120
@@ -258,6 +268,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.sha }}
+          fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version-file: .node-version
@@ -282,7 +293,7 @@ jobs:
         run: node scripts/publication-npm.js acquire
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
-          artifact-ids: ${{ needs.review.outputs.artifact-id }}
+          artifact-ids: ${{ needs.decision.outputs.artifact-id }}
           merge-multiple: true
           path: provider
           digest-mismatch: error
@@ -294,7 +305,7 @@ jobs:
         timeout-minutes: 5
       - name: Revalidate exact admitted origin-map context
         run: node scripts/prepare-publication-environment.js --environment frozen-release
-      - name: Stage Windows package under pilot
+      - name: Stage Windows package under reviewed channel
         if: steps.staging_history.outputs.admitted == 'true' && env.STAGE_WIN32_X64 == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -303,7 +314,7 @@ jobs:
           node scripts/prepare-publication-environment.js --current-ref provider/current-ref.json
           node scripts/wait-registry-integrity.js --absent @hadden-industries/markdown-quality-win32-x64 "$RELEASE_VERSION"
           node scripts/stage-release-package.js win32-x64 frozen-release staging-journal
-      - name: Stage Linux package under pilot
+      - name: Stage Linux package under reviewed channel
         if: steps.staging_history.outputs.admitted == 'true' && env.STAGE_LINUX_X64 == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -315,7 +326,7 @@ jobs:
       - name: Verify both native archives before core staging
         if: steps.staging_history.outputs.admitted == 'true' && env.STAGE_CORE == 'true'
         run: node scripts/qualify-public-registry.mjs --manifest frozen-release/release-manifest.json --provenance --publication-origins frozen-release/publication-origins.json --publication-source "$GITHUB_SHA" --publication-run "$GITHUB_RUN_ID" --publication-attempt "$GITHUB_RUN_ATTEMPT" --recovery-run "$RECOVERY_RUN" --recovery-attempt "$RECOVERY_ATTEMPT" --recovery-origins-sha256 "$RECOVERY_ORIGINS_SHA" --native-only native-before-core.json
-      - name: Stage coherent core under pilot
+      - name: Stage coherent core under reviewed channel
         if: steps.staging_history.outputs.admitted == 'true' && env.STAGE_CORE == 'true'
         env:
           GH_TOKEN: ${{ github.token }}

@@ -12,6 +12,7 @@ import {
   rmSync,
   copyFileSync,
   existsSync,
+  cpSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -22,421 +23,200 @@ import {
   verifyBundle,
   verifyInventory,
   verifyQualification,
+  compactReleaseBundle,
 } from "../scripts/release-assets.js";
 import { prepareGithubRelease } from "../scripts/prepare-github-release.js";
 import { native } from "../scripts/commands.js";
 import { deliverRelease, gitSource } from "../scripts/github-release.js";
 import { bindStagingReconciliation } from "../scripts/release-staging-evidence.js";
 import { pythonTarget } from "../scripts/python-target.js";
+import { repositoryPython } from "../scripts/python-target.js";
+import { verifyTagMetadata } from "../scripts/verify-release-tag.js";
+import { acquireIndexedRelease } from "../scripts/release-archive-reader.js";
+import { verifyArchiveCompletion } from "../scripts/verify-archive-completion.js";
 
 const cwd = fileURLToPath(new URL("../", import.meta.url));
-function fixture(t, current = true) {
-  const temporary = mkdtempSync(join(tmpdir(), "github-release-test-"));
-  t.after(() => rmSync(temporary, { recursive: true, force: true }));
-  const input = join(temporary, "input");
-  mkdirSync(input);
-  const bundle = join(temporary, "bundle");
-  const put = (name, data) => {
-    const bytes = Buffer.isBuffer(data)
-      ? data
-      : Buffer.from(JSON.stringify(data, null, 2) + "\n");
-    writeFileSync(join(input, name), bytes);
-    return hash(bytes);
-  };
-  const source = native("git", ["rev-parse", "HEAD"], { cwd }).trim();
-  const archives = ["win32-x64", "linux-x64", "core"].map((name) => {
-    const suffix = name === "core" ? "" : `-${name}`;
-    const bytes = Buffer.from(`Independent ${name} archive fixture`);
-    const filename = `hadden-industries-markdown-quality${suffix}-1.0.2.tgz`;
-    put(filename, bytes);
-    return {
-      package: `@hadden-industries/markdown-quality${suffix}`,
-      filename,
-      sha256: hash(bytes),
-      integrity:
-        "sha512-" + createHash("sha512").update(bytes).digest("base64"),
-    };
-  });
-  const qualified = {
-    schemaVersion: 1,
-    version: "1.0.2",
-    source,
-    archives,
-    native: {
-      source: "a".repeat(40),
-      buildSource: "b".repeat(40),
-      buildRun: "1",
-    },
-  };
-  const provider = (run, workflow, event, names) => {
-    const expected = {
-      run,
-      attempt: "1",
-      source,
-      workflow,
-      event,
-      jobs: names,
-    };
-    const data = {
-      run: {
-        id: +run,
-        repository: { full_name: repository },
-        run_attempt: 1,
-        head_sha: source,
-        path: workflow,
-        event,
-        head_branch: "main",
-        status: "completed",
-        conclusion: "success",
-      },
-      jobs: {
-        total_count: names.length,
-        jobs: names.map((name) => ({
-          name,
-          run_id: +run,
-          run_attempt: 1,
-          head_sha: source,
-          labels:
-            name.match(/\bubuntu-\d[02468]\.04(?=[ ,)])/u)?.slice(0, 1) ?? [],
-          status: "completed",
-          conclusion: name === "candidate / shared" ? "skipped" : "success",
-          steps: [],
-        })),
-      },
-    };
-    return { expected, data };
-  };
-  const candidate = provider("10", ".github/workflows/candidate.yml", "push", [
-    "pack",
-    "consumer (windows-latest)",
-    "consumer (ubuntu-24.04)",
-  ]);
-  const publication = provider(
-    "11",
-    ".github/workflows/publish.yml",
-    "workflow_dispatch",
-    [
-      "admit",
-      "publish",
-      "registry (windows-latest)",
-      "registry (ubuntu-24.04)",
-    ],
+import { releaseFixture as fixture } from "./release-fixture.js";
+
+test("indexed archive conserves every logical byte including empty stderr and rejects a substituted member index", (t) => {
+  const f = fixture(t);
+  const emptyLog = "performance-ubuntu-24.04-owlapi-compact.driver.stderr.txt";
+  writeFileSync(join(f.input, emptyLog), Buffer.alloc(0));
+  f.qualified.evidence[emptyLog] = hash(Buffer.alloc(0));
+  const flat = `${f.directory}-with-empty`;
+  prepareGithubRelease(f.qualified, f.input, flat, cwd);
+  const output = `${f.directory}-compact`;
+  const source = gitSource(f.qualified, cwd);
+  const assets = compactReleaseBundle(f.qualified, flat, output, source);
+  assert.ok(assets.length < f.assets.length);
+  assert.ok(assets.some((asset) => asset.name === "release-evidence.zip"));
+  assert.deepEqual(verifyBundle(f.qualified, output, source), assets);
+  t.diagnostic(
+    JSON.stringify({
+      flatAssets: f.assets.length,
+      indexedAssets: assets.length,
+      flatBytes: f.assets.reduce((sum, asset) => sum + asset.size, 0),
+      indexedBytes: assets.reduce((sum, asset) => sum + asset.size, 0),
+    }),
   );
-  qualified.candidate = candidate.expected;
-  qualified.publication = publication.expected;
-  put("candidate-provider.json", candidate.data);
-  put("publication-provider.json", publication.data);
-  qualified.origins = archives.map((a) => ({
-    package: a.package,
-    source,
-    run: "11",
-    attempt: "1",
-    state: "planned",
-  }));
-  const sbomSha = put("source-sbom.cdx.json", { bomFormat: "CycloneDX" });
-  qualified.manifestSha256 = put("release-manifest.json", {
-    version: "1.0.2",
-    source: { head: source, clean: true },
-    native: {
-      source: { commit: qualified.native.source },
-      build: {
-        workflowCommit: qualified.native.buildSource,
-        runId: qualified.native.buildRun,
-      },
-    },
-    sbom: { filename: "source-sbom.cdx.json", sha256: sbomSha },
-    archives,
-  });
-  qualified.originsSha256 = put("publication-origins.json", {
-    version: "1.0.2",
-    artifactSource: source,
-    manifestSha: qualified.manifestSha256,
-    candidateRun: "10",
-    records: qualified.origins,
-  });
-  qualified.reports = {};
-  for (const [name, platform, qualification] of [
-    ["candidate-windows.json", "win32-x64", "transported candidate archives"],
-    ["candidate-linux.json", "linux-x64", "transported candidate archives"],
-    ["registry-windows.json", "win32-x64", "public registry"],
-    ["registry-linux.json", "linux-x64", "public registry"],
-  ])
-    qualified.reports[name] = {
-      platform,
-      qualification,
-      sha256: put(name, {
-        version: "1.0.2",
-        candidate: source,
-        platform,
-        qualification,
-        passed: true,
-        records: archives,
-      }),
-    };
-  qualified.materials = {
-    "snapper-0.11.9-source.tar.gz": put(
-      "snapper-0.11.9-source.tar.gz",
-      Buffer.from("Native source fixture"),
-    ),
-  };
-  for (const [name, path] of [
-    ["native-build.json", "assets/native-build.json"],
-    ["native-rights.json", "assets/native-rights.json"],
-    ["tool-manifest.json", "assets/tool-manifest.json"],
-    ["LICENSE", "LICENSE"],
-    ["THIRD-PARTY-NOTICES.md", "THIRD-PARTY-NOTICES.md"],
-  ])
-    qualified.materials[name] = hash(
-      native("git", ["show", `${source}:${path}`], { cwd, encoding: null }),
-    );
-  if (current) {
-    qualified.schemaVersion = 2;
-    const matrix = nodeMatrixFixture();
-    qualified.candidate.matrix = matrix;
-    qualified.candidate.runtimePolicy = nodeSupport;
-    qualified.candidate.workflow =
-      ".github/workflows/release-qualification.yml";
-    qualified.candidate.event = "workflow_dispatch";
-    qualified.candidate.jobs = [
-      "resolve",
-      "dependencies",
-      "native / Validate win32-x64",
-      "native / Validate linux-x64",
-      "product / Reference producer",
-      ...matrix.os.flatMap((os) =>
-        matrix.node.map((node) => `product / Qualify ${os} / Node ${node}`),
+  const path = join(output, "release-evidence-manifest.json");
+  const index = JSON.parse(readFileSync(path));
+  const original = JSON.parse(
+    readFileSync(join(flat, "release-evidence-manifest.json")),
+  );
+  assert.deepEqual(index.payloads, original.payloads);
+  assert.equal(
+    index.evidence.members.find((member) => member.name === emptyLog).size,
+    0,
+  );
+  const member = index.evidence.members[0];
+  member.sha256 = "0".repeat(64);
+  writeFileSync(path, JSON.stringify(index));
+  assert.throws(() => verifyBundle(f.qualified, output, source));
+});
+
+test("indexed reader rejects valid outer ZIPs containing extra, missing, duplicate, linked or traversing members", (t) => {
+  const f = fixture(t),
+    source = gitSource(f.qualified, cwd),
+    packed = `${f.directory}-indexed`;
+  compactReleaseBundle(f.qualified, f.directory, packed, source);
+  for (const kind of [
+    "extra",
+    "missing",
+    "duplicate",
+    "linked",
+    "traversal",
+    "oversized",
+  ]) {
+    const directory = `${packed}-${kind}`;
+    cpSync(packed, directory, { recursive: true });
+    const indexPath = join(directory, "release-evidence-manifest.json"),
+      index = JSON.parse(readFileSync(indexPath));
+    const zipPath = join(directory, "release-evidence.zip");
+    if (kind === "oversized")
+      index.evidence.members[0].size = 512 * 1024 * 1024 + 1;
+    else
+      native(repositoryPython(), [
+        "-c",
+        `import sys,zipfile,io
+p,kind=sys.argv[1:]
+raw=open(p,'rb').read()
+with zipfile.ZipFile(io.BytesIO(raw)) as original, zipfile.ZipFile(p,'w') as changed:
+    entries=original.infolist()
+    for i,item in enumerate(entries):
+        if kind!='missing' or i: changed.writestr(item, original.read(item))
+    if kind=='duplicate': changed.writestr(entries[0],original.read(entries[0]))
+    elif kind in ('extra','traversal'): changed.writestr('unexpected.txt' if kind=='extra' else '../escape.txt','foreign')
+    elif kind=='linked':
+        link=zipfile.ZipInfo('linked.txt'); link.create_system=3; link.external_attr=0o120777<<16; changed.writestr(link,'target')
+`,
+        zipPath,
+        kind,
+      ]);
+    const bytes = readFileSync(zipPath),
+      zip = index.assets.find((asset) => asset.name === "release-evidence.zip");
+    zip.size = bytes.length;
+    zip.sha256 = hash(bytes);
+    writeFileSync(indexPath, JSON.stringify(index));
+    assert.throws(() => verifyBundle(f.qualified, directory, source), kind);
+  }
+});
+
+test("a successful installed-only diagnostic cannot replace a release report even with matching hashes", (t) => {
+  const f = fixture(t);
+  const [name, expected] = Object.entries(f.qualified.reports)[0];
+  const report = JSON.parse(readFileSync(join(f.input, name)));
+  assert.equal(report.passed, true);
+  report.scope = "installed-only diagnostic";
+  const bytes = Buffer.from(JSON.stringify(report));
+  writeFileSync(join(f.input, name), bytes);
+  expected.sha256 = hash(bytes);
+  assert.throws(
+    () =>
+      prepareGithubRelease(
+        f.qualified,
+        f.input,
+        `${f.directory}-diagnostic`,
+        cwd,
       ),
-      "product / Complete runtime qualification",
-      "scans / Scan actions",
-      "scans / Validate Actions approval model",
-      "scans / Scan javascript-typescript",
-      "scans / Scan python",
-      "security",
-      "distribution",
-      "qualified",
-    ];
-    qualified.publication.workflow = ".github/workflows/release-registry.yml";
-    qualified.publication.jobs = [
-      "admit",
-      ...matrix.os.flatMap((os) =>
-        matrix.node.map((node) => `registry (${os}, ${node})`),
-      ),
-      "security",
-      "qualified",
-    ];
-    for (const [name, item] of [
-      ["candidate", candidate],
-      ["publication", publication],
-    ]) {
-      item.data = provider(
-        item.expected.run,
-        item.expected.workflow,
-        item.expected.event,
-        item.expected.jobs,
-      ).data;
-      put(`${name}-provider.json`, item.data);
-    }
-    const manifest = JSON.parse(
-      readFileSync(join(input, "release-manifest.json")),
-    );
-    manifest.qualificationMatrix = matrix;
-    manifest.runtimePolicy = nodeSupport;
-    manifest.archives = manifest.archives.map((archive, index) => ({
-      ...archive,
-      name: ["win32-x64", "linux-x64", "core"][index],
-      version: qualified.version,
-    }));
-    qualified.manifestSha256 = put("release-manifest.json", manifest);
-    qualified.originsSha256 = put("publication-origins.json", {
-      version: qualified.version,
-      artifactSource: source,
-      manifestSha: qualified.manifestSha256,
-      candidateRun: "10",
-      records: qualified.origins,
-    });
-    qualified.reports = {};
-    for (const kind of ["candidate", "registry"])
-      for (const os of matrix.os)
-        for (const node of matrix.node) {
-          const name = `${kind}-${os}-${node}.json`;
-          const platform = os.startsWith("windows") ? "win32-x64" : "linux-x64";
-          const qualification =
-            kind === "candidate"
-              ? "transported candidate archives"
-              : "public registry";
-          qualified.reports[name] = {
-            platform,
-            qualification,
-            node,
-            sha256: put(name, {
-              schemaVersion: 1,
-              npm: nodeSupport.consumerNpm,
-              manifestSha256: qualified.manifestSha256,
-              archives: archives.map(({ package: packageName, sha256 }) => ({
-                package: packageName,
-                sha256,
-              })),
-              ...(kind === "candidate" && node === nodeSupport.reference
-                ? {
-                    performance: {
-                      schemaVersion: 1,
-                      python: pythonTarget(),
-                      corpora: Object.fromEntries(
-                        ["owlapi", "webvowl"].map((name) => [
-                          name,
-                          {
-                            observations: Array.from({ length: 6 }, () => ({
-                              activeDescendants: 0,
-                            })),
-                            completeDiagnosticAndSelectedSourceParity: true,
-                            observedP95Ms: 1000,
-                            peakTreeBytes: 1234,
-                          },
-                        ]),
-                      ),
-                    },
-                  }
-                : {}),
-              version: qualified.version,
-              candidate: source,
-              platform,
-              qualification,
-              node: `v${node}`,
-              passed: true,
-              records: [
-                ...archives,
-                ...["root", "isolated"].map((layout) => {
-                  const record = {
-                    layout,
-                    platform,
-                    installedVersion: qualified.version,
-                    allInstalledFileHashesVerified: true,
-                    frozenTransportedArchiveInstall: kind === "candidate",
-                    offlineFrozenLockReinstall: true,
-                    credentialFreeOfflineRuntime: true,
-                    unchangedDocumentAndConvergentFormatting: true,
-                    lifecycleScripts: "disabled",
-                    lockSha256: "a".repeat(64),
-                    runtimeQualification: { node: "v" + node },
-                  };
-                  return {
-                    ...record,
-                    evidence: {
-                      filename: layout + "-qualification.json",
-                      sha256: createHash("sha256")
-                        .update(
-                          // json-identity-contract: bytes; owner: independent release layout fixture; reason: Bind exact LF layout-file bytes rather than infer semantic equality from serialization.
-                          JSON.stringify({
-                            schemaVersion: 1,
-                            candidate: source,
-                            node: "v" + node,
-                            ...record,
-                          }) + "\n",
-                        )
-                        .digest("hex"),
-                    },
-                  };
-                }),
-              ],
-            }),
-          };
-        }
-    qualified.evidence = {};
-    for (const [index, archive] of manifest.archives.entries()) {
-      const origin = qualified.origins[index];
-      const subject = {
-        package: archive.package,
-        version: archive.version,
-        sha256: archive.sha256,
-        integrity: archive.integrity,
-        tag: "pilot",
-        origin,
-      };
-      const journal = Buffer.from(
-        ["attempted", "outcome-unknown"]
-          .map((state) => JSON.stringify({ state, ...subject }))
-          .join("\n") + "\n",
-      );
-      const name = `stage-${archive.name}.jsonl`;
-      qualified.evidence[name] = put(name, journal);
-      const reconciliation = `stage-${archive.name}-reconciliation.json`;
-      qualified.evidence[reconciliation] = put(
-        reconciliation,
-        bindStagingReconciliation(journal, archive, origin, qualified),
-      );
-    }
-    for (const name of [
-      "distribution-sbom.cdx.json",
-      "staging-provider.json",
-      "publication-history.json",
-      "signed-tag.json",
-    ])
-      qualified.evidence[name] = put(name, {});
-    for (const name of [
-      "distribution-evidence.json",
-      "security-evidence.json",
-      "public-security-evidence.json",
-    ])
-      qualified.evidence[name] = put(name, {
-        source,
-        manifestSha256: qualified.manifestSha256,
-        payloads: [],
-      });
-    const decision = {
-      outcome: "accepted",
-      rationale: "Explicit independent fixture review and evidence.",
-      reviewer: "fixture-reviewer",
-      independent: true,
-      subject: "exact public npm pilot",
-      evidence: [
-        { url: "https://example.org/evidence", sha256: "a".repeat(64) },
-      ],
-    };
-    const identity = {
-      schemaVersion: 1,
-      source,
-      version: qualified.version,
-      manifestSha256: qualified.manifestSha256,
-      owner: "maksymshostak",
-      acceptedAt: "2026-10-16T00:00:00Z",
-    };
-    qualified.evidence["release-review.json"] = put("release-review.json", {
-      ...identity,
-      phase: "review",
-      decisions: Object.fromEntries(
-        ["semver", "security", "nativeRights", "retention"].map((name) => [
-          name,
-          decision,
-        ]),
-      ),
-    });
-    qualified.evidence["release-acceptance.json"] = put(
-      "release-acceptance.json",
-      {
-        ...identity,
-        phase: "pilot",
-        reviewSha256: qualified.evidence["release-review.json"],
-        publicQualificationRun: "11",
-        publicQualificationAttempt: "1",
-        decisions: Object.fromEntries(
-          ["owlapi", "webvowl", "restoration"].map((name) => [name, decision]),
+    /Partial qualification/u,
+  );
+});
+
+test("direct stable latest archives and classifies the same immutable release while pilot preserves classification", async (t) => {
+  for (const channel of ["latest", "pilot"]) {
+    const f = fixture(t, true, channel),
+      adapter = providerAdapter(f);
+    const result = await deliverRelease({
+      ...f,
+      gh: adapter.gh,
+      registry: async () => {},
+      family: () =>
+        Object.fromEntries(
+          f.qualified.archives.map((archive) => [
+            archive.package,
+            f.qualified.version,
+          ]),
         ),
-      },
+    });
+    assert.equal(result.immutable, true);
+    assert.equal(result.prerelease, channel !== "latest");
+    assert.equal(
+      adapter.calls.filter((args) => args[1] === "create").length,
+      1,
+    );
+    assert.equal(
+      adapter.calls.filter((args) => args.includes("--prerelease=false"))
+        .length,
+      channel === "latest" ? 1 : 0,
     );
   }
-  const assets = prepareGithubRelease(qualified, input, bundle, cwd);
-  const evidenceDirectory = join(temporary, "evidence");
-  return {
-    qualified,
-    directory: bundle,
-    assets,
-    evidenceDirectory,
-    cwd,
-    candidate,
-    publication,
-    input,
+});
+
+test("flat historical qualification restores manifest-bound empty logs and verifies only real provider assets", (t) => {
+  const f = fixture(t, false),
+    emptyLog = "performance-ubuntu-24.04-flat.driver.stderr.txt";
+  writeFileSync(join(f.input, emptyLog), Buffer.alloc(0));
+  f.qualified.evidence = {};
+  f.qualified.evidence[emptyLog] = hash(Buffer.alloc(0));
+  const flat = `${f.directory}-old-flat`;
+  const assets = prepareGithubRelease(f.qualified, f.input, flat, cwd);
+  const release = {
+    id: 20,
+    immutable: true,
+    draft: false,
+    tag_name: `v${f.qualified.version}`,
+    assets: assets.map((asset) => ({
+      ...asset,
+      state: "uploaded",
+      digest: `sha256:${asset.sha256}`,
+    })),
   };
-}
+  const target = `${f.directory}-acquired`;
+  mkdirSync(target);
+  const verified = [];
+  const acquired = acquireIndexedRelease(
+    release,
+    target,
+    (args) => {
+      assert.ok(["verify", "verify-asset", "download"].includes(args[1]));
+      if (args[1] === "download") {
+        const name = args[args.indexOf("--pattern") + 1];
+        copyFileSync(
+          join(flat, name),
+          join(args[args.indexOf("--dir") + 1], name),
+        );
+      }
+      if (args[1] === "verify-asset") verified.push(args[3]);
+      return "{}";
+    },
+    { retainedQualification: f.qualified },
+  );
+  assert.equal(acquired.qualified.schemaVersion, 1);
+  assert.equal(readFileSync(join(acquired.logical, emptyLog)).length, 0);
+  assert.equal(verified.length, release.assets.length);
+  assert.ok(!verified.some((name) => name.endsWith(emptyLog)));
+});
 
 test("matrix release evidence requires all runtime jobs and cannot silently downgrade a bound bundle", (t) => {
   const f = fixture(t);
@@ -507,6 +287,8 @@ function providerAdapter(f, options = {}) {
         );
       }
       if (endpoint === "releases/20") return JSON.stringify(release);
+      if (endpoint === "releases/latest")
+        return JSON.stringify({ id: release?.prerelease === false ? 20 : 15 });
       if (endpoint.startsWith("attestations/sha1%3A"))
         return JSON.stringify({ attestations: [{ bundle: {} }] });
       throw new Error("Unexpected API fixture endpoint: " + endpoint);
@@ -539,6 +321,7 @@ function providerAdapter(f, options = {}) {
     } else if (action === "edit") {
       release.draft = false;
       release.immutable = options.publishImmutable ?? true;
+      if (args.includes("--prerelease=false")) release.prerelease = false;
     } else if (!["verify", "verify-asset"].includes(action))
       throw new Error("Unexpected release fixture action");
     return "{}";
@@ -569,7 +352,7 @@ test("archival binds original source, all tuple bytes and independent native ori
   const f = fixture(t);
   assert.equal(
     verifyBundle(f.qualified, f.directory, gitSource(f.qualified, cwd)).length,
-    47,
+    51,
   );
   const manifest = JSON.parse(
     readFileSync(join(f.directory, "release-evidence-manifest.json")),
@@ -676,6 +459,95 @@ test("native operation assembles a draft then verifies every immutable asset wit
     ),
   );
 });
+test("historical pilot archive completion authenticates its original writer and closes without repeating asset verification", async (t) => {
+  const f = fixture(t),
+    adapter = providerAdapter(f);
+  await deliverRelease({ ...f, gh: adapter.gh, registry: async () => {} });
+  const root = `${f.directory}-legacy-inputs`;
+  mkdirSync(root);
+  cpSync(f.directory, join(root, "bundle"), { recursive: true });
+  writeFileSync(join(root, "qualification.json"), JSON.stringify(f.qualified));
+  const run = {
+    id: 1,
+    run_attempt: 1,
+    path: ".github/workflows/github-release.yml",
+    repository: { id: 1, full_name: repository },
+    head_repository: { id: 1, full_name: repository },
+    head_sha: f.qualified.source,
+    event: "workflow_dispatch",
+    head_branch: "main",
+    status: "completed",
+    conclusion: "success",
+  };
+  const before = adapter.calls.length,
+    deadlines = [];
+  const result = await verifyArchiveCompletion(
+    root,
+    f.evidenceDirectory,
+    `${root}-completion`,
+    {
+      env: { GITHUB_RUN_ID: "1", ARCHIVE_JOURNAL_ID: "800" },
+      verifyTag: f.verifyTag,
+      historicalFamily: (label, { deadline }) => {
+        assert.equal(label, "pilot");
+        deadlines.push(deadline);
+        return Object.fromEntries(
+          f.qualified.archives.map((archive) => [
+            archive.package,
+            f.qualified.version,
+          ]),
+        );
+      },
+      read: async (path) =>
+        JSON.parse(adapter.gh(["api", `repos/${repository}${path}`])),
+      gh: (args, { timeout }) => {
+        assert.ok(timeout > 0 && timeout <= 300000);
+        const path = args[1];
+        if (path?.endsWith("/actions/artifacts/800"))
+          return JSON.stringify({
+            id: 800,
+            name: "archive-journal-1",
+            digest: `sha256:${"a".repeat(64)}`,
+            expired: false,
+            workflow_run: {
+              id: 1,
+              head_sha: run.head_sha,
+              repository_id: 1,
+              head_repository_id: 1,
+            },
+          });
+        if (path?.endsWith("/attempts/1")) return JSON.stringify(run);
+        if (path?.endsWith("/attempts/1/jobs?per_page=100"))
+          return JSON.stringify({
+            total_count: 1,
+            jobs: [
+              {
+                id: 900,
+                name: "archive",
+                run_id: 1,
+                run_attempt: 1,
+                head_sha: run.head_sha,
+                status: "completed",
+                conclusion: "success",
+              },
+            ],
+          });
+        return adapter.gh(args);
+      },
+    },
+  );
+  assert.equal(result.status, "complete");
+  assert.equal(result.scope, "historical-pilot-archive");
+  assert.equal(deadlines.length, 1);
+  assert.ok(
+    !adapter.calls
+      .slice(before)
+      .some((args) =>
+        ["create", "upload", "edit", "verify-asset"].includes(args[1]),
+      ),
+  );
+});
+
 test("interrupted partial draft resumes only missing verified assets", async (t) => {
   const f = fixture(t, true);
   const existing = existingRelease(f);
@@ -688,6 +560,125 @@ test("interrupted partial draft resumes only missing verified assets", async (t)
   );
   assert.ok(!provider.calls.some((a) => a[1] === "create"));
 });
+test("interrupted direct-stable classification resumes once and an already stable archive verifies with zero writes", async (t) => {
+  for (const stable of [false, true]) {
+    const f = fixture(t, true, "latest"),
+      existing = { ...existingRelease(f, false), prerelease: !stable };
+    const adapter = providerAdapter(f, { existing });
+    await deliverRelease({
+      ...f,
+      gh: adapter.gh,
+      registry: async () => {},
+      family: () =>
+        Object.fromEntries(
+          f.qualified.archives.map((archive) => [
+            archive.package,
+            f.qualified.version,
+          ]),
+        ),
+    });
+    assert.equal(
+      adapter.calls.filter((args) => args.includes("--prerelease=false"))
+        .length,
+      stable ? 0 : 1,
+    );
+    assert.ok(
+      !adapter.calls.some((args) => ["create", "upload"].includes(args[1])),
+    );
+  }
+});
+
+test("a displaced draft and a superseded controller stop before another archive effect", async (t) => {
+  const f = fixture(t, true, "latest"),
+    adapter = providerAdapter(f);
+  await assert.rejects(
+    deliverRelease({
+      ...f,
+      registry: async () => {},
+      gh: (args) => {
+        if (args[1]?.endsWith("/releases/21"))
+          return JSON.stringify(adapter.release);
+        const result = adapter.gh(args);
+        if (args[1] === "upload") adapter.release.id = 21;
+        return result;
+      },
+    }),
+    /displaced/u,
+  );
+  assert.equal(adapter.calls.filter((args) => args[1] === "upload").length, 1);
+  const g = fixture(t, true, "latest"),
+    provider = providerAdapter(g);
+  await assert.rejects(
+    deliverRelease({
+      ...g,
+      registry: async () => {},
+      env: { GITHUB_SHA: g.qualified.source },
+      gh: (args) =>
+        args[1]?.endsWith("/git/ref/heads/main")
+          ? JSON.stringify({ object: { sha: "f".repeat(40) } })
+          : provider.gh(args),
+    }),
+    /superseded/u,
+  );
+  assert.ok(
+    !provider.calls.some((args) =>
+      ["create", "upload", "edit"].includes(args[1]),
+    ),
+  );
+});
+
+test("an acknowledged archive create on a stale absent view is never repeated", async (t) => {
+  const f = fixture(t, true, "latest"),
+    adapter = providerAdapter(f);
+  f.history = async () => ({
+    settledGithub: [
+      {
+        operation: "create",
+        subject: `v${f.qualified.version}`,
+        target: [`v${f.qualified.version}`],
+        context: { workflow: ".github/workflows/github-release.yml" },
+      },
+    ],
+  });
+  await assert.rejects(
+    deliverRelease({ ...f, gh: adapter.gh, registry: async () => {} }),
+    /never replay/u,
+  );
+  assert.ok(
+    !adapter.calls.some((args) =>
+      ["create", "upload", "edit"].includes(args[1]),
+    ),
+  );
+});
+
+test("a previous family classification cannot be interpreted as an archive request", async (t) => {
+  const f = fixture(t, true, "latest"),
+    adapter = providerAdapter(f);
+  await deliverRelease({
+    ...f,
+    gh: adapter.gh,
+    registry: async () => {},
+    family: () =>
+      Object.fromEntries(
+        f.qualified.archives.map((archive) => [
+          archive.package,
+          f.qualified.version,
+        ]),
+      ),
+    history: async () => ({
+      settledGithub: [
+        {
+          operation: "classify-release",
+          subject: 19,
+          target: { latest: 19, prerelease: false },
+          context: { workflow: ".github/workflows/promote-release.yml" },
+        },
+      ],
+    }),
+  });
+  assert.equal(adapter.calls.filter((args) => args[1] === "create").length, 1);
+});
+
 test("published immutable release recovery works without repository administration access", async (t) => {
   const f = fixture(t, true);
   const provider = providerAdapter(f, {

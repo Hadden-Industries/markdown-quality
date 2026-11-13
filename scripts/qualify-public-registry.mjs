@@ -24,6 +24,7 @@ import { qualifyMinimalConsumer } from "./qualify-minimal-consumer.js";
 import { bindRecipientSbom } from "./distribution-sbom.js";
 import { reportCiResult } from "./ci-result.js";
 import { repositoryPython, supportsPython } from "./python-target.js";
+import { releaseVersion } from "./release-coordinates.js";
 
 const { values, positionals } = parseArgs({
   options: {
@@ -69,10 +70,7 @@ const expected = JSON.parse(manifestBytes);
 const source =
   typeof expected.source === "string" ? expected.source : expected.source.head;
 assert.match(source, /^[a-f0-9]{40}$/u);
-assert.match(
-  expected.version,
-  /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-alpha\.(?:0|[1-9]\d*))?$/u,
-);
+releaseVersion(expected.version);
 const archives = values.archives ? resolve(values.archives) : null;
 const digest = (data) => createHash("sha256").update(data).digest("hex");
 const publicationOrigins = values["publication-origins"]

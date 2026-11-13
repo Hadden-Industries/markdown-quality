@@ -15,6 +15,8 @@ import { createRequire } from "node:module";
 import { consumer } from "./helpers.js";
 import { npmCommand } from "../scripts/commands.js";
 import { repositoryPython } from "../scripts/python-target.js";
+import { verifyInstalledDiagnosticArchives } from "../scripts/installed-diagnostic.js";
+import { nodeMatrixFixture } from "./node-matrix-fixture.js";
 
 const source = fileURLToPath(new URL("../", import.meta.url));
 import {
@@ -67,7 +69,7 @@ test("clean frozen source archives qualify through the installed public boundary
     pathToFileURL(join(frozen, "scripts/pack.js"))
   );
   const archives = join(scratch, "archives");
-  const tuple = packRelease(archives);
+  const tuple = packRelease(archives, nodeMatrixFixture());
   assert.equal(tuple.source.clean, true);
   assert.equal(tuple.source.head, sourceCommitId);
   const trustedRoot = consumer(t, {
@@ -77,6 +79,21 @@ test("clean frozen source archives qualify through the installed public boundary
   });
   cpSync(archives, join(trustedRoot, "archives"), { recursive: true });
   const core = tuple.archives.find((item) => item.name === "core");
+  verifyInstalledDiagnosticArchives(tuple, archives);
+  const packedPath = join(archives, core.filename),
+    originalBytes = readFileSync(packedPath);
+  writeFileSync(
+    packedPath,
+    Buffer.concat([originalBytes, Buffer.from("altered package transport")]),
+  );
+  try {
+    assert.notDeepEqual(readFileSync(packedPath), originalBytes);
+    assert.throws(() => verifyInstalledDiagnosticArchives(tuple, archives), {
+      code: "ERR_ASSERTION",
+    });
+  } finally {
+    writeFileSync(packedPath, originalBytes);
+  }
   writeFileSync(
     join(trustedRoot, "package.json"),
     JSON.stringify({

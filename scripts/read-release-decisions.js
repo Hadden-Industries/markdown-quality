@@ -7,7 +7,11 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { native } from "./commands.js";
 import { hash, releaseBytes } from "./release-bytes.js";
-import { readDraftDecisions } from "./release-acceptance.js";
+import {
+  readDraftDecisions,
+  verifyReleaseAcceptance,
+} from "./release-acceptance.js";
+import { ownerDispatchBytes } from "./release-decision-transport.js";
 import { repository } from "./release-assets.js";
 
 export function collectDraftDecisions(
@@ -41,23 +45,53 @@ export function collectDraftDecisions(
     );
     assert.match(env.MANIFEST_SHA, /^[a-f0-9]{64}$/u);
     assert.equal(hash(manifest), env.MANIFEST_SHA);
-    const decisions = readDraftDecisions(
-      JSON.parse(manifest),
-      env.MANIFEST_SHA,
-      [
-        {
-          name: "release-review.json",
-          digest: env.REVIEW_SHA,
-          phase: "review",
-        },
-        {
-          name: "release-acceptance.json",
-          digest: env.ACCEPTANCE_SHA,
-          phase: "pilot",
-        },
-      ],
-      { repository, gh, allowImmutablePrerelease: true },
-    );
+    let decisions;
+    if (env.REVIEW_JSON) {
+      const review = ownerDispatchBytes(env);
+      const acceptance = ownerDispatchBytes({
+        ...env,
+        REVIEW_JSON: env.ACCEPTANCE_JSON,
+        REVIEW_SHA: env.ACCEPTANCE_SHA,
+      });
+      const release = JSON.parse(manifest);
+      verifyReleaseAcceptance(
+        review,
+        env.REVIEW_SHA,
+        release,
+        env.MANIFEST_SHA,
+        "review",
+      );
+      verifyReleaseAcceptance(
+        acceptance,
+        env.ACCEPTANCE_SHA,
+        release,
+        env.MANIFEST_SHA,
+        "acceptance",
+      );
+      assert.equal(JSON.parse(review).schemaVersion, 2);
+      assert.equal(JSON.parse(acceptance).schemaVersion, 2);
+      decisions = new Map([
+        ["release-review.json", review],
+        ["release-acceptance.json", acceptance],
+      ]);
+    } else
+      decisions = readDraftDecisions(
+        JSON.parse(manifest),
+        env.MANIFEST_SHA,
+        [
+          {
+            name: "release-review.json",
+            digest: env.REVIEW_SHA,
+            phase: "review",
+          },
+          {
+            name: "release-acceptance.json",
+            digest: env.ACCEPTANCE_SHA,
+            phase: "acceptance",
+          },
+        ],
+        { repository, gh, allowImmutableRelease: true },
+      );
     const output = resolve(directory);
     mkdirSync(output);
     for (const [name, bytes] of decisions)

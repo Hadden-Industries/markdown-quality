@@ -58,7 +58,10 @@ test("stable labels advance natives first, core last, and a resumed partial prom
   assert.equal(labels[packages[2]], "1.0.3");
   assert.equal(records.at(-1).state, "outcome-unknown");
   assert.deepEqual(
-    await promoteNpmLabels(options),
+    await promoteNpmLabels({
+      ...options,
+      settled: { [packages[0]]: "2.0.0", [packages[1]]: "2.0.0" },
+    }),
     Object.fromEntries(packages.map((name) => [name, "2.0.0"])),
   );
   assert.deepEqual(
@@ -157,12 +160,12 @@ test("an unresolved native readback stops the package sequence after one write",
         assert.ok(elapsed <= 300_000);
       },
     }),
-    /Tag update outcome unresolved/u,
+    /Completion unconfirmed/u,
   );
   assert.equal(elapsed, 300_000);
   assert.ok(observations.at(-1) > 270_000);
   assert.deepEqual(writes, [`${packages[0]}@2.0.0`]);
-  assert.deepEqual(records, ["attempted", "outcome-unknown"]);
+  assert.deepEqual(records, ["attempted", "acknowledged"]);
 });
 
 test("whole-release completion requires every npm label and the same immutable stable GitHub latest", () => {

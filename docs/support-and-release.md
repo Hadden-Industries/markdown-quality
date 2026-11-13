@@ -138,18 +138,21 @@ Ordinary direct-main development remains available after local tests.
 A manual release qualification composes fresh product, JSON, architecture, transported matrix, performance, exact-source CodeQL, actual recipient audit and distribution SBOM gates.
 Ordinary CI success alone cannot authorize staging.
 
-The owner prepares a verified signed exact-source tag and a draft with the archive-bound review decisions.
+The owner prepares a verified signed exact-source tag and exact archive-bound review decisions through authenticated dispatch bytes.
 The stage-only npm connection uses publish.yml and the main-only npm-publication environment.
 
-Native packages are staged under pilot, inspected and approved by the owner with 2FA, then publicly verified on both platforms before a manual continuation can stage core.
+Native packages are staged under the explicitly reviewed channel, `pilot` by default or `latest` for any canonical version including an RC, inspected and approved by the owner with 2FA, then publicly verified on both platforms before a manual continuation can stage core.
 Core requires another owner approval.
 No long-lived publishing token, direct publish fallback, automatic approval or implicit latest label is used.
 
 A separate manual public-qualification workflow exercises every frozen runtime lane and both layouts with anonymous acquisition, frozen lock replay and native provenance verification.
-A later manual archival run requires its completed provider evidence and exact consumer/restoration acceptance.
-It verifies the complete draft, publishes an immutable GitHub prerelease and verifies every asset.
+A later manual archival run requires its completed provider evidence and exact owner acceptance.
+OwlAPI/WebVOWL trials and timed recovery rehearsals are optional; both performance corpora remain mandatory.
+It verifies the complete logical archive, publishes an immutable release and verifies every outer asset and indexed member.
 
-Stable promotion is separately dispatched: native npm latest labels first, core last, then the same GitHub release stable/latest, with final readback across both services.
+Stable promotion, companion alignment and whole-family restoration use an owner-scoped operation with native npm labels first, core last where included, a sealed handoff to the separate GitHub writer, and independent read-only completion.
+Direct stable latest staging classifies the same immutable GitHub release stable/latest after public qualification.
+An RC may be npm's default while GitHub retains its prior stable release.
 The current control source can advance during an owner pause without changing original package bytes, provided the explicit continuation retains and verifies all original identities.
 
 An attempted or unknown staging outcome requires reconciliation; a 404 never authorizes replay.
@@ -165,7 +168,8 @@ Restore only migration-owned changes.
 Verify byte identities and required checks, then record elapsed restoration time.
 
 Downgrading a package cannot restore formatted document bytes.
-The general pilot-promotion path requires one pilot rehearsal; the owner's exact 1.0.3 release decision leaves those consumer restoration exercises with their separately gated migrations.
+Current release decisions may elect a consumer rehearsal; its absence does not waive package, matrix, corpus, provenance, security or rights gates.
+The owner's exact 1.0.3 waiver remains historical evidence.
 
 Security reports use GitHub's private vulnerability reporting route when enabled; otherwise contact the repository owner through the project's existing private channel.
 No unattended observation service is assumed.
@@ -179,7 +183,8 @@ Review dependency/advisory health at each release preparation and monthly while 
 Retain release source, build inputs, notices, recipient delivery/qualification evidence, and accepted recovery inputs for the maintained release lifetime plus three years after support ends, honoring any applicable license obligations requiring more.
 This is an operational retention floor, not a legal interpretation.
 
-Before stable promotion, only the candidate designated by `pilot` is maintained; after stable promotion, only the latest stable release designated by `latest` is maintained unless another line is explicitly accepted.
+Before the first stable release, the explicitly designated candidate is maintained, normally under `pilot`.
+Thereafter the accepted stable GitHub release defines the maintained security line; an npm default RC does not replace it unless another support line is explicitly accepted.
 Consumers remain exactly pinned and upgrades individually qualified; older downloadable releases have no implied support or backport promise.
 
 Pilot qualification uses six consecutive valid full checks per frozen corpus/platform, excluding installation, with observed nearest-rank sample p95 at most 30 seconds.
@@ -190,7 +195,7 @@ These qualification budgets do not impose OS runtime limits or select consumer r
 
 Consumers can raise or bypass package resource defaults as documented in the consumer guide; qualification records must identify any selected override.
 Require zero unexpected errors or adjudicated false positives in the window and accepted fixture/probe corpus, retaining expected negative probes separately.
-Rehearse one task-owned pilot restoration within 60 minutes through byte/sentinel readback and incumbent local checks; hosted required-status recovery remains separate acceptance evidence.
+If a maintainer elects a recovery rehearsal, record its actual elapsed time through byte/sentinel readback and incumbent local checks; hosted required-status recovery remains separate evidence.
 
 The alpha.4 pilot cutovers passed both hosted platform windows and scoped restoration; those records do not establish acceptance of a later exact tuple.
 Version 1.0.2 requires fresh per-consumer scope, hosted platform windows, restoration and exact trusted-run acceptance before promotion.

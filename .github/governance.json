@@ -51,6 +51,24 @@
       }
     ]
   },
+  "tagRulesets": [
+    {
+      "name": "Owner creates signed release and history refs",
+      "target": "tag",
+      "enforcement": "active",
+      "bypass_actors": [{"actor_id": 6131830, "actor_type": "User", "bypass_mode": "always"}],
+      "conditions": {"ref_name": {"include": ["refs/tags/v*", "refs/tags/release-history-*"], "exclude": []}},
+      "rules": [{"type": "creation"}]
+    },
+    {
+      "name": "Release and history refs never move",
+      "target": "tag",
+      "enforcement": "active",
+      "bypass_actors": [],
+      "conditions": {"ref_name": {"include": ["refs/tags/v*", "refs/tags/release-history-*"], "exclude": []}},
+      "rules": [{"type": "update"}, {"type": "deletion"}]
+    }
+  ],
   "actions": {
     "enabled": true,
     "allowed_actions": "selected",

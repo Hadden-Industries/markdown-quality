@@ -167,7 +167,7 @@ export async function observeQualification({
       .replace(/[^a-zA-Z0-9 .,():_-]/gu, "")
       .slice(0, 180);
     result = { mode: "FULL_REQUIRED" };
-    summary = `FULL_REQUIRED: ${reason}. Explicitly dispatch main qualification; no full suite was launched.`;
+    summary = `FULL_REQUIRED: ${reason}. Explicitly dispatch main qualification; no full suite was launched. Workflow: https://github.com/${repository}/actions/workflows/main-qualification.yml (select full).`;
   }
   // Publication errors fail the job; they cannot invalidate verified evidence
   // or turn a partially published success into a qualification miss.

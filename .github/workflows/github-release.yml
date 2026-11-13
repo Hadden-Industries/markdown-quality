@@ -1,4 +1,4 @@
-name: Archive a qualified pilot as an immutable GitHub release
+name: Archive a qualified release and verify its selected defaults
 on:
   workflow_dispatch:
     inputs:
@@ -15,13 +15,33 @@ on:
         required: true
         type: string
       review-sha256:
-        description: Approved release-review.json digest from the draft
+        description: Approved exact release-review.json digest
         required: true
         type: string
       acceptance-sha256:
-        description: Approved release-acceptance.json digest including exact pilot and restoration decisions
+        description: Approved acceptance digest; optional trials retain explicit dispositions
         required: true
         type: string
+      review-json:
+        description: Exact schema-2 owner review bytes; leave empty only for the historical draft route
+        type: string
+        required: false
+      acceptance-json:
+        description: Exact schema-2 owner acceptance bytes including a fresh immutability observation
+        type: string
+        required: false
+      preflight-json:
+        description: Optional exact owner refresh of stage inventory and immutability observation, bound to the original decisions
+        type: string
+        required: false
+      preflight-sha256:
+        description: SHA-256 of the exact optional preflight refresh bytes
+        type: string
+        required: false
+      history-checkpoints:
+        description: Optional JSON array of owner-signed complete release-history refs
+        type: string
+        required: false
 permissions:
   contents: read
   actions: read
@@ -37,9 +57,47 @@ env:
   MANIFEST_SHA: ${{ inputs.manifest-sha256 }}
   REVIEW_SHA: ${{ inputs.review-sha256 }}
   ACCEPTANCE_SHA: ${{ inputs.acceptance-sha256 }}
+  REVIEW_JSON: ${{ inputs.review-json }}
+  ACCEPTANCE_JSON: ${{ inputs.acceptance-json }}
+  PREFLIGHT_JSON: ${{ inputs.preflight-json }}
+  PREFLIGHT_SHA: ${{ inputs.preflight-sha256 }}
+  HISTORY_CHECKPOINT: ${{ inputs.history-checkpoints }}
+  NPM_CONFIG_IGNORE_SCRIPTS: "true"
+  NODE_AUTH_TOKEN: ""
+  NPM_TOKEN: ""
+  NODE_OPTIONS: ""
 jobs:
   decisions:
-    if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
+    if: inputs.review-json != '' && github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      artifact-id: ${{ steps.decisions.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Authenticate exact owner dispatch decisions without draft access
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/read-release-decisions.js release-decisions
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        id: decisions
+        if: always()
+        with:
+          name: release-decisions-${{ github.run_attempt }}
+          path: release-decisions/
+          if-no-files-found: error
+          retention-days: 90
+  legacy-decisions:
+    if: inputs.review-json == '' && github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
     environment: github-release
     runs-on: ubuntu-26.04
     timeout-minutes: 120
@@ -69,8 +127,8 @@ jobs:
           if-no-files-found: error
           retention-days: 90
   prepare:
-    needs: decisions
-    if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
+    needs: [decisions, legacy-decisions]
+    if: always() && (needs.decisions.result == 'success' || needs.legacy-decisions.result == 'success') && github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     outputs:
@@ -84,9 +142,10 @@ jobs:
         with:
           node-version-file: .node-version
           package-manager-cache: false
+      - uses: ./.github/actions/setup-python
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
-          artifact-ids: ${{ needs.decisions.outputs.artifact-id }}
+          artifact-ids: ${{ needs.decisions.outputs.artifact-id || needs.legacy-decisions.outputs.artifact-id }}
           path: release-decisions
           digest-mismatch: error
       - name: Assemble original archives and closed release evidence inventory
@@ -112,6 +171,8 @@ jobs:
       contents: write
       actions: read
       attestations: read
+    outputs:
+      artifact-id: ${{ steps.journal.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -121,19 +182,64 @@ jobs:
         with:
           node-version-file: .node-version
           package-manager-cache: false
+      - uses: ./.github/actions/setup-python
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           artifact-ids: ${{ needs.prepare.outputs.artifact-id }}
           path: archive-inputs
           digest-mismatch: error
-      - name: Verify full draft and publish immutable pilot archive
+      - name: Verify evidence and publish immutable selected-channel archive
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/github-release.js archive-inputs/qualification.json archive-inputs/bundle archive-journal
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      - id: journal
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: archive-journal-${{ github.run_attempt }}
           path: archive-journal/
+          if-no-files-found: error
+          retention-days: 90
+  complete:
+    name: Read-only archive completion
+    needs: [prepare, archive]
+    if: needs.archive.result == 'success'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    env:
+      ARCHIVE_JOURNAL_ID: ${{ needs.archive.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - run: node scripts/publication-npm.js isolate
+      - run: node scripts/publication-npm.js acquire
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          artifact-ids: ${{ needs.prepare.outputs.artifact-id }}
+          path: archive-inputs
+          digest-mismatch: error
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          artifact-ids: ${{ needs.archive.outputs.artifact-id }}
+          path: archive-journal
+          digest-mismatch: error
+      - name: Verify selected labels, guarded defaults and immutable release with read-only credentials
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/verify-archive-completion.js archive-inputs archive-journal archive-completion
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: archive-completion-${{ github.run_attempt }}
+          path: archive-completion/
           if-no-files-found: error
           retention-days: 90

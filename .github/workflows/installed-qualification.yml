@@ -1,0 +1,98 @@
+name: Installed recipient diagnostic
+on:
+  workflow_call:
+    inputs:
+      matrix:
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  producer:
+    name: Diagnostic pack
+    runs-on: ubuntu-26.04
+    timeout-minutes: 40
+    outputs:
+      artifact-id: ${{ steps.archive.outputs.artifact-id }}
+      consumer-npm: ${{ steps.policy.outputs.consumer-npm }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-producer
+      - id: policy
+        env:
+          FROZEN_MATRIX: ${{ inputs.matrix }}
+        run: npm run ci:node-policy
+      - run: python scripts/acquire-native.py
+      - name: Pack the frozen tuple once
+        env:
+          FROZEN_MATRIX: ${{ inputs.matrix }}
+        run: node scripts/installed-diagnostic.js pack dist/installed-diagnostic
+      - id: archive
+        uses: ./.github/actions/upload-evidence
+        timeout-minutes: 5
+        with:
+          name: installed-diagnostic-${{ github.run_attempt }}
+          path: dist/installed-diagnostic
+          retention-days: 1
+  installed:
+    name: Diagnostic ${{ matrix.os }} / Node ${{ matrix.node }}
+    needs: producer
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.matrix) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-producer
+      - name: Provision floor-compatible consumer npm
+        env:
+          CONSUMER_NPM: ${{ needs.producer.outputs.consumer-npm }}
+        run: node scripts/qualification-process.js consumer-npm "${{ runner.temp }}/consumer-npm"
+      - uses: ./.github/actions/download-evidence
+        timeout-minutes: 15
+        with:
+          artifact-id: ${{ needs.producer.outputs.artifact-id }}
+          path: diagnostic-archives
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - run: python scripts/acquire-native.py
+      - name: Verify transported bytes before installation
+        run: node scripts/installed-diagnostic.js verify diagnostic-archives
+      - name: Exercise both installed layouts, native and CLI corpus and offline replay
+        env:
+          MARKDOWN_QUALITY_CONSUMER_NPM: ${{ runner.temp }}/consumer-npm/node_modules/npm/bin/npm-cli.js
+        run: |
+          node scripts/qualify-public-registry.mjs --manifest diagnostic-archives/release-manifest.json --archives diagnostic-archives --layout-output diagnostic-layouts installed-diagnostic.json
+          node scripts/installed-diagnostic.js report installed-diagnostic.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: installed-diagnostic-${{ matrix.os }}-${{ matrix.node }}-${{ github.run_attempt }}
+          path: |
+            installed-diagnostic.json
+            diagnostic-layouts/
+          if-no-files-found: error
+          retention-days: 1
+  complete:
+    name: Installed diagnostic complete
+    if: always()
+    needs:
+      - producer
+      - installed
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: node --input-type=module -e 'import assert from "node:assert/strict"; const needs=JSON.parse(process.env.NEEDS_JSON); assert.deepEqual(Object.keys(needs).sort(),["installed","producer"]); for(const job of Object.values(needs)) assert.equal(job.result,"success"); console.log("Installed diagnostic only; this result cannot satisfy PR acceptance or release admission.");'

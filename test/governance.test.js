@@ -200,8 +200,17 @@ test("governance drift identifies missing protection and expected native check s
       full_name: desired.repository,
       default_branch: "main",
     },
-    "/rulesets?per_page=100": [{ id: 7, name: desired.ruleset.name }],
+    "/rulesets?per_page=100": [
+      { id: 7, name: desired.ruleset.name },
+      ...desired.tagRulesets.map((rule, index) => ({
+        id: 8 + index,
+        name: rule.name,
+      })),
+    ],
     "/rulesets/7": desired.ruleset,
+    "/rulesets/8": desired.tagRulesets[0],
+    "/rulesets/9": desired.tagRulesets[1],
+    "/rules/branches/main": [],
     "/actions/permissions": desired.actions,
     "/actions/permissions/selected-actions": desired.selectedActions,
     "/actions/permissions/workflow": desired.workflowPermissions,
@@ -219,7 +228,10 @@ test("governance drift identifies missing protection and expected native check s
   ).parameters.required_status_checks[0].integration_id = 1;
   assert.deepEqual((await inspectGovernance(read)).differences, ["ruleset"]);
   responses["/rulesets?per_page=100"] = [];
-  assert.deepEqual((await inspectGovernance(read)).differences, ["ruleset"]);
+  assert.deepEqual((await inspectGovernance(read)).differences, [
+    "ruleset",
+    "tagRulesets",
+  ]);
 });
 function bootstrapFixture() {
   const workflowSha = "a".repeat(40),
@@ -364,7 +376,7 @@ test("deliberate triggers and skip-resistant acceptance remain explicit", () => 
   const main = read("main-qualification.yml");
   assert.equal(
     main.jobs.full.if,
-    "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'",
+    "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.qualification != 'installed-only'",
   );
   assert.equal(main.jobs.full.uses, "./.github/workflows/ci.yml");
   const checks = governance.ruleset.rules.find(

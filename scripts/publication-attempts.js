@@ -5,7 +5,10 @@ import { isDeepStrictEqual } from "node:util";
 import { native } from "./commands.js";
 import { sameJobExecution } from "./github-job-execution.js";
 import { publicationRepository } from "./publication-context.js";
-import { legacyPublicationSteps, stagingSteps } from "./publication-steps.js";
+import {
+  legacyPublicationSteps,
+  stagingStepNames,
+} from "./publication-steps.js";
 
 const positive = (value) => Number.isSafeInteger(value) && value > 0;
 export const publicationWorkflow = ".github/workflows/publish.yml";
@@ -57,7 +60,6 @@ export function attemptedPublicationJobs(jobs) {
   return jobs.jobs.filter((job) => {
     if (!["stage", "publish"].includes(job.name)) return false;
     if (job.status === "queued" && !job.steps?.length) return false;
-    const names = job.name === "stage" ? stagingSteps : legacyPublicationSteps;
     if (job.conclusion === "skipped") {
       assert.equal(job.status, "completed");
       assert.ok(
@@ -69,6 +71,8 @@ export function attemptedPublicationJobs(jobs) {
       );
       return false;
     }
+    const names =
+      job.name === "stage" ? stagingStepNames(job) : legacyPublicationSteps;
     assert.equal(
       job.status,
       "completed",

@@ -337,8 +337,9 @@ for (const fault of [
     }
     if (fault === "wrong token") guard.env.GH_TOKEN = "foreign";
     if (fault === "attempt counter")
-      steps.find((step) => step.name === "Stage coherent core under pilot").if =
-        "github.run_attempt == 1";
+      steps.find(
+        (step) => step.name === "Stage coherent core under reviewed channel",
+      ).if = "github.run_attempt == 1";
     if (fault === "mutable admission") {
       const transfer = steps.find(
         (step) =>
@@ -349,7 +350,8 @@ for (const fault of [
       transfer.with.name = "publication-admission-${{ github.run_attempt }}";
     }
     if (fault === "mutable review")
-      document.jobs.review.outputs["artifact-id"] = "${{ github.run_attempt }}";
+      document.jobs.decision.outputs["artifact-id"] =
+        "${{ github.run_attempt }}";
     assert.throws(() =>
       checkWorkflows({
         overrides: { ".github/workflows/publish.yml": stringify(document) },

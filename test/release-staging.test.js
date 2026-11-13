@@ -6,7 +6,7 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { stageReleaseArchive } from "../scripts/stage-release-package.js";
-import { verifyReleaseTag } from "../scripts/verify-release-tag.js";
+import { verifyTagMetadata as verifyReleaseTag } from "../scripts/verify-release-tag.js";
 import { bindStagingReconciliation } from "../scripts/release-staging-evidence.js";
 import {
   verifyPublicationHistory,

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { nodeSupport, qualificationMatrix } from "../scripts/node-matrix.js";
 import { nodeMatrixFixture } from "./node-matrix-fixture.js";
 import { publicationHistoryFixture } from "./publication-history-fixture.js";
+import { reviewedChannelStagingSteps } from "../scripts/publication-steps.js";
 import {
   mkdtempSync,
   mkdirSync,
@@ -836,7 +837,7 @@ test("only staging has OIDC; pilot approval and stable promotion remain separate
     (publisher.match(/stage-release-package.js /gu) || []).length,
     3,
   );
-  for (const name of stagingSteps)
+  for (const name of reviewedChannelStagingSteps)
     assert.ok(publisher.includes(`- name: ${name}\n`));
   for (const key of ["WIN32_X64", "LINUX_X64", "CORE"])
     assert.ok(
@@ -855,7 +856,7 @@ test("only staging has OIDC; pilot approval and stable promotion remain separate
   );
   assert.ok(
     publisher.indexOf("--native-only") <
-      publisher.indexOf("- name: Stage coherent core under pilot"),
+      publisher.indexOf("- name: Stage coherent core under reviewed channel"),
   );
   assert.ok(!text.includes("--tag latest"));
   assert.ok(!text.includes("distribution-tag:"));

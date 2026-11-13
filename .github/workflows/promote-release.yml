@@ -1,26 +1,42 @@
-name: Deliberately promote an immutable pilot to stable
+name: Deliberate release family operation
 on:
   workflow_dispatch:
     inputs:
       archive-run:
-        description: Completed immutable GitHub archival run
+        description: Original immutable archival run
         required: true
         type: string
       archive-attempt:
-        description: Exact successful archival attempt
+        description: Original archival attempt
         required: true
         type: string
       qualification-sha256:
-        description: Approved qualification.json digest from that archival run
+        description: Exact qualification.json SHA-256
         required: true
         type: string
-      prior-npm-version:
-        description: Expected previous coherent latest version; reuse this value during recovery
+      operation-json:
+        description: Public-safe owner operation, scope, preimages and target IDs
         required: true
         type: string
-      prior-github-release:
-        description: Expected previous GitHub latest release numeric ID; reuse during recovery
+      operation-sha256:
+        description: SHA-256 of the exact operation bytes
         required: true
+        type: string
+      mode:
+        description: Execute once or verify original acknowledged writers with read-only credentials
+        default: execute
+        type: choice
+        options:
+          - execute
+          - verify
+          - reconcile
+      continuation-json:
+        description: Verification-only admissionId, npmId, githubId, writerRun and writerAttempt
+        required: false
+        type: string
+      history-checkpoints:
+        description: Optional JSON array of owner-signed release-history ref names
+        required: false
         type: string
 permissions:
   contents: read
@@ -35,8 +51,11 @@ env:
   ARCHIVE_RUN: ${{ inputs.archive-run }}
   ARCHIVE_ATTEMPT: ${{ inputs.archive-attempt }}
   QUALIFICATION_SHA: ${{ inputs.qualification-sha256 }}
-  PRIOR_NPM_VERSION: ${{ inputs.prior-npm-version }}
-  PRIOR_GITHUB_RELEASE: ${{ inputs.prior-github-release }}
+  OPERATION_JSON: ${{ inputs.operation-json }}
+  OPERATION_SHA: ${{ inputs.operation-sha256 }}
+  HISTORY_CHECKPOINT: ${{ inputs.history-checkpoints }}
+  RELEASE_MODE: ${{ inputs.mode }}
+  CONTINUATION_JSON: ${{ inputs.continuation-json }}
   NPM_CONFIG_IGNORE_SCRIPTS: "true"
   NODE_AUTH_TOKEN: ""
   NPM_TOKEN: ""
@@ -44,9 +63,15 @@ env:
   NODE_OPTIONS: ""
 jobs:
   admit:
-    if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
+    if: inputs.mode == 'execute' && github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-26.04
     timeout-minutes: 120
+    permissions:
+      contents: read
+      actions: read
+      security-events: read
+    outputs:
+      artifact-id: ${{ steps.admission.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -56,20 +81,19 @@ jobs:
         with:
           node-version-file: .node-version
           package-manager-cache: false
+      - uses: ./.github/actions/setup-python
       - run: node scripts/publication-npm.js isolate
       - run: node scripts/publication-npm.js acquire
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
-        with:
-          name: archive-inputs-${{ inputs.archive-attempt }}
-          path: archive-inputs
-          run-id: ${{ inputs.archive-run }}
-          github-token: ${{ github.token }}
-          digest-mismatch: error
-      - name: Admit immutable assets, exact acceptances and approved prior labels
+      - name: Acquire original archival inputs or complete signed recovery evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/acquire-release-inputs.js archive-inputs
+      - name: Admit the immutable family, exact source security and retained recipient locks
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/promote-release.js admit archive-inputs promotion-admission
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      - id: admission
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: promotion-admission-${{ github.run_attempt }}
@@ -85,6 +109,10 @@ jobs:
       contents: read
       actions: read
       id-token: write
+    outputs:
+      artifact-id: ${{ steps.npm.outputs.artifact-id }}
+    env:
+      ADMISSION_ID: ${{ needs.admit.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -98,29 +126,80 @@ jobs:
       - run: node scripts/publication-npm.js acquire
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
-          name: archive-inputs-${{ inputs.archive-attempt }}
-          path: archive-inputs
-          run-id: ${{ inputs.archive-run }}
-          github-token: ${{ github.token }}
+          artifact-ids: ${{ needs.admit.outputs.artifact-id }}
+          path: promotion-admission
           digest-mismatch: error
-      - name: Move native latest labels first and core last with exact readback
+      - name: Change only approved npm labels, natives first
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node scripts/promote-release.js npm archive-inputs npm-promotion-journal
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        run: node scripts/promote-release.js npm promotion-admission npm-operation
+      - id: npm
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
-          name: npm-promotion-journal-${{ github.run_attempt }}
-          path: npm-promotion-journal/
+          name: npm-operation-${{ github.run_attempt }}
+          path: npm-operation/
           if-no-files-found: error
           retention-days: 90
   github:
-    needs: npm
+    needs:
+      - admit
+      - npm
     environment: github-release
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     permissions:
       contents: write
+      actions: read
+    outputs:
+      artifact-id: ${{ steps.github.outputs.artifact-id }}
+    env:
+      ADMISSION_ID: ${{ needs.admit.outputs.artifact-id }}
+      NPM_RESULT_ID: ${{ needs.npm.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - run: node scripts/publication-npm.js isolate
+      - run: node scripts/publication-npm.js acquire
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          artifact-ids: ${{ needs.admit.outputs.artifact-id }}
+          path: promotion-admission
+          digest-mismatch: error
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          artifact-ids: ${{ needs.npm.outputs.artifact-id }}
+          path: npm-operation
+          digest-mismatch: error
+      - name: Authenticate the sealed npm result before the isolated GitHub effect
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/promote-release.js github promotion-admission github-operation
+      - id: github
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: github-operation-${{ github.run_attempt }}
+          path: github-operation/
+          if-no-files-found: error
+          retention-days: 90
+  complete:
+    name: Read-only release completion
+    needs:
+      - admit
+      - npm
+      - github
+    if: always() && github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main' && (inputs.mode == 'verify' || (needs.admit.result == 'success' && needs.npm.result == 'success' && needs.github.result == 'success'))
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
       actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -133,21 +212,58 @@ jobs:
           package-manager-cache: false
       - run: node scripts/publication-npm.js isolate
       - run: node scripts/publication-npm.js acquire
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
-        with:
-          name: archive-inputs-${{ inputs.archive-attempt }}
-          path: archive-inputs
-          run-id: ${{ inputs.archive-run }}
-          github-token: ${{ github.token }}
-          digest-mismatch: error
-      - name: Classify the same immutable release and verify the complete cross-service result
+      - id: bind
+        name: Bind exact original writers for read-only verification
+        env:
+          NATIVE_RESULTS: ${{ toJSON(needs) }}
+        run: node scripts/release-controller-inputs.js
+      - uses: ./.github/actions/setup-python
+      - name: Acquire original successful writer artifacts or complete signed retained proof
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node scripts/promote-release.js github archive-inputs github-promotion-journal
+        run: node scripts/acquire-completion-inputs.js
+      - name: Verify the exact family and GitHub state within one five-minute budget
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/promote-release.js verify promotion-admission release-completion
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
-          name: github-promotion-journal-${{ github.run_attempt }}
-          path: github-promotion-journal/
+          name: release-completion-${{ github.run_attempt }}
+          path: release-completion/
+          if-no-files-found: error
+          retention-days: 90
+  reconcile:
+    if: inputs.mode == 'reconcile' && github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - uses: ./.github/actions/setup-python
+      - run: node scripts/publication-npm.js isolate
+      - run: node scripts/publication-npm.js acquire
+      - name: Authenticate the exact original unknown writer artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/reconcile-release-effect.js acquire reconciliation-inputs
+      - name: Observe the original effect without retrying any request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/reconcile-release-effect.js reconciliation-inputs release-reconciliation
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: release-reconciliation-${{ github.run_attempt }}
+          path: release-reconciliation/
           if-no-files-found: error
           retention-days: 90

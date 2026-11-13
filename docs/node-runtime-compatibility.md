@@ -101,7 +101,7 @@ Use official Node distributions with their published SHA-256 identities.
 Qualify real transported core/native archives in root and isolated installations, including fresh engine-strict installation and offline engine-strict lockfile replay.
 The existing consumer corpus exercises public exports and schemas, bounded logical-document execution, exact formatting bytes, check-without-write behavior, convergence, literal preservation and failure preservation.
 
-Run runtime source checks on the policy's floor, pinned compatibility endpoints and reference on Windows 2025 x64 and Ubuntu 24.04 x64.
+Run runtime source checks on the policy's floor, pinned compatibility endpoints and reference on Windows 2025 x64 and Ubuntu 26.04 x64.
 The [qualification plan](plans/2026-10-15-node-runtime-compatibility-qualification.md) records completion evidence.
 
 Tests use the native module-mock option supported by the selected runtime: `namedExports` on Node 22 and Node 24 before 24.15, and `exports` on newer supported runtimes.

@@ -27,6 +27,9 @@ import {
 } from "./publication-origins.js";
 import { verifyArchiveBytes } from "./release-bytes.js";
 import { verifyReleaseTag } from "./verify-release-tag.js";
+import { stagingStepNames } from "./publication-steps.js";
+import { verifyReleaseAcceptance } from "./release-acceptance.js";
+import { readPackageTags } from "./release-labels.js";
 import {
   authenticatePublicationAttempts,
   readPublicationAttempts,
@@ -114,7 +117,7 @@ export function verifyStagingContinuation({
     ".github/workflows/publish.yml",
     [
       "admit",
-      "review",
+      map.schemaVersion === 2 ? "decision" : "review",
       "retained (windows-latest)",
       `retained (${stage.runnerPolicy.ubuntu})`,
       "stage",
@@ -132,6 +135,7 @@ export function verifyStagingContinuation({
       run: staging.run,
       attempt: staging.attempt,
       recovery: map.recovery,
+      ...(map.schemaVersion === 2 ? { decision: map.decision } : {}),
     },
     release.archives,
   );
@@ -144,7 +148,9 @@ export function verifyStagingContinuation({
     ["retained", "retained"],
   );
   const effect = stage.jobs.jobs.find(({ name }) => name === "stage");
-  const core = effect.steps.filter(({ name }) => name === stagingSteps[2]);
+  const core = effect.steps.filter(
+    ({ name }) => name === stagingStepNames(effect)[2],
+  );
   assert.equal(core.length, 1);
   assert.equal(
     core[0].conclusion,
@@ -248,6 +254,38 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   assert.equal(reference.object.type, "tag");
   const annotation = api(`git/tags/${reference.object.sha}`);
   verifyReleaseTag(reference, annotation, release);
+  if (context.origins.decision) {
+    const reviewBytes = readFileSync(
+      join(previous, "provider/release-review.json"),
+    );
+    const review = verifyReleaseAcceptance(
+      reviewBytes,
+      context.origins.decision.reviewSha256,
+      release,
+      hash(bytes),
+      "review",
+    );
+    assert.equal(review.channel ?? "pilot", context.origins.decision.channel);
+    const deadline = performance.now() + 300000;
+    for (const archive of release.archives) {
+      const tags = readPackageTags(archive.package, { deadline });
+      assert.equal(
+        tags[context.origins.decision.channel],
+        release.version,
+        "Owner approval is not publicly visible",
+      );
+      assert.equal(
+        tags.latest ?? null,
+        context.origins.decision.channel === "latest"
+          ? release.version
+          : review.guards.defaults[archive.package],
+        "Unexpected npm default after staging",
+      );
+    }
+    writeFileSync(join(directory, "release-review.json"), reviewBytes, {
+      flag: "wx",
+    });
+  }
   for (const [name, value] of Object.entries({
     "continuation.json": context,
     "candidate-provider.json": candidate,

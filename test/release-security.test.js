@@ -5,7 +5,12 @@ import {
   verifyCodeqlAnalyses,
   verifyRecipientAudit,
   verifyCodeqlSarif,
+  refreshReleaseSecurity,
 } from "../scripts/qualify-release-security.js";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { hash } from "../scripts/release-bytes.js";
 
 const source = "a".repeat(40);
 const analyses = () =>
@@ -22,6 +27,64 @@ const analyses = () =>
     results_count: 0,
     environment: JSON.stringify({ language, "build-mode": "none" }),
   }));
+
+test("fresh admission audits retained original locks, preserves native audit outputs and refuses a substituted lock", (t) => {
+  const directory = mkdtempSync(join(tmpdir(), "release-security-refresh-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const qualified = {
+    source,
+    manifestSha256: "a".repeat(64),
+    candidate: { matrix: { os: ["windows-2025", "ubuntu-26.04"] } },
+    evidence: {},
+  };
+  writeFileSync(
+    join(directory, "codeql-analyses.json"),
+    JSON.stringify(analyses()),
+  );
+  for (const platform of qualified.candidate.matrix.os)
+    for (const layout of ["root", "isolated"]) {
+      const name = `public-recipient-${platform}-${layout}-package-lock.json`,
+        bytes = Buffer.from(
+          JSON.stringify({
+            lockfileVersion: 3,
+            packages: { "": { name: "original-recipient", version: "1.0.0" } },
+          }),
+        );
+      writeFileSync(join(directory, name), bytes);
+      qualified.evidence[name] = hash(bytes);
+    }
+  let calls = 0;
+  const options = {
+    gh: () => "[[]]",
+    command: (args) => {
+      calls++;
+      assert.ok(
+        args.includes("--package-lock-only") &&
+          args.includes("--ignore-scripts"),
+      );
+      return JSON.stringify({
+        auditReportVersion: 2,
+        metadata: { vulnerabilities: { total: 0 } },
+        vulnerabilities: {},
+      });
+    },
+  };
+  const refreshed = refreshReleaseSecurity(qualified, directory, options);
+  assert.equal(calls, 4);
+  assert.equal(refreshed.audits.length, 4);
+  for (const record of refreshed.audits)
+    assert.equal(record.audit.metadata.vulnerabilities.total, 0);
+  writeFileSync(
+    join(directory, Object.keys(qualified.evidence)[0]),
+    "substituted",
+  );
+  calls = 0;
+  assert.throws(
+    () => refreshReleaseSecurity(qualified, directory, options),
+    /lock changed/u,
+  );
+  assert.equal(calls, 0);
+});
 
 test("a prior source's successful CodeQL analysis cannot qualify this release", () => {
   const provider = analyses();
