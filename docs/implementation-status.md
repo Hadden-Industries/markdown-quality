@@ -1,8 +1,16 @@
 # Implementation decisions and evidence
 
+## Version 3.0.2 preparation on 2026-11-13
+
+The core package and both native packages select 3.0.2, with synchronized source lockfile metadata.
+Current consumer and release guides describe that candidate and retain the earlier migration history.
+The source includes release CI convergence, dependency updates and the `fast-xml-parser >=5.12.0` development override.
+Version preparation does not establish exact-source hosted qualification, publication, promotion or release acceptance.
+Follow the [release runbook](release-operations.md) for those operations; dated evidence below remains bound to its original candidate.
+
 ## Zero-config opinionated policy source
 
-Current source requires no configuration file and applies the `authored-gfm@2` preset, with configuration schema 3, result schema 4, execution schema 2 and comparison schema 3.
+Current source requires no configuration file and applies the `authored-gfm@2` preset, with configuration schema 3, result schema 5, execution schema 2 and comparison schema 3.
 Public names follow the naming migration: `processLogicalDocument`, `executeQualityRequest`, `stageCandidateData`, `qualifyGitMarkdown`, `compareCheckReports` and the `markdown-quality-qualify-git` bin.
 Repository scripts are renamed to `check:formatting-and-markdown` and `check:dependency-audit`; `inspect:json` and `format:json:check` are removed.
 The [centralized contracts guide](centralized-contracts.md) owns the current contract details; the dated sections below remain historical records of 1.0.x behavior.

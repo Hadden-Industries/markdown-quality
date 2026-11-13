@@ -1,6 +1,7 @@
 # Deliberate release operations
 
-The current source selects the 3.0.1 family.
+The current source selects the 3.0.2 family: the core package, Linux x64 native package and Windows x64 native package.
+Prepare qualification and release decisions for that exact version and source tuple.
 Source implementation does not establish publication, hosted qualification or governance activation.
 The [release CI convergence plan](plans/2026-11-13-release-ci-convergence-implementation-plan.md) governs new operations.
 The [previous guide at its integration baseline](https://github.com/Hadden-Industries/markdown-quality/blob/e62b95aa648679cd37b2d70a3463d96c5e17edce/docs/release-operations.md) describes historical draft decisions and schema-1 pilot acceptance.

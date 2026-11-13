@@ -4,13 +4,15 @@ Check GitHub Flavored Markdown for layout drift, decomposed Unicode in prose, mi
 The Node.js CLI and SDK use the same rules.
 A repository can start with the defaults and no configuration file.
 
+Version **3.0.2** is the selected source candidate.
+Publication and qualification remain separate release steps; see [3.0.2 release preparation](docs/support-and-release.md#version-302-preparation).
+
 ## Install and run
 
-From the repository root, install the exact version you intend to use.
-This example targets the 3.0.1 contract.
+After 3.0.2 is published and qualified, run these commands from the repository root.
 
 ```sh
-npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.1
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.2
 npm exec -- markdown-quality check --root .
 ```
 
@@ -18,12 +20,8 @@ The check reads the selected documents and prints findings on stderr.
 Exit `0` means the check completed without blockers.
 See [exit and status](#exit-and-status) for refusals and operational failures.
 
-This documentation describes the 3.0.1 source candidate.
-Use the installation example with a published, qualified version matching the documented contract.
-Releases are first published under npm's `pilot` tag and move to `latest` only after pilot acceptance and stable promotion.
-
-Pin the exact qualified version; an unversioned install follows the mutable `latest` tag.
-The [migration guide](docs/migration-guide.md) maps 2.0 usage to 3.0 and retains the earlier 1.x migration.
+Pin the exact qualified version; `pilot` and `latest` are mutable tags.
+The [migration guide](docs/migration-guide.md#from-301-to-302) explains the 3.0.2 update and retains the earlier 3.0, 2.0 and 1.x migrations.
 
 A local dependency does not put a bare `markdown-quality` executable on every shell's PATH.
 Run it through [npm exec](https://docs.npmjs.com/cli/v11/commands/npm-exec/), an npm script, or another runner that resolves local package binaries.
