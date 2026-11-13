@@ -11,7 +11,7 @@ To resolve findings, see [local links and fragments](#links-fragments-path-case-
 
 The CLI and SDK require Node.js, filesystem access and the [supported platform-native executables](support-and-release.md).
 Use the package in local development, builds and CI, including as a development dependency of a frontend project.
-Follow the [consumer runtime policy](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/node-runtime-compatibility.md#consumer-bounds) for your project.
+Follow the [3.0.2 consumer runtime policy](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.2/docs/node-runtime-compatibility.md#consumer-bounds) for your project.
 The contributor npm floor applies to development in the Markdown Quality repository.
 Packed-package qualification uses a separate consumer npm against the shipped graph.
 
@@ -37,7 +37,7 @@ A local dependency does not put a bare `markdown-quality` executable on every sh
 
 Keep the consumer lockfile, and disable lifecycle scripts with `--ignore-scripts` where your acquisition policy requires it.
 An isolated `tooling/markdown` npm project supports consumers that do not use Node for their application; pass the actual repository root to its commands.
-Version 2.0 adds `parse5` 8.1.0 (MIT) and `github-slugger` 2.0.0 (ISC) as direct runtime dependencies; the [third-party notices](../THIRD-PARTY-NOTICES.md) list them all.
+See the [third-party notices](../THIRD-PARTY-NOTICES.md) for the versions and licenses of this release's runtime dependencies.
 
 ## Root discovery
 

@@ -2,14 +2,15 @@
 
 ## Request PR qualification
 
-Ordinary full qualification starts deliberately when a PR targeting `main` receives `ready_for_review`, or when an operator dispatches `main-qualification.yml` on `main`.
+Ordinary full qualification starts when a PR targeting `main` receives `ready_for_review`, or when an operator dispatches `main-qualification.yml` on `main` with `qualification: full`.
+Selecting `installed-only` runs the packed-recipient diagnostic.
 Opening a ready PR, draft updates and later synchronization do not launch full ordinary qualification.
 
 Changed heads require another deliberate ready checkpoint; strict required acceptance prevents stale qualification from authorizing a changed tree.
 `ci.yml` freezes one matrix and coordinates the reference producer, runtime consumers, frozen native validation, dependency review/audit and explicit Actions, JavaScript/TypeScript and Python CodeQL scans.
 
 `CI / acceptance` requires the complete authenticated successful inventory, both installed layouts and reference corpus evidence; skipped or missing obligations fail.
-The producer owns source-wide verification, one authoritative distributed archive tuple and the mandatory final JSON gate.
+The policy job runs source admission before the producer builds the shared archive tuple and runs the final JSON check.
 Runtime consumers exercise source behavior and the same archive ID on both operating systems.
 
 ## Interpret the main qualification result
@@ -33,8 +34,8 @@ Main observation is a reuse decision, not newly executed qualification or releas
 Manual `release-qualification.yml` always runs fresh exact-source product, corpus, explicit security, recipient audit and distribution inventory obligations through the common graph.
 It has no publication authority.
 
-The [convergence plan](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/plans/2026-10-29-github-actions-convergence-implementation-plan.md) supersedes the earlier automatic-CI/reuse design for current source.
-Hosted acceptance and governance activation remain pending until the source is separately pushed and the cutover procedure is authorized and completed.
+The [convergence plan](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.2/docs/plans/2026-10-29-github-actions-convergence-implementation-plan.md) supersedes the earlier automatic-CI/reuse design for current source.
+Verify hosted acceptance for the exact candidate and inspect the live governance settings before release.
 
 The package repository, OwlAPI, and WebVOWL are public, as inspected through GitHub on 2026-10-05.
 The owner selected public npm distribution after the private upload was rejected with E402.
@@ -42,23 +43,25 @@ Core and both native packages declare public access; anonymous installation is a
 Ordinary fork pull requests need no registry credential or paid npm subscription.
 
 The direct CLI and public APIs are canonical integrations.
-Version 2.0 adds the public SHA-pinned reusable workflow described in the [centralized contracts guide](centralized-contracts.md).
+Version 3.0.2 retains the public SHA-pinned reusable workflow introduced in 2.0 and described in the [centralized contracts guide](centralized-contracts.md).
 Adoption uses the latest qualified producer commit and locked archive/workflow tuple regardless of npm release status.
 The historical pilot/publication evidence below does not establish qualification of these new source contracts.
 
-| Event                    | Trusted graph and policy                              | Acquisition                                     | Candidate processing                                 | Current status                                |
+| Event                    | Trusted graph and policy                              | Acquisition                                     | Candidate processing                                 | Historical evidence                           |
 | ------------------------ | ----------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------- | --------------------------------------------- |
 | Package pull request     | Public locked dependencies and fixed native manifests | Public upstream inputs, no private secrets      | Package tests run without elevated authority         | Hosted package qualification passed           |
 | Pilot protected branch   | Reviewed capability release and consumer policy       | Public locked graph, lifecycle scripts disabled | Full authored scope without credentials              | Alpha.4 cutovers passed; both pilots on 1.0.3 |
-| Pilot same-repository PR | Reviewed base tooling and policy                      | Separate trusted acquisition                    | Candidate Markdown and link target tree only         | 2.0 workflow built; hosted proof pending      |
-| Pilot fork PR            | Reviewed base tooling and policy                      | Separate trusted acquisition                    | Candidate data only; no candidate scripts or graph   | 2.0 workflow built; hosted proof pending      |
+| Pilot same-repository PR | Reviewed base tooling and policy                      | Separate trusted acquisition                    | Candidate Markdown and link target tree only         | 2.0 workflow then awaited hosted proof        |
+| Pilot fork PR            | Reviewed base tooling and policy                      | Separate trusted acquisition                    | Candidate data only; no candidate scripts or graph   | 2.0 workflow then awaited hosted proof        |
 | Tool or policy update PR | Existing accepted graph until review                  | New graph requires owner review                 | Never treat candidate graph or exclusions as trusted | Required review remains explicit              |
 
 Package tests and candidate/registry qualification have no registry secret or OIDC permission.
 They install with lifecycle scripts disabled and qualify both OS targets.
 The separately dispatched publisher grants OIDC issuance only to its main-restricted npm-publication job.
 
-Its exact candidate/source/manifest gate precedes public pilot publication; registry qualification remains credential-free and latest promotion remains separately gated.
+Its exact candidate/source/manifest gate precedes staging under the owner-reviewed channel (`pilot` by default or explicitly `latest`).
+After the owner's 2FA approvals, public registry qualification uses anonymous acquisition.
+A subsequent change of stable defaults requires a separate owner decision.
 Packed-consumer tests acquire public JavaScript dependencies before testing offline frozen-lock reinstallation and runtime execution.
 
 Packing, bundled-dependency acquisition, source SBOM generation and shipment inspection use the retained producer Node/npm pair even when invoked from a consumer lane.
@@ -66,7 +69,7 @@ Fixture archives follow that same producer route; consumer installation, depende
 
 CI passes the frozen consumer npm version into acquisition and selects that CLI for runtime-sensitive source tests as well as installed-package qualification.
 The source lock acquisition alone does not populate metadata for a fresh consumer install.
-It cannot serve as evidence that a pilot's private access works.
+Pilot qualification verifies anonymous acquisition of the exact public package family.
 
 A pilot integration must acquire the exact public tool graph from a trusted source without registry credentials and process a separately fetched candidate data tree.
 Use a reviewed configuration schema 3 root policy, or trusted absence for package defaults; translate intended ignore-file exclusions into that policy before adoption.
@@ -80,7 +83,7 @@ The owner accepted a manual trusted-run boundary for the two pilots on 2026-10-0
 Shared qualification now additionally requires owner approval of its exact request through the protected `markdown-quality-trusted-qualification` environment before the trusted graph executes.
 
 Required reviewers and disabled administrator bypass are checked live, together with this workflow run's approval history; a named but unprotected environment does not authorize execution.
-The [Actions analysis model](https://github.com/Hadden-Industries/markdown-quality/blob/main/.github/codeql/README.md) recognizes this exact admission sequence for manual workflows while preserving the native rule inventory and unchanged zero-result release gates.
+The [Actions analysis model](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.2/.github/codeql/README.md) recognizes this exact admission sequence for manual workflows while preserving the native rule inventory and unchanged zero-result release gates.
 
 The request summary identifies the reviewed trusted commit/profile and paired producer, plus the candidate commit; changing those inputs creates a new workflow run requiring approval.
 GitHub required checks select a name/context and App identity, not a workflow revision or event.
@@ -112,7 +115,7 @@ References: [GitHub event trust](https://docs.github.com/en/actions/reference/se
 ## Qualification evidence retention
 
 Routine diagnostics belong in job logs and concise job summaries.
-The routine public-registry workflow uses the qualifier's existing JSON stdout and does not upload a duplicate report.
+The manual registry diagnostic uses the qualifier's existing JSON stdout and does not upload a duplicate report.
 Candidate and release-registry workflows retain their exact JSON records because the release collector consumes them.
 
 Package, performance, release-security and distribution qualification append bounded public facts to job summaries only after their gates pass.

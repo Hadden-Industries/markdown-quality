@@ -24,7 +24,8 @@ A changed preimage requires a new owner review.
 ## Qualify once and choose the channel
 
 Set the coordinated version in root package.json, project it with `npm run sync:version`, and check version consistency before freezing.
-Run `release-qualification.yml` for the exact committed source.
+Dispatch `release-qualification.yml` on `main` with the committed version `3.0.2`.
+The workflow requires a three-part numeric version with a positive major and accepts no prerelease suffix.
 It requires source/product/architecture/JSON checks, the frozen Windows 2025 and Ubuntu 26.04 Node matrix, both installed layouts, exact-source Actions/JavaScript/Python CodeQL, recipient audit, native/rights/distribution evidence and both pinned OwlAPI/WebVOWL performance corpora.
 One producer packs the exact core, Windows and Linux archives used by all lanes.
 Ordinary CI, an installed-only diagnostic and earlier release evidence cannot replace this qualification.
@@ -34,9 +35,9 @@ When selecting new package-source bytes or shipped documentation, pack and quali
 The core archive embeds the source commit and tree, so selecting another package-source commit also changes that identity when the edit is confined to release tooling.
 Preserve earlier manifests and approvals under their original tuples; leave checksum pins for unchanged native executables, corresponding source archives and acquisition tools intact.
 
-Choose `pilot` by default, or explicitly select `latest`, for a stable version or a canonical prerelease such as an RC.
+For 3.0.2 choose the default channel `pilot` or explicitly select `latest` in the owner review.
 Npm channel selection is independent of GitHub classification.
-A direct RC may become the npm default while GitHub latest remains the prior stable security line.
+The downstream family-operation rules also support an already qualified RC as npm's default while GitHub latest remains the prior stable security line.
 Both channels retain native-first staging, separate owner 2FA approvals, public qualification of the exact tuple and immutable archival.
 
 Sign an annotated `vVERSION` tag at the package-source commit using the owner's local signing route.

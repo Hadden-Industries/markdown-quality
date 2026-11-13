@@ -5,6 +5,7 @@
 The core package and both native packages share version 3.0.2, with synchronized source lockfile metadata.
 The consumer and release guides describe this release and retain the earlier migration history.
 The release includes release CI convergence, dependency updates and the `fast-xml-parser >=5.12.0` development override.
+The source lock pins JSON Quality and its Windows and Linux companions to 1.0.1 for repository checks.
 Before each owner approval, the staged-tarball check compares downloaded bytes with the approved manifest's SHA-256 and SHA-512 SRI and retains the stage identity and observed digests.
 The [release runbook](release-operations.md) defines exact-source qualification, publication and promotion.
 Dated evidence below remains bound to its original candidate.

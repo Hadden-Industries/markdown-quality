@@ -150,7 +150,7 @@ Unlimited mode cannot remove Node, V8, operating-system or hosting-provider limi
 ## Guides
 
 - The [consumer guide](docs/consumer-guide.md) covers installation, configuration, defaults, links, normalization, resources and the library API.
-- The [migration guide](docs/migration-guide.md) maps 2.0 CLI/result usage to 3.0 and retains earlier configuration/API migrations.
+- The [migration guide](docs/migration-guide.md) covers the 3.0.2 patch and the CLI, SDK and configuration changes for consumers upgrading from earlier releases.
 - The [support and release guide](docs/support-and-release.md) describes compatibility and release gates.
 - The [centralized contracts guide](docs/centralized-contracts.md) and [CI trust guide](docs/ci-trust.md) describe logical documents, execution profiles and trusted qualification.
 - The package is licensed under [AGPL-3.0-only](LICENSE).
@@ -160,9 +160,9 @@ Unlimited mode cannot remove Node, V8, operating-system or hosting-provider limi
 
 ## Development
 
-Reference builds use the Node reference declared in [node-support.json](https://github.com/Hadden-Industries/markdown-quality/blob/main/assets/node-support.json) and an existing stable Python interpreter at least as new as [.python-version](https://github.com/Hadden-Industries/markdown-quality/blob/main/.python-version) for asset preparation.
+Reference builds use the Node reference declared in [node-support.json](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.2/assets/node-support.json) and an existing stable Python interpreter at least as new as [.python-version](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.2/.python-version) for asset preparation.
 That policy also owns the exact CI/producer npm and the separate consumer-qualification npm.
-Contributor installs enforce a local npm minimum; [the runtime guide](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/node-runtime-compatibility.md#contributor-and-consumer-npm) explains why it does not apply to packed-package consumers.
+Contributor installs enforce a local npm minimum, as described in [the runtime guide](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.2/docs/node-runtime-compatibility.md#contributor-and-consumer-npm).
 Ordinary checks and logical-document operations need no Python interpreter.
 Trusted candidate qualification additionally needs the Python version declared in its accepted execution profile.
 

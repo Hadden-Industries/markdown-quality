@@ -20,7 +20,8 @@ Configuration schema 3, preset `authored-gfm@2`, result schema 5, execution sche
 
 The patch updates Markdown and HTML tooling, dependency locks and release CI.
 Repository development also enforces `fast-xml-parser >=5.12.0`; the source lock resolves 5.12.0.
-Release maintainers should use the [current release runbook](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/release-operations.md) for coordinated family staging, qualification, archival and promotion.
+The 3.0.2 source lock selects JSON Quality 1.0.1 for repository development checks.
+Release maintainers should use the [3.0.2 release runbook](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.2/docs/release-operations.md) for coordinated family staging, qualification, archival and promotion.
 
 ## From 3.0.0 to 3.0.1
 
@@ -30,8 +31,8 @@ Successful and quality-refused reports require complete policy and resource evid
 The result schema remains version 5, with its logical identifier corrected to that version.
 Fragment resolution, NFC planning, change reporting and path spelling avoid repeated work while retaining their existing findings and preservation rules.
 
-Repository contributors now use JSON Quality 1.0.0 with configuration schema 4, event schema 5 and cohort 6.
-See [JSON development checks](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/json-quality.md) for the repository tooling migration.
+The 3.0.1 source adopted JSON Quality 1.0.0 with configuration schema 4, event schema 5 and cohort 6.
+The [3.0.2 JSON development guide](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.2/docs/json-quality.md) describes the current checks.
 
 ## From 2.0 to 3.0
 
@@ -257,7 +258,8 @@ A successful format, normalize or preview result is never check evidence, even w
 | `wouldFormat`                        | `formattingDriftPaths`             |
 | `scripts/compare-quality-reports.js` | `scripts/compare-check-reports.js` |
 
-`compareCheckReports` reads result schemas 1 through 4 and refuses repair or preview receipts.
+Version 2.0 read check reports with result schemas 1 through 4.
+Version 3.0.2 also reads result schema 5 and continues to refuse repair or preview receipts.
 `formattingDriftPaths` lists paths with formatter-layout diagnostics; it does not predict that formatting will succeed.
 
 ## Qualification identities, workflow inputs and environment
@@ -302,7 +304,7 @@ Capture package, lock, configuration and workflow identities and exact document 
 Then run each step and review its result before the next:
 
 ```sh
-npm install --save-dev --save-exact @hadden-industries/markdown-quality@2.0.0
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.2
 npm exec -- markdown-quality inspect --root . --json
 npm exec -- markdown-quality check --root .
 npm exec -- markdown-quality normalize --root . --dry-run
@@ -311,7 +313,7 @@ npm exec -- markdown-quality format --write --root .
 npm exec -- markdown-quality check --root .
 ```
 
-The install pins 2.0.0 exactly in the manifest and lock; while it is under npm's `pilot` tag, an unversioned install selects the `latest` 1.x release.
+The install pins 3.0.2 in the manifest and lock regardless of the current npm distribution tags.
 `inspect` confirms the root, selection, omissions and effective policy.
 
 The first `check` reports the new default errors: non-NFC prose, generic link text, duplicate sibling headings, bare URLs, unresolved fragments, path case, image alternatives and disallowed HTML.
