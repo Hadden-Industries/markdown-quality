@@ -548,6 +548,7 @@ export function releaseFixture(t, current = true, channel, version = "1.0.2") {
   const evidenceDirectory = join(temporary, "evidence");
   return {
     qualified,
+    env: { GITHUB_SHA: source, GITHUB_RUN_ID: "1", GITHUB_RUN_ATTEMPT: "1" },
     history: async () => ({ settledGithub: [] }),
     directory: bundle,
     assets,

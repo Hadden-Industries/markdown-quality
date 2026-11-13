@@ -260,7 +260,15 @@ function providerAdapter(f, options = {}) {
       const endpoint = args[1].replace(`repos/${repository}/`, "");
       if (endpoint === "immutable-releases")
         return JSON.stringify({ enabled: options.enabled ?? true });
-      if (endpoint.startsWith("git/ref/"))
+      if (endpoint === "git/ref/heads/main")
+        return JSON.stringify({
+          ref: "refs/heads/main",
+          object: {
+            type: "commit",
+            sha: options.mainHead ?? f.qualified.source,
+          },
+        });
+      if (endpoint === "git/ref/tags/v1.0.2")
         return JSON.stringify({
           ref: "refs/tags/v1.0.2",
           object: {
@@ -607,16 +615,12 @@ test("a displaced draft and a superseded controller stop before another archive 
   );
   assert.equal(adapter.calls.filter((args) => args[1] === "upload").length, 1);
   const g = fixture(t, true, "latest"),
-    provider = providerAdapter(g);
+    provider = providerAdapter(g, { mainHead: "f".repeat(40) });
   await assert.rejects(
     deliverRelease({
       ...g,
       registry: async () => {},
-      env: { GITHUB_SHA: g.qualified.source },
-      gh: (args) =>
-        args[1]?.endsWith("/git/ref/heads/main")
-          ? JSON.stringify({ object: { sha: "f".repeat(40) } })
-          : provider.gh(args),
+      gh: provider.gh,
     }),
     /superseded/u,
   );

@@ -83,22 +83,33 @@ test("bundle acquisition preserves the frozen graph and ships only the declared 
 });
 
 test("bundle acquisition refuses an incomplete development lock even when development packages are omitted", (t) => {
-  const root = consumer(t),
-    core = join(root, "core");
-  mkdirSync(core);
-  const manifestBytes = readFileSync(join(repositoryRoot, "package.json"));
-  const metadata = JSON.parse(manifestBytes);
+  const fixture = consumer(t, { "core/.npmrc": "cache=../npm-cache\n" });
+  const root = join(fixture, "producer");
+  const core = join(fixture, "core");
+  mkdirSync(root);
+  const metadata = JSON.parse(
+    readFileSync(join(repositoryRoot, "package.json")),
+  );
   const lock = JSON.parse(
     readFileSync(join(repositoryRoot, "package-lock.json")),
   );
   assert.ok(metadata.devDependencies.yaml);
   assert.equal(lock.packages["node_modules/yaml"].dev, true);
   const missingVersion = lock.packages["node_modules/yaml"].version;
+  // Let offline npm resolve the omitted package even with a cold cache.
+  // Its native lock check can then report the missing entry deterministically.
+  mkdirSync(join(fixture, "yaml"));
+  writeFileSync(
+    join(fixture, "yaml/package.json"),
+    JSON.stringify({ name: "yaml", version: missingVersion }),
+  );
+  metadata.devDependencies.yaml = "file:../yaml";
+  lock.packages[""].devDependencies.yaml = metadata.devDependencies.yaml;
   delete lock.packages["node_modules/yaml"];
-  // json-identity-contract: bytes; owner: bundle acquisition regression; reason: Assert that native rejection preserves the exact malformed fixture lock bytes.
-  const lockBytes = Buffer.from(JSON.stringify(lock) + "\n");
-  writeFileSync(join(root, "package.json"), manifestBytes);
-  writeFileSync(join(root, "package-lock.json"), lockBytes);
+  writeFileSync(join(root, "package.json"), JSON.stringify(metadata) + "\n");
+  writeFileSync(join(root, "package-lock.json"), JSON.stringify(lock) + "\n");
+  const manifestBytes = readFileSync(join(root, "package.json"));
+  const lockBytes = readFileSync(join(root, "package-lock.json"));
   assert.throws(
     () => stageBundledDependencies(root, core, metadata),
     (error) =>

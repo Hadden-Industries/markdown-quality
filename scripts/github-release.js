@@ -50,16 +50,16 @@ export async function deliverRelease({
   registry = verifyPublicRegistryArchives,
   verifyTag = verifyReleaseTag,
   family = readArchiveFamily,
+  env = process.env,
   history = (operation, archiveObservation) =>
     admitPriorReleaseEffects(operation, {
       env: {
-        ...process.env,
+        ...env,
         OPERATION_SHA: qualified.evidence["release-acceptance.json"],
       },
-      checkpoint: process.env.HISTORY_CHECKPOINT,
+      checkpoint: env.HISTORY_CHECKPOINT,
       archiveObservation,
     }),
-  env = process.env,
 }) {
   assert.equal(
     qualified.schemaVersion,
@@ -70,11 +70,11 @@ export async function deliverRelease({
   const assets = verifyBundle(qualified, directory, gitSource(qualified, cwd));
   const effects = createEffectJournal(evidenceDirectory, {
     repository,
-    controller: process.env.GITHUB_SHA ?? qualified.source,
+    controller: env.GITHUB_SHA ?? qualified.source,
     source: qualified.source,
     workflow: ".github/workflows/github-release.yml",
-    run: process.env.GITHUB_RUN_ID ?? "1",
-    attempt: process.env.GITHUB_RUN_ATTEMPT ?? "1",
+    run: env.GITHUB_RUN_ID ?? "1",
+    attempt: env.GITHUB_RUN_ATTEMPT ?? "1",
     job: "archive",
     operationId:
       qualified.decision?.operationId ?? `archive-${qualified.version}`,
