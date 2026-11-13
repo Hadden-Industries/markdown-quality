@@ -6,6 +6,21 @@ import { join } from "node:path";
 import { runQuality } from "../src/quality.js";
 import { consumer } from "./helpers.js";
 import { defaultAnalyzerLimits as limits } from "../src/analyzer-limits.js";
+
+test("escaped entity-like URL text survives real formatting and reaches a fixed point", async (t) => {
+  // Prettier 3.10 repairs the former multi-pass &quot; link corruption.
+  const input = "[Open](https://example.test/hello?foo&quot\\;bar)\n";
+  const expected = "[Open](https://example.test/hello?foo\\&quot;bar)\n";
+  const root = consumer(t, { "a.md": input });
+  const formatted = await runQuality({ root, mode: "format" });
+  assert.equal(formatted.exitCode, 0, JSON.stringify(formatted));
+  assert.equal(readFileSync(join(root, "a.md"), "utf8"), expected);
+  assert.equal((await runQuality({ root })).exitCode, 0);
+  assert.deepEqual(
+    (await runQuality({ root, mode: "format" })).writtenPaths,
+    [],
+  );
+});
 test("opt-in concurrency preserves real native findings, exact formatted bytes and convergence", async (t) => {
   const files = {
     "a.md": "# Heading\n\nAlpha. Beta.\n",

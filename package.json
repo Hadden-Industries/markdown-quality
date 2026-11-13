@@ -113,13 +113,13 @@
     "mdast-util-gfm": "3.1.0",
     "micromark-extension-frontmatter": "2.0.0",
     "micromark-extension-gfm": "3.0.0",
-    "parse5": "8.1.0",
+    "parse5": "8.1.1",
     "picomatch": "4.0.7",
-    "prettier": "3.9.10"
+    "prettier": "3.10.1"
   },
   "overrides": {
     "glob": "14.0.3",
-    "minimatch": "11.0.3",
+    "minimatch": "11.0.8",
     "micromark-extension-math": {
       "katex": "0.19.1"
     }
