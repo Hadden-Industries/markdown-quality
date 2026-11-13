@@ -6,9 +6,12 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { native } from "./commands.js";
 import {
-  assertUbuntuJobLabel,
+  assertMatrixJobLabel,
+  legacyWindowsRunner,
   ubuntuRunner,
   ubuntuRunnerPattern,
+  windowsRunner,
+  windowsRunnerPattern,
 } from "./runner-policy.js";
 import {
   hash,
@@ -83,7 +86,7 @@ export function providerFor(run, jobs, workflow, names, attempts) {
   );
   for (const job of jobs.jobs) assert.equal(job.head_sha, run.head_sha);
   if (workflow === publicationWorkflow)
-    for (const job of jobs.jobs) assertUbuntuJobLabel(job);
+    for (const job of jobs.jobs) assertMatrixJobLabel(job);
   return expected;
 }
 
@@ -111,6 +114,12 @@ export function verifyStagingContinuation({
   );
   assert.equal(stage.runnerPolicy?.source, stage.run.head_sha);
   assert.match(stage.runnerPolicy.ubuntu, ubuntuRunnerPattern);
+  assert.match(stage.runnerPolicy.windows, windowsRunnerPattern);
+  // The original windows-2025 policy used windows-latest for this staging job.
+  const retainedWindows =
+    stage.runnerPolicy.windows === legacyWindowsRunner
+      ? "windows-latest"
+      : stage.runnerPolicy.windows;
   const staging = providerFor(
     stage.run,
     stage.jobs,
@@ -118,7 +127,7 @@ export function verifyStagingContinuation({
     [
       "admit",
       map.schemaVersion === 2 ? "decision" : "review",
-      "retained (windows-latest)",
+      `retained (${retainedWindows})`,
       `retained (${stage.runnerPolicy.ubuntu})`,
       "stage",
     ],
@@ -192,7 +201,11 @@ export function readProvider(
     );
     return {
       ...publication,
-      runnerPolicy: { source, ubuntu: ubuntuRunner(policy) },
+      runnerPolicy: {
+        source,
+        ubuntu: ubuntuRunner(policy),
+        windows: windowsRunner(policy),
+      },
     };
   }
   const jobs = JSON.parse(

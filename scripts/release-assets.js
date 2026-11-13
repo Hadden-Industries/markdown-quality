@@ -16,7 +16,11 @@ import { native } from "./commands.js";
 import { repositoryPython } from "./python-target.js";
 import { artifactLimits } from "./artifact-policy.js";
 import { candidateJobNames } from "./node-matrix.js";
-import { assertUbuntuJobLabel, ubuntuRunner } from "./runner-policy.js";
+import {
+  assertMatrixJobLabel,
+  ubuntuRunner,
+  windowsRunner,
+} from "./runner-policy.js";
 import {
   releaseQualificationJobNames,
   releaseQualificationWorkflow,
@@ -224,7 +228,7 @@ export function verifyProvider(provider, expected) {
     assert.equal(String(matches[0].run_attempt), expected.attempt);
     assert.equal(matches[0].head_sha ?? run.head_sha, expected.source);
     if (expected.workflow === registryWorkflow)
-      assertUbuntuJobLabel(matches[0]);
+      assertMatrixJobLabel(matches[0]);
   }
 }
 
@@ -286,7 +290,7 @@ export function verifyPayloads(qualified, directory, sourceArchive) {
         source: qualified.source,
         node: expected.node,
         os: expected.platform.startsWith("win32")
-          ? "windows-2025"
+          ? windowsRunner(qualified.candidate.runtimePolicy)
           : ubuntuRunner(qualified.candidate.runtimePolicy),
         qualification: expected.qualification,
         policy: qualified.candidate.runtimePolicy,

@@ -11,7 +11,7 @@ permissions:
 jobs:
   observe:
     name: Observe Windows policy reference
-    runs-on: windows-2025
+    runs-on: windows-2025-vs2026
     timeout-minutes: 120
     env:
       MARKDOWN_QUALITY_OBSERVATION: windows-ci

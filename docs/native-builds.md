@@ -19,7 +19,7 @@ Direct probes of the verified 0.11.10 Windows release still reproduce that failu
 
 ## Run the hosted producer
 
-The [native build workflow](../.github/workflows/native.yml) runs on Windows 2022 x64 and Ubuntu 26.04 x64 with a 60-minute job limit.
+The [native build workflow](../.github/workflows/native.yml) builds each x64 target on the Windows or Linux runner selected by [the runtime policy](../assets/node-support.json), with a 60-minute limit per job.
 On Linux the builder checks the executable's required glibc symbols against the supported 2.39 floor.
 It uses pinned Actions, read-only repository access, and no registry secrets or OIDC authority.
 It runs only by explicit dispatch, with a choice of the accepted or next-build input.

@@ -23,17 +23,44 @@ import {
   hostIdentity,
   pythonVersion,
 } from "../scripts/ci-host.js";
-import { ubuntuRunner, ubuntuRunnerPattern } from "../scripts/runner-policy.js";
+import {
+  ubuntuRunner,
+  ubuntuRunnerPattern,
+  windowsRunner,
+} from "../scripts/runner-policy.js";
 import { budgets } from "../scripts/qualification-budgets.js";
 import { nodeMatrixFixture, nextPatchVersion } from "./node-matrix-fixture.js";
 
 const noWait = async () => {};
 const newerPythonVersion = nextPatchVersion(pythonVersion);
 const linuxRunner = ubuntuRunner();
+const windows = windowsRunner();
+const windowsImage = windows.replace("windows-20", "win");
 const currentImage = `ubuntu${ubuntuRunnerPattern.exec(linuxRunner)[1]}`;
 const otherRunner =
   linuxRunner === "ubuntu-24.04" ? "ubuntu-26.04" : "ubuntu-24.04";
 const otherImage = `ubuntu${ubuntuRunnerPattern.exec(otherRunner)[1]}`;
+
+test("an explicit Windows toolchain lane requires its exact hosted ImageOS", () => {
+  const lane = "windows-2025-vs2026";
+  const recorded = {
+    os: "Windows",
+    architecture: "X64",
+    image: "win25-vs2026",
+    imageVersion: "20261020.1.0",
+    python: pythonVersion,
+  };
+  assert.doesNotThrow(() => assertHostedPlatform(recorded, lane));
+  for (const image of ["win25", "win25-vs2022", "win25-vs2026-arm64"])
+    assert.throws(
+      () => assertHostedPlatform({ ...recorded, image }, lane),
+      /image family/u,
+    );
+  for (const image of ["win25", "win25-vs2026"])
+    assert.doesNotThrow(() =>
+      assertHostedPlatform({ ...recorded, image }, "windows-2025"),
+    );
+});
 
 test("the recorded Ubuntu lane owns historical image validation", () => {
   const recorded = {
@@ -135,7 +162,7 @@ function fixture(attempt = 1, fork = false) {
     lane,
     os: lane.startsWith("windows") ? "Windows" : "Linux",
     architecture: "X64",
-    image: lane.startsWith("windows") ? "win25" : currentImage,
+    image: lane === windows ? windowsImage : currentImage,
     imageVersion: "20261020.1.0",
     python: pythonVersion,
   }));
@@ -382,7 +409,7 @@ test("observer reruns ignore prior host attempts and partial probes remain FULL_
     read = input.read;
   const stale = {
     id: 999,
-    name: "ci-host-windows-2025-72-1.json",
+    name: `ci-host-${windows}-72-1.json`,
     workflow_run: { id: 72, repository_id: 11 },
   };
   const withHistory = async (path) => {
@@ -616,14 +643,8 @@ test("mixed hosted image builds reuse the same qualified platform and preserve t
         record.lane.node === nodeSupport.reference
           ? "20261026.354.1"
           : "20261023.334.3";
-      if (
-        record.lane.os === "windows-2025" &&
-        record.lane.node === nodeSupport.reference
-      )
-        record.host.image = "win25-vs2026";
     }
     for (const host of f.hosts) host.imageVersion = mainVersion;
-    f.hosts.find((host) => host.lane === "windows-2025").image = "win25-vs2026";
     const input = await proof(f),
       originalHosts = structuredClone(
         input.receipt.lanes.map((record) => record.host),
@@ -648,7 +669,7 @@ test("platform, runtime and image provenance remain mandatory for reuse", async 
     ["imageVersion", "unobserved"],
   ]) {
     const input = await proof(fixture()),
-      host = input.hosts.find((value) => value.lane === "windows-2025");
+      host = input.hosts.find((value) => value.lane === windows);
     host[field] = invalid;
     await assert.rejects(verifyProof(input), undefined, `main ${field}`);
   }

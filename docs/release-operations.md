@@ -26,7 +26,8 @@ A changed preimage requires a new owner review.
 Set the coordinated version in root package.json, project it with `npm run sync:version`, and check version consistency before freezing.
 Dispatch `release-qualification.yml` on `main` with the committed version `3.0.2`.
 The workflow requires a three-part numeric version with a positive major and accepts no prerelease suffix.
-It requires source/product/architecture/JSON checks, the frozen Windows 2025 and Ubuntu 26.04 Node matrix, both installed layouts, exact-source Actions/JavaScript/Python CodeQL, recipient audit, native/rights/distribution evidence and both pinned OwlAPI/WebVOWL performance corpora.
+Run the frozen Node matrix on both x64 platforms selected by [the runtime policy](../assets/node-support.json), covering both installed layouts.
+Qualification also requires source, product, architecture and JSON checks, exact-source Actions/JavaScript/Python CodeQL, recipient audit, native/rights/distribution evidence and both pinned OwlAPI/WebVOWL performance corpora.
 One producer packs the exact core, Windows and Linux archives used by all lanes.
 Ordinary CI, an installed-only diagnostic and earlier release evidence cannot replace this qualification.
 

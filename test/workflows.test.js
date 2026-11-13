@@ -4,6 +4,7 @@ import test from "node:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { parse } from "yaml";
 import { candidateJobNames } from "../scripts/node-matrix.js";
+import { windowsRunner } from "../scripts/runner-policy.js";
 import { testFiles } from "../scripts/verification-suites.js";
 import { nodeMatrixFixture } from "./node-matrix-fixture.js";
 const text = (path) =>
@@ -358,7 +359,7 @@ test("release downloads have artifact-read permission and both graphs retain Win
   );
   const native = workflow("native-qualification").jobs.validate;
   assert.ok(
-    native.strategy.matrix.include.some((lane) => lane.os === "windows-2025"),
+    native.strategy.matrix.include.some((lane) => lane.os === windowsRunner()),
   );
   assert.ok(
     native.steps.some((step) =>
@@ -374,7 +375,7 @@ test("release downloads have artifact-read permission and both graphs retain Win
       "Every native exit must reach the Actions step boundary",
     );
   const observation = workflow("windows-observation").jobs.observe;
-  assert.equal(observation["runs-on"], "windows-2025");
+  assert.equal(observation["runs-on"], windowsRunner());
   assert.ok(
     observation.steps.some(
       (step) => step.uses === "./.github/actions/setup-producer",

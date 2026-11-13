@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { nodeSupport, qualificationMatrix } from "../scripts/node-matrix.js";
-import { nodeMatrixFixture } from "./node-matrix-fixture.js";
+import { fixtureJobLabels, nodeMatrixFixture } from "./node-matrix-fixture.js";
 import { publicationHistoryFixture } from "./publication-history-fixture.js";
 import { reviewedChannelStagingSteps } from "../scripts/publication-steps.js";
 import {
@@ -144,8 +144,7 @@ function fixture(t) {
       jobs: releaseJobNames.map((name) => ({
         name,
         head_sha: source,
-        labels:
-          name.match(/\bubuntu-\d[02468]\.04(?=[ ,)])/u)?.slice(0, 1) ?? [],
+        labels: fixtureJobLabels(name),
         status: "completed",
         conclusion: name === "candidate / shared" ? "skipped" : "success",
         steps: [],

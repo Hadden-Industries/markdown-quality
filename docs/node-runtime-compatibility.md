@@ -72,8 +72,8 @@ Only the policy's explicit tested families receive mandatory qualification; depe
 
 [The runtime policy](../assets/node-support.json) owns one consumer floor, tested LTS families, the pinned producer reference and separate producer/consumer npm versions.
 Change version values there, then run `npm run sync:node`.
-The Ubuntu platform entry also selects the GitHub-hosted Linux runner.
-Run the same command after updating that entry and include the regenerated workflows in the change.
+The platform entries select the GitHub-hosted x64 runner images for Linux and Windows.
+Run the same command after changing a runner label and include the regenerated workflows.
 The checked projections update npm engines, workflow bootstrap selections, `.node-version`, bootstrap JSON and the version list above.
 
 Refresh root lock metadata with native `npm install --package-lock-only --ignore-scripts`; the projector never rewrites the dependency graph.
@@ -101,7 +101,7 @@ Use official Node distributions with their published SHA-256 identities.
 Qualify real transported core/native archives in root and isolated installations, including fresh engine-strict installation and offline engine-strict lockfile replay.
 The existing consumer corpus exercises public exports and schemas, bounded logical-document execution, exact formatting bytes, check-without-write behavior, convergence, literal preservation and failure preservation.
 
-Run runtime source checks on the policy's floor, pinned compatibility endpoints and reference on Windows 2025 x64 and Ubuntu 26.04 x64.
+Run the runtime source checks at the Node floor, pinned compatibility endpoints and producer reference on both x64 runners listed in [the runtime policy](../assets/node-support.json).
 The [qualification plan](plans/2026-10-15-node-runtime-compatibility-qualification.md) records completion evidence.
 
 Tests use the native module-mock option supported by the selected runtime: `namedExports` on Node 22 and Node 24 before 24.15, and `exports` on newer supported runtimes.

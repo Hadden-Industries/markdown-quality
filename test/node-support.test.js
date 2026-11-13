@@ -118,6 +118,7 @@ test("policy validates exact stable versions and an explicit unique LTS list wit
     { consumerNpm: "latest" },
     { producerNpm: { version: "12.2.0", range: "^11" } },
     { platforms: [] },
+    { platforms: ["ubuntu-24.04", "windows-2025-vs2026-extra"] },
     { support: { otherEngineCompatibleReleases: "unsupported" } },
   ])
     assert.throws(() => validatePolicy({ ...policy, ...change }));
@@ -171,4 +172,38 @@ test("floor policy projects metadata and documentation idempotently", () => {
     "jobs:\n  policy:\n    runs-on: ubuntu-24.04\n  tests:\n    strategy:\n      matrix:\n        os: [ubuntu-24.04, windows-2025]\n",
   );
   assert.deepEqual(projectNodeSupport(projected, policy), projected);
+});
+
+test("Windows runner projection changes selectors while preserving provenance text and other architectures", () => {
+  const path = ".github/workflows/fixture.yml";
+  const source = [
+    "jobs:",
+    "  producer:",
+    "    runs-on: 'windows-2022' # windows-2022",
+    "    steps:",
+    "      - run: echo windows-2022",
+    "  verify:",
+    "    runs-on: ${{ matrix.os }}",
+    "    strategy:",
+    "      matrix:",
+    "        os: [windows-latest, windows-11-vs2026-arm]",
+    "        include:",
+    "          - os: windows-2025",
+    "            name: windows-2025",
+    "",
+  ].join("\n");
+  const windows = "windows-2025-vs2026";
+  const next = {
+    ...policy,
+    platforms: ["ubuntu-24.04", windows],
+  };
+  const projected = projectNodeSupport({ [path]: source }, next);
+  assert.equal(
+    projected[path],
+    source
+      .replace("'windows-2022'", `'${windows}'`)
+      .replace("[windows-latest,", `[${windows},`)
+      .replace("- os: windows-2025\n", `- os: ${windows}\n`),
+  );
+  assert.deepEqual(projectNodeSupport(projected, next), projected);
 });

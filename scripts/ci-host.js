@@ -7,17 +7,21 @@ import { fileURLToPath } from "node:url";
 import { budgets } from "./qualification-process.js";
 import { repositoryPython, supportsPython } from "./python-target.js";
 import nodeSupport from "../assets/node-support.json" with { type: "json" };
-import { ubuntuRunnerPattern } from "./runner-policy.js";
+import {
+  legacyWindowsRunner,
+  ubuntuRunnerPattern,
+  windowsRunnerPattern,
+} from "./runner-policy.js";
 export const pythonVersion = readFileSync(
   new URL("../.python-version", import.meta.url),
   "utf8",
 ).trim();
 
 // Adapter from the frozen workflow platform labels to GitHub image families.
-// Build numbers and Windows tool-image variants remain execution provenance.
+// A toolchain-qualified lane binds ImageOS; image build numbers remain provenance.
 export function assertHostedPlatform(host, lane) {
   const ubuntu = ubuntuRunnerPattern.exec(lane);
-  const windows = lane === "windows-2025";
+  const windows = windowsRunnerPattern.exec(lane);
   assert.ok(ubuntu || windows, "Unsupported hosted platform");
   assert.equal(
     host?.os,
@@ -29,9 +33,12 @@ export function assertHostedPlatform(host, lane) {
   assert.ok(
     typeof host.image === "string" &&
       host.image.length <= 80 &&
-      (windows
+      (lane === legacyWindowsRunner
         ? /^win25(?:-[a-zA-Z0-9]+)*$/u.test(host.image)
-        : host.image === `ubuntu${ubuntu[1]}`),
+        : host.image ===
+          (windows
+            ? `win${windows[1]}${windows[2] ?? ""}`
+            : `ubuntu${ubuntu[1]}`)),
     "Hosted image family differs from the qualified platform",
   );
   assert.ok(

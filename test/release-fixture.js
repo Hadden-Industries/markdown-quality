@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import assert from "node:assert/strict";
 import { nodeSupport } from "../scripts/node-matrix.js";
-import { nodeMatrixFixture, nextPatchVersion } from "./node-matrix-fixture.js";
+import {
+  fixtureJobLabels,
+  nodeMatrixFixture,
+  nextPatchVersion,
+} from "./node-matrix-fixture.js";
 import { createHash } from "node:crypto";
 import {
   mkdtempSync,
@@ -111,8 +115,7 @@ export function releaseFixture(t, current = true, channel, version = "1.0.2") {
           run_id: +run,
           run_attempt: 1,
           head_sha: source,
-          labels:
-            name.match(/\bubuntu-\d[02468]\.04(?=[ ,)])/u)?.slice(0, 1) ?? [],
+          labels: fixtureJobLabels(name),
           status: "completed",
           conclusion: name === "candidate / shared" ? "skipped" : "success",
           steps: [],

@@ -4,11 +4,11 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { npmCliPath } from "./commands.js";
+import { windowsRunnerPattern } from "./runner-policy.js";
+import nodeSupport from "../assets/node-support.json" with { type: "json" };
 
 const semver = createRequire(npmCliPath())("semver");
-export const nodeSupport = JSON.parse(
-  readFileSync(new URL("../assets/node-support.json", import.meta.url), "utf8"),
-);
+export { nodeSupport };
 const production = Object.entries(
   JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url)))
     .packages,
@@ -91,7 +91,9 @@ export function validatePolicy(policy) {
   assert.ok(
     policy.platforms.every(
       (platform) =>
-        typeof platform === "string" && /^[a-z]+-[a-z0-9.]+$/u.test(platform),
+        typeof platform === "string" &&
+        (/^[a-z]+-[a-z0-9.]+$/u.test(platform) ||
+          windowsRunnerPattern.test(platform)),
     ),
   );
   return policy;

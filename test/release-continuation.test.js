@@ -5,8 +5,8 @@ import { verifyStagingContinuation } from "../scripts/release-continuation.js";
 import { releaseQualificationJobNames } from "../scripts/release-qualification.js";
 import { hash } from "../scripts/release-bytes.js";
 import { nodeSupport } from "../scripts/node-matrix.js";
-import { ubuntuRunner } from "../scripts/runner-policy.js";
-import { nodeMatrixFixture } from "./node-matrix-fixture.js";
+import { ubuntuRunner, windowsRunner } from "../scripts/runner-policy.js";
+import { fixtureJobLabels, nodeMatrixFixture } from "./node-matrix-fixture.js";
 
 function fixture() {
   const source = "a".repeat(40),
@@ -47,8 +47,7 @@ function fixture() {
         run_id: id,
         run_attempt: 1,
         head_sha: head,
-        labels:
-          name.match(/\bubuntu-\d[02468]\.04(?=[ ,)])/u)?.slice(0, 1) ?? [],
+        labels: fixtureJobLabels(name),
         status: "completed",
         conclusion: name === "candidate / shared" ? "skipped" : "success",
         steps:
@@ -97,11 +96,15 @@ function fixture() {
       ...provider(11, ".github/workflows/publish.yml", control, [
         "admit",
         "review",
-        "retained (windows-latest)",
+        `retained (${windowsRunner()})`,
         `retained (${controlUbuntu})`,
         "stage",
       ]),
-      runnerPolicy: { source: control, ubuntu: controlUbuntu },
+      runnerPolicy: {
+        source: control,
+        ubuntu: controlUbuntu,
+        windows: windowsRunner(),
+      },
     },
   };
 }
@@ -155,11 +158,51 @@ test("ordinary CI, skipped gates, missing core requests and substituted origins 
 test("an expected Ubuntu job name cannot conceal a different GitHub runner", () => {
   for (const key of ["candidate", "stage"]) {
     const input = fixture();
-    const job = input[key].jobs.jobs.find(({ labels }) => labels.length);
+    const job = input[key].jobs.jobs.find(({ labels }) =>
+      labels.some((label) => label.startsWith("ubuntu-")),
+    );
     assert.ok(job);
     job.labels = [
       key === "candidate" ? input.stage.runnerPolicy.ubuntu : ubuntuRunner(),
     ];
+    assert.throws(
+      () => verifyStagingContinuation(input),
+      /runner labels differ/u,
+    );
+  }
+});
+
+test("staging binds the Windows retained lane to its original controller", () => {
+  const input = fixture();
+  const retained = input.stage.jobs.jobs.find(({ name }) =>
+    name.startsWith("retained (windows-"),
+  );
+  const original = retained.name;
+  retained.name = "retained (windows-latest)";
+  retained.labels = ["windows-latest"];
+  assert.throws(
+    () => verifyStagingContinuation(input),
+    /Missing or duplicate required job/u,
+  );
+  input.stage.runnerPolicy.windows = "windows-2025";
+  assert.ok(
+    verifyStagingContinuation(input).staging.jobs.includes(retained.name),
+  );
+  retained.name = original;
+  assert.throws(
+    () => verifyStagingContinuation(input),
+    /Missing or duplicate required job/u,
+  );
+});
+
+test("a Visual Studio lane rejects a provider reporting a different Windows image label", () => {
+  for (const key of ["candidate", "stage"]) {
+    const input = fixture();
+    const job = input[key].jobs.jobs.find(({ labels }) =>
+      labels.includes(windowsRunner()),
+    );
+    assert.ok(job);
+    job.labels = ["windows-2025"];
     assert.throws(
       () => verifyStagingContinuation(input),
       /runner labels differ/u,

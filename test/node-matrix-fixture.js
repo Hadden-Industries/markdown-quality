@@ -4,6 +4,10 @@ import { nodeSupport, qualificationMatrix } from "../scripts/node-matrix.js";
 export const nextPatchVersion = (version) =>
   version.replace(/\d+$/u, (patch) => String(Number(patch) + 1));
 
+/** Model the labels GitHub attaches to named matrix jobs in provider fixtures. */
+export const fixtureJobLabels = (name) =>
+  name.match(/\b(?:ubuntu|windows)-[\w.-]+(?=[ ,)])/gu) ?? [];
+
 /** Synthetic releases keep offline fixtures independent of real Node patches. */
 export function nodeMatrixFixture(policy = nodeSupport) {
   const versions = [
