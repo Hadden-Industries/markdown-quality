@@ -29,6 +29,11 @@ It requires source/product/architecture/JSON checks, the frozen Windows 2025 and
 One producer packs the exact core, Windows and Linux archives used by all lanes.
 Ordinary CI, an installed-only diagnostic and earlier release evidence cannot replace this qualification.
 
+Packing generates each archive's SHA-256 and SHA-512 SRI in `release-manifest.json` from its actual bytes.
+When selecting new package-source bytes or shipped documentation, pack and qualify that exact committed source, then bind the resulting manifest's SHA-256 as the new owner review's `manifestSha256`.
+The core archive embeds the source commit and tree, so selecting another package-source commit also changes that identity when the edit is confined to release tooling.
+Preserve earlier manifests and approvals under their original tuples; leave checksum pins for unchanged native executables, corresponding source archives and acquisition tools intact.
+
 Choose `pilot` by default, or explicitly select `latest`, for a stable version or a canonical prerelease such as an RC.
 Npm channel selection is independent of GitHub classification.
 A direct RC may become the npm default while GitHub latest remains the prior stable security line.

@@ -19,6 +19,7 @@ It preserves the runtime floor and retained Snapper executable bytes.
 
 The release includes updated Markdown and HTML tooling, refreshed dependency locks and an explicit `fast-xml-parser >=5.12.0` development override.
 Release CI adds coordinated family operations and retained release evidence, with aligned CodeQL Actions and query packs.
+Owner approval includes an independent comparison of each downloaded staged tarball with the approved qualification manifest.
 Compatible report-validation and performance repairs and the JSON Quality 1.0.0 development tooling remain included.
 
 Every release requires qualification of its exact source and transported package family.
@@ -151,6 +152,8 @@ The stage-only npm connection uses publish.yml and the main-only npm-publication
 
 Native packages are staged under the explicitly reviewed channel, `pilot` by default or `latest` for any canonical version including an RC, inspected and approved by the owner with 2FA, then publicly verified on both platforms before a manual continuation can stage core.
 Core requires another owner approval.
+Before each native or core approval, follow the [staged-tarball inspection procedure](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.2/docs/release-operations.md#inspect-a-staged-tarball-before-approval).
+The owner verifies the original stage identity and reviewed channel, downloads its actual tarball, and checks both SHA-256 and SHA-512 SRI before the separate 2FA approval.
 No long-lived publishing token, direct publish fallback, automatic approval or implicit latest label is used.
 
 A separate manual public-qualification workflow exercises every frozen runtime lane and both layouts with anonymous acquisition, frozen lock replay and native provenance verification.
