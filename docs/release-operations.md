@@ -84,18 +84,85 @@ It must identify the original qualification; it cannot replace its acceptance or
 
 ## Manual workflow sequence
 
-| Operation              | Workflow                     | Result                                                                                            |
-| ---------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------- |
-| Qualify source         | release-qualification.yml    | Fresh exact-source obligations and frozen tuple                                                   |
-| Stage natives          | publish.yml, phase natives   | Windows then Linux requests under the reviewed channel                                            |
-| Approve natives        | Native npm UI or npm stage   | Owner inspects each digest and approves with 2FA                                                  |
-| Stage core             | publish.yml, phase core      | New dispatch retains original origins and verifies both public natives first                      |
-| Approve core           | Native npm UI or npm stage   | Owner inspects the exact core stage and approves with 2FA                                         |
-| Qualify public tuple   | release-registry.yml         | Anonymous exact-version acquisition, all frozen lanes/layouts, provenance and recipient audits    |
-| Archive                | github-release.yml           | Exact decisions, complete immutable logical evidence and native verification of every outer asset |
-| Complete               | Read-only archive completion | Selected npm labels, guarded defaults, tag/assets/classification and GitHub latest                |
-| Change stable defaults | promote-release.yml          | Read-only admission, isolated npm/GitHub writers, independent completion                          |
-| Retain history         | release-history.yml          | Public-safe export; recovery eligibility remains unproven until owner signing                     |
+| Operation              | Workflow                     | Result                                                                                              |
+| ---------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| Qualify source         | release-qualification.yml    | Fresh exact-source obligations and frozen tuple                                                     |
+| Stage natives          | publish.yml, phase natives   | Windows then Linux requests under the reviewed channel                                              |
+| Approve natives        | Owner's authenticated npm    | [Inspect each staged tarball](#inspect-a-staged-tarball-before-approval), then approve with 2FA     |
+| Stage core             | publish.yml, phase core      | New dispatch retains original origins and verifies both public natives first                        |
+| Approve core           | Owner's authenticated npm    | [Inspect the staged core tarball](#inspect-a-staged-tarball-before-approval), then approve with 2FA |
+| Qualify public tuple   | release-registry.yml         | Anonymous exact-version acquisition, all frozen lanes/layouts, provenance and recipient audits      |
+| Archive                | github-release.yml           | Exact decisions, complete immutable logical evidence and native verification of every outer asset   |
+| Complete               | Read-only archive completion | Selected npm labels, guarded defaults, tag/assets/classification and GitHub latest                  |
+| Change stable defaults | promote-release.yml          | Read-only admission, isolated npm/GitHub writers, independent completion                            |
+| Retain history         | release-history.yml          | Public-safe export; recovery eligibility remains unproven until owner signing                       |
+
+### Inspect a staged tarball before approval
+
+Apply this procedure independently to `win32-x64`, `linux-x64` and then `core`, for the reviewed `pilot` or `latest` channel.
+Keep the owner-signed source tag before staging and the existing public verification of both native packages before core staging.
+When both native stages are available, complete their byte checks before approving either; approve Windows, then Linux.
+The core stage receives the same independent check after the public-native gate admits its staging.
+
+1. Obtain `release-manifest.json` from the original successful `release-qualification.yml` run and attempt named in the authenticated owner review.
+   Take the approved `manifestSha256`, version and channel from that review, not from a new manifest or a latest-run search.
+   Compare the SHA-256 of the original manifest's exact bytes with `manifestSha256` before trusting its entries; the local command below enforces this comparison again.
+   Select exactly one `archives[]` entry by member `name` and retain its full `package`, `version`, `sha256` and `integrity`.
+
+2. Obtain `stageId` from that member's `staging-journal/<member>.jsonl` record in state `staged-awaiting-owner`, in the original producing `publish.yml` run and attempt's `publication-source-and-manifest-<attempt>` artifact.
+   Require exactly one such record, matching the selected manifest package, version and digests, and `tag` equal to the reviewed channel.
+   Match its `origin` to the member's admitted `publication-origins.json` record and the actual producing run, attempt and controller source; the map must bind the same qualified candidate and manifest.
+   Retained native origins remain their original producing attempts when a later dispatch stages core.
+   A package/version search, the latest run and npm's upload acknowledgement do not establish the bytes under review.
+
+3. In the owner's authenticated npm session, inspect that exact private stage on the official registry.
+   The PowerShell examples use `$stageId` from the journal and `$channel` from the owner review; preserve a separate set of inputs and evidence for each member.
+
+   ```powershell
+   $stageId = "ORIGINAL_JOURNAL_STAGE_ID"
+   $channel = "pilot" # Use latest only when the owner review selects latest.
+   npm stage view $stageId --json --registry=https://registry.npmjs.org/
+   if ($LASTEXITCODE -ne 0) { throw "Stop: stage inspection failed" }
+   ```
+
+   Confirm the stage is pending and its full package name, version and dist-tag match the authenticated manifest entry and reviewed channel.
+   After those fields match, enter a separate empty inspection directory and download that same stage using [npm stage download](https://docs.npmjs.com/cli/v11/commands/npm-stage/#npm-stage-download).
+
+   ```powershell
+   if (@(Get-ChildItem -LiteralPath . -Force).Count -ne 0) {
+     throw "Use an empty inspection directory for this stage"
+   }
+   npm stage download $stageId --registry=https://registry.npmjs.org/
+   if ($LASTEXITCODE -ne 0) { throw "Stop: stage download failed" }
+   ```
+
+4. Run the local checker on the actual downloaded `.tgz`, without unpacking, repacking or substituting the producer's local archive.
+   Replace the paths and approved manifest SHA-256 below, and choose the matching member name; keep `$stageId` and `$channel` from the inspection above.
+   The checker reuses `verifyArchiveBytes` and exits nonzero unless both SHA-256 and SHA-512 SRI match the uniquely selected member of the digest-authenticated manifest.
+   It checks local bytes; the owner authenticates the run, journal and npm stage fields in the preceding steps.
+
+   ```powershell
+   node "C:/path/to/markdown-quality/scripts/verify-staged-tarball.js" `
+     "C:/approved/evidence/release-manifest.json" "APPROVED_MANIFEST_SHA256" `
+     "win32-x64" $stageId $channel "./ACTUAL_DOWNLOADED_FILENAME.tgz" `
+     > "./staged-tarball-check.json"
+   if ($LASTEXITCODE -ne 0) { throw "Stop: do not approve this stage" }
+   ```
+
+5. Only after the identity, channel and byte checks succeed may the owner run this separate interactive 2FA command for the same checked stage ID.
+   Complete both native checks before either native approval when both stages are available, preserving each checked ID; repeat the procedure for the later core stage.
+
+   ```powershell
+   npm stage approve $stageId --registry=https://registry.npmjs.org/
+   ```
+
+For a missing, ambiguous, unreadable or mismatched stage, a wrong channel or any digest mismatch, stop before approval and use the original stage's owner rejection and [reconciliation procedure](#interruption-partial-recovery-and-retained-proof).
+Keep the stage ID, original run/attempt identities, manifest binding and expected/observed digests, including `staged-tarball-check.json`, in the existing release evidence; mark unavailable observations explicitly and exclude credentials and OTPs.
+Never automatically restage or approve a request.
+Private npm credentials and interactive approval remain outside Actions.
+The upload-time local archive and npm JSON receipt checks in `stage-release-package.js` remain separate from this owner-side comparison of downloaded bytes.
+
+### Continue the release sequence
 
 Staging reruns are refused.
 Use a new dispatch with exact original run, attempt, manifest and origin-map digests.
