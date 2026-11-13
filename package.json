@@ -135,7 +135,7 @@
   },
   "devDependencies": {
     "@actions/artifact": "^6.3.1",
-    "@hadden-industries/json-quality": ">=1.0.0",
+    "@hadden-industries/json-quality": ">=1.0.1",
     "acorn": ">=8.19.0",
     "dependency-cruiser": ">=18.7.2",
     "micromark": ">=4.0.3",

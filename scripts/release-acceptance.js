@@ -206,6 +206,15 @@ export function verifyReleaseAcceptance(
       for (const name of ["owlapi", "webvowl"])
         assert.equal(record.decisions[name].subject, "exact public npm pilot");
     else {
+      // Reject the common nested-field mistake during read-only admission.
+      // The archival writer checks the bound contents and live freshness later,
+      // including separately approved preflight refreshes of older acceptances.
+      assert.ok(
+        record.immutabilityObservation &&
+          typeof record.immutabilityObservation === "object" &&
+          !Array.isArray(record.immutabilityObservation),
+        "Acceptance requires a top-level immutabilityObservation",
+      );
       // Live adoption and timed rehearsal are optional. A real trial still binds
       // its exact public tuple; an omitted/declined trial cannot fabricate sign-off.
       assert.ok(

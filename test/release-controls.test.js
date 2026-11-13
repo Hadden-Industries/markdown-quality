@@ -225,6 +225,19 @@ test("new acceptance permits omitted trials while retaining exact qualification 
     reviewSha256: hash(reviewBytes),
     publicQualificationRun: "13",
     publicQualificationAttempt: "2",
+    immutabilityObservation: {
+      repository: "https://github.com/Hadden-Industries/markdown-quality",
+      endpoint:
+        "https://api.github.com/repos/Hadden-Industries/markdown-quality/immutable-releases",
+      checkedAt: common.acceptedAt,
+      candidate: {
+        version: release.version,
+        source: release.source.head,
+        manifestSha256: common.manifestSha256,
+      },
+      responseBytes: '{"enabled":true}',
+      sha256: hash(Buffer.from('{"enabled":true}')),
+    },
   };
   const check = (record, phase = "acceptance") => {
     const bytes = Buffer.from(JSON.stringify(record));
@@ -237,6 +250,17 @@ test("new acceptance permits omitted trials while retaining exact qualification 
     );
   };
   assert.equal(check(acceptance).channel, "latest");
+  const { immutabilityObservation, ...missingObservation } = acceptance;
+  for (const misplaced of [
+    missingObservation,
+    { ...missingObservation, pilot: { immutabilityObservation } },
+  ])
+    assert.throws(() => check(misplaced), /top-level immutabilityObservation/u);
+  for (const invalid of [null, [], "observation"])
+    assert.throws(
+      () => check({ ...acceptance, immutabilityObservation: invalid }),
+      /top-level immutabilityObservation/u,
+    );
   assert.equal(
     check({
       ...acceptance,

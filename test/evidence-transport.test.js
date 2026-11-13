@@ -14,6 +14,7 @@ import {
   invokeArtifactSdk,
   bundleArtifactName,
 } from "../scripts/upload-evidence.js";
+import { downloadEvidence } from "../scripts/download-evidence.js";
 import { native } from "../scripts/commands.js";
 import { consumer } from "./helpers.js";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -194,6 +195,102 @@ test("evidence GET retries classified transient responses within one finite budg
   });
   assert.deepEqual(await read("/actions/runs/1"), { immutable: "source" });
   assert.equal(calls, 3);
+});
+
+test("an acknowledged artifact waits for its exact metadata ID before downloading", async () => {
+  const requests = [],
+    waits = [];
+  let time = 0,
+    metadataReads = 0;
+  const read = createRepositoryReader({
+    repository: "Hadden-Industries/markdown-quality",
+    token: "fixture",
+    now: () => time,
+    random: () => 0,
+    sleep: async (milliseconds) => {
+      waits.push(milliseconds);
+      time += milliseconds;
+    },
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname;
+      requests.push(path);
+      if (path.endsWith("/zip"))
+        throw new Error("verified metadata reached download");
+      if (++metadataReads === 1)
+        return new Response("not indexed", {
+          status: 404,
+          headers: { "retry-after": "2" },
+        });
+      return Response.json({
+        id: 7,
+        digest: "sha256:" + "a".repeat(64),
+        size_in_bytes: 4,
+        expired: false,
+        workflow_run: {
+          id: 11,
+          repository_id: 3,
+          head_repository_id: 3,
+          head_sha: "b".repeat(40),
+        },
+      });
+    },
+  });
+  await assert.rejects(
+    downloadEvidence({
+      id: 7,
+      destination: "unused",
+      read,
+      runId: 11,
+      repositoryId: 3,
+      headSha: "b".repeat(40),
+      now: () => time,
+    }),
+    /verified metadata reached download/u,
+  );
+  assert.equal(metadataReads, 2);
+  assert.deepEqual(waits, [2000]);
+  assert.deepEqual(requests, [
+    "/repos/Hadden-Industries/markdown-quality/actions/artifacts/7",
+    "/repos/Hadden-Industries/markdown-quality/actions/artifacts/7",
+    "/repos/Hadden-Industries/markdown-quality/actions/artifacts/7/zip",
+  ]);
+});
+
+test("pending artifact reads preserve refusal, parsing and the shared deadline", async () => {
+  for (const response of [
+    new Response("denied", { status: 403 }),
+    new Response("gone", { status: 410 }),
+    new Response("{bad"),
+  ]) {
+    let calls = 0;
+    const read = reader(async () => {
+      calls++;
+      return response;
+    });
+    await assert.rejects(
+      read("/actions/artifacts/7", { pendingArtifact: true }),
+    );
+    assert.equal(calls, 1);
+  }
+  let calls = 0;
+  const read = reader(async () => {
+    calls++;
+    return new Response("not indexed", { status: 404 });
+  }, 2500);
+  await assert.rejects(
+    read("/actions/artifacts/7", { pendingArtifact: true }),
+    /budget exhausted/u,
+  );
+  assert.equal(calls, 2);
+  await assert.rejects(
+    read("/actions/runs/7", { pendingArtifact: true }),
+    /artifact metadata/u,
+  );
+  assert.equal(
+    calls,
+    2,
+    "The opt-in cannot retry unrelated repository resources",
+  );
 });
 
 test("large admitted downloads retain independent metadata readback and cumulative byte limits", async () => {
@@ -397,6 +494,60 @@ test("read transport bounds include body overflow and restricted signed redirect
   );
 });
 const digest = "sha256:" + "a".repeat(64);
+
+test("native upload and reconciliation digest forms produce one canonical output", async () => {
+  for (const observed of [digest, digest.slice("sha256:".length)]) {
+    const uploaded = await recoverableUpload({
+      name: "proof.json",
+      sha256: digest,
+      size: 4,
+      upload: async () => ({ id: 7, digest: observed, size: 4 }),
+      lookup: async () =>
+        assert.fail("An acknowledged upload must not be replayed"),
+    });
+    assert.equal(uploaded.digest, digest);
+    const recovered = await recoverableUpload({
+      name: "proof.json",
+      sha256: digest,
+      size: 4,
+      upload: async () => {
+        throw new Error("acknowledgement lost");
+      },
+      lookup: async () => [{ id: 7, digest: observed, size: 4 }],
+    });
+    assert.equal(recovered.digest, digest);
+    assert.equal(recovered.reconciled, true);
+  }
+});
+
+test("malformed native digests cannot turn acknowledgements into replacement uploads", async () => {
+  for (const invalid of [
+    undefined,
+    "a".repeat(63),
+    "a".repeat(65),
+    "A".repeat(64),
+    digest + "\n",
+    "sha256:" + digest,
+  ]) {
+    for (const lostAcknowledgement of [false, true]) {
+      let uploads = 0;
+      await assert.rejects(
+        recoverableUpload({
+          name: "proof.json",
+          sha256: digest,
+          size: 4,
+          upload: async () => {
+            uploads++;
+            if (lostAcknowledgement) throw new Error("lost ack");
+            return { id: 7, size: 4, digest: invalid };
+          },
+          lookup: async () => [{ id: 7, size: 4, digest: invalid }],
+        }),
+      );
+      assert.equal(uploads, 1);
+    }
+  }
+});
 test("lost finalization acknowledgement reconciles byte-identical proof without a second write", async () => {
   let uploads = 0,
     lookups = 0,

@@ -95,7 +95,7 @@ Review any actual formatting diff and rerun the check for convergence.
 
 ## JSON ownership
 
-Root `npm ci --ignore-scripts` installs JSON Quality as an ordinary `>=1.0.0-rc.2` devDependency on the supported development runtime.
+Root `npm ci --ignore-scripts` installs JSON Quality as an ordinary `>=1.0.1` devDependency on the supported development runtime.
 Follow [JSON development checks](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/json-quality.md) for complete discovery, protected native evidence, real package qualification and guarded formatting.
 
 Generic Prettier excludes JSON; `npm run check:full` composes product checks, source identity lint, consumer tests, actual packed JSON and the final complete-root JSON check.

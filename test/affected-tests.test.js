@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import test from "node:test";
 import assert from "node:assert/strict";
+import { fixtureCommandTimeoutMs } from "./helpers.js";
 import {
   existsSync,
   mkdtempSync,
@@ -276,7 +277,11 @@ test("output exhaustion returns incomplete nonzero evidence", async (t) => {
   });
   const report = await planAffected({ root: f.root, base: f.base });
   assert.ok(report.selected.includes("test/unrelated.test.js"));
-  const result = await runAffected(report, { timeout: 10000 });
+  // Exercise the output bound, allowing the ordinary scheduling headroom for
+  // nested Node runners on busy CI hosts. Deadline tests keep their own limits.
+  const result = await runAffected(report, {
+    timeout: fixtureCommandTimeoutMs,
+  });
   const observed = result.outcome.selected;
   const context = JSON.stringify({
     signal: observed.signal,

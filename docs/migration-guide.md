@@ -20,7 +20,7 @@ Configuration schema 3, preset `authored-gfm@2`, result schema 5, execution sche
 
 The patch updates Markdown and HTML tooling, dependency locks and release CI.
 Repository development also enforces `fast-xml-parser >=5.12.0`; the source lock resolves 5.12.0.
-Release maintainers should use the [current release runbook](release-operations.md) for coordinated family staging, qualification, archival and promotion.
+Release maintainers should use the [current release runbook](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/release-operations.md) for coordinated family staging, qualification, archival and promotion.
 
 ## From 3.0.0 to 3.0.1
 

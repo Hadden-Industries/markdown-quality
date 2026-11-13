@@ -69,7 +69,8 @@ Downstream adoption and timed rehearsal are optional.
 Both performance corpora remain mandatory release evidence.
 The retained 3.0.1 waiver and earlier schema-1 acceptances remain historical records.
 
-Acceptance includes an `immutabilityObservation`: repository URL, immutable-releases API endpoint, checkedAt, exact candidate version/source/manifest digest, raw responseBytes and their SHA-256.
+Acceptance includes a top-level `immutabilityObservation`, alongside `publicQualificationRun` and `publicQualificationAttempt`: repository URL, immutable-releases API endpoint, checkedAt, exact candidate version/source/manifest digest, raw responseBytes and their SHA-256.
+Nesting this observation inside a pilot decision or trial does not supply archival approval; read-only acceptance admission rejects that placement before the writer starts.
 The response must report enabled immutability and be no older than one hour at every draft-effect checkpoint.
 A future or stale observation blocks those effects.
 Verification of an already immutable archive does not require a fresh repository-settings observation.
@@ -174,6 +175,9 @@ Use a new dispatch with exact original run, attempt, manifest and origin-map dig
 Each stage rechecks all approved defaults and earlier attributable approvals immediately before requesting the next package.
 A later default, foreign origin or incomplete provider history blocks the request.
 An attempted stage remains pending or outcome-unknown until original provider evidence settles it; a public 404 does not authorize another request.
+An evidence-upload failure after completed native requests preserves those requests and the original failed workflow outcome.
+Continue with the original manifest and origin-map digests after owner approval and both public native checks; the core phase retains the two native origins instead of staging them again.
+Known artifact metadata IDs may briefly return 404 while GitHub indexes them; the evidence reader retries only that exact metadata lookup within its existing read budget, without repeating an upload or npm request.
 
 The archival workflow's new decision route is read-only.
 The protected legacy-decisions job exists only for historical draft records.
