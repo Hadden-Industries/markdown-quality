@@ -4,12 +4,12 @@ Check GitHub Flavored Markdown for layout drift, decomposed Unicode in prose, mi
 The Node.js CLI and SDK use the same rules.
 A repository can start with the defaults and no configuration file.
 
-Version **3.0.2** is the selected source candidate.
-Publication and qualification remain separate release steps; see [3.0.2 release preparation](docs/support-and-release.md#version-302-preparation).
+Version **3.0.2** is a compatible patch release.
+See [what changed in 3.0.2](docs/support-and-release.md#version-302).
 
 ## Install and run
 
-After 3.0.2 is published and qualified, run these commands from the repository root.
+From the repository root, install the exact release version and run a check.
 
 ```sh
 npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.2

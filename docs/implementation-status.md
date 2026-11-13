@@ -1,12 +1,12 @@
 # Implementation decisions and evidence
 
-## Version 3.0.2 preparation on 2026-11-13
+## Version 3.0.2
 
-The core package and both native packages select 3.0.2, with synchronized source lockfile metadata.
-Current consumer and release guides describe that candidate and retain the earlier migration history.
-The source includes release CI convergence, dependency updates and the `fast-xml-parser >=5.12.0` development override.
-Version preparation does not establish exact-source hosted qualification, publication, promotion or release acceptance.
-Follow the [release runbook](release-operations.md) for those operations; dated evidence below remains bound to its original candidate.
+The core package and both native packages share version 3.0.2, with synchronized source lockfile metadata.
+The consumer and release guides describe this release and retain the earlier migration history.
+The release includes release CI convergence, dependency updates and the `fast-xml-parser >=5.12.0` development override.
+The [release runbook](release-operations.md) defines exact-source qualification, publication and promotion.
+Dated evidence below remains bound to its original candidate.
 
 ## Zero-config opinionated policy source
 

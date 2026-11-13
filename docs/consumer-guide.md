@@ -1,8 +1,7 @@
 # Consumer guide
 
-This guide describes the 3.0.2 source candidate: configuration schema 3, preset `authored-gfm@2` and result schema 5.
+This guide covers version 3.0.2: configuration schema 3, preset `authored-gfm@2` and result schema 5.
 Consumers upgrading from 3.0.1 keep these contracts; see [the 3.0.2 migration notes](migration-guide.md#from-301-to-302).
-Publication and complete supported-platform qualification remain separate release steps.
 Published 1.x archives are immutable and keep their previous behavior; the [migration guide](migration-guide.md) maps old names to these contracts.
 
 For a first check, start with [installation](#installation).
@@ -25,7 +24,7 @@ Bundlers must honor package exports and use their Node.js target when bundling S
 
 ## Installation
 
-After 3.0.2 is published and qualified, install the exact version from the repository root.
+Install the exact release version from the repository root.
 
 ```sh
 npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.2

@@ -13,15 +13,14 @@ Choose the section for the version you are upgrading **from**.
 
 ## From 3.0.1 to 3.0.2
 
-Version 3.0.2 is the selected source candidate.
-Use the [installation example](consumer-guide.md#installation) after that exact version is published and qualified.
+Version 3.0.2 is a compatible patch release.
+Use the [installation example](consumer-guide.md#installation) to upgrade.
 No CLI, SDK, configuration, preset or schema-version migration is required from 3.0.1.
 Configuration schema 3, preset `authored-gfm@2`, result schema 5, execution schema 2 and comparison schema 3 are retained.
 
 The patch updates Markdown and HTML tooling, dependency locks and release CI.
 Repository development also enforces `fast-xml-parser >=5.12.0`; the source lock resolves 5.12.0.
 Release maintainers should use the [current release runbook](release-operations.md) for coordinated family staging, qualification, archival and promotion.
-Earlier qualification and acceptance records retain their original versions and do not qualify the 3.0.2 tuple.
 
 ## From 3.0.0 to 3.0.1
 
@@ -36,7 +35,7 @@ See [JSON development checks](https://github.com/Hadden-Industries/markdown-qual
 
 ## From 2.0 to 3.0
 
-The 3.0 CLI and SDK contracts introduced the following major-version changes, retained by the 3.0.2 candidate.
+The 3.0 CLI and SDK contracts introduced the following major-version changes, retained by 3.0.2.
 Configuration schema 3, `authored-gfm@2`, execution schema 2, comparison schema 3 and Snapper 0.11.9 are retained.
 
 - Import the SDK from Node.js code only; the package root now explicitly rejects browser and unmatched resolver environments.

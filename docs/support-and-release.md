@@ -11,18 +11,18 @@ Public release, semver selection, registry qualification and `latest` promotion 
 The [centralized contracts guide](centralized-contracts.md) describes configuration schema 3, result schema 5, execution schema 2, comparison schema 3 and the shared trusted qualification/profile contract.
 Local source tests do not establish hosted Windows/Linux qualification or downstream acceptance of a new tuple.
 
-## Version 3.0.2 preparation
+## Version 3.0.2
 
-The core package and both native packages select 3.0.2 together.
+The core package and both native packages share version 3.0.2.
 This patch retains the CLI, SDK, configuration and schema contracts described in the [3.0.2 migration notes](migration-guide.md#from-301-to-302).
 It preserves the runtime floor and retained Snapper executable bytes.
 
-The candidate includes updated Markdown and HTML tooling, refreshed dependency locks and an explicit `fast-xml-parser >=5.12.0` development override.
+The release includes updated Markdown and HTML tooling, refreshed dependency locks and an explicit `fast-xml-parser >=5.12.0` development override.
 Release CI adds coordinated family operations and retained release evidence, with aligned CodeQL Actions and query packs.
 Compatible report-validation and performance repairs and the JSON Quality 1.0.0 development tooling remain included.
 
-Version selection does not establish publication, hosted qualification, governance activation, promotion or release acceptance.
-Qualify the exact 3.0.2 source and transported package family before release; earlier evidence remains bound to its original candidate.
+Every release requires qualification of its exact source and transported package family.
+Qualification and acceptance evidence remains bound to its original candidate.
 
 ## Supported runtimes and platforms
 
@@ -124,7 +124,7 @@ An upstream Cargo lock is a superset of features and development inputs and does
 The original upstream license and per-asset repack identity are retained.
 
 The owner selected public distribution after npm rejected the private publication with E402.
-All three packages declare public access and select candidate version 3.0.2.
+All three packages declare public access and share version 3.0.2.
 Its native packages carry the `snapper-0.11.9-build.2` executables from native run `38742809829`: the Linux executable is byte-identical to its reconciled predecessor and the Windows rebuild keeps the same system DLL imports.
 
 The published 1.0.3 tuple retained alpha.4's qualified native executable/source/notice bytes and added bounded request-local reuse, native checking batches and exact-input check-first formatting while retaining independent prose checks and preservation/convergence checks.
