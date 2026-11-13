@@ -13,7 +13,9 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { native } from "./commands.js";
 import { hash } from "./release-bytes.js";
+import { releaseVersion } from "./release-coordinates.js";
 import { legacyPublicationSteps, stagingSteps } from "./publication-origins.js";
+import { stagingStepNames } from "./publication-steps.js";
 import {
   publicationContext,
   validatePublicationContext,
@@ -111,7 +113,7 @@ export function verifyPublicationHistory(release, map, history) {
         assert.equal(priorMap.controlSource, job.head_sha);
       }
       const names =
-        job.name === "stage" ? stagingSteps : legacyPublicationSteps;
+        job.name === "stage" ? stagingStepNames(job) : legacyPublicationSteps;
       for (let index = 0; index < release.archives.length; index++) {
         const steps = job.steps.filter((step) => step.name === names[index]);
         assert.equal(steps.length, 1, "Incomplete prior publication steps");
@@ -159,8 +161,7 @@ export async function readPublicationHistory(
   download = downloadPublicationArtifact,
   { version, archives = readArchivedPublicationSubjects } = {},
 ) {
-  if (version !== undefined)
-    assert.match(version, /^[1-9]\d*\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u);
+  if (version !== undefined) releaseVersion(version);
   const pages = JSON.parse(
     gh([
       "api",

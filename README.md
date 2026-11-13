@@ -4,13 +4,15 @@ Check GitHub Flavored Markdown for layout drift, decomposed Unicode in prose, mi
 The Node.js CLI and SDK use the same rules.
 A repository can start with the defaults and no configuration file.
 
+Version **3.0.2** is a compatible patch release.
+See [what changed in 3.0.2](docs/support-and-release.md#version-302).
+
 ## Install and run
 
-From the repository root, install the exact version you intend to use.
-This example targets the 3.0.1 contract.
+From the repository root, install the exact release version and run a check.
 
 ```sh
-npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.1
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.2
 npm exec -- markdown-quality check --root .
 ```
 
@@ -18,12 +20,8 @@ The check reads the selected documents and prints findings on stderr.
 Exit `0` means the check completed without blockers.
 See [exit and status](#exit-and-status) for refusals and operational failures.
 
-This documentation describes the 3.0.1 source candidate.
-Use the installation example with a published, qualified version matching the documented contract.
-Releases are first published under npm's `pilot` tag and move to `latest` only after pilot acceptance and stable promotion.
-
-Pin the exact qualified version; an unversioned install follows the mutable `latest` tag.
-The [migration guide](docs/migration-guide.md) maps 2.0 usage to 3.0 and retains the earlier 1.x migration.
+Pin the exact qualified version; `pilot` and `latest` are mutable tags.
+The [migration guide](docs/migration-guide.md#from-301-to-302) explains the 3.0.2 update and retains the earlier 3.0, 2.0 and 1.x migrations.
 
 A local dependency does not put a bare `markdown-quality` executable on every shell's PATH.
 Run it through [npm exec](https://docs.npmjs.com/cli/v11/commands/npm-exec/), an npm script, or another runner that resolves local package binaries.
@@ -152,7 +150,7 @@ Unlimited mode cannot remove Node, V8, operating-system or hosting-provider limi
 ## Guides
 
 - The [consumer guide](docs/consumer-guide.md) covers installation, configuration, defaults, links, normalization, resources and the library API.
-- The [migration guide](docs/migration-guide.md) maps 2.0 CLI/result usage to 3.0 and retains earlier configuration/API migrations.
+- The [migration guide](docs/migration-guide.md) covers the 3.0.2 patch and the CLI, SDK and configuration changes for consumers upgrading from earlier releases.
 - The [support and release guide](docs/support-and-release.md) describes compatibility and release gates.
 - The [centralized contracts guide](docs/centralized-contracts.md) and [CI trust guide](docs/ci-trust.md) describe logical documents, execution profiles and trusted qualification.
 - The package is licensed under [AGPL-3.0-only](LICENSE).
@@ -162,7 +160,9 @@ Unlimited mode cannot remove Node, V8, operating-system or hosting-provider limi
 
 ## Development
 
-Reference builds use the Node reference declared in [node-support.json](https://github.com/Hadden-Industries/markdown-quality/blob/main/assets/node-support.json) and an existing stable Python interpreter at least as new as [.python-version](https://github.com/Hadden-Industries/markdown-quality/blob/main/.python-version) for asset preparation.
+Reference builds use the Node reference declared in [node-support.json](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.2/assets/node-support.json) and an existing stable Python interpreter at least as new as [.python-version](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.2/.python-version) for asset preparation.
+That policy also owns the exact CI/producer npm and the separate consumer-qualification npm.
+Contributor installs enforce a local npm minimum, as described in [the runtime guide](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.2/docs/node-runtime-compatibility.md#contributor-and-consumer-npm).
 Ordinary checks and logical-document operations need no Python interpreter.
 Trusted candidate qualification additionally needs the Python version declared in its accepted execution profile.
 

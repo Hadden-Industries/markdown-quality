@@ -24,7 +24,7 @@ defaults:
 jobs:
   producer:
     name: Reference producer
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     outputs:
       archive-id: ${{ steps.archive.outputs.artifact-id }}
@@ -161,7 +161,7 @@ jobs:
       - producer
       - qualification
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     steps:
       - env:

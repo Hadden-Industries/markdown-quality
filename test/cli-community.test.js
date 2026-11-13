@@ -338,6 +338,7 @@ test("version projection preserves dependency resolution and validates all input
   for (const path of [
     "package.json",
     "package-lock.json",
+    ".json-quality.json",
     "packages/linux-x64/package.json",
     "packages/win32-x64/package.json",
   ]) {
@@ -348,6 +349,9 @@ test("version projection preserves dependency resolution and validates all input
   metadata.version = "3.1.0";
   writeFileSync(join(root, "package.json"), JSON.stringify(metadata));
   const before = JSON.parse(readFileSync(join(root, "package-lock.json")));
+  const jsonPolicyBefore = JSON.parse(
+    readFileSync(join(root, ".json-quality.json")),
+  );
   syncPackageVersions(root);
   checkPackageVersions(root);
   const after = JSON.parse(readFileSync(join(root, "package-lock.json")));
@@ -357,6 +361,52 @@ test("version projection preserves dependency resolution and validates all input
     after.packages[`packages/${platform}`].version =
       before.packages[`packages/${platform}`].version;
   assert.deepEqual(after, before);
+  const jsonPolicyAfter = JSON.parse(
+    readFileSync(join(root, ".json-quality.json")),
+  );
+  const packedNotices = jsonPolicyAfter.exceptions.find((rule) =>
+    rule.paths.some((path) =>
+      path.endsWith(".tgz!/package/cargo-notices.json"),
+    ),
+  );
+  assert.deepEqual(packedNotices.paths, [
+    "dist/json-qualification/hadden-industries-markdown-quality-linux-x64-3.1.0.tgz!/package/cargo-notices.json",
+  ]);
+  const originalPackedNotices = jsonPolicyBefore.exceptions.find((rule) =>
+    rule.paths.some((path) =>
+      path.endsWith(".tgz!/package/cargo-notices.json"),
+    ),
+  );
+  packedNotices.paths = originalPackedNotices.paths;
+  assert.deepEqual(
+    jsonPolicyAfter,
+    jsonPolicyBefore,
+    "Only the archive version changes; attribution identity stays pinned",
+  );
+  const policyPath = join(root, ".json-quality.json"),
+    policyBytes = readFileSync(policyPath),
+    lockedBytes = readFileSync(join(root, "package-lock.json")),
+    linuxBytes = readFileSync(join(root, "packages/linux-x64/package.json"));
+  const invalidPolicy = JSON.parse(policyBytes);
+  invalidPolicy.exceptions = invalidPolicy.exceptions.filter(
+    (rule) =>
+      !rule.paths.some((path) =>
+        path.endsWith(".tgz!/package/cargo-notices.json"),
+      ),
+  );
+  writeFileSync(policyPath, JSON.stringify(invalidPolicy));
+  metadata.version = "3.2.0";
+  writeFileSync(join(root, "package.json"), JSON.stringify(metadata));
+  assert.throws(
+    () => syncPackageVersions(root),
+    /One packed attribution exception/u,
+  );
+  assert.deepEqual(readFileSync(join(root, "package-lock.json")), lockedBytes);
+  assert.deepEqual(
+    readFileSync(join(root, "packages/linux-x64/package.json")),
+    linuxBytes,
+  );
+  writeFileSync(policyPath, policyBytes);
   writeFileSync(join(root, "packages/win32-x64/package.json"), "invalid");
   const linux = readFileSync(join(root, "packages/linux-x64/package.json"));
   assert.throws(() => syncPackageVersions(root));

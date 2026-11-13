@@ -6,6 +6,18 @@ import { fileURLToPath } from "node:url";
 import { native } from "./commands.js";
 import { verifyReleaseTag } from "./verify-release-tag.js";
 import { waitForReleaseAttestation } from "./release-attestation.js";
+import { verifyImmutabilityObservation } from "./release-immutability.js";
+import { artifactLimits } from "./artifact-policy.js";
+import { createEffectJournal } from "./release-effects.js";
+import { releaseSemver } from "./release-coordinates.js";
+import {
+  archiveOperation,
+  readArchiveFamily,
+} from "./release-archive-state.js";
+import { verifyReleaseCompletion } from "./release-readback.js";
+import { admitPriorReleaseEffects } from "./release-history.js";
+import { archivePreflight } from "./release-decision-transport.js";
+import { verifyNoPendingStages } from "./release-stage-guards.js";
 import {
   repository,
   hash,
@@ -35,7 +47,19 @@ export async function deliverRelease({
   evidenceDirectory,
   cwd,
   gh = (args, options) => native("gh", args, options),
-  registry = verifyRegistry,
+  registry = verifyPublicRegistryArchives,
+  verifyTag = verifyReleaseTag,
+  family = readArchiveFamily,
+  env = process.env,
+  history = (operation, archiveObservation) =>
+    admitPriorReleaseEffects(operation, {
+      env: {
+        ...env,
+        OPERATION_SHA: qualified.evidence["release-acceptance.json"],
+      },
+      checkpoint: env.HISTORY_CHECKPOINT,
+      archiveObservation,
+    }),
 }) {
   assert.equal(
     qualified.schemaVersion,
@@ -44,59 +68,109 @@ export async function deliverRelease({
   );
   const tag = `v${qualified.version}`;
   const assets = verifyBundle(qualified, directory, gitSource(qualified, cwd));
-  mkdirSync(evidenceDirectory, { recursive: false });
-  const journal = join(evidenceDirectory, "effects.jsonl");
+  const effects = createEffectJournal(evidenceDirectory, {
+    repository,
+    controller: env.GITHUB_SHA ?? qualified.source,
+    source: qualified.source,
+    workflow: ".github/workflows/github-release.yml",
+    run: env.GITHUB_RUN_ID ?? "1",
+    attempt: env.GITHUB_RUN_ATTEMPT ?? "1",
+    job: "archive",
+    operationId:
+      qualified.decision?.operationId ?? `archive-${qualified.version}`,
+    manifestSha256: qualified.manifestSha256,
+    decisionSha256: qualified.evidence["release-acceptance.json"],
+  });
   let sequence = 0;
+  let priorEffects = [];
+  let latestStageWriteAt;
+  let releaseId;
+  const acceptance = archivePreflight(
+    env,
+    qualified,
+    readJson(join(directory, "release-acceptance.json")),
+  );
+  if (acceptance.preflightBytes)
+    writeFileSync(
+      join(evidenceDirectory, "preflight.json"),
+      acceptance.preflightBytes,
+      { flag: "wx", flush: true },
+    );
+  const effectKey = (effect) =>
+    `${effect.operation}/${effect.subject}/${effect.operation === "upload" ? effect.target[1].split(/[\\/]/u).at(-1) : effect.target.includes("--prerelease=false") ? "classification" : effect.operation === "edit" ? "publish" : "create"}`;
   const call = (args, options) => {
     const id = ++sequence;
-    appendFileSync(
-      journal,
-      JSON.stringify({ id, state: "attempted", args }) + "\n",
-      { flush: true },
-    );
-    try {
+    const request = () => {
       const text = gh(args, options);
       writeFileSync(join(evidenceDirectory, `${id}.txt`), text, { flag: "wx" });
-      appendFileSync(
-        journal,
-        JSON.stringify({
-          id,
-          state: "returned",
-          outputSha256: hash(Buffer.from(text)),
-        }) + "\n",
-        { flush: true },
-      );
       return text;
-    } catch (error) {
-      appendFileSync(
-        journal,
-        JSON.stringify({
-          id,
-          state: "failed-or-unknown",
-          message: error.message,
-        }) + "\n",
-        { flush: true },
+    };
+    const write =
+      args[0] === "release" && ["create", "upload", "edit"].includes(args[1]);
+    if (write) {
+      if (env.GITHUB_SHA)
+        assert.equal(
+          api("git/ref/heads/main").object.sha,
+          env.GITHUB_SHA,
+          "Archive controller was superseded during approval",
+        );
+      if (args[1] !== "create")
+        assert.equal(
+          lookup().id,
+          releaseId,
+          "Original archive draft was displaced",
+        );
+      if (qualified.channel !== undefined)
+        verifyNoPendingStages(acceptance.stageInventory, {
+          latestStageWriteAt,
+        });
+      const effect = {
+        operation: args[1],
+        subject: tag,
+        target: args.slice(2),
+      };
+      assert.ok(
+        !priorEffects.some((prior) => effectKey(prior) === effectKey(effect)),
+        "An acknowledged archive request awaits readback; never replay it from a stale provider view",
       );
-      throw error;
     }
+    return write
+      ? effects.write(
+          {
+            provider: "github",
+            operation: args[1],
+            subject: tag,
+            step: `archive/${args[1]}`,
+            prior: args[1] === "create" ? null : "verified-draft",
+            target: args.slice(2),
+            releaseId: releaseId ?? null,
+          },
+          request,
+        )
+      : effects.read("github", args.join(" "), request);
   };
   const api = (path) =>
     JSON.parse(call(["api", `repos/${repository}/${path}`]));
   const checkTag = () => {
     const reference = api(`git/ref/tags/${tag}`);
     assert.equal(reference.object.type, "tag");
-    verifyReleaseTag(reference, api(`git/tags/${reference.object.sha}`), {
+    verifyTag(reference, api(`git/tags/${reference.object.sha}`), {
       version: qualified.version,
       source: { head: qualified.source },
     });
     return reference;
   };
   const checkImmutability = () =>
-    assert.equal(
-      api("immutable-releases").enabled,
-      true,
-      "Enable repository release immutability first",
-    );
+    qualified.channel !== undefined
+      ? verifyImmutabilityObservation(
+          acceptance.immutabilityObservation,
+          qualified,
+        )
+      : assert.equal(
+          api("immutable-releases").enabled,
+          true,
+          "Enable repository release immutability first",
+        );
   const checkContext = () => {
     checkTag();
     for (const expected of [qualified.candidate, qualified.publication]) {
@@ -129,15 +203,54 @@ export async function deliverRelease({
     return api(`releases/${found.databaseId}`);
   };
   let release = lookup();
+  releaseId = release?.id;
+  const review =
+    qualified.channel === undefined
+      ? null
+      : readJson(join(directory, "release-review.json"));
+  const directStable =
+    qualified.channel === "latest" &&
+    !releaseSemver.prerelease(qualified.version);
+  const initiallyImmutable = release !== null && !release.draft;
+  const expectedPrerelease =
+    initiallyImmutable && directStable ? release.prerelease : true;
+  assert.equal(typeof expectedPrerelease, "boolean");
+  const admitHistory = async (observation) => {
+    const result = await history(
+      {
+        operation: "archive",
+        operationId:
+          qualified.decision?.operationId ?? `archive-${qualified.version}`,
+        version: qualified.version,
+        manifestSha256: qualified.manifestSha256,
+        settlements: acceptance.settlements ?? [],
+      },
+      observation,
+    );
+    priorEffects = (result.settledGithub ?? []).filter(
+      (effect) =>
+        effect.context?.workflow === ".github/workflows/github-release.yml" &&
+        effect.subject === tag &&
+        ["create", "upload", "edit"].includes(effect.operation) &&
+        Array.isArray(effect.target),
+    );
+    latestStageWriteAt = result.latestStageWriteAt;
+  };
   // Only draft writes require the repository setting. Recovery verifies the
   // published release's own immutability and attestations using the job token.
   if (release === null || release.draft) checkImmutability();
   await registry(qualified, directory);
+  if (!initiallyImmutable)
+    await admitHistory(
+      release
+        ? { qualified, archive: release, expectedAssets: assets }
+        : undefined,
+    );
   if (release === null) {
     const notes = join(evidenceDirectory, "notes.md");
     writeFileSync(
       notes,
-      `Qualified npm pilot ${qualified.version}. Exact package source ${qualified.source}; candidate ${qualified.candidate.run}; publication ${qualified.publication.run}, attempt ${qualified.publication.attempt}. Original archives, source, notices and qualification evidence are attached. Stable promotion remains gated on both exact pilot acceptances and recovery. AGPL-3.0-only.`,
+      `Qualified npm ${qualified.channel ?? "pilot"} ${qualified.version}. Exact package source ${qualified.source}; candidate ${qualified.candidate.run}; publication ${qualified.publication.run}, attempt ${qualified.publication.attempt}. Original archives, corresponding source, notices and qualification evidence are attached. AGPL-3.0-only.`,
       { flag: "wx" },
     );
     call([
@@ -161,10 +274,24 @@ export async function deliverRelease({
       "Draft creation outcome unresolved; reconcile before resuming",
     );
   }
+  releaseId = release.id;
+  writeFileSync(
+    join(evidenceDirectory, "archive-identity.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      releaseId,
+      tag,
+      source: qualified.source,
+      manifestSha256: qualified.manifestSha256,
+      operationId:
+        qualified.decision?.operationId ?? `archive-${qualified.version}`,
+    }) + "\n",
+    { flag: "wx", flush: true },
+  );
   assert.equal(release.tag_name, tag);
   assert.equal(
     release.prerelease,
-    true,
+    expectedPrerelease,
     "This operation cannot change stable release classification",
   );
   assert.ok(Number.isSafeInteger(release.id) && release.id > 0);
@@ -174,7 +301,12 @@ export async function deliverRelease({
     const missing = verifyInventory(release, assets, true);
     for (const asset of missing) {
       assert.equal(
-        hash(regularBytes(join(directory, asset.name))),
+        hash(
+          regularBytes(
+            join(directory, asset.name),
+            artifactLimits.payloadBytes,
+          ),
+        ),
         asset.sha256,
       );
       call([
@@ -204,12 +336,18 @@ export async function deliverRelease({
     ]);
     for (const asset of assets)
       assert.equal(
-        hash(regularBytes(join(downloaded, asset.name))),
+        hash(
+          regularBytes(
+            join(downloaded, asset.name),
+            artifactLimits.payloadBytes,
+          ),
+        ),
         asset.sha256,
       );
     checkContext();
     checkImmutability();
-    verifyBundle(qualified, directory, gitSource(qualified, cwd));
+    // The admitted logical archive is fixed. Effect-time hashes and provider
+    // inventory/tag identity checks retain freshness without reparsing every proof.
     verifyInventory(api(`releases/${id}`), assets);
     call([
       "release",
@@ -225,7 +363,7 @@ export async function deliverRelease({
   release = api(`releases/${id}`);
   assert.equal(release.tag_name, tag);
   assert.equal(release.draft, false);
-  assert.equal(release.prerelease, true);
+  assert.equal(release.prerelease, expectedPrerelease);
   assert.equal(release.immutable, true, "Published release is not immutable");
   verifyInventory(release, assets);
   const reference = checkTag();
@@ -234,11 +372,16 @@ export async function deliverRelease({
     release,
     assets,
     reference.object.sha,
-    { gh: call },
+    { gh: call, verifyTag },
   );
   call(["release", "verify", tag, "--repo", repository, "--format", "json"]);
   for (const asset of assets) {
-    assert.equal(hash(regularBytes(join(directory, asset.name))), asset.sha256);
+    assert.equal(
+      hash(
+        regularBytes(join(directory, asset.name), artifactLimits.payloadBytes),
+      ),
+      asset.sha256,
+    );
     call([
       "release",
       "verify-asset",
@@ -255,18 +398,63 @@ export async function deliverRelease({
   assert.equal(release.tag_name, tag);
   assert.equal(release.immutable, true);
   assert.equal(release.draft, false);
-  assert.equal(release.prerelease, true);
+  assert.equal(release.prerelease, expectedPrerelease);
   verifyInventory(release, assets);
+  if (review && directStable && release.prerelease) {
+    await admitHistory({ qualified, archive: release, expectedAssets: assets });
+    const operation = archiveOperation(qualified, review, id),
+      deadline = Date.now() + 300000;
+    const observed = await verifyReleaseCompletion({
+      operation: {
+        ...operation,
+        targetGithubLatest: operation.priorGithubLatest,
+        targetPrerelease: true,
+      },
+      now: Date.now,
+      deadline,
+      readFamily: (end) => family(qualified, review, end),
+      readGithub: async () => {
+        const current = api(`releases/${id}`);
+        verifyInventory(current, assets);
+        let latest;
+        try {
+          latest = api("releases/latest");
+        } catch (error) {
+          if (operation.priorGithubLatest !== null || error.httpStatus !== 404)
+            throw error;
+          latest = null;
+        }
+        return { release: current, latest };
+      },
+    });
+    assert.equal(
+      observed.status,
+      "complete",
+      "Npm success awaits propagation; retain the archive journal and use read-only verification before continuing classification",
+    );
+    call([
+      "release",
+      "edit",
+      tag,
+      "--repo",
+      repository,
+      "--prerelease=false",
+      "--latest",
+    ]);
+    release = api(`releases/${id}`);
+  }
   const summary = {
     source: qualified.source,
     tag,
     releaseId: id,
     immutable: true,
-    prerelease: true,
+    prerelease: release.prerelease,
+    qualificationSha256: hash(Buffer.from(JSON.stringify(qualified))),
     assets,
     nativeReleaseAndEveryAssetVerified: true,
     npmTagsChanged: false,
   };
+  effects.seal("github", summary);
   writeFileSync(
     join(evidenceDirectory, "summary.json"),
     JSON.stringify(summary, null, 2) + "\n",
@@ -275,7 +463,8 @@ export async function deliverRelease({
   return summary;
 }
 
-async function verifyRegistry(qualified) {
+/** Refresh public version/tarball bytes without repeating the frozen consumer matrix. */
+export async function verifyPublicRegistryArchives(qualified) {
   const body = async (response, maximum) => {
     const chunks = [];
     let total = 0;

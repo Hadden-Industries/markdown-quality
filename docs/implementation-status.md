@@ -1,8 +1,18 @@
 # Implementation decisions and evidence
 
+## Version 3.0.2
+
+The core package and both native packages share version 3.0.2, with synchronized source lockfile metadata.
+The consumer and release guides describe this release and retain the earlier migration history.
+The release includes release CI convergence, dependency updates and the `fast-xml-parser >=5.12.0` development override.
+The source lock pins JSON Quality and its Windows and Linux companions to 1.0.1 for repository checks.
+Before each owner approval, the staged-tarball check compares downloaded bytes with the approved manifest's SHA-256 and SHA-512 SRI and retains the stage identity and observed digests.
+The [release runbook](release-operations.md) defines exact-source qualification, publication and promotion.
+Dated evidence below remains bound to its original candidate.
+
 ## Zero-config opinionated policy source
 
-Current source requires no configuration file and applies the `authored-gfm@2` preset, with configuration schema 3, result schema 4, execution schema 2 and comparison schema 3.
+Current source requires no configuration file and applies the `authored-gfm@2` preset, with configuration schema 3, result schema 5, execution schema 2 and comparison schema 3.
 Public names follow the naming migration: `processLogicalDocument`, `executeQualityRequest`, `stageCandidateData`, `qualifyGitMarkdown`, `compareCheckReports` and the `markdown-quality-qualify-git` bin.
 Repository scripts are renamed to `check:formatting-and-markdown` and `check:dependency-audit`; `inspect:json` and `format:json:check` are removed.
 The [centralized contracts guide](centralized-contracts.md) owns the current contract details; the dated sections below remain historical records of 1.0.x behavior.

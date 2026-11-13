@@ -6,9 +6,12 @@ target="${target#"${target%%[![:space:]]*}"}"
 target="${target%"${target##*[![:space:]]}"}"
 [[ $target =~ ^[1-9][0-9]*\.[0-9]+\.[0-9]+$ ]] || exit 1
 IFS=. read -r -a components <<< "$target"
-for part in "${components[@]}"; do
+for index in "${!components[@]}"; do
+  part=${components[$index]}
   # Compare decimal strings to avoid shell integer overflow and octal parsing.
   while [[ ${#part} -gt 1 && $part == 0* ]]; do part=${part:1}; done
   [[ ${#part} -lt 16 || ( ${#part} -eq 16 && ( $part == 9007199254740991 || $part < 9007199254740991 ) ) ]] || exit 1
+  # setup-python uses strict SemVer, so retain the minimum without padded components.
+  components[$index]=$part
 done
-printf 'version=>=%s\n' "$target" >> "$GITHUB_OUTPUT"
+printf 'version=>=%s.%s.%s\n' "${components[@]}" >> "$GITHUB_OUTPUT"

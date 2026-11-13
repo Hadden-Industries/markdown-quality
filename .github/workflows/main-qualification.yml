@@ -3,7 +3,15 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch: null
+  workflow_dispatch:
+    inputs:
+      qualification:
+        description: Full qualification or a separate packed-recipient diagnostic
+        default: full
+        type: choice
+        options:
+          - full
+          - installed-only
 permissions:
   contents: read
   actions: read
@@ -15,8 +23,8 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - ubuntu-24.04
-          - windows-2025
+          - ubuntu-26.04
+          - windows-2025-vs2026
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     steps:
@@ -44,7 +52,7 @@ jobs:
     name: Main / reuse decision
     if: always() && github.event_name == 'push'
     needs: host
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     permissions:
       contents: read
@@ -64,9 +72,29 @@ jobs:
         run: node scripts/ci-command.js observe
   full:
     name: Explicit FULL
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.qualification != 'installed-only'
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
       actions: read
       security-events: write
+  diagnostic-matrix:
+    name: Resolve installed diagnostic matrix
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.qualification == 'installed-only'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    outputs:
+      matrix: ${{ steps.policy.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-producer
+      - id: policy
+        run: npm run ci:node-policy
+  installed-diagnostic:
+    name: Installed diagnostic
+    needs: diagnostic-matrix
+    uses: ./.github/workflows/installed-qualification.yml
+    with:
+      matrix: ${{ needs.diagnostic-matrix.outputs.matrix }}

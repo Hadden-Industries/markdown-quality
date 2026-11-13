@@ -207,8 +207,8 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
   const archival = workflows.get("./.github/workflows/github-release.yml");
   const promotion = workflows.get("./.github/workflows/promote-release.yml");
   for (const [workflow, roles] of [
-    [publication, ["review"]],
-    [archival, ["decisions", "archive"]],
+    [publication, []],
+    [archival, ["legacy-decisions", "archive"]],
     [promotion, ["github"]],
   ]) {
     assert.equal(workflow.permissions.contents, "read");
@@ -255,28 +255,34 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
     tagCheck?.run.endsWith("--tag-only"),
     "Read-only tag admission must not read draft decisions",
   );
-  assert.equal(publication.jobs.review.needs, "admit");
-  assert.ok(
-    publication.jobs.review.steps.some(
-      (step) =>
-        step.run ===
-        "node scripts/verify-release-tag.js frozen-release/release-manifest.json provider",
-    ),
-    "Protected review must verify the live draft",
+  assert.equal(publication.jobs.decision.needs, "admit");
+  assert.equal(publication.jobs.decision.permissions?.["id-token"], undefined);
+  assert.equal(publication.jobs.decision.environment, undefined);
+  assert.equal(
+    publication.on.workflow_dispatch.inputs["review-json"].required,
+    true,
   );
   assert.ok(
-    publication.jobs.stage.needs.includes("review"),
+    publication.jobs.decision.steps.some(
+      (step) =>
+        step.run ===
+        "node scripts/verify-release-tag.js frozen-release/release-manifest.json provider --owner-decision",
+    ),
+    "Read-only review must authenticate the exact owner dispatch",
+  );
+  assert.ok(
+    publication.jobs.stage.needs.includes("decision"),
     "Staging requires the protected review",
   );
   assert.ok(
-    publication.jobs.stage.if.includes("needs.review.result == 'success'"),
+    publication.jobs.stage.if.includes("needs.decision.result == 'success'"),
     "Failed draft review must block staging",
   );
   assert.ok(
     publication.jobs.stage.steps.some(
       (step) =>
         step.with?.["artifact-ids"] ===
-          "${{ needs.review.outputs.artifact-id }}" &&
+          "${{ needs.decision.outputs.artifact-id }}" &&
         step.with?.["merge-multiple"] === true &&
         step.with.path === "provider" &&
         step.with["digest-mismatch"] === "error",
@@ -285,7 +291,7 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
   );
   for (const [role, id] of [
     ["admit", "admission"],
-    ["review", "review"],
+    ["decision", "review"],
   ]) {
     const job = publication.jobs[role];
     assert.equal(
@@ -299,7 +305,7 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
       `publication-${id === "admission" ? "admission" : "review"}-\${{ github.run_attempt }}`,
     );
   }
-  for (const role of ["review", "retained", "stage"]) {
+  for (const role of ["decision", "retained", "stage"]) {
     const transfers = publication.jobs[role].steps.filter((step) =>
       step.uses?.startsWith("actions/download-artifact@"),
     );
@@ -338,9 +344,9 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
   assert.equal(guard["working-directory"], undefined);
   assert.deepEqual(guard.env, { GH_TOKEN: "${{ github.token }}" });
   for (const [name, key] of [
-    ["Stage Windows package under pilot", "WIN32_X64"],
-    ["Stage Linux package under pilot", "LINUX_X64"],
-    ["Stage coherent core under pilot", "CORE"],
+    ["Stage Windows package under reviewed channel", "WIN32_X64"],
+    ["Stage Linux package under reviewed channel", "LINUX_X64"],
+    ["Stage coherent core under reviewed channel", "CORE"],
   ]) {
     const writes = stageSteps.filter((step) => step.name === name);
     assert.equal(writes.length, 1);
@@ -369,19 +375,22 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
     stageSteps.at(-1).with?.name,
     "publication-source-and-manifest-${{ github.run_attempt }}",
   );
-  assert.equal(archival.jobs.prepare.needs, "decisions");
+  assert.deepEqual(archival.jobs.prepare.needs, [
+    "decisions",
+    "legacy-decisions",
+  ]);
   assert.ok(
     archival.jobs.decisions.steps.some(
       (step) =>
         step.run === "node scripts/read-release-decisions.js release-decisions",
     ),
-    "Protected decisions must read the live draft",
+    "Read-only decisions must authenticate raw dispatch bytes",
   );
   assert.ok(
     archival.jobs.prepare.steps.some(
       (step) =>
         step.with?.["artifact-ids"] ===
-          "${{ needs.decisions.outputs.artifact-id }}" &&
+          "${{ needs.decisions.outputs.artifact-id || needs.legacy-decisions.outputs.artifact-id }}" &&
         step.with.path === "release-decisions" &&
         step.with["digest-mismatch"] === "error",
     ),
@@ -407,7 +416,9 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
       archival.jobs[consumer].steps.some(
         (step) =>
           step.with?.["artifact-ids"] ===
-            `\${{ needs.${producer}.outputs.artifact-id }}` &&
+            (producer === "decisions"
+              ? "${{ needs.decisions.outputs.artifact-id || needs.legacy-decisions.outputs.artifact-id }}"
+              : `\${{ needs.${producer}.outputs.artifact-id }}`) &&
           !step.with.name &&
           step.with["digest-mismatch"] === "error",
       ),
@@ -423,7 +434,7 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
     "release-decisions",
   );
   for (const [job, directory] of [
-    [publication.jobs.review, "provider/release-review.json"],
+    [publication.jobs.decision, "provider/release-review.json"],
     [archival.jobs.decisions, "release-decisions/"],
   ]) {
     assert.ok(

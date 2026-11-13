@@ -9,15 +9,17 @@ Include affected release, environment, impact, reproduction and possible mitigat
 
 ## Supported releases
 
-Before stable promotion, security support covers only the single candidate designated by npm's `pilot` tag.
-After stable promotion, it covers only the latest stable release designated by `latest`, unless an explicit policy accepts another line.
+Before the first stable release, security support covers the explicitly designated candidate, normally npm's `pilot` tag.
+Thereafter the maintained security line is the most recently accepted stable GitHub release, unless an explicit policy accepts another line.
+The owner may place an RC under npm `latest`; that default does not replace the maintained stable security line.
 
 Consumers should pin exact versions and qualify upgrades.
 Older releases remaining downloadable does not imply maintenance or backport support.
-For published 1.0.3, the supported runtime remains Node 24.21.0 on Windows x64 and Ubuntu 24.04 x64 with glibc 2.39, with the qualified core/native tuple and explicit preset.
 
-Version 2.0.0 declares Node `>=22.13.0`, and its CI matrix covers Node 22/24/26 at the patched minima and latest versions described in the [support policy](docs/support-and-release.md).
-That qualification does not change an existing release's immutable metadata or establish support for an unpublished release.
+Version 3.0.2 declares Node `>=22.13.0` for Windows x64 and Linux x64 with glibc 2.39 or later.
+The [support policy](docs/support-and-release.md) describes the exact minimum, compatibility pins and producer reference used for qualification.
+Use current security patches within a supported family for ordinary operation.
+The historical 1.0.3 qualification covered Node 24.21.0 on Windows x64 and Ubuntu 24.04 x64 with glibc 2.39.
 
 ## Response and disclosure
 

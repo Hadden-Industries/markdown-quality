@@ -20,6 +20,16 @@ import { artifactLimits } from "./artifact-policy.js";
 
 const digest = (bytes) =>
   `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+/** SDK acknowledgements may omit the prefix; downstream evidence uses one form. */
+function canonicalArtifactDigest(value) {
+  assert.match(
+    value,
+    /^(?:sha256:)?[a-f0-9]{64}$/u,
+    "Invalid native artifact SHA256",
+  );
+  assert.ok(value.length === 64 || value.length === 71);
+  return value.startsWith("sha256:") ? value : `sha256:${value}`;
+}
 export function bundleArtifactName(name) {
   assert.match(name, /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,200}$/u);
   return name.endsWith(".zip") ? name : `${name}.zip`;
@@ -60,6 +70,7 @@ export async function recoverableUpload({
   sleep = delay,
   deadline = now() + budgets.upload,
 }) {
+  assert.equal(canonicalArtifactDigest(sha256), sha256);
   const end = Math.min(deadline, now() + budgets.upload);
   for (let attempt = 1; attempt <= 3; attempt++) {
     if (now() >= end)
@@ -78,14 +89,10 @@ export async function recoverableUpload({
     }
     if (!failure) {
       assert.ok(Number.isSafeInteger(result.id) && result.id > 0);
-      assert.equal(
-        result.digest.startsWith("sha256:")
-          ? result.digest
-          : `sha256:${result.digest}`,
-        sha256,
-      );
+      const observedDigest = canonicalArtifactDigest(result.digest);
+      assert.equal(observedDigest, sha256);
       assert.equal(result.size, size);
-      return { ...result, name: selected };
+      return { ...result, digest: observedDigest, name: selected };
     }
     // An interrupted write has an unknown provider outcome. Only complete,
     // read-only lookups may establish adoption or absence before a fresh name.
@@ -102,15 +109,15 @@ export async function recoverableUpload({
       if (matches.length) {
         const found = matches[0];
         assert.ok(Number.isSafeInteger(found.id) && found.id > 0);
-        assert.equal(
-          found.digest?.startsWith("sha256:")
-            ? found.digest
-            : `sha256:${found.digest}`,
-          sha256,
-          "Artifact digest differs",
-        );
+        const observedDigest = canonicalArtifactDigest(found.digest);
+        assert.equal(observedDigest, sha256, "Artifact digest differs");
         assert.equal(found.size, size, "Artifact size differs");
-        return { ...found, name: selected, reconciled: true };
+        return {
+          ...found,
+          digest: observedDigest,
+          name: selected,
+          reconciled: true,
+        };
       }
       if (observation < 2) {
         const wait = 1000 * 2 ** observation;

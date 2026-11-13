@@ -51,6 +51,28 @@ export function packageVersionProjection(root = repository) {
     projection.set(path, companion);
   }
   projection.set("package-lock.json", lock);
+  // Attribution exceptions bind exact archive members. Project their version
+  // with the package family without broadening the pinned value identities.
+  const jsonPolicy = read(".json-quality.json");
+  const packedNotices = jsonPolicy.exceptions.filter(
+    (rule) =>
+      rule.nfcExemptStringValues &&
+      rule.paths.some((path) =>
+        /^dist\/json-qualification\/hadden-industries-markdown-quality-linux-x64-[^/]+\.tgz!\/package\/cargo-notices\.json$/u.test(
+          path,
+        ),
+      ),
+  );
+  assert.equal(
+    packedNotices.length,
+    1,
+    "One packed attribution exception is required",
+  );
+  assert.equal(packedNotices[0].paths.length, 1);
+  packedNotices[0].paths = [
+    `dist/json-qualification/hadden-industries-markdown-quality-linux-x64-${core.version}.tgz!/package/cargo-notices.json`,
+  ];
+  projection.set(".json-quality.json", jsonPolicy);
   return projection;
 }
 export function checkPackageVersions(root = repository) {

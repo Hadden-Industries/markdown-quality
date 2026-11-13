@@ -6,11 +6,16 @@ runs:
     - id: python-target
       shell: bash
       run: bash .github/actions/setup-python/read-target.sh
-    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+    - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
       with:
         python-version: ${{ steps.python-target.outputs.version }}
-        version: "0.13.6"
-        activate-environment: true
-        venv-path: ${{ runner.temp }}/python
-        no-project: true
-        enable-cache: false
+    - name: Create the hosted Python environment
+      shell: bash
+      run: |
+        python -m venv "$RUNNER_TEMP/python"
+        echo "VIRTUAL_ENV=$RUNNER_TEMP/python" >> "$GITHUB_ENV"
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          echo "$RUNNER_TEMP/python/Scripts" >> "$GITHUB_PATH"
+        else
+          echo "$RUNNER_TEMP/python/bin" >> "$GITHUB_PATH"
+        fi

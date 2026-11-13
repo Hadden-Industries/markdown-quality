@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /**
  * Model only the repository's live, fail-closed owner approval contract.
- * The native environment model does not cover workflow_dispatch in 2.27.3.
+ * The native environment model does not cover workflow_dispatch in 2.27.4.
  */
 
 import actions

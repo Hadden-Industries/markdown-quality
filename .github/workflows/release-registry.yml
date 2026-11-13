@@ -42,7 +42,7 @@ env:
 jobs:
   admit:
     if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     outputs:
       runtimes: ${{ steps.admit.outputs.runtimes }}
@@ -55,7 +55,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: 26.13.0
+          node-version-file: .node-version
           package-manager-cache: false
       - uses: ./.github/actions/setup-python
       - name: Acquire the authenticated original qualification archive
@@ -133,7 +133,7 @@ jobs:
     needs:
       - admit
       - registry
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     permissions:
       contents: read
@@ -144,7 +144,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: 26.13.0
+          node-version-file: .node-version
           package-manager-cache: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
@@ -174,10 +174,30 @@ jobs:
       - registry
       - security
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Report actual public defaults even after a failed matrix
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/report-release-defaults.js
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: observed-defaults-${{ github.run_attempt }}
+          path: observed-defaults.json
+          if-no-files-found: error
+          retention-days: 90
       - name: Require the complete public tuple and security gate
+        if: always()
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
         run: |

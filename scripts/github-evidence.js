@@ -46,7 +46,10 @@ export function retryDelay(response, attempt, now, random = Math.random) {
   );
 }
 
-/** Read retries never encompass JSON/schema/provenance admission or writes. */
+/** Read retries never encompass JSON/schema/provenance admission or writes.
+ * A known artifact ID may opt into delayed metadata visibility; ordinary 404s
+ * remain terminal and the same request/deadline budget owns every attempt.
+ */
 export function createRepositoryReader({
   repository,
   token,
@@ -80,13 +83,23 @@ export function createRepositoryReader({
     });
   return async (
     path,
-    { raw = false, maximumBytes = artifactLimits.proofBytes } = {},
+    {
+      raw = false,
+      maximumBytes = artifactLimits.proofBytes,
+      pendingArtifact = false,
+    } = {},
   ) => {
     assert.ok(
       path === "" || /^\/[A-Za-z0-9_./?=&%-]+$/u.test(path),
       "Invalid repository evidence path",
     );
     assert.ok(!path.includes("..") && !path.includes("//"));
+    assert.equal(typeof pendingArtifact, "boolean");
+    assert.ok(
+      !pendingArtifact ||
+        (!raw && /^\/actions\/artifacts\/[1-9]\d*$/u.test(path)),
+      "Delayed visibility applies only to exact artifact metadata IDs",
+    );
     for (let attempt = 0; attempt < 3; attempt++) {
       const remaining = end - now();
       if (requests >= 64 || remaining <= 0) throw limit();
@@ -131,7 +144,9 @@ export function createRepositoryReader({
             new Error(`GitHub evidence HTTP ${response.status}`),
             {
               httpStatus: response.status,
+              headers: response.headers,
               retryable:
+                (pendingArtifact && response.status === 404) ||
                 [408, 500, 502, 503, 504].includes(response.status) ||
                 rateLimited(response),
             },
@@ -181,7 +196,12 @@ export function createRepositoryReader({
           remainingMs: end - now(),
         }),
       );
-      if (wait >= end - now()) throw limit();
+      if (wait >= end - now())
+        throw Object.assign(limit(), {
+          retryAt: now() + wait,
+          httpStatus: response?.status,
+          headers: response?.headers,
+        });
       await sleep(wait);
     }
   };

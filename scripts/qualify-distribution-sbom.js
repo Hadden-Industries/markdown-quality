@@ -17,9 +17,9 @@ import { tmpdir, homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { reportCiResult } from "./ci-result.js";
-import { npmCliPath } from "./commands.js";
-import { native } from "./commands.js";
+import { native, npmCliPath } from "./commands.js";
 import { hash, readJson } from "./release-assets.js";
+import { ubuntuRunner, windowsRunner } from "./runner-policy.js";
 import { verifyArchiveBytes } from "./release-bytes.js";
 import {
   bindNativeSbom,
@@ -251,7 +251,10 @@ export async function qualifyDistributionSbom(
     writeFileSync(join(output, "cyclonedx-validation.txt"), validation, {
       flag: "wx",
     });
-    for (const platform of ["windows-2025", "ubuntu-24.04"]) {
+    for (const platform of [
+      windowsRunner(release.runtimePolicy),
+      ubuntuRunner(release.runtimePolicy),
+    ]) {
       for (const layout of ["root", "isolated"]) {
         const source = join(
           recipientDirectory,

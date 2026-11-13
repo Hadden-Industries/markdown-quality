@@ -14,6 +14,10 @@ import { releaseBytes, verifyArchiveBytes } from "./release-bytes.js";
 import { publicationContext } from "./publication-context.js";
 import { preparePublicationEnvironment } from "./prepare-publication-environment.js";
 import { createHash } from "node:crypto";
+import { releaseChannel, releaseVersion } from "./release-coordinates.js";
+import { verifyReleaseAcceptance } from "./release-acceptance.js";
+import { verifyStageGuards } from "./release-stage-guards.js";
+import { admitPriorReleaseEffects } from "./release-history.js";
 
 /** Persist intent before a single native request; any ambiguous result forbids replay. */
 export function stageReleaseArchive({
@@ -21,8 +25,11 @@ export function stageReleaseArchive({
   path,
   journalDirectory,
   origin,
+  channel,
+  decision,
   command = npmCommand,
 }) {
+  const tag = releaseChannel(channel);
   verifyArchiveBytes(releaseBytes(path, 20_000_000), archive);
   assert.ok(["win32-x64", "linux-x64", "core"].includes(archive.name));
   assert.equal(
@@ -30,7 +37,7 @@ export function stageReleaseArchive({
     "@hadden-industries/markdown-quality" +
       (archive.name === "core" ? "" : `-${archive.name}`),
   );
-  assert.match(archive.version, /^[1-9]\d*\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u);
+  releaseVersion(archive.version);
   assert.match(origin.source, /^[a-f0-9]{40}$/u);
   for (const value of [origin.run, origin.attempt])
     assert.match(String(value), /^[1-9]\d{0,15}$/u);
@@ -41,9 +48,15 @@ export function stageReleaseArchive({
     version: archive.version,
     sha256: archive.sha256,
     integrity: archive.integrity,
-    tag: "pilot",
+    tag,
     origin,
+    ...(decision ? { schemaVersion: 2, decision } : {}),
   };
+  writeFileSync(
+    join(journalDirectory, `${archive.name}-startup.json`),
+    JSON.stringify({ state: "startup", ...subject }) + "\n",
+    { flag: "wx", flush: true },
+  );
   // Exclusive creation prevents an Actions rerun from replaying a local request.
   // A new run must additionally reconcile the prior provider step and origin map.
   writeFileSync(
@@ -58,7 +71,7 @@ export function stageReleaseArchive({
       path,
       "--ignore-scripts",
       "--access=public",
-      "--tag=pilot",
+      `--tag=${tag}`,
       "--provenance",
       "--json",
       "--registry=https://registry.npmjs.org/",
@@ -128,15 +141,49 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     "This package is not eligible for this staging phase",
   );
   const archive = release.archives.find((candidate) => candidate.name === name);
+  const reviewBytes = releaseBytes("provider/release-review.json", 48 * 1024);
+  assert.ok(
+    reviewBytes.equals(Buffer.from(process.env.REVIEW_JSON ?? "")),
+    "Staging review differs from authenticated dispatch",
+  );
+  const review = verifyReleaseAcceptance(
+    reviewBytes,
+    process.env.REVIEW_SHA,
+    release,
+    manifestSha,
+    "review",
+  );
+  assert.equal(review.schemaVersion, 2);
+  assert.equal(map.decision.reviewSha256, process.env.REVIEW_SHA);
+  await admitPriorReleaseEffects(
+    {
+      operation: "stage",
+      operationId: review.operationId,
+      version: release.version,
+      manifestSha256: manifestSha,
+      settlements: review.settlements ?? [],
+    },
+    {
+      env: { ...process.env, OPERATION_SHA: process.env.REVIEW_SHA },
+      checkpoint: process.env.HISTORY_CHECKPOINT,
+    },
+  );
+  verifyStageGuards(review, release, archive, map, journalDirectory, {
+    history: JSON.parse(
+      releaseBytes("provider/staging-history.json", 16 * 1024 * 1024),
+    ),
+  });
   const result = stageReleaseArchive({
     archive,
     path: resolve(directory, archive.filename),
     journalDirectory,
     origin: map.records.find((record) => record.package === archive.package),
+    channel: map.decision.channel,
+    decision: map.decision,
   });
   if (process.env.GITHUB_STEP_SUMMARY)
     appendFileSync(
       process.env.GITHUB_STEP_SUMMARY,
-      `Staged ${result.package}@${result.version} under pilot. Review the retained stage identity and exact archive integrity, then approve through npm with 2FA. Public availability has not been established.\n`,
+      `Staged ${result.package}@${result.version} under ${result.tag}. Recheck stage identity, digest, channel and current defaults before owner approval with 2FA. Public availability has not been established.\n`,
     );
 }

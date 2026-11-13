@@ -6,6 +6,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { hash, releaseBytes } from "./release-bytes.js";
 import { native } from "./commands.js";
+import {
+  releaseChannel,
+  releasePackages,
+  releaseVersion,
+} from "./release-coordinates.js";
 
 /** Only the protected GitHub role can observe draft decisions. */
 export function readDraftDecisions(
@@ -15,7 +20,7 @@ export function readDraftDecisions(
   {
     repository,
     gh = (args) => native("gh", args),
-    allowImmutablePrerelease = false,
+    allowImmutableRelease = false,
   },
 ) {
   assert.equal(repository, "Hadden-Industries/markdown-quality");
@@ -30,14 +35,9 @@ export function readDraftDecisions(
       "isDraft,isPrerelease,tagName",
     ]),
   );
-  assert.equal(draft.isPrerelease, true);
   assert.equal(draft.tagName, `v${release.version}`);
   if (draft.isDraft !== true) {
-    assert.equal(
-      allowImmutablePrerelease,
-      true,
-      "Staging requires a live draft",
-    );
+    assert.equal(allowImmutableRelease, true, "Staging requires a live draft");
     assert.equal(draft.isDraft, false);
     const published = JSON.parse(
       gh(["api", `repos/${repository}/releases/tags/v${release.version}`]),
@@ -49,11 +49,11 @@ export function readDraftDecisions(
       true,
       "Archival recovery requires the immutable release",
     );
-    assert.equal(published.prerelease, true);
+    assert.equal(published.prerelease, draft.isPrerelease);
   }
   const scratch = mkdtempSync(join(tmpdir(), "markdown-quality-decisions-"));
   try {
-    return new Map(
+    const records = new Map(
       decisions.map(({ name, digest, phase }) => {
         assert.equal(
           name,
@@ -61,7 +61,7 @@ export function readDraftDecisions(
             ? "release-review.json"
             : "release-acceptance.json",
         );
-        assert.ok(["review", "pilot"].includes(phase));
+        assert.ok(["review", "pilot", "acceptance"].includes(phase));
         gh([
           "release",
           "download",
@@ -78,6 +78,17 @@ export function readDraftDecisions(
         return [name, bytes];
       }),
     );
+    if (!draft.isPrerelease) {
+      const review = JSON.parse(records.get("release-review.json"));
+      const acceptance = JSON.parse(records.get("release-acceptance.json"));
+      assert.equal(draft.isDraft, false);
+      assert.equal(review.schemaVersion, 2);
+      assert.equal(acceptance.schemaVersion, 2);
+      assert.equal(review.channel, "latest");
+      assert.equal(acceptance.channel, "latest");
+      releaseVersion(release.version, { stable: true });
+    }
+    return records;
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
@@ -105,16 +116,55 @@ export function verifyReleaseAcceptance(
     "Owner decision digest differs from the explicit dispatch input",
   );
   const record = JSON.parse(bytes);
-  assert.equal(record.schemaVersion, 1);
-  assert.equal(record.phase, phase);
+  assert.ok(
+    [1, 2].includes(record.schemaVersion),
+    "Unsupported owner decision format",
+  );
+  assert.equal(
+    record.phase,
+    record.schemaVersion === 1 && phase === "acceptance" ? "pilot" : phase,
+  );
   assert.equal(record.version, release.version);
   assert.equal(record.source, release.source.head);
   assert.equal(record.manifestSha256, manifestSha);
   assert.equal(record.owner, "maksymshostak");
   assert.ok(Number.isFinite(Date.parse(record.acceptedAt)));
-  const names = phase === "review" ? reviewDecisions : pilotDecisions;
-  assert.ok(["review", "pilot"].includes(phase));
-  assert.deepEqual(Object.keys(record.decisions).sort(), [...names].sort());
+  const current = record.schemaVersion === 2;
+  assert.ok(
+    (current
+      ? ["review", "acceptance"]
+      : ["review", "pilot", "acceptance"]
+    ).includes(phase),
+  );
+  if (current) {
+    releaseVersion(record.version);
+    assert.equal(record.repository, "Hadden-Industries/markdown-quality");
+    assert.match(record.operationId, /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u);
+    assert.match(record.controller, /^[a-f0-9]{40}$/u);
+    assert.match(record.controllerDeltaSha256, /^[a-f0-9]{64}$/u);
+    for (const value of [record.candidate?.run, record.candidate?.attempt])
+      assert.match(String(value), /^[1-9]\d{0,15}$/u);
+    releaseChannel(record.channel);
+    for (const key of ["selectedLabels", "defaults"]) {
+      assert.deepEqual(
+        Object.keys(record.guards[key]).sort(),
+        [...releasePackages].sort(),
+      );
+      for (const value of Object.values(record.guards[key]))
+        if (value !== null) releaseVersion(value);
+    }
+    assert.ok(
+      record.guards.githubLatest === null ||
+        (Number.isSafeInteger(record.guards.githubLatest) &&
+          record.guards.githubLatest > 0),
+    );
+  }
+  const names =
+    phase === "review" ? reviewDecisions : current ? [] : pilotDecisions;
+  assert.deepEqual(
+    Object.keys(record.decisions ?? {}).sort(),
+    [...names].sort(),
+  );
   for (const name of names) {
     const decision = record.decisions[name];
     assert.equal(decision.outcome, "accepted", `${name} is not accepted`);
@@ -152,8 +202,38 @@ export function verifyReleaseAcceptance(
     assert.match(record.reviewSha256, /^[a-f0-9]{64}$/u);
     assert.match(String(record.publicQualificationRun), /^[1-9]\d{0,15}$/u);
     assert.match(String(record.publicQualificationAttempt), /^[1-9]\d{0,15}$/u);
-    for (const name of ["owlapi", "webvowl"])
-      assert.equal(record.decisions[name].subject, "exact public npm pilot");
+    if (!current)
+      for (const name of ["owlapi", "webvowl"])
+        assert.equal(record.decisions[name].subject, "exact public npm pilot");
+    else {
+      // Reject the common nested-field mistake during read-only admission.
+      // The archival writer checks the bound contents and live freshness later,
+      // including separately approved preflight refreshes of older acceptances.
+      assert.ok(
+        record.immutabilityObservation &&
+          typeof record.immutabilityObservation === "object" &&
+          !Array.isArray(record.immutabilityObservation),
+        "Acceptance requires a top-level immutabilityObservation",
+      );
+      // Live adoption and timed rehearsal are optional. A real trial still binds
+      // its exact public tuple; an omitted/declined trial cannot fabricate sign-off.
+      assert.ok(
+        Object.keys(record.trials ?? {}).every((name) =>
+          pilotDecisions.includes(name),
+        ),
+      );
+      for (const trial of Object.values(record.trials ?? {})) {
+        assert.ok(["accepted", "skipped"].includes(trial.outcome));
+        if (trial.outcome === "skipped") assert.ok(trial.reason?.trim());
+        else {
+          assert.equal(trial.version, release.version);
+          assert.equal(trial.manifestSha256, manifestSha);
+          assert.ok(Array.isArray(trial.evidence) && trial.evidence.length > 0);
+          for (const evidence of trial.evidence)
+            assert.match(evidence.sha256, /^[a-f0-9]{64}$/u);
+        }
+      }
+    }
   }
   return record;
 }

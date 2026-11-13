@@ -1,20 +1,19 @@
 # JSON development checks
 
-Markdown Quality declares `@hadden-industries/json-quality` as an ordinary `>=1.0.0` devDependency in the root [package.json](../package.json).
+Markdown Quality declares `@hadden-industries/json-quality` as an ordinary `>=1.0.1` devDependency in the root [package.json](../package.json).
 Root `npm ci --ignore-scripts` installs it and its matching optional platform package using the root npm lockfile.
 Npm owns dependency resolution and package integrity, as it does for the other development dependencies.
-The current lockfile resolves the published npmjs 1.0.0 core and platform family.
+The 3.0.2 source lockfile resolves the published JSON Quality core, Linux x64 and Windows x64 packages to 1.0.1.
 
 It is development tooling, outside product dependencies, exports and npm contents.
 The package's public API owns discovery, parsing, quality rules, formatting, normalization, budgets, guarded writes and streamed completion.
 Repository Python owners supply original admitted compressed/archive bytes and provenance, without implementing a second JSON checker.
 
-Use the reference runtime in [node-support.json](../assets/node-support.json) or supported Node 26 starting at 26.12.0.
-Product consumer minima are specified in that same policy; JSON tooling has its narrower declared runtime support.
+Use the producer Node and npm versions in [node-support.json](../assets/node-support.json) to reproduce the repository's JSON checks.
+JSON Quality 1.0.1 declares a Node.js minimum of 22.13.0, the same floor as Markdown Quality 3.0.2.
 
 The [runtime compatibility record](node-runtime-compatibility.md) separates consumer minima from development tooling.
-The ten root runtime dependencies were checked against npm's current latest tags on 2026-10-15 and already matched them.
-The source-only adoption does not republish immutable npm 1.0.3.
+After installation, `node scripts/runRepositoryJsonQuality.mjs --version` prints the version used by the repository's JSON commands.
 
 ```sh
 npm ci --ignore-scripts
@@ -122,8 +121,7 @@ It verifies the original full-result oracles before and after guarded replacemen
 This explicit writer allowance does not change ordinary checker defaults or permit generic writes to archived evidence.
 
 `check:full` requires the actual package check and a final complete-root result after product generators.
-Hosted package jobs acquire the isolated source on the reference runtime, restore the exact product matrix runtime, and run every product check.
-
-Every lane records its product runtime, switches back to the reference runtime, then requires identity lint, isolated consumer tests and JSON checking after those producers.
-The transported candidate job requires actual packed JSON quality before uploading its tuple.
+Hosted CI and release qualification run serialization identity lint during source admission.
+The reference producer checks the packed package family, runs the JSON integration tests and checks the complete repository before uploading the archives.
+Windows and Linux consumer lanes exercise runtime-sensitive source behavior and install those same archives on their selected Node versions.
 Workflow regression tests reject removed, conditional or tolerated mandatory gates; optional reuse metadata cannot convert a failed JSON gate into successful package qualification.

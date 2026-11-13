@@ -4,11 +4,27 @@ import test from "node:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { parse } from "yaml";
 import { candidateJobNames } from "../scripts/node-matrix.js";
+import { windowsRunner } from "../scripts/runner-policy.js";
 import { testFiles } from "../scripts/verification-suites.js";
 import { nodeMatrixFixture } from "./node-matrix-fixture.js";
 const text = (path) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const workflow = (name) => parse(text(`.github/workflows/${name}.yml`));
+
+test("native Python provisioning preserves the minimum selector and isolated hosted environment", () => {
+  const action = parse(text(".github/actions/setup-python/action.yml"));
+  const [target, provider, environment] = action.runs.steps;
+  assert.equal(target.run, "bash .github/actions/setup-python/read-target.sh");
+  assert.match(provider.uses, /^actions\/setup-python@[a-f0-9]{40}$/u);
+  assert.deepEqual(provider.with, {
+    "python-version": "${{ steps.python-target.outputs.version }}",
+  });
+  assert.equal(environment.shell, "bash");
+  assert.match(environment.run, /python -m venv "\$RUNNER_TEMP\/python"/u);
+  assert.match(environment.run, /VIRTUAL_ENV=\$RUNNER_TEMP\/python/u);
+  assert.match(environment.run, /\$RUNNER_TEMP\/python\/Scripts/u);
+  assert.match(environment.run, /\$RUNNER_TEMP\/python\/bin/u);
+});
 
 test("read-only release preparation cannot depend on draft visibility", () => {
   const publish = workflow("publish");
@@ -19,13 +35,24 @@ test("read-only release preparation cannot depend on draft visibility", () => {
     tag.run.endsWith("--tag-only"),
     "Read-only admission must not fetch draft decisions",
   );
-  assert.equal(publish.jobs.review.permissions.contents, "write");
-  assert.equal(publish.jobs.review.environment, "github-release");
-  assert.ok(publish.jobs.stage.needs.includes("review"));
+  assert.equal(publish.jobs.decision.permissions.contents, "read");
+  assert.equal(publish.jobs.decision.environment, undefined);
+  assert.equal(publish.jobs.decision.permissions["id-token"], undefined);
+  assert.ok(publish.jobs.stage.needs.includes("decision"));
+  assert.equal(
+    publish.on.workflow_dispatch.inputs["review-json"].required,
+    true,
+  );
   const archive = workflow("github-release");
-  assert.equal(archive.jobs.decisions.permissions.contents, "write");
-  assert.equal(archive.jobs.decisions.environment, "github-release");
-  assert.equal(archive.jobs.prepare.needs, "decisions");
+  assert.equal(archive.jobs.complete.if, "needs.archive.result == 'success'");
+  assert.equal(archive.jobs.decisions.permissions.contents, "read");
+  assert.equal(archive.jobs.decisions.environment, undefined);
+  assert.equal(archive.jobs["legacy-decisions"].permissions.contents, "write");
+  assert.equal(archive.jobs["legacy-decisions"].environment, "github-release");
+  assert.deepEqual(archive.jobs.prepare.needs, [
+    "decisions",
+    "legacy-decisions",
+  ]);
 });
 
 test("release credentials stay separated from qualification and each other", () => {
@@ -50,9 +77,8 @@ test("release credentials stay separated from qualification and each other", () 
   assert.deepEqual(oidc.sort(), ["promote-release.npm", "publish.stage"]);
   assert.deepEqual(writes.sort(), [
     "github-release.archive",
-    "github-release.decisions",
+    "github-release.legacy-decisions",
     "promote-release.github",
-    "publish.review",
   ]);
   assert.equal(workflow("publish").jobs.stage.environment, "npm-publication");
   assert.notEqual(
@@ -145,7 +171,7 @@ test("main observation never invokes a product suite or silently requests full q
   const main = workflow("main-qualification");
   assert.equal(
     main.jobs.full.if,
-    "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'",
+    "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.qualification != 'installed-only'",
   );
   assert.equal(main.jobs.full.uses, "./.github/workflows/ci.yml");
   for (const key of ["host", "observe"])
@@ -155,6 +181,17 @@ test("main observation never invokes a product suite or silently requests full q
         /check:full|check:product|qualify-public|workflow run/u,
       );
   assert.equal(main.jobs.observe.if, "always() && github.event_name == 'push'");
+  assert.match(
+    main.jobs["diagnostic-matrix"].if,
+    /workflow_dispatch.*installed-only/u,
+  );
+  assert.equal(
+    main.jobs["installed-diagnostic"].uses,
+    "./.github/workflows/installed-qualification.yml",
+  );
+  assert.ok(
+    !workflow("ci").jobs.acceptance.needs.includes("installed-diagnostic"),
+  );
 });
 
 test("Actions, JavaScript and Python scans share the explicit source-bound identity", () => {
@@ -271,6 +308,40 @@ test("public trusted workflow retains its data-only inputs and evidence retentio
   );
 });
 
+test("clean release runners install their interpreters and default observations survive a failed public matrix", () => {
+  const archive = workflow("github-release");
+  for (const name of ["prepare", "archive"])
+    assert.ok(
+      archive.jobs[name].steps.some(
+        (step) => step.uses === "./.github/actions/setup-python",
+      ),
+    );
+  assert.equal(archive.env.NPM_CONFIG_IGNORE_SCRIPTS, "true");
+  assert.equal(
+    workflow("promote-release").jobs.admit.permissions["security-events"],
+    "read",
+  );
+  const qualified = workflow("release-registry").jobs.qualified;
+  assert.equal(qualified.if, "always()");
+  assert.ok(
+    qualified.steps.some(
+      (step) => step.run === "node scripts/report-release-defaults.js",
+    ),
+  );
+  assert.equal(
+    qualified.steps.find(
+      (step) =>
+        step.name === "Require the complete public tuple and security gate",
+    ).if,
+    "always()",
+  );
+  const reconciliation = workflow("promote-release").jobs.reconcile;
+  assert.deepEqual(reconciliation.permissions, {
+    contents: "read",
+    actions: "read",
+  });
+});
+
 test("release downloads have artifact-read permission and both graphs retain Windows text output", () => {
   const release = workflow("release-qualification");
   for (const name of ["security", "distribution"])
@@ -288,7 +359,7 @@ test("release downloads have artifact-read permission and both graphs retain Win
   );
   const native = workflow("native-qualification").jobs.validate;
   assert.ok(
-    native.strategy.matrix.include.some((lane) => lane.os === "windows-2025"),
+    native.strategy.matrix.include.some((lane) => lane.os === windowsRunner()),
   );
   assert.ok(
     native.steps.some((step) =>
@@ -304,7 +375,7 @@ test("release downloads have artifact-read permission and both graphs retain Win
       "Every native exit must reach the Actions step boundary",
     );
   const observation = workflow("windows-observation").jobs.observe;
-  assert.equal(observation["runs-on"], "windows-2025");
+  assert.equal(observation["runs-on"], windowsRunner());
   assert.ok(
     observation.steps.some(
       (step) => step.uses === "./.github/actions/setup-producer",

@@ -19,7 +19,8 @@ Direct probes of the verified 0.11.10 Windows release still reproduce that failu
 
 ## Run the hosted producer
 
-The [workflow](../.github/workflows/native.yml) runs on Windows 2022 x64 and Ubuntu 24.04 x64 with a 60-minute job limit.
+The [native build workflow](../.github/workflows/native.yml) builds each x64 target on the Windows or Linux runner selected by [the runtime policy](../assets/node-support.json), with a 60-minute limit per job.
+On Linux the builder checks the executable's required glibc symbols against the supported 2.39 floor.
 It uses pinned Actions, read-only repository access, and no registry secrets or OIDC authority.
 It runs only by explicit dispatch, with a choice of the accepted or next-build input.
 
@@ -67,7 +68,7 @@ For the next-build run, supply `--config scripts/native-build-next.json` to `scr
 Omitting that option retains the accepted build input and rejects evidence from a different source.
 
 It emits a candidate manifest without approving rights or mutating the accepted manifest.
-Independent review must reconcile native code, embedded data, Rust runtime, and system linkage before private release.
+Independent review must reconcile native code, embedded data, Rust runtime, and system linkage before release.
 Cargo-about can supply generic license text when a crate omits its original license file.
 That text alone does not establish original copyright attribution.
 

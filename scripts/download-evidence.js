@@ -46,7 +46,9 @@ export async function downloadEvidence({
     }
     assert.equal(metadata.expired, false);
   };
-  const metadata = await read(`/actions/artifacts/${id}`);
+  const metadata = await read(`/actions/artifacts/${id}`, {
+    pendingArtifact: true,
+  });
   admit(metadata);
   const size = metadata.size_in_bytes,
     digest = metadata.digest;
@@ -61,7 +63,9 @@ export async function downloadEvidence({
   );
   // Finish the shared network lookup before the separate extraction phase.
   // Provider conflict/expiry must fail before any payload is materialized.
-  const retained = await read(`/actions/artifacts/${id}`);
+  const retained = await read(`/actions/artifacts/${id}`, {
+    pendingArtifact: true,
+  });
   assert.equal(retained.digest, digest);
   assert.equal(retained.size_in_bytes, size);
   admit(retained);

@@ -2,8 +2,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { nodeSupport, qualificationMatrix } from "../scripts/node-matrix.js";
-import { nodeMatrixFixture } from "./node-matrix-fixture.js";
+import { fixtureJobLabels, nodeMatrixFixture } from "./node-matrix-fixture.js";
 import { publicationHistoryFixture } from "./publication-history-fixture.js";
+import { reviewedChannelStagingSteps } from "../scripts/publication-steps.js";
 import {
   mkdtempSync,
   mkdirSync,
@@ -143,6 +144,7 @@ function fixture(t) {
       jobs: releaseJobNames.map((name) => ({
         name,
         head_sha: source,
+        labels: fixtureJobLabels(name),
         status: "completed",
         conclusion: name === "candidate / shared" ? "skipped" : "success",
         steps: [],
@@ -555,6 +557,95 @@ function recoveryFixture(t) {
   return { ...data, control };
 }
 
+test("completed native requests survive a later upload failure without replay or relabelled success", (t) => {
+  const { input, manifest } = fixture(t);
+  input.context.decision = {
+    channel: "latest",
+    operationId: "release-native-upload-failure",
+    reviewSha256: "e".repeat(64),
+  };
+  const original = verifyPublication(input).publicationOrigins;
+  const originsBytes = Buffer.from(JSON.stringify(original));
+  const stage = {
+    name: "stage",
+    run_id: 456,
+    run_attempt: 1,
+    head_sha: source,
+    status: "completed",
+    conclusion: "failure",
+    steps: [
+      ...reviewedChannelStagingSteps.map((name, index) => ({
+        name,
+        status: "completed",
+        conclusion: index < 2 ? "success" : "skipped",
+      })),
+      {
+        name: "Run actions/upload-artifact",
+        status: "completed",
+        conclusion: "failure",
+      },
+    ],
+  };
+  input.previous = {
+    run: {
+      id: 456,
+      run_attempt: 1,
+      repository: { full_name: repository },
+      path: ".github/workflows/publish.yml",
+      event: "workflow_dispatch",
+      head_branch: "main",
+      head_sha: source,
+      status: "completed",
+      conclusion: "failure",
+    },
+    jobs: {
+      total_count: 2,
+      jobs: [
+        stage,
+        { ...stage, name: "retained", conclusion: "skipped", steps: [] },
+      ],
+    },
+    manifestBytes: readFileSync(join(input.directory, "release-manifest.json")),
+    originsBytes,
+  };
+  input.context = {
+    ...input.context,
+    head: "b".repeat(40),
+    publicationRun: "789",
+    phase: "core",
+    recoveryRun: "456",
+    recoveryAttempt: "1",
+    recoveryOriginsSha: sha(originsBytes),
+  };
+  input.currentRef.object.sha = input.context.head;
+  const continued = verifyPublication(input).publicationOrigins;
+  assert.deepEqual(
+    continued.records.map(({ state }) => state),
+    ["retained", "retained", "planned"],
+  );
+  for (let index = 0; index < 2; index++)
+    assert.deepEqual(continued.records[index], {
+      ...original.records[index],
+      state: "retained",
+    });
+  const env = preparePublicationEnvironment(
+    manifest,
+    input.manifestSha,
+    continued,
+    input.context,
+  );
+  assert.equal(env.STAGE_WIN32_X64, "false");
+  assert.equal(env.STAGE_LINUX_X64, "false");
+  assert.equal(env.STAGE_CORE, "true");
+  assert.equal(input.previous.run.conclusion, "failure");
+  assert.equal(stage.conclusion, "failure");
+  input.previous.originsBytes = Buffer.from("{}");
+  assert.throws(
+    () => verifyPublication(input),
+    "Substituted custody must remain a refusal",
+  );
+});
+
 test("legacy partial publication preserves Windows origin and only plans unattempted Linux/core", (t) => {
   const { input, manifest, control } = recoveryFixture(t);
   const map = verifyPublication(input).publicationOrigins;
@@ -834,7 +925,7 @@ test("only staging has OIDC; pilot approval and stable promotion remain separate
     (publisher.match(/stage-release-package.js /gu) || []).length,
     3,
   );
-  for (const name of stagingSteps)
+  for (const name of reviewedChannelStagingSteps)
     assert.ok(publisher.includes(`- name: ${name}\n`));
   for (const key of ["WIN32_X64", "LINUX_X64", "CORE"])
     assert.ok(
@@ -853,7 +944,7 @@ test("only staging has OIDC; pilot approval and stable promotion remain separate
   );
   assert.ok(
     publisher.indexOf("--native-only") <
-      publisher.indexOf("- name: Stage coherent core under pilot"),
+      publisher.indexOf("- name: Stage coherent core under reviewed channel"),
   );
   assert.ok(!text.includes("--tag latest"));
   assert.ok(!text.includes("distribution-tag:"));

@@ -27,7 +27,7 @@ test("native baseline selection rejects cached, foreign and ambiguous pack subst
   const distribution = join(root, "codeql-distribution");
   const nativePack = join(
     distribution,
-    "qlpacks/codeql/actions-queries/0.6.38",
+    "qlpacks/codeql/actions-queries/0.6.39",
   );
   const scan = (path) => ({
     found: {
@@ -41,7 +41,7 @@ test("native baseline selection rejects cached, foreign and ambiguous pack subst
     type: "by-name-and-version",
     found: {
       "codeql/actions-queries": {
-        "0.6.38": { path: join(root, "cache/qlpack.yml") },
+        "0.6.39": { path: join(root, "cache/qlpack.yml") },
       },
     },
   };
@@ -69,7 +69,7 @@ function fixture() {
     replacement,
     join(root, "selected-codeql-fixture/other.ql"),
   ];
-  const metadata = "name: codeql/actions-queries\nversion: 0.6.38\n";
+  const metadata = "name: codeql/actions-queries\nversion: 0.6.39\n";
   const files = new Map([
     [stock[0], original],
     [replacement, local],

@@ -22,7 +22,14 @@ import {
   reviewDecisions,
   pilotDecisions,
 } from "../scripts/release-acceptance.js";
-import { inspectReleaseTag } from "../scripts/verify-release-tag.js";
+import {
+  inspectReleaseTag as inspectTag,
+  verifyTagMetadata,
+} from "../scripts/verify-release-tag.js";
+// Isolated GitHub-provider fixtures model provider metadata; real OpenSSH/key
+// admission is exercised independently in release-signing.test.js.
+const inspectReleaseTag = (manifest, output, options) =>
+  inspectTag(manifest, output, { verifyTag: verifyTagMetadata, ...options });
 import { collectDraftDecisions } from "../scripts/read-release-decisions.js";
 import { checkWorkflows } from "../scripts/check-workflows.js";
 import { waitForReleaseAttestation } from "../scripts/release-attestation.js";
@@ -327,6 +334,7 @@ test("immutable release indexing waits within one budget while native verificati
     f.assets,
     f.tagSha,
     {
+      verifyTag: verifyTagMetadata,
       now: () => time,
       sleep: async (ms) => {
         time += ms;
@@ -367,6 +375,7 @@ test("indexing refusal, malformed evidence, identity drift and expiry remain ter
       f.assets,
       f.tagSha,
       {
+        verifyTag: verifyTagMetadata,
         deadline: 10000,
         now: () => time,
         sleep: async (ms) => {
@@ -444,19 +453,19 @@ test("workflow contracts reject draft-permission, dependency-order and snapshot 
     [
       "publish.yml",
       (doc) => {
-        doc.jobs.review.permissions.contents = "read";
+        doc.jobs.decision.permissions.contents = "write";
       },
     ],
     [
       "publish.yml",
       (doc) => {
-        doc.jobs.review.permissions["id-token"] = "write";
+        doc.jobs.decision.permissions["id-token"] = "write";
       },
     ],
     [
       "publish.yml",
       (doc) => {
-        doc.jobs.review.environment = "npm-publication";
+        doc.jobs.decision.environment = "npm-publication";
       },
     ],
     [
@@ -469,7 +478,7 @@ test("workflow contracts reject draft-permission, dependency-order and snapshot 
       "publish.yml",
       (doc) => {
         doc.jobs.stage.if = doc.jobs.stage.if.replace(
-          "needs.review.result == 'success'",
+          "needs.decision.result == 'success'",
           "true",
         );
       },
@@ -480,14 +489,14 @@ test("workflow contracts reject draft-permission, dependency-order and snapshot 
         doc.jobs.stage.steps.find(
           (step) =>
             step.with?.["artifact-ids"] ===
-            "${{ needs.review.outputs.artifact-id }}",
+            "${{ needs.decision.outputs.artifact-id }}",
         ).with["digest-mismatch"] = "warn";
       },
     ],
     [
       "github-release.yml",
       (doc) => {
-        doc.jobs.decisions.permissions.contents = "read";
+        doc.jobs.decisions.permissions.contents = "write";
       },
     ],
     [

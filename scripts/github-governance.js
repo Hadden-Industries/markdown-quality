@@ -55,6 +55,25 @@ export async function inspectGovernance(read) {
     ? await read(`/rulesets/${owned[0].id}`)
     : null;
   const actualActions = await read("/actions/permissions");
+  const managedTagRulesetIds = [];
+  const tagRulesets = [];
+  for (const policy of governance.tagRulesets) {
+    const matches = summaries.filter((value) => value.name === policy.name);
+    assert.ok(matches.length <= 1, "Ambiguous managed tag ruleset");
+    assert.ok(
+      !matches.length ||
+        !matches[0].source_type ||
+        (matches[0].source_type === "Repository" &&
+          matches[0].source === governance.repository),
+      "An inherited ruleset cannot be edited as a managed repository policy",
+    );
+    managedTagRulesetIds.push(matches[0]?.id ?? null);
+    tagRulesets.push(
+      matches.length
+        ? rulesetProjection(await read(`/rulesets/${matches[0].id}`))
+        : null,
+    );
+  }
   const actual = {
     repositorySettings: Object.fromEntries(
       Object.keys(governance.repositorySettings).map((key) => [key, repo[key]]),
@@ -71,10 +90,12 @@ export async function inspectGovernance(read) {
     codeqlDefaultSetup: await read("/code-scanning/default-setup"),
     retention: await read("/actions/permissions/artifact-and-log-retention"),
     ruleset: actualRule ? rulesetProjection(actualRule) : null,
+    tagRulesets,
   };
   const expected = {
     ...governance,
     ruleset: rulesetProjection(governance.ruleset),
+    tagRulesets: governance.tagRulesets.map(rulesetProjection),
   };
   const differences = Object.keys(actual).filter(
     (key) => !includes(actual[key], expected[key]),
@@ -84,6 +105,15 @@ export async function inspectGovernance(read) {
     differences,
     actual,
     managedRulesetId: owned[0]?.id ?? null,
+    managedTagRulesetIds,
+    effectiveMainRules: await read(`/rules/branches/${governance.branch}`),
+    inheritedRulesets: await Promise.all(
+      summaries
+        .filter(
+          (value) => value.source_type && value.source_type !== "Repository",
+        )
+        .map((value) => read(`/rulesets/${value.id}`)),
+    ),
   };
 }
 
@@ -208,6 +238,25 @@ async function activate(read, write) {
         rulesetProjection(governance.ruleset),
       ),
     );
+  }
+  if (before.differences.includes("tagRulesets")) {
+    for (const [index, policy] of governance.tagRulesets.entries()) {
+      if (includes(before.actual.tagRulesets[index], rulesetProjection(policy)))
+        continue;
+      const id = before.managedTagRulesetIds[index];
+      const result = write(
+        id ? "PUT" : "POST",
+        id ? `/rulesets/${id}` : "/rulesets",
+        policy,
+      );
+      assert.ok(
+        includes(
+          rulesetProjection(await read(`/rulesets/${result.id}`)),
+          rulesetProjection(policy),
+        ),
+        "Tag policy did not read back; inspect partial application before retrying",
+      );
+    }
   }
   const after = await inspectGovernance(read);
   assert.equal(after.status, "CONFIGURED");

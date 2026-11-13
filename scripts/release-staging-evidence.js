@@ -25,7 +25,12 @@ export function bindStagingReconciliation(journal, archive, origin, qualified) {
         archive[key],
         `Staging journal ${key} mismatch`,
       );
-    assert.equal(record.tag, "pilot");
+    assert.equal(record.tag, qualified.channel ?? "pilot");
+    if (qualified.decision) {
+      assert.equal(record.decision.reviewSha256, origin.reviewSha256);
+      assert.equal(record.decision.operationId, qualified.decision.operationId);
+      assert.equal(record.decision.channel, qualified.channel);
+    }
     for (const key of ["source", "run", "attempt"])
       assert.equal(String(record.origin[key]), String(origin[key]));
     if (record.state === "staged-awaiting-owner")

@@ -11,7 +11,7 @@ That policy text retains CC BY-SA 4.0, its attribution and the indicated changes
 
 | Direct runtime dependency       | Version | Declared license                  |
 | ------------------------------- | ------- | --------------------------------- |
-| Prettier                        | 3.9.10  | MIT                               |
+| Prettier                        | 3.10.1  | MIT                               |
 | ESLint                          | 10.14.0 | MIT                               |
 | ESLint Markdown                 | 8.0.3   | MIT                               |
 | Ajv                             | 8.20.0  | MIT                               |
@@ -21,22 +21,27 @@ That policy text retains CC BY-SA 4.0, its attribution and the indicated changes
 | micromark-extension-frontmatter | 2.0.0   | MIT, Titus Wormer                 |
 | micromark-extension-gfm         | 3.0.0   | MIT                               |
 | picomatch                       | 4.0.7   | MIT                               |
-| parse5                          | 8.1.0   | MIT, Ivan Nikulin                 |
+| parse5                          | 8.1.1   | MIT, Ivan Nikulin                 |
 | github-slugger                  | 2.0.0   | ISC                               |
 | Snapper upstream executable     | 0.11.9  | MIT, Copyright 2026 Rohit Goswami |
 
-Installed npm packages retain their upstream license files.
+Installed npm packages retain the upstream notice material present in their registry archives.
 parse5 parses raw HTML fragments as static data for the package's finite HTML and anchor checks; its transitive `entities` 9.0.0 dependency retains its BSD-2-Clause notice by Felix Böhm.
 parse5 8.1.0 (published 2026-11-01) and `entities` 9.0.0 (published 2026-10-29) were adopted by owner decision without the usual soak period.
+The 2026-11-13 dependency refresh adopts parse5 8.1.1, including its upstream untrusted-input security fixes, and Prettier 3.10.1 under their unchanged MIT terms.
 
 github-slugger was already installed through ESLint Markdown and is now imported directly for the package's documented heading-anchor allocation; its installed ISC notice is unchanged.
 The development-only conformance fixtures in `test/fixtures/unicode/` are the unchanged Unicode `NormalizationTest.txt` files for Unicode 16.0.0 and 17.0.0, stored gzip-compressed with their original SHA-256 identities.
 
 They are © Unicode, Inc. under the Unicode License V3, retained in `test/fixtures/unicode/LICENSE-Unicode-3.0.txt`, and are not shipped in consumer archives.
-Development analysis uses dependency-cruiser 18.7.0 under MIT, copyright 2016-2026 Sander Verweij.
+Development analysis uses dependency-cruiser 18.7.2 under MIT, copyright 2016-2026 Sander Verweij.
 Its installed `LICENSE` retains the original permission and copyright notice; no analyzer source is vendored or modified.
 
 The exact developer dependency graph and its integrity identities are frozen in the lockfile, and installed transitive components retain their own upstream notices.
+The compatible developer refresh also adopts `graceful-fs` 4.2.12 under its upstream BlueOak-1.0.0 terms instead of the earlier ISC declaration; its complete `LICENSE.md` is retained in the installed archive.
+New developer transitives `bare-buffer` 3.7.1 and `proxy-agent-negotiate` 1.1.0 declare Apache-2.0 and MIT respectively.
+The latter registry archive omits a standalone license; its MIT declaration is retained in the [upstream package manifest](https://github.com/TooTallNate/proxy-agents/blob/main/packages/negotiate/package.json), without a claim that the archive contains the full license text.
+These development-only components are excluded from the consumer shipment.
 Acorn 8.19.0 is explicitly declared for the conservative syntax guard; its installed MIT notice credits the contributors listed in its AUTHORS file.
 
 micromark 4.0.3 and micromark-extension-math 3.1.0 are explicitly declared for security regression tests; their installed MIT notices credit Titus Wormer.
@@ -53,10 +58,10 @@ The producer's scoped dependency override resolves KaTeX 0.19.1 and its Commande
 
 Their installed `LICENSE` files retain the original MIT terms and copyright notices: Khan Academy and other contributors (KaTeX), and TJ Holowaychuk (Commander).
 Those terms permit use and redistribution subject to retaining the notices.
-The core archive bundles ESLint Markdown's and ESLint's complete runtime dependency closures, including KaTeX 0.19.1 and minimatch 11.0.3, using npm's native `bundleDependencies` mechanism.
+The core archive bundles ESLint Markdown's and ESLint's complete runtime dependency closures, including KaTeX 0.19.1 and minimatch 11.0.8, using npm's native `bundleDependencies` mechanism.
 
 Each package retains its upstream executable source and original notices.
-Vendored metadata repairs change `micromark-extension-math` 3.1.0's `dependencies.katex` declaration from `^0.16.0` to `0.19.1` for GHSA-238p-pmpm-9mq7, and ESLint 10.14.0's and `@eslint/config-array` 0.23.5's `dependencies.minimatch` declarations from `^10.2.6` and `^10.2.4` respectively to `11.0.3` for GHSA-g3hv-75wg-m249.
+Vendored metadata repairs change `micromark-extension-math` 3.1.0's `dependencies.katex` declaration from `^0.16.0` to `0.19.1` for GHSA-238p-pmpm-9mq7, and ESLint 10.14.0's and `@eslint/config-array` 0.23.5's `dependencies.minimatch` declarations from `^10.2.6` and `^10.2.4` respectively to `11.0.8` for GHSA-g3hv-75wg-m249.
 
 The generated `assets/bundled-dependencies.json` records original registry URLs and integrity values, package licenses, every shipped file hash, and before/after hashes for those metadata repairs.
 The producer override remains a build input and is removed from the published manifest; it is not a recipient security control.

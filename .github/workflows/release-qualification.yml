@@ -15,7 +15,7 @@ defaults:
 jobs:
   resolve:
     if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     outputs:
       runtimes: ${{ steps.resolve.outputs.matrix }}
@@ -25,7 +25,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: 26.13.0
+          node-version-file: .node-version
           package-manager-cache: false
       - name: Check requested version and freeze one matrix for all release gates
         id: resolve
@@ -62,7 +62,7 @@ jobs:
     uses: ./.github/workflows/native-qualification.yml
   dependencies:
     needs: resolve
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -74,7 +74,7 @@ jobs:
     needs:
       - product
       - scans
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     permissions:
       contents: read
@@ -86,7 +86,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: 26.13.0
+          node-version-file: .node-version
           package-manager-cache: false
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/download-evidence
@@ -112,7 +112,7 @@ jobs:
           retention-days: 90
   distribution:
     needs: product
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -120,7 +120,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: 26.13.0
+          node-version-file: .node-version
           package-manager-cache: false
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/download-evidence
@@ -154,7 +154,7 @@ jobs:
       - dependencies
       - native
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     steps:
       - name: Require every pre-publication gate without skipped work

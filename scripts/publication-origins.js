@@ -2,8 +2,13 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 
-import { legacyPublicationSteps, stagingSteps } from "./publication-steps.js";
+import {
+  legacyPublicationSteps,
+  stagingSteps,
+  stagingStepNames,
+} from "./publication-steps.js";
 import { verifyNoPublicationEffects } from "./publication-attempts.js";
+import { releaseChannel } from "./release-coordinates.js";
 export { legacyPublicationSteps, stagingSteps };
 const repository = "Hadden-Industries/markdown-quality";
 const keys = (value, expected) => {
@@ -27,8 +32,20 @@ export function validatePublicationOrigins(map, expected, archives) {
     "attempt",
     "recovery",
     "records",
+    ...(map.schemaVersion === 2 ? ["decision"] : []),
   ]);
-  assert.equal(map.schemaVersion, 1);
+  assert.ok([1, 2].includes(map.schemaVersion));
+  if (map.schemaVersion === 2) {
+    keys(map.decision, ["channel", "reviewSha256", "operationId"]);
+    releaseChannel(map.decision.channel);
+    assert.match(map.decision.reviewSha256, /^[a-f0-9]{64}$/u);
+    assert.match(
+      map.decision.operationId,
+      /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u,
+    );
+    if (expected.decision !== undefined)
+      assert.deepEqual(map.decision, expected.decision);
+  }
   for (const name of [
     "version",
     "artifactSource",
@@ -62,7 +79,16 @@ export function validatePublicationOrigins(map, expected, archives) {
     archives.map((archive) => archive.package),
   );
   for (const record of map.records) {
-    keys(record, ["package", "source", "run", "attempt", "state"]);
+    keys(record, [
+      "package",
+      "source",
+      "run",
+      "attempt",
+      "state",
+      ...(map.schemaVersion === 2 ? ["reviewSha256"] : []),
+    ]);
+    if (map.schemaVersion === 2)
+      assert.match(record.reviewSha256, /^[a-f0-9]{64}$/u);
     oid(record.source);
     id(record.run);
     id(record.attempt);
@@ -71,6 +97,8 @@ export function validatePublicationOrigins(map, expected, archives) {
       assert.equal(record.source, map.controlSource);
       assert.equal(String(record.run), String(map.run));
       assert.equal(String(record.attempt), String(map.attempt));
+      if (map.schemaVersion === 2)
+        assert.equal(record.reviewSha256, map.decision.reviewSha256);
     } else {
       assert.ok(
         map.recovery,
@@ -105,6 +133,7 @@ export function planPublicationOrigins({
     run: String(context.publicationRun),
     attempt: String(context.publicationAttempt),
     recovery,
+    ...(context.decision ? { decision: context.decision } : {}),
   };
   let retained = [];
   if (recovery) {
@@ -150,7 +179,11 @@ export function planPublicationOrigins({
     assert.ok(prewrite ? effectJobs.length <= 1 : effectJobs.length === 1);
     const job = effectJobs[0];
     const effectSteps =
-      job?.name === "stage" ? stagingSteps : legacyPublicationSteps;
+      job?.name === "stage"
+        ? prewrite
+          ? stagingSteps
+          : stagingStepNames(job)
+        : legacyPublicationSteps;
     if (job) {
       assert.equal(job.status, "completed");
       assert.equal(String(job.run_id), recovery.run);
@@ -169,6 +202,14 @@ export function planPublicationOrigins({
         recovery.originsSha256,
       );
       const prior = JSON.parse(originsBytes);
+      if (prior.schemaVersion === 2 && context.decision) {
+        assert.equal(
+          prior.decision.channel,
+          context.decision.channel,
+          "A retained stage cannot change channel",
+        );
+        assert.equal(prior.decision.operationId, context.decision.operationId);
+      }
       validatePublicationOrigins(
         prior,
         {
@@ -177,6 +218,7 @@ export function planPublicationOrigins({
           run: recovery.run,
           attempt: recovery.attempt,
           recovery: prior.recovery,
+          ...(prior.schemaVersion === 2 ? { decision: prior.decision } : {}),
         },
         release.archives,
       );
@@ -225,10 +267,10 @@ export function planPublicationOrigins({
   } else {
     assert.ok(!previous);
     assert.ok(!context.recoveryAttempt && !context.recoveryOriginsSha);
-    assert.equal(release.source.head, context.head);
+    if (!context.decision) assert.equal(release.source.head, context.head);
   }
   const map = {
-    schemaVersion: 1,
+    schemaVersion: context.decision ? 2 : 1,
     ...expected,
     records: release.archives.map(
       (archive) =>
@@ -238,6 +280,9 @@ export function planPublicationOrigins({
           run: expected.run,
           attempt: expected.attempt,
           state: "planned",
+          ...(context.decision
+            ? { reviewSha256: context.decision.reviewSha256 }
+            : {}),
         },
     ),
   };

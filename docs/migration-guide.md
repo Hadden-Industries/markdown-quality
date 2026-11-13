@@ -2,27 +2,41 @@
 
 Choose the section for the version you are upgrading **from**.
 
+- **3.0.1 consumers** keep their CLI, SDK and configuration contracts.
+  See [the 3.0.2 update](#from-301-to-302).
 - **3.0.0 consumers** retain their CLI, SDK and configuration contracts.
-  See [the 3.0.1 repairs](#from-300-to-301).
+  Apply [the 3.0.1 repairs](#from-300-to-301), then read [the 3.0.2 update](#from-301-to-302).
 - **2.x consumers** can keep configuration schema 3.
   Start with [CLI, SDK and report changes in 3.0](#from-20-to-30).
 - **1.x consumers and users of development schema 2** should apply the [2.0 configuration and contract changes](#from-1x-to-20) first.
   If your destination is 3.0, continue with [the 3.0 changes](#from-20-to-30).
 
+## From 3.0.1 to 3.0.2
+
+Version 3.0.2 is a compatible patch release.
+Use the [installation example](consumer-guide.md#installation) to upgrade.
+No CLI, SDK, configuration, preset or schema-version migration is required from 3.0.1.
+Configuration schema 3, preset `authored-gfm@2`, result schema 5, execution schema 2 and comparison schema 3 are retained.
+
+The patch updates Markdown and HTML tooling, dependency locks and release CI.
+Repository development also enforces `fast-xml-parser >=5.12.0`; the source lock resolves 5.12.0.
+The 3.0.2 source lock selects JSON Quality 1.0.1 for repository development checks.
+Release maintainers should use the [3.0.2 release runbook](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.2/docs/release-operations.md) for coordinated family staging, qualification, archival and promotion.
+
 ## From 3.0.0 to 3.0.1
 
-Version 3.0.1 is the selected source candidate; this guide does not establish publication or release acceptance.
+Version 3.0.1 introduced the compatible repairs below.
 No CLI, SDK, configuration, preset or contract-version migration is required from 3.0.0.
 Successful and quality-refused reports require complete policy and resource evidence; failed admission can still report unavailable policy metadata.
 The result schema remains version 5, with its logical identifier corrected to that version.
 Fragment resolution, NFC planning, change reporting and path spelling avoid repeated work while retaining their existing findings and preservation rules.
 
-Repository contributors now use JSON Quality 1.0.0 with configuration schema 4, event schema 5 and cohort 6.
-See [JSON development checks](https://github.com/Hadden-Industries/markdown-quality/blob/main/docs/json-quality.md) for the repository tooling migration.
+The 3.0.1 source adopted JSON Quality 1.0.0 with configuration schema 4, event schema 5 and cohort 6.
+The [3.0.2 JSON development guide](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.2/docs/json-quality.md) describes the current checks.
 
 ## From 2.0 to 3.0
 
-The 3.0 CLI and SDK contracts introduced the following major-version changes, retained by the 3.0.1 candidate.
+The 3.0 CLI and SDK contracts introduced the following major-version changes, retained by 3.0.2.
 Configuration schema 3, `authored-gfm@2`, execution schema 2, comparison schema 3 and Snapper 0.11.9 are retained.
 
 - Import the SDK from Node.js code only; the package root now explicitly rejects browser and unmatched resolver environments.
@@ -244,7 +258,8 @@ A successful format, normalize or preview result is never check evidence, even w
 | `wouldFormat`                        | `formattingDriftPaths`             |
 | `scripts/compare-quality-reports.js` | `scripts/compare-check-reports.js` |
 
-`compareCheckReports` reads result schemas 1 through 4 and refuses repair or preview receipts.
+Version 2.0 read check reports with result schemas 1 through 4.
+Version 3.0.2 also reads result schema 5 and continues to refuse repair or preview receipts.
 `formattingDriftPaths` lists paths with formatter-layout diagnostics; it does not predict that formatting will succeed.
 
 ## Qualification identities, workflow inputs and environment
@@ -289,7 +304,7 @@ Capture package, lock, configuration and workflow identities and exact document 
 Then run each step and review its result before the next:
 
 ```sh
-npm install --save-dev --save-exact @hadden-industries/markdown-quality@2.0.0
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.2
 npm exec -- markdown-quality inspect --root . --json
 npm exec -- markdown-quality check --root .
 npm exec -- markdown-quality normalize --root . --dry-run
@@ -298,7 +313,7 @@ npm exec -- markdown-quality format --write --root .
 npm exec -- markdown-quality check --root .
 ```
 
-The install pins 2.0.0 exactly in the manifest and lock; while it is under npm's `pilot` tag, an unversioned install selects the `latest` 1.x release.
+The install pins 3.0.2 in the manifest and lock regardless of the current npm distribution tags.
 `inspect` confirms the root, selection, omissions and effective policy.
 
 The first `check` reports the new default errors: non-NFC prose, generic link text, duplicate sibling headings, bare URLs, unresolved fragments, path case, image alternatives and disallowed HTML.

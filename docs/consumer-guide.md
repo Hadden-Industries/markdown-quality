@@ -1,7 +1,7 @@
 # Consumer guide
 
-This guide describes the 3.0.1 source candidate: configuration schema 3, preset `authored-gfm@2` and result schema 5.
-Publication and complete supported-platform qualification remain separate release steps.
+This guide covers version 3.0.2: configuration schema 3, preset `authored-gfm@2` and result schema 5.
+Consumers upgrading from 3.0.1 keep these contracts; see [the 3.0.2 migration notes](migration-guide.md#from-301-to-302).
 Published 1.x archives are immutable and keep their previous behavior; the [migration guide](migration-guide.md) maps old names to these contracts.
 
 For a first check, start with [installation](#installation).
@@ -11,6 +11,9 @@ To resolve findings, see [local links and fragments](#links-fragments-path-case-
 
 The CLI and SDK require Node.js, filesystem access and the [supported platform-native executables](support-and-release.md).
 Use the package in local development, builds and CI, including as a development dependency of a frontend project.
+Follow the [3.0.2 consumer runtime policy](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.2/docs/node-runtime-compatibility.md#consumer-bounds) for your project.
+The contributor npm floor applies to development in the Markdown Quality repository.
+Packed-package qualification uses a separate consumer npm against the shipped graph.
 
 Import the SDK only from Node.js code; browser execution is unsupported and remains a separate future feature.
 The root export selects `./src/quality.js` for the `node` condition and rejects `browser` or unmatched environments with a `null` target.
@@ -21,18 +24,20 @@ Bundlers must honor package exports and use their Node.js target when bundling S
 
 ## Installation
 
+Install the exact release version from the repository root.
+
 ```sh
-npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.1
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.2
 npm exec -- markdown-quality check --root .
 ```
 
-Use this example after 3.0.1 is released; pin the exact qualified version rather than relying on mutable `pilot` or `latest` tags.
+Pin the exact qualified version rather than relying on mutable `pilot` or `latest` tags.
 No configuration file is required.
 A local dependency does not put a bare `markdown-quality` executable on every shell's PATH; use [npm exec](https://docs.npmjs.com/cli/v11/commands/npm-exec/) or an npm script.
 
 Keep the consumer lockfile, and disable lifecycle scripts with `--ignore-scripts` where your acquisition policy requires it.
 An isolated `tooling/markdown` npm project supports consumers that do not use Node for their application; pass the actual repository root to its commands.
-Version 2.0 adds `parse5` 8.1.0 (MIT) and `github-slugger` 2.0.0 (ISC) as direct runtime dependencies; the [third-party notices](../THIRD-PARTY-NOTICES.md) list them all.
+See the [third-party notices](../THIRD-PARTY-NOTICES.md) for the versions and licenses of this release's runtime dependencies.
 
 ## Root discovery
 

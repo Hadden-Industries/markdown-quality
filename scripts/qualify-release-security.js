@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Release-specific admission of native CodeQL and npm recipient audit evidence. */
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  mkdtempSync,
+  rmSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { native } from "./commands.js";
-import { hash, readJson, repository } from "./release-assets.js";
+import { native, npmCommand } from "./commands.js";
+import { hash, readJson, regularBytes, repository } from "./release-assets.js";
 import { reportCiResult } from "./ci-result.js";
 import { releaseQualificationWorkflow } from "./release-qualification.js";
 
@@ -100,6 +107,86 @@ export function verifyCodeqlSarif(sarif, analysis) {
       semanticVersion,
     })),
     rules: rules.map(({ id }) => id),
+  };
+}
+
+/** Re-admit retained exact-source scans, refresh open alerts, and audit the original recipient locks. */
+export function refreshReleaseSecurity(
+  qualified,
+  logical,
+  { command = npmCommand, gh = (args) => native("gh", args) } = {},
+) {
+  const original = readJson(join(logical, "codeql-analyses.json"));
+  const scans = verifyCodeqlAnalyses(original, qualified.source);
+  const alerts = JSON.parse(
+    gh([
+      "api",
+      `repos/${repository}/code-scanning/alerts?state=open&per_page=100`,
+      "--paginate",
+      "--slurp",
+    ]),
+  ).flat();
+  assert.equal(
+    alerts.length,
+    0,
+    "Current security observations require disposition before label effects",
+  );
+  const audits = [],
+    scratch = mkdtempSync(join(tmpdir(), "markdown-quality-retained-audit-"));
+  try {
+    for (const platform of qualified.candidate.matrix.os)
+      for (const layout of ["root", "isolated"]) {
+        const name = `public-recipient-${platform}-${layout}-package-lock.json`;
+        const lock = regularBytes(join(logical, name));
+        assert.equal(
+          hash(lock),
+          qualified.evidence[name],
+          "Retained recipient lock changed",
+        );
+        const parsed = JSON.parse(lock);
+        assert.equal(parsed.lockfileVersion, 3);
+        assert.ok(parsed.packages?.[""]);
+        const directory = join(scratch, `${platform}-${layout}`);
+        mkdirSync(directory);
+        writeFileSync(join(directory, "package-lock.json"), lock, {
+          flag: "wx",
+        });
+        writeFileSync(
+          join(directory, "package.json"),
+          JSON.stringify(parsed.packages[""]),
+          { flag: "wx" },
+        );
+        const raw = command(
+          [
+            "audit",
+            "--package-lock-only",
+            "--ignore-scripts",
+            "--json",
+            "--audit-level=none",
+            "--registry=https://registry.npmjs.org/",
+          ],
+          { cwd: directory },
+        );
+        verifyRecipientAudit(JSON.parse(raw));
+        assert.ok(
+          readFileSync(join(directory, "package-lock.json")).equals(lock),
+        );
+        audits.push({
+          name,
+          lockSha256: hash(lock),
+          auditSha256: hash(Buffer.from(raw)),
+          audit: JSON.parse(raw),
+        });
+      }
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
+  return {
+    source: qualified.source,
+    manifestSha256: qualified.manifestSha256,
+    analyses: scans.map((scan) => scan.id),
+    openAlerts: 0,
+    audits,
   };
 }
 

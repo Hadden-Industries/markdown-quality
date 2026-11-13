@@ -59,19 +59,11 @@ export function stageBundledDependencies(root, core, metadata) {
   assert.deepEqual(metadata.bundleDependencies, bundleRoots);
   const lockBytes = readOwned(root, "package-lock.json");
   const lock = JSON.parse(lockBytes);
-  // The original lock remains npm's integrity authority. Limit this temporary
-  // installation to the declared bundle roots: unbundled runtime packages are
-  // installed separately by recipients and need not be unpacked here.
+  // npm ci validates the complete frozen graph, including omitted development
+  // and optional edges. Keep its original declarations and overrides intact;
+  // narrowing them first changes resolution and can hide an incomplete lock.
+  // npm pack selects the declared bundle closure after this admission.
   const acquisition = JSON.parse(readOwned(root, "package.json"));
-  acquisition.dependencies = Object.fromEntries(
-    metadata.bundleDependencies.map((name) => [
-      name,
-      acquisition.dependencies[name],
-    ]),
-  );
-  delete acquisition.devDependencies;
-  delete acquisition.optionalDependencies;
-  delete acquisition.bundleDependencies;
   writeFileSync(join(core, "package.json"), JSON.stringify(acquisition) + "\n");
   writeFileSync(join(core, "package-lock.json"), lockBytes);
   producerNpmCommand(
@@ -86,11 +78,17 @@ export function stageBundledDependencies(root, core, metadata) {
     ],
     { cwd: core },
   );
+  assert.deepEqual(
+    readOwned(core, "package-lock.json"),
+    lockBytes,
+    "Bundle acquisition changed the frozen producer lock",
+  );
 
   // npm deliberately rejects bundling root-only overrides. Make each repaired
   // dependency declaration truthful in the disclosed vendored copy instead.
   // No third-party executable source changes; retain its original MIT notice.
   assert.deepEqual(Object.keys(metadata.overrides).sort(), [
+    "fast-xml-parser",
     "glob",
     "micromark-extension-math",
     "minimatch",
@@ -237,7 +235,7 @@ export function stageBundledDependencies(root, core, metadata) {
     roots: metadata.bundleDependencies,
     sourceLockSha256: sha256(lockBytes),
     acquisition:
-      "Declared bundle roots only; npm ci --offline --ignore-scripts --omit=dev --omit=optional with the unchanged producer lock; native integrity admission",
+      "Original producer declarations and overrides; npm ci --offline --ignore-scripts --omit=dev --omit=optional with the unchanged producer lock; npm pack selects declared bundle roots only; native integrity admission",
     supplementalNotices,
     repairs,
     packages,

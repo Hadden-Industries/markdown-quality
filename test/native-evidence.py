@@ -26,6 +26,18 @@ freeze_spec.loader.exec_module(freezer)
 
 
 class BuildConfigurationTests(unittest.TestCase):
+    def test_linux_elf_requires_no_glibc_version_above_supported_floor(self):
+        requirements = b"Version needs section '.gnu.version_r' contains 1 entry:\n"
+        builder.verify_glibc_floor(
+            requirements + b'Name: GLIBC_2.2.5  Flags: none\nName: GLIBC_2.39  Flags: none\n'
+            b'Name: GLIBC_ABI_DT_RELR  Flags: none\n')
+        for unsupported in (b'2.40', b'2.43', b'PRIVATE'):
+            with self.subTest(unsupported=unsupported):
+                with self.assertRaisesRegex(ValueError, 'unsupported GLIBC'):
+                    builder.verify_glibc_floor(requirements + b'Name: GLIBC_' + unsupported + b' Flags: none')
+        with self.assertRaisesRegex(ValueError, 'No GNU libc version'):
+            builder.verify_glibc_floor(b'Version definition section\nName: GLIBC_2.39')
+
     def test_workflow_uses_only_the_literal_reviewed_source_pins(self):
         path = ROOT / '.github/workflows/native.yml'
         source = path.read_text(encoding='utf-8')

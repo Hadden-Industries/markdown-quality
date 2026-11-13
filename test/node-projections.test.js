@@ -29,6 +29,7 @@ test("one policy edit projects engines and bootstrap pins while preserving dynam
     ...nodeSupport,
     minimum: "22.14.1",
     reference: "24.8.4",
+    compatibilityPins: ["22.15.0", "26.1.2"],
     producerNpm: { version: "14.7.3" },
   };
   const result = projectNodeSupport(source, changed);

@@ -1,0 +1,61 @@
+name: Prepare signed release history
+on:
+  workflow_dispatch:
+    inputs:
+      archive-run:
+        description: Original immutable archival run
+        required: true
+        type: string
+      archive-attempt:
+        description: Original archival attempt
+        required: true
+        type: string
+      qualification-sha256:
+        description: Approved original qualification.json digest
+        required: true
+        type: string
+      history-checkpoints:
+        description: Optional JSON array of previous signed history refs
+        required: false
+        type: string
+permissions:
+  contents: read
+  actions: read
+defaults:
+  run:
+    shell: bash
+env:
+  ARCHIVE_RUN: ${{ inputs.archive-run }}
+  ARCHIVE_ATTEMPT: ${{ inputs.archive-attempt }}
+  QUALIFICATION_SHA: ${{ inputs.qualification-sha256 }}
+  HISTORY_CHECKPOINT: ${{ inputs.history-checkpoints }}
+jobs:
+  prepare:
+    if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - uses: ./.github/actions/setup-python
+      - name: Acquire the original qualified archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/acquire-release-inputs.js archive-inputs
+      - name: Retain original writer attempts and separate public target qualification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/prepare-release-history.js archive-inputs release-history
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: release-history-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-history/
+          if-no-files-found: error
+          retention-days: 90

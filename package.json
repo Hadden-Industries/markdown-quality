@@ -1,6 +1,6 @@
 {
   "name": "@hadden-industries/markdown-quality",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Node.js-only, zero-config Markdown formatter and GFM checker with NFC prose repair, accessibility checks and local link and fragment validation",
   "type": "module",
   "license": "AGPL-3.0-only",
@@ -113,13 +113,14 @@
     "mdast-util-gfm": "3.1.0",
     "micromark-extension-frontmatter": "2.0.0",
     "micromark-extension-gfm": "3.0.0",
-    "parse5": "8.1.0",
+    "parse5": "8.1.1",
     "picomatch": "4.0.7",
-    "prettier": "3.9.10"
+    "prettier": "3.10.1"
   },
   "overrides": {
+    "fast-xml-parser": ">=5.12.0",
     "glob": "14.0.3",
-    "minimatch": "11.0.3",
+    "minimatch": "11.0.8",
     "micromark-extension-math": {
       "katex": "0.19.1"
     }
@@ -134,9 +135,9 @@
   },
   "devDependencies": {
     "@actions/artifact": "^6.3.1",
-    "@hadden-industries/json-quality": ">=1.0.0",
+    "@hadden-industries/json-quality": ">=1.0.1",
     "acorn": ">=8.19.0",
-    "dependency-cruiser": ">=18.7.0",
+    "dependency-cruiser": ">=18.7.2",
     "micromark": ">=4.0.3",
     "micromark-extension-math": ">=3.1.0",
     "yaml": "^2.9.1"

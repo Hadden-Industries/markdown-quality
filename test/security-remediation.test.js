@@ -9,6 +9,18 @@ import { createRequire } from "node:module";
 import { micromark } from "micromark";
 import { math, mathHtml } from "micromark-extension-math";
 import { spawnSync } from "node:child_process";
+import { htmlFacts } from "../src/html-policy.js";
+
+test("HTML facts retain lone low surrogates without the parse5 tokenizer crash", () => {
+  // Upstream parse5 8.1.1 fixes decoding two low surrogates as one code point.
+  // Exercise the real fragment-policy caller and independently expected facts.
+  const href = "https://example.test/\udc00\udc01";
+  const facts = htmlFacts(`<a id="target" href="${href}">Open</a>`);
+  assert.deepEqual(facts.ids, ["target"]);
+  assert.deepEqual(facts.hrefs, [{ line: 1, column: 1, href }]);
+  assert.deepEqual(facts.disallowed, []);
+  assert.deepEqual(facts.unlabeledLinks, []);
+});
 
 test("minimatch remains above the independent advisory floor in the lock and ESLint consumers", () => {
   const lock = JSON.parse(
@@ -43,14 +55,20 @@ test("minimatch bounds globparts amplification and preserves ordinary level-two 
     const {Minimatch} = require(process.argv[1]);
     const optimizationLevel = 2;
     const pattern = Array(30).fill('**/../a/b').join('/');
-    assert.equal(new Minimatch(pattern, {optimizationLevel, braceExpandMax: 64}).set.length, 64);
+    assert.throws(
+      () => new Minimatch(pattern, {optimizationLevel, braceExpandMax: 64}),
+      {name: 'RangeError', message: /optimizationLevel 2: too many patterns/},
+    );
     const ordinary = new Minimatch('**/../a/b/**/../c/d', {optimizationLevel});
     assert.equal(ordinary.set.length, 4);
     assert.equal(ordinary.match('../a/b/../c/d'), true);
     assert.equal(ordinary.match('x/a/b/y/c/d'), true);
     const alternate = new Minimatch('{x,*}/{0..999}', {optimizationLevel});
-    assert.equal(alternate.set.length, 2000);
-    assert.equal(alternate.match('x/5'), true);
+    for (const number of [0, 5, 500, 999]) {
+      assert.equal(alternate.match('x/' + number), true);
+      assert.equal(alternate.match('name/' + number), true);
+    }
+    assert.equal(alternate.match('x/1000'), false);
     assert.equal(alternate.match('.y/5'), false);
   `;
   const requireEslint = createRequire(import.meta.resolve("eslint"));

@@ -2,11 +2,17 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { isMap, isScalar, isSeq, parseDocument } from "yaml";
 import {
   nodeSupport,
   producerNpmRange,
   validatePolicy,
 } from "./node-matrix.js";
+import {
+  ubuntuRunner,
+  windowsRunner,
+  windowsRunnerPattern,
+} from "./runner-policy.js";
 const root = new URL("../", import.meta.url);
 
 /** One inventory for both projection and its regression guard. */
@@ -23,9 +29,54 @@ export function nodeSupportProjectionPaths() {
   ];
 }
 
+/** Rewrite runner selector scalars in place, preserving comments, quoting and command text. */
+function projectWorkflowRunners(source, linux, windows) {
+  const workflow = parseDocument(source, { uniqueKeys: true });
+  assert.equal(workflow.errors.length, 0, "Invalid workflow YAML");
+  const jobs = workflow.get("jobs", true);
+  assert.ok(isMap(jobs), "Expected a workflow jobs mapping");
+  const edits = [];
+  function select(node) {
+    if (!isScalar(node) || typeof node.value !== "string") return;
+    const replacement =
+      node.value === "windows-latest" || windowsRunnerPattern.test(node.value)
+        ? windows
+        : /^ubuntu-(?:\d{2}\.\d{2}|latest|slim)(?:-[a-z0-9]+)*$/u.test(
+              node.value,
+            )
+          ? linux
+          : undefined;
+    if (!replacement || replacement === node.value) return;
+    const [start, end] = node.range;
+    const raw = source.slice(start, end);
+    const quote = ['"', "'"].includes(raw[0]) ? raw[0] : "";
+    assert.equal(raw, quote + node.value + quote, "Unsupported runner scalar");
+    edits.push({ start, end, value: quote + replacement + quote });
+  }
+  for (const { value: job } of jobs.items) {
+    if (!isMap(job)) continue;
+    const runner = job.get("runs-on", true);
+    if (isSeq(runner)) runner.items.forEach(select);
+    else select(runner);
+    const matrix = job.getIn(["strategy", "matrix"], true);
+    if (!isMap(matrix)) continue;
+    const os = matrix.get("os", true);
+    if (isSeq(os)) os.items.forEach(select);
+    const include = matrix.get("include", true);
+    if (isSeq(include))
+      for (const entry of include.items)
+        if (isMap(entry)) select(entry.get("os", true));
+  }
+  for (const { start, end, value } of edits.sort((a, b) => b.start - a.start))
+    source = source.slice(0, start) + value + source.slice(end);
+  return source;
+}
+
 /** Project current declarations only; historical evidence and synthetic policies stay frozen. */
 export function projectNodeSupport(files, policy = nodeSupport) {
   validatePolicy(policy);
+  const linux = ubuntuRunner(policy);
+  const windows = windowsRunner(policy);
   const range = `>=${policy.minimum}`;
   return Object.fromEntries(
     Object.entries(files).map(([path, source]) => {
@@ -79,7 +130,7 @@ export function projectNodeSupport(files, policy = nodeSupport) {
       // Narrow scalar projection: matrix/profile expressions and every other byte stay intact.
       return [
         path,
-        source.replace(
+        projectWorkflowRunners(source, linux, windows).replace(
           /^(\s+node-version: )(\d+\.\d+\.\d+|"\d+\.\d+\.\d+"|'\d+\.\d+\.\d+')([ \t]*(?:#.*)?)$/gmu,
           (_, prefix, scalar, suffix) => {
             const quote = ["'", '"'].includes(scalar[0]) ? scalar[0] : "";
