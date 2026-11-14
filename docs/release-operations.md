@@ -71,6 +71,39 @@ Downstream adoption and timed rehearsal are optional.
 Both performance corpora remain mandatory release evidence.
 The retained 3.0.1 waiver and earlier schema-1 acceptances remain historical records.
 
+### Reserve each release writer before dispatch
+
+Before dispatching staging, archival or a promotion in execute mode, the owner signs and pushes an annotated intent tag at the reviewed controller commit.
+Use `release-history-intent-WORKFLOW-NUMBER-ATTEMPT-DIGEST`, where WORKFLOW is `publish`, `github-release` or `promote-release` respectively.
+NUMBER is the next run number for that workflow across all refs and events; a new dispatch starts at ATTEMPT 1.
+Use the SHA-256 of the exact review bytes for staging, acceptance bytes for archival, or operation bytes for promotion.
+Reserve native staging and core staging separately, even when both use the same review.
+
+For example, in PowerShell, set `$workflow`, `$number`, `$attempt`, `$digest` and `$controller` to the reviewed values, then run:
+
+```powershell
+$intent = "release-history-intent-$workflow-$number-$attempt-$digest"
+git tag -s $intent $controller -m "Authorize $workflow run $number attempt $attempt"
+git push origin "refs/tags/$intent"
+git ls-remote origin "refs/tags/$intent" "refs/tags/$intent^{}"
+```
+
+Confirm the remote tag object and peeled controller match the local ones before dispatching on main.
+The existing `release-history-*` rules restrict tag creation to the owner and prevent updates or deletion.
+If the number was consumed by another dispatch, inspect that run before reserving a fresh number.
+Read-only completion, reconciliation and checkpoint export need no new writer intent.
+
+At cutover, keep the old writers quiescent and compare the 19 run IDs in `scripts/release-writer-baseline.json` with GitHub Actions and the release environments' deployment records.
+Account for any intervening runs in the baseline before enabling the controller.
+The baseline includes the original push-triggered publisher.
+The controller enumerates protected intent refs on every admission.
+A missing reserved run requires a complete owner-signed checkpoint that accounts for its original attempt and writer jobs, including an attempt that made no request.
+A signed observation of a reservation consumed on another ref preserves that run's ineligibility after deletion.
+Capture checkpoints before evidence expires.
+Older signed checkpoints still supply their original journals.
+For a legacy run, also capture the final completed run and every attempt after [GitHub's 30-day rerun window](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs) closes.
+If a legacy run disappears sooner, its last attempt is unproven and admission stops.
+
 Acceptance includes a top-level `immutabilityObservation`, alongside `publicQualificationRun` and `publicQualificationAttempt`: repository URL, immutable-releases API endpoint, checkedAt, exact candidate version/source/manifest digest, raw responseBytes and their SHA-256.
 Nesting this observation inside a pilot decision or trial does not supply archival approval; read-only acceptance admission rejects that placement before the writer starts.
 The response must report enabled immutability and be no older than one hour at every draft-effect checkpoint.
@@ -182,7 +215,8 @@ Continue with the original manifest and origin-map digests after owner approval 
 Known artifact metadata IDs may briefly return 404 while GitHub indexes them; the evidence reader retries only that exact metadata lookup within its existing read budget, without repeating an upload or npm request.
 
 The archival workflow's new decision route is read-only.
-The protected legacy-decisions job exists only for historical draft records.
+The protected legacy-decisions job accepts only schema-1 records from a mutable draft.
+Current schema-2 decisions come from authenticated owner dispatch or readback of an already immutable release.
 New indexed archives keep packages, corresponding source, rights/notices and essential identity records standalone.
 An indexed ZIP binds every other logical path, size and SHA-256, including real empty stderr.
 Bounded native packing/extraction rejects duplicate, missing, extra, oversized, linked or traversing members.

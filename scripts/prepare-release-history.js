@@ -167,6 +167,9 @@ export async function prepareReleaseHistory(
       complete: missing.length === 0,
       preparedAt: new Date().toISOString(),
       writers: observed.writers,
+      writerAttempts: observed.writerAttempts,
+      closedWriterRuns: observed.closedWriterRuns,
+      nonWriterRuns: observed.nonWriterRuns,
       targetQualification: {
         archival,
         qualified,

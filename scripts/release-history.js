@@ -26,6 +26,16 @@ import { downloadEvidence } from "./download-evidence.js";
 import { budgets } from "./qualification-budgets.js";
 import { retainedObservationIdentity } from "./release-retained-artifacts.js";
 import {
+  protectedControllerHistory,
+  legacyRunClosed,
+  outsideWriterRef,
+  readWriterIntents,
+  sameWriterRun,
+  verifyWriterInventory,
+  writerJobs,
+  writerWorkflow,
+} from "./release-writer-inventory.js";
+import {
   legacyPublicationSteps,
   stagingStepNames,
 } from "./publication-steps.js";
@@ -54,6 +64,45 @@ const inventoryIdentity = (inventory) => ({
   jobs: inventory.jobs.map(jobIdentity).sort((a, b) => a.id - b.id),
 });
 export const writerObservationIdentity = retainedObservationIdentity;
+
+const optionalReader = (name) =>
+  [
+    "admit",
+    "Read-only release completion",
+    "Read-only archive completion",
+    "reconcile",
+  ].includes(name);
+
+/** Partial reruns copy completed jobs under new IDs. Require the first execution's journal. */
+function originalExecution(job, executions) {
+  if (
+    job.status === "completed" &&
+    job.runner_id === 0 &&
+    !job.runner_name &&
+    Array.isArray(job.steps) &&
+    job.steps.length === 0
+  )
+    return false;
+  if (
+    job.conclusion === "skipped" ||
+    (job.status === "queued" && !job.steps?.length)
+  )
+    return false;
+  assert.equal(job.status, "completed", "Original writer is unresolved");
+  sameJobExecution(job, job);
+  const inherited = executions.find((prior) => sameJobExecution(prior, job));
+  if (inherited) {
+    assert.equal(job.conclusion, inherited.conclusion);
+    assert.deepEqual(
+      job.steps,
+      inherited.steps,
+      "Inherited writer execution changed",
+    );
+    return false;
+  }
+  executions.push(job);
+  return true;
+}
 
 /** Overlap is a consistency check, never a preference for whichever record permits a write. */
 export function mergeWriterHistory(...inventories) {
@@ -209,7 +258,9 @@ export function verifySignedCheckpoint(
     if (expected) assert.equal(hash(raw), expected);
   }
   for (const entry of checkpoint.writers) {
-    assert.equal(entry.run.repository.full_name, repository);
+    const workflow = writerWorkflow(entry.run);
+    assert.ok(writerJobs[workflow].includes(entry.job.name));
+    assert.equal(entry.run.run_attempt, entry.attempt);
     assert.equal(entry.run.head_sha, entry.job.head_sha);
     assert.equal(entry.job.run_id, entry.run.id);
     assert.equal(entry.job.run_attempt, entry.attempt);
@@ -220,6 +271,56 @@ export function verifySignedCheckpoint(
       assert.equal(raw.toString("base64"), file.base64);
       assert.equal(hash(raw), file.sha256);
     }
+  }
+  const executions = new Map();
+  for (const { run, inventory } of [...(checkpoint.writerAttempts ?? [])].sort(
+    (a, b) => a.run.run_attempt - b.run.run_attempt,
+  )) {
+    const roles = writerJobs[writerWorkflow(run)];
+    const prior = executions.get(run.id) ?? [];
+    executions.set(run.id, prior);
+    assert.equal(inventory.total_count, inventory.jobs.length);
+    assert.equal(
+      new Set(inventory.jobs.map((job) => job.id)).size,
+      inventory.jobs.length,
+    );
+    const actual = checkpoint.writers.filter(
+      (entry) => entry.run.id === run.id && entry.attempt === run.run_attempt,
+    );
+    for (const job of inventory.jobs) {
+      assert.equal(job.run_id, run.id);
+      assert.equal(job.run_attempt, run.run_attempt);
+      assert.equal(job.head_sha, run.head_sha);
+      if (
+        roles.includes(job.name) &&
+        originalExecution(job, prior) &&
+        !optionalReader(job.name) &&
+        !writerNeverRequested(job)
+      )
+        assert.ok(
+          actual.some((entry) => entry.job.id === job.id),
+          "Signed attempt inventory lacks its original writer evidence",
+        );
+    }
+    for (const entry of actual) {
+      sameWriterRun(run, entry.run);
+      const job = inventory.jobs.find((job) => job.id === entry.job.id);
+      assert.ok(job);
+      assert.deepEqual(jobIdentity(job), jobIdentity(entry.job));
+      assert.deepEqual(
+        inventoryIdentity(inventory),
+        inventoryIdentity(entry.inventory),
+      );
+    }
+  }
+  for (const run of checkpoint.nonWriterRuns ?? [])
+    assert.ok(outsideWriterRef(run));
+  for (const { run, observedAt } of checkpoint.closedWriterRuns ?? []) {
+    writerWorkflow(run);
+    assert.ok(
+      legacyRunClosed(run, observedAt) &&
+        observedAt <= Date.parse(checkpoint.preparedAt),
+    );
   }
   return checkpoint;
 }
@@ -399,40 +500,96 @@ export async function collectWriterHistory({
   checkpoints = [],
   gh = (args) => native("gh", args),
   download = downloadEvidence,
+  approvedControllers = protectedControllerHistory(env.GITHUB_SHA),
+  intents = readWriterIntents(gh),
+  requireIntent = false,
+  baseline,
 } = {}) {
   const retained = mergeWriterHistory(
     ...checkpoints.map((checkpoint) => checkpoint.writers),
   );
+  const writerAttempts = checkpoints.flatMap(
+    (checkpoint) => checkpoint.writerAttempts ?? [],
+  );
+  const closedWriterRuns = new Map(
+    checkpoints
+      .flatMap((record) => record.closedWriterRuns ?? [])
+      .map((record) => [record.run.id, record]),
+  );
+  const nonWriterRuns = new Map(
+    checkpoints
+      .flatMap((record) => record.nonWriterRuns ?? [])
+      .map((run) => [run.id, run]),
+  );
+  for (const { run } of [...retained, ...writerAttempts]) {
+    writerWorkflow(run);
+    assert.ok(
+      approvedControllers.has(run.head_sha),
+      "Historical controller is outside protected main history",
+    );
+  }
   const live = [],
     missing = [];
   const scratch = mkdtempSync(
     join(env.RUNNER_TEMP ?? tmpdir(), "markdown-quality-writer-history-"),
   );
   try {
-    for (const workflow of [
-      "publish.yml",
-      "github-release.yml",
-      "promote-release.yml",
-    ]) {
+    for (const [name, jobsForWorkflow] of Object.entries(writerJobs)) {
+      const workflow = name + ".yml";
+      const observedAt = Date.now();
       const pages = JSON.parse(
         gh([
           "api",
-          `repos/${repository}/actions/workflows/${workflow}/runs?event=workflow_dispatch&per_page=100`,
+          `repos/${repository}/actions/workflows/${workflow}/runs?per_page=100`,
           "--paginate",
           "--slurp",
         ]),
       );
       const runs = pages.flatMap((page) => page.workflow_runs);
+      assert.ok(
+        pages.length && pages.every((page) => page.total_count === runs.length),
+        "Incomplete workflow run inventory",
+      );
+      verifyWriterInventory(
+        name,
+        runs,
+        checkpoints,
+        intents,
+        env,
+        requireIntent,
+        baseline,
+      );
       for (const run of runs) {
         const executions = [];
-        assert.equal(run.repository.full_name, repository);
         assert.equal(run.path, `.github/workflows/${workflow}`);
+        if (outsideWriterRef(run)) {
+          if (
+            intents.some(
+              (intent) =>
+                intent.workflow === name && intent.number === run.run_number,
+            )
+          )
+            nonWriterRuns.set(run.id, run);
+          continue;
+        }
+        if (
+          run.event !== "workflow_dispatch" &&
+          !(name === "publish" && run.event === "push")
+        )
+          continue;
+        writerWorkflow(run);
+        assert.ok(
+          approvedControllers.has(run.head_sha),
+          "Historical controller is outside protected main history",
+        );
         assert.ok(
           Number.isInteger(run.run_attempt) &&
             run.run_attempt > 0 &&
             run.run_attempt <= 50,
         );
         const current = String(run.id) === String(env.GITHUB_RUN_ID);
+        if (!current && legacyRunClosed(run, observedAt))
+          closedWriterRuns.set(run.id, { run, observedAt });
         if (!current)
           assert.equal(
             run.status,
@@ -448,13 +605,19 @@ export async function collectWriterHistory({
               String(entry.run.id) === String(run.id) &&
               entry.attempt === attempt,
           );
+          for (const entry of retainedAttempt) sameWriterRun(entry.run, run);
+          const signedAttempt = writerAttempts.find(
+            (entry) =>
+              entry.run.id === run.id && entry.run.run_attempt === attempt,
+          );
+          if (signedAttempt) sameWriterRun(signedAttempt.run, run);
           const readOriginal = (args, fallback) => {
             try {
               return JSON.parse(gh(args));
             } catch (error) {
               if (error.httpStatus !== 404) throw error;
               assert.ok(
-                retainedAttempt.length,
+                retainedAttempt.length || signedAttempt,
                 "Deleted original attempt requires complete signed history",
               );
               assert.ok(
@@ -472,14 +635,17 @@ export async function collectWriterHistory({
               "api",
               `repos/${repository}/actions/runs/${run.id}/attempts/${attempt}`,
             ],
-            (entries) => entries[0].run,
+            (entries) => signedAttempt?.run ?? entries[0].run,
           );
+          writerWorkflow(original);
+          sameWriterRun(original, run);
+          assert.equal(original.run_attempt, attempt);
           const jobs = readOriginal(
             [
               "api",
               `repos/${repository}/actions/runs/${run.id}/attempts/${attempt}/jobs?per_page=100`,
             ],
-            (entries) => entries[0].inventory,
+            (entries) => signedAttempt?.inventory ?? entries[0].inventory,
           );
           assert.equal(jobs.total_count, jobs.jobs.length);
           const artifactPages = readOriginal(
@@ -499,53 +665,13 @@ export async function collectWriterHistory({
             ],
           );
           const artifacts = artifactPages.flatMap((page) => page.artifacts);
-          for (const job of jobs.jobs.filter(
-            (entry) =>
-              ["stage", "publish", "archive", "npm", "github"].includes(
-                entry.name,
-              ) ||
-              (workflow === "promote-release.yml" &&
-                ["admit", "Read-only release completion", "reconcile"].includes(
-                  entry.name,
-                )) ||
-              (workflow === "github-release.yml" &&
-                entry.name === "Read-only archive completion"),
+          for (const job of jobs.jobs.filter((entry) =>
+            jobsForWorkflow.includes(entry.name),
           )) {
             assert.equal(job.run_id, original.id);
             assert.equal(job.run_attempt, attempt);
             assert.equal(job.head_sha, original.head_sha);
-            if (
-              job.status === "completed" &&
-              job.runner_id === 0 &&
-              !job.runner_name &&
-              Array.isArray(job.steps) &&
-              job.steps.length === 0
-            )
-              continue;
-            if (
-              job.conclusion === "skipped" ||
-              (job.status === "queued" && !job.steps?.length)
-            )
-              continue;
-            assert.equal(
-              job.status,
-              "completed",
-              "Original writer is unresolved",
-            );
-            sameJobExecution(job, job);
-            const inherited = executions.find((prior) =>
-              sameJobExecution(prior, job),
-            );
-            if (inherited) {
-              assert.equal(job.conclusion, inherited.conclusion);
-              assert.deepEqual(
-                job.steps,
-                inherited.steps,
-                "Inherited writer execution changed",
-              );
-              continue;
-            }
-            executions.push(job);
+            if (!originalExecution(job, executions)) continue;
             const base = { run: original, attempt, job, inventory: jobs };
             const names =
               job.name === "stage" || job.name === "publish"
@@ -570,13 +696,11 @@ export async function collectWriterHistory({
             assert.ok(matches.length <= 1, "Ambiguous writer artifact");
             const old = retained.find((entry) => key(entry) === key(base));
             if (!matches.length && !old && writerNeverRequested(job)) continue;
-            const readOnly = [
-              "admit",
-              "Read-only release completion",
-              "Read-only archive completion",
-              "reconcile",
-            ].includes(job.name);
-            if (readOnly && (!matches.length || matches[0].expired) && !old)
+            if (
+              optionalReader(job.name) &&
+              (!matches.length || matches[0].expired) &&
+              !old
+            )
               continue;
             if (!matches.length || matches[0].expired) {
               assert.ok(
@@ -613,6 +737,16 @@ export async function collectWriterHistory({
             }
             const artifact = matches[0],
               destination = join(scratch, `${run.id}-${attempt}-${job.id}`);
+            assert.equal(artifact.workflow_run.id, run.id);
+            assert.equal(
+              artifact.workflow_run.repository_id,
+              run.repository.id,
+            );
+            assert.equal(
+              artifact.workflow_run.head_repository_id,
+              run.head_repository.id,
+            );
+            assert.equal(artifact.workflow_run.head_sha, original.head_sha);
             const read = createRepositoryReader({
               repository,
               token: env.GH_TOKEN ?? env.GITHUB_TOKEN,
@@ -629,10 +763,33 @@ export async function collectWriterHistory({
             });
             live.push({ ...base, artifact, files: retainedFiles(destination) });
           }
+          writerAttempts.push({
+            run: original,
+            inventory: jobs,
+          });
         }
       }
     }
-    return { writers: mergeWriterHistory(retained, live), missing };
+    const attempts = new Map();
+    for (const entry of writerAttempts) {
+      const id = `${entry.run.id}/${entry.run.run_attempt}`;
+      const prior = attempts.get(id);
+      if (prior) {
+        sameWriterRun(entry.run, prior.run);
+        assert.deepEqual(
+          inventoryIdentity(entry.inventory),
+          inventoryIdentity(prior.inventory),
+        );
+      }
+      attempts.set(id, entry);
+    }
+    return {
+      writers: mergeWriterHistory(retained, live),
+      missing,
+      writerAttempts: [...attempts.values()],
+      closedWriterRuns: [...closedWriterRuns.values()],
+      nonWriterRuns: [...nonWriterRuns.values()],
+    };
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
@@ -870,7 +1027,22 @@ export async function admitPriorReleaseEffects(
     checkpoint ? JSON.parse(checkpoint) : [],
     gh,
   );
-  const observed = await collectWriterHistory({ env, checkpoints, gh });
+  const workflow =
+    operation.operation === "stage"
+      ? "publish"
+      : operation.operation === "archive"
+        ? "github-release"
+        : "promote-release";
+  assert.equal(
+    env.GITHUB_WORKFLOW_REF,
+    `${repository}/.github/workflows/${workflow}.yml@refs/heads/main`,
+  );
+  const observed = await collectWriterHistory({
+    env,
+    checkpoints,
+    gh,
+    requireIntent: true,
+  });
   assert.equal(
     observed.missing.length,
     0,

@@ -37,6 +37,8 @@ export function retainedObservationIdentity(entry) {
         "run_attempt",
         "head_sha",
         "path",
+        "run_number",
+        "workflow_id",
         "event",
         "head_branch",
         "status",

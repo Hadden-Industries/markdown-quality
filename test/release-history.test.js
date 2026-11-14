@@ -7,6 +7,10 @@ import { releaseFixture } from "./release-fixture.js";
 import { native } from "../scripts/commands.js";
 import { hash } from "../scripts/release-bytes.js";
 import {
+  readWriterIntents,
+  verifyWriterInventory,
+} from "../scripts/release-writer-inventory.js";
+import {
   verifySignedCheckpoint,
   mergeWriterHistory,
   verifyActiveOperations,
@@ -234,6 +238,11 @@ test("native history retains inherited original executions and signed missing at
   const run = {
     id: 80,
     run_attempt: 2,
+    run_number: 1,
+    workflow_id: 387091671,
+    head_branch: "main",
+    event: "workflow_dispatch",
+    created_at: "2020-01-01T00:00:00Z",
     path: ".github/workflows/promote-release.yml",
     head_sha: sha,
     status: "completed",
@@ -266,6 +275,9 @@ test("native history retains inherited original executions and signed missing at
       head_sha: sha,
     },
   };
+  let listed = true,
+    branch = "main",
+    originalSha = sha;
   let missing = false,
     denial = false,
     downloads = 0;
@@ -273,7 +285,13 @@ test("native history retains inherited original executions and signed missing at
     const path = args[1];
     if (path.includes("/actions/workflows/"))
       return JSON.stringify([
-        { workflow_runs: path.includes("promote-release.yml") ? [run] : [] },
+        {
+          total_count: Number(listed && path.includes("promote-release.yml")),
+          workflow_runs:
+            listed && path.includes("promote-release.yml")
+              ? [{ ...run, head_branch: branch }]
+              : [],
+        },
       ]);
     if (path.includes("/artifacts?"))
       return JSON.stringify([
@@ -291,7 +309,7 @@ test("native history retains inherited original executions and signed missing at
             total_count: 1,
             jobs: [{ ...job, id: 900 + attempt, run_attempt: attempt }],
           }
-        : { ...run, run_attempt: attempt },
+        : { ...run, head_sha: originalSha, run_attempt: attempt },
     );
   };
   const download = async ({ destination }) => {
@@ -299,7 +317,18 @@ test("native history retains inherited original executions and signed missing at
     mkdirSync(destination);
     writeFileSync(join(destination, "original.txt"), "original bytes");
   };
-  const options = { env: { GH_TOKEN: "fixture" }, gh, download };
+  const options = {
+    env: { GH_TOKEN: "fixture" },
+    gh,
+    download,
+    approvedControllers: new Set([sha]),
+    intents: [],
+    baseline: {
+      publish: { runs: [] },
+      "github-release": { runs: [] },
+      "promote-release": { workflowId: run.workflow_id, runs: [] },
+    },
+  };
   const live = await collectWriterHistory(options);
   assert.equal(live.writers.length, 1);
   assert.equal(live.missing.length, 0);
@@ -319,6 +348,160 @@ test("native history retains inherited original executions and signed missing at
   await assert.rejects(
     collectWriterHistory({ ...options, checkpoints: [{ writers: [signed] }] }),
     /original unavailable/u,
+  );
+  missing = false;
+  branch = "feature";
+  assert.equal((await collectWriterHistory(options)).writers.length, 0);
+  assert.equal(downloads, 1);
+  branch = "main";
+  await assert.rejects(
+    collectWriterHistory({ ...options, approvedControllers: new Set() }),
+    /protected main history/u,
+  );
+  originalSha = "b".repeat(40);
+  await assert.rejects(collectWriterHistory(options), /identity changed/u);
+  originalSha = sha;
+  listed = false;
+  const intent = {
+    workflow: "promote-release",
+    number: 1,
+    attempt: 1,
+    controller: sha,
+    decision: "d".repeat(64),
+  };
+  await assert.rejects(
+    collectWriterHistory({ ...options, intents: [intent] }),
+    /Expected release run is missing/u,
+  );
+  const recovered = await collectWriterHistory({
+    ...options,
+    intents: [intent],
+    checkpoints: [{ writers: [signed], writerAttempts: live.writerAttempts }],
+  });
+  assert.equal(recovered.writers.length, 1);
+  assert.equal(recovered.writerAttempts.length, 2);
+  const legacy = {
+    ...options.baseline,
+    "promote-release": { workflowId: run.workflow_id, runs: [run.id] },
+  };
+  const checkpoint = {
+    writers: [signed],
+    writerAttempts: live.writerAttempts,
+    closedWriterRuns: live.closedWriterRuns,
+  };
+  const restoreLegacy = (record) =>
+    collectWriterHistory({
+      ...options,
+      baseline: legacy,
+      checkpoints: [record],
+    });
+  await restoreLegacy(checkpoint);
+  await assert.rejects(
+    restoreLegacy({ ...checkpoint, closedWriterRuns: [] }),
+    /rerun window/u,
+  );
+  await assert.rejects(
+    restoreLegacy({
+      ...checkpoint,
+      writerAttempts: checkpoint.writerAttempts.slice(0, 1),
+    }),
+    /omits a legacy writer attempt/u,
+  );
+  listed = true;
+  branch = "feature";
+  const collision = await collectWriterHistory({
+    ...options,
+    intents: [intent],
+  });
+  assert.equal(collision.nonWriterRuns.length, 1);
+  listed = false;
+  assert.equal(
+    (
+      await collectWriterHistory({
+        ...options,
+        intents: [intent],
+        checkpoints: [{ writers: [], nonWriterRuns: collision.nonWriterRuns }],
+      })
+    ).writers.length,
+    0,
+  );
+  const env = {
+    GITHUB_WORKFLOW_REF: `${repository}/${run.path}@refs/heads/main`,
+    GITHUB_RUN_ID: String(run.id),
+    GITHUB_RUN_ATTEMPT: "2",
+    GITHUB_RUN_NUMBER: "1",
+    GITHUB_SHA: sha,
+    OPERATION_SHA: intent.decision,
+  };
+  const valid = { ...intent, attempt: 2 };
+  const verify = (intents) =>
+    verifyWriterInventory(
+      "promote-release",
+      [run],
+      [],
+      intents,
+      env,
+      true,
+      options.baseline,
+    );
+  verify([valid]);
+  for (const change of [
+    { controller: "b".repeat(40) },
+    { decision: "c".repeat(64) },
+    { attempt: 1 },
+    { workflow: "publish" },
+  ]) {
+    assert.throws(
+      () => verify([{ ...valid, ...change }]),
+      /owner-signed intent/u,
+    );
+  }
+  assert.throws(() => verify([]), /owner-signed intent/u);
+});
+
+test("intent refs bind the protected tag name and exact annotated controller to the owner signature", () => {
+  const controller = "a".repeat(40),
+    tagSha = "b".repeat(40),
+    digest = "c".repeat(64);
+  const name = `release-history-intent-publish-17-1-${digest}`;
+  const ref = {
+    ref: `refs/tags/${name}`,
+    object: { type: "tag", sha: tagSha },
+  };
+  const annotation = {
+    tag: name,
+    sha: tagSha,
+    object: { type: "commit", sha: controller },
+  };
+  const read = (args) =>
+    JSON.stringify(args[1].includes("/matching-refs/") ? [[ref]] : annotation);
+  let verified = 0;
+  assert.deepEqual(
+    readWriterIntents(read, (tag) => {
+      assert.deepEqual(tag, annotation);
+      verified++;
+    }),
+    [
+      {
+        workflow: "publish",
+        number: 17,
+        attempt: 1,
+        decision: digest,
+        controller,
+      },
+    ],
+  );
+  assert.equal(verified, 1);
+  assert.throws(
+    () =>
+      readWriterIntents(read, () => {
+        throw Error("signature refused");
+      }),
+    /signature refused/u,
+  );
+  annotation.tag += "-other";
+  assert.throws(() =>
+    readWriterIntents(read, () => assert.fail("Wrong tag identity")),
   );
 });
 
@@ -572,7 +755,13 @@ test("expiry fallback requires a complete owner-signed history AND separate orig
   );
   const run = {
     id: 80,
-    repository: { full_name: "Hadden-Industries/markdown-quality" },
+    repository: { id: 1, full_name: "Hadden-Industries/markdown-quality" },
+    head_repository: { id: 1, full_name: "Hadden-Industries/markdown-quality" },
+    run_attempt: 1,
+    run_number: 1,
+    workflow_id: 387091671,
+    head_branch: "main",
+    event: "workflow_dispatch",
     head_sha: f.qualified.source,
     path: ".github/workflows/promote-release.yml",
   };
@@ -598,11 +787,18 @@ test("expiry fallback requires a complete owner-signed history AND separate orig
     },
     files: { "effects.jsonl": file(Buffer.from("original writer bytes\n")) },
   };
+  Object.assign(job, {
+    runner_id: 77,
+    started_at: "2026-11-10T00:00:00Z",
+    completed_at: "2026-11-10T00:01:00Z",
+    steps: [],
+  });
   const checkpoint = {
     schemaVersion: 1,
     repository: run.repository.full_name,
     complete: true,
     writers: [writer],
+    writerAttempts: [{ run, inventory: writer.inventory }],
     targetQualification: {
       qualified: f.qualified,
       qualificationBase64: qualifiedBytes.toString("base64"),
@@ -678,6 +874,14 @@ test("expiry fallback requires a complete owner-signed history AND separate orig
     },
     (value) => {
       value.writers = [];
+    },
+    (value) => {
+      const second = { ...value.writers[0].job, id: 901, name: "github" };
+      value.writerAttempts[0].inventory = {
+        total_count: 2,
+        jobs: [value.writers[0].job, second],
+      };
+      value.writers[0].inventory = value.writerAttempts[0].inventory;
     },
     (value) => {
       value.complete = false;
