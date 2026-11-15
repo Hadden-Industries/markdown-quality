@@ -96,9 +96,10 @@ Read-only completion, reconciliation and checkpoint export need no new writer in
 At cutover, keep the old writers quiescent and compare the 19 run IDs in `scripts/release-writer-baseline.json` with GitHub Actions and the release environments' deployment records.
 On 2026-11-15 the nine publish runs from 5–6 October 2026 in that baseline, `37381739004` through `37490858990`, returned no Actions artifacts.
 Run `37381739004` has no publisher job and `37413673170` skipped all three request steps.
-The other seven, `37391073949`, `37393670535`, `37408154658`, `37409484508`, `37412118242`, `37417063198` and `37490858990`, have publish jobs whose request steps ran, so they have no original writer evidence and admission reports them missing.
-For run `37393670535`, independent public custody exists: npm's signed SLSA provenance for `@hadden-industries/markdown-quality-win32-x64@1.0.0` names that run's attempt 1 and source `80f58a5df39ec4f1840b46f01f83416540cee283`, and its job history shows the Linux and core steps skipped.
-No current reader admits that provenance as writer evidence, so these runs remain an explicit release-readiness gap until an owner-accepted recovery contract with its own oracle exists.
+The other seven, `37391073949`, `37393670535`, `37408154658`, `37409484508`, `37412118242`, `37417063198` and `37490858990`, have completed `publish` jobs whose request steps ran.
+`scripts/release-provenance-recovery.js` discharges those seven closed baselined legacy `publish` runs strictly under the verified npm provenance contract without relaxing `stage`, `github-release.yml`, `promote-release.yml` or un-baselined runs:
+for each step, `"skipped"` requires zero npm SLSA provenance on that run, `"success"` and post-publish step failures (`37393670535`) require verified `npm audit signatures` SLSA v1 provenance bound to the run's `head_sha` commit `package.json` version and tarball `sha512`, and a pre-publish failure (`37391073949`) requires zero family publishes anywhere on that run plus verified SLSA v1 provenance naming a strictly later closed main `workflow_dispatch` publish run (`37393670535`).
+Run `release-history.yml` and sign the complete export via an annotated `release-history-*` tag before the remaining Actions writer artifacts expire, retaining the recovered `provenance-recovery.json` records alongside the live `stage`, `github-release.yml` and `promote-release.yml` writer journals.
 Account for any intervening runs in the baseline before enabling the controller.
 The baseline includes the original push-triggered publisher.
 The controller enumerates protected intent refs on every admission.

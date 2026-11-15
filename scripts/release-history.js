@@ -41,6 +41,11 @@ import {
 } from "./publication-steps.js";
 import { githubWriterRequired, resumesOperation } from "./release-operation.js";
 import { releasePackages } from "./release-coordinates.js";
+import {
+  createLegacyProvenanceResolver,
+  LEGACY_RECOVERY_SOURCE,
+  verifyRecoveredProvenanceWriter,
+} from "./release-provenance-recovery.js";
 
 const repository = "Hadden-Industries/markdown-quality";
 const key = (entry) =>
@@ -212,6 +217,7 @@ export function verifySignedCheckpoint(
       assert.equal(raw.toString("base64"), file.base64);
       assert.equal(hash(raw), file.sha256);
     }
+    verifyRecoveredProvenanceWriter(entry);
   }
   const executions = new Map();
   for (const { run, inventory } of [...(checkpoint.writerAttempts ?? [])].sort(
@@ -551,6 +557,9 @@ export async function collectWriterHistory({
   intents = readWriterIntents(gh),
   requireIntent = false,
   baseline,
+  npm,
+  readPackument,
+  recoverProvenance,
 } = {}) {
   const retained = mergeWriterHistory(
     ...checkpoints.map((checkpoint) => checkpoint.writers),
@@ -580,6 +589,16 @@ export async function collectWriterHistory({
   const scratch = mkdtempSync(
     join(env.RUNNER_TEMP ?? tmpdir(), "markdown-quality-writer-history-"),
   );
+  const recoverWriter =
+    recoverProvenance ??
+    createLegacyProvenanceResolver({
+      repository,
+      baseline,
+      gh,
+      npm,
+      readPackument,
+      tempRoot: env.RUNNER_TEMP ?? tmpdir(),
+    }).recoverWriter;
   try {
     for (const [name, jobsForWorkflow] of Object.entries(writerJobs)) {
       const workflow = name + ".yml";
@@ -759,20 +778,44 @@ export async function collectWriterHistory({
                 "Checkpoint original inventory changed",
               );
               if (old && matches.length) {
-                for (const name of [
-                  "id",
-                  "name",
-                  "size_in_bytes",
-                  "digest",
-                  "workflow_run",
-                ])
-                  assert.deepEqual(
-                    old.artifact[name],
-                    matches[0][name],
-                    "Checkpoint artifact identity changed",
+                if (
+                  old.artifact.source === LEGACY_RECOVERY_SOURCE &&
+                  matches[0].expired === true &&
+                  matches[0].source !== LEGACY_RECOVERY_SOURCE
+                ) {
+                  assert.equal(matches[0].name, old.artifact.name);
+                  assert.equal(
+                    matches[0].workflow_run?.id,
+                    old.artifact.workflow_run.id,
                   );
+                } else {
+                  for (const name of [
+                    "id",
+                    "name",
+                    "size_in_bytes",
+                    "digest",
+                    "workflow_run",
+                  ])
+                    assert.deepEqual(
+                      old.artifact[name],
+                      matches[0][name],
+                      "Checkpoint artifact identity changed",
+                    );
+                }
               }
-              if (!old)
+              if (!old) {
+                const recovered = await recoverWriter({
+                  run: original,
+                  attempt,
+                  job,
+                  inventory: jobs,
+                  observedAt,
+                  publishRuns: runs,
+                });
+                if (recovered) {
+                  live.push(recovered);
+                  continue;
+                }
                 missing.push({
                   workflow: original.path,
                   run: run.id,
@@ -780,6 +823,7 @@ export async function collectWriterHistory({
                   job: job.id,
                   reason: "missing-original-writer-artifact",
                 });
+              }
               continue;
             }
             const artifact = matches[0],
@@ -1149,6 +1193,7 @@ export async function admitPriorReleaseEffects(
       stagingReconciliations.push(original.observation);
       continue;
     }
+    if (verifyRecoveredProvenanceWriter(entry)) continue;
     const journal = entry.files["effects.jsonl"];
     if (!journal) {
       // Historical staging retains its original narrower format. Unknown

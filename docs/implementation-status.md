@@ -18,7 +18,7 @@ The work followed the HISEW implementation procedure without engine receipts, be
 | REQ-08      | Protected-main, owner-intent, signature, security-refresh and service-isolation checks are unchanged, and every pre-effect refusal in the new tests asserts zero requests.                   | All release suites                                                                       |
 
 DEC-01 keeps the native npm CLI and the existing family-label executor; no dependency was added.
-DEC-02 keeps each rule with its owner: operation meaning in `release-operation.js`, completed staging requests in `publication-attempts.js`, journals and settlements in `release-effects.js`, retained subjects in `release-history.js` and the workflow gate in `check-workflows.js`.
+DEC-02 keeps each rule with its owner: operation meaning in `release-operation.js`, completed staging requests in `publication-attempts.js`, journals and settlements in `release-effects.js`, retained subjects in `release-history.js`, strict legacy npm provenance recovery in `release-provenance-recovery.js` and the workflow gate in `check-workflows.js`.
 DEC-03 measured counts are local: a guarded retirement observation reads three package tag sets instead of six, and an older-subject retirement admission authenticates signed history once instead of twice.
 Hosted elapsed time, runner time, materializations and retained size were not measured and need the first live operations.
 
@@ -30,9 +30,9 @@ Deviations from the plan's text:
 - The shared retained-identity check also requires the release to be immutable, non-draft and the recorded ID when partial recovery admits a target.
 - Automatic checkpoint preparation was considered and not enabled, because a workflow-run trigger lacks the dispatch inputs the maintained reader authenticates.
 
-Remaining gaps before a live retirement:
+Remaining steps before a live retirement:
 
-- Seven October 2026 publish runs in the writer baseline have no surviving Actions artifacts; the [release runbook](release-operations.md#reserve-each-release-writer-before-dispatch) records the inventory and public npm provenance for run `37393670535`.
+- The seven October 2026 legacy `publish` runs (`37391073949` through `37490858990`) are now verified under `scripts/release-provenance-recovery.js` via `npm audit signatures` SLSA v1 provenance and strict failure-preemption rules (`37391073949` preempted by `37393670535`, `37393670535` published before step failure, `37408154658`–`37490858990` verified on npm); run `release-history.yml` and push an owner-signed `release-history-*` tag to seal both those recoveries and all active writer artifacts before Actions retention expires.
 - Trusted-publisher dist-tag permission for all three packages, hosted qualification of this controller, CodeQL, Codex Security and the independent review route are not yet observed.
 
 ## Version 3.0.2
