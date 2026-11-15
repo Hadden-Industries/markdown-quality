@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-/** Restore the three original read-only completion inputs by immutable ID, including signed expiry fallback. */
+/** Restore the original read-only completion inputs (admission, npm and any GitHub writer) by immutable ID, including signed expiry fallback. */
 import assert from "node:assert/strict";
 import { native } from "./commands.js";
 import { downloadEvidence } from "./download-evidence.js";
@@ -32,6 +32,9 @@ for (const [id, name, job, directory] of [
     "github-operation",
   ],
 ]) {
+  // An npm-only operation has no GitHub writer artifact; completion then
+  // refuses any GitHub writer identity and verifies the decision's scope.
+  if (job === "github" && !id) continue;
   assert.match(String(id), /^[1-9]\d{0,15}$/u);
   checkpoints ??= readSignedHistoryRefs(
     JSON.parse(env.HISTORY_CHECKPOINT || "[]"),

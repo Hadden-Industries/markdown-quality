@@ -39,6 +39,8 @@ import {
   legacyPublicationSteps,
   stagingStepNames,
 } from "./publication-steps.js";
+import { githubWriterRequired, resumesOperation } from "./release-operation.js";
+import { releasePackages } from "./release-coordinates.js";
 
 const repository = "Hadden-Industries/markdown-quality";
 const key = (entry) =>
@@ -124,6 +126,17 @@ export function mergeWriterHistory(...inventories) {
   return [...merged.values()];
 }
 
+/**
+ * The original qualified subjects a signed checkpoint retains, selected by its
+ * actual format: schema 1 holds one target and schema 2 an explicit inventory
+ * in which each subject is stored once and remains attributable by digest.
+ */
+export function checkpointTargets(checkpoint) {
+  return checkpoint.schemaVersion === 2
+    ? checkpoint.targetQualifications
+    : [checkpoint.targetQualification];
+}
+
 /** Signed Git authenticates exact checkpoint bytes and permits no self-asserted signer identity. */
 export function verifySignedCheckpoint(
   bytes,
@@ -149,7 +162,10 @@ export function verifySignedCheckpoint(
     "Checkpoint bytes differ from the signed history commit",
   );
   const checkpoint = JSON.parse(bytes);
-  assert.equal(checkpoint.schemaVersion, 1);
+  assert.ok(
+    [1, 2].includes(checkpoint.schemaVersion),
+    "Unknown signed checkpoint format",
+  );
   assert.equal(checkpoint.repository, repository);
   assert.equal(
     checkpoint.complete,
@@ -157,106 +173,31 @@ export function verifySignedCheckpoint(
     "Incomplete checkpoint cannot authorize recovery",
   );
   assert.ok(checkpoint.writers?.length > 0, "Writer history is missing");
-  assert.ok(
-    checkpoint.targetQualification,
-    "Original target qualification is missing",
-  );
-  const { qualified, files, archive } = checkpoint.targetQualification;
-  verifyQualification(qualified);
-  const qualificationBytes = Buffer.from(
-    checkpoint.targetQualification.qualificationBase64,
-    "base64",
-  );
-  assert.equal(
-    hash(qualificationBytes),
-    checkpoint.targetQualification.qualificationSha256,
-  );
-  assert.deepEqual(JSON.parse(qualificationBytes), qualified);
-  if (checkpoint.targetQualification.archival) {
-    const original = checkpoint.targetQualification.archival;
-    assert.equal(original.run.repository.full_name, repository);
-    assert.equal(original.run.path, ".github/workflows/github-release.yml");
-    assert.equal(original.run.event, "workflow_dispatch");
-    assert.equal(original.run.head_branch, "main");
+  if (checkpoint.schemaVersion === 1)
+    assert.equal(checkpoint.targetQualifications, undefined);
+  else {
     assert.equal(
-      original.inventory.total_count,
-      original.inventory.jobs.length,
+      checkpoint.targetQualification,
+      undefined,
+      "An extended checkpoint lists every subject in targetQualifications",
     );
-    const jobs = original.inventory.jobs.filter(
-      (job) => job.name === "prepare",
-    );
-    assert.equal(jobs.length, 1);
-    assert.equal(jobs[0].conclusion, "success");
-    assert.equal(jobs[0].run_attempt, original.attempt);
-    assert.equal(jobs[0].run_id, original.run.id);
-    assert.equal(jobs[0].head_sha, original.run.head_sha);
-    assert.equal(original.artifact.name, `archive-inputs-${original.attempt}`);
-    assert.equal(original.artifact.workflow_run.id, original.run.id);
-    assert.equal(
-      original.artifact.workflow_run.head_sha,
-      original.run.head_sha,
-    );
-    assert.match(original.artifact.digest, /^sha256:[a-f0-9]{64}$/u);
-  }
-  assert.equal(checkpoint.targetQualification.providers.length, 2);
-  for (const [index, expected] of [
-    qualified.candidate,
-    qualified.publication,
-  ].entries()) {
-    const provider = checkpoint.targetQualification.providers[index];
-    verifyProvider(provider, expected);
     assert.ok(
-      provider.artifacts.length > 0,
-      "Original qualification artifacts are missing",
+      Array.isArray(checkpoint.targetQualifications) &&
+        checkpoint.targetQualifications.length > 0,
+      "Original target qualification is missing",
     );
-    for (const artifact of provider.artifacts) {
-      assert.equal(artifact.workflow_run.id, Number(expected.run));
-      assert.equal(artifact.workflow_run.head_sha, expected.source);
-      assert.match(artifact.digest, /^sha256:[a-f0-9]{64}$/u);
-    }
-  }
-  assert.ok(
-    Number.isSafeInteger(archive.releaseId) &&
-      archive.releaseId > 0 &&
-      archive.immutable === true,
-  );
-  assert.ok(Array.isArray(archive.assets) && archive.assets.length > 0);
-  const locks =
-    qualified.schemaVersion === 2
-      ? qualified.candidate.matrix.os.flatMap((platform) =>
-          ["root", "isolated"].map(
-            (layout) =>
-              `public-recipient-${platform}-${layout}-package-lock.json`,
-          ),
-        )
-      : [];
-  for (const name of locks)
-    assert.match(
-      qualified.evidence[name],
-      /^[a-f0-9]{64}$/u,
-      "Missing retained recipient lock identity",
+    assert.equal(
+      new Set(
+        checkpoint.targetQualifications.map(
+          (target) => target?.qualificationSha256,
+        ),
+      ).size,
+      checkpoint.targetQualifications.length,
+      "Each retained subject is stored once",
     );
-  for (const name of [
-    "release-manifest.json",
-    "publication-origins.json",
-    "signed-tag.json",
-    ...Object.keys(qualified.reports),
-    ...locks,
-  ]) {
-    assert.ok(files[name], `Missing original qualification member: ${name}`);
-    const raw = Buffer.from(files[name].base64, "base64");
-    assert.equal(raw.toString("base64"), files[name].base64);
-    assert.equal(hash(raw), files[name].sha256);
-    const expected =
-      qualified.reports[name]?.sha256 ??
-      qualified.evidence[name] ??
-      (name === "release-manifest.json"
-        ? qualified.manifestSha256
-        : name === "publication-origins.json"
-          ? qualified.originsSha256
-          : null);
-    if (expected) assert.equal(hash(raw), expected);
   }
+  for (const target of checkpointTargets(checkpoint))
+    verifyTargetQualification(target);
   for (const entry of checkpoint.writers) {
     const workflow = writerWorkflow(entry.run);
     assert.ok(writerJobs[workflow].includes(entry.job.name));
@@ -323,6 +264,105 @@ export function verifySignedCheckpoint(
     );
   }
   return checkpoint;
+}
+
+/**
+ * Validate one retained original qualified subject: its exact qualification
+ * bytes, archival producer, both original providers and artifacts, immutable
+ * archive identity, recipient lock identities and every bound member file.
+ */
+function verifyTargetQualification(target) {
+  assert.ok(target, "Original target qualification is missing");
+  const { qualified, files, archive } = target;
+  verifyQualification(qualified);
+  const qualificationBytes = Buffer.from(target.qualificationBase64, "base64");
+  assert.equal(hash(qualificationBytes), target.qualificationSha256);
+  assert.deepEqual(JSON.parse(qualificationBytes), qualified);
+  if (target.archival) {
+    const original = target.archival;
+    assert.equal(original.run.repository.full_name, repository);
+    assert.equal(original.run.path, ".github/workflows/github-release.yml");
+    assert.equal(original.run.event, "workflow_dispatch");
+    assert.equal(original.run.head_branch, "main");
+    assert.equal(
+      original.inventory.total_count,
+      original.inventory.jobs.length,
+    );
+    const jobs = original.inventory.jobs.filter(
+      (job) => job.name === "prepare",
+    );
+    assert.equal(jobs.length, 1);
+    assert.equal(jobs[0].conclusion, "success");
+    assert.equal(jobs[0].run_attempt, original.attempt);
+    assert.equal(jobs[0].run_id, original.run.id);
+    assert.equal(jobs[0].head_sha, original.run.head_sha);
+    assert.equal(original.artifact.name, `archive-inputs-${original.attempt}`);
+    assert.equal(original.artifact.workflow_run.id, original.run.id);
+    assert.equal(
+      original.artifact.workflow_run.head_sha,
+      original.run.head_sha,
+    );
+    assert.match(original.artifact.digest, /^sha256:[a-f0-9]{64}$/u);
+  }
+  assert.equal(target.providers.length, 2);
+  for (const [index, expected] of [
+    qualified.candidate,
+    qualified.publication,
+  ].entries()) {
+    const provider = target.providers[index];
+    verifyProvider(provider, expected);
+    assert.ok(
+      provider.artifacts.length > 0,
+      "Original qualification artifacts are missing",
+    );
+    for (const artifact of provider.artifacts) {
+      assert.equal(artifact.workflow_run.id, Number(expected.run));
+      assert.equal(artifact.workflow_run.head_sha, expected.source);
+      assert.match(artifact.digest, /^sha256:[a-f0-9]{64}$/u);
+    }
+  }
+  assert.ok(
+    Number.isSafeInteger(archive.releaseId) &&
+      archive.releaseId > 0 &&
+      archive.immutable === true,
+  );
+  assert.ok(Array.isArray(archive.assets) && archive.assets.length > 0);
+  const locks =
+    qualified.schemaVersion === 2
+      ? qualified.candidate.matrix.os.flatMap((platform) =>
+          ["root", "isolated"].map(
+            (layout) =>
+              `public-recipient-${platform}-${layout}-package-lock.json`,
+          ),
+        )
+      : [];
+  for (const name of locks)
+    assert.match(
+      qualified.evidence[name],
+      /^[a-f0-9]{64}$/u,
+      "Missing retained recipient lock identity",
+    );
+  for (const name of [
+    "release-manifest.json",
+    "publication-origins.json",
+    "signed-tag.json",
+    ...Object.keys(qualified.reports),
+    ...locks,
+  ]) {
+    assert.ok(files[name], `Missing original qualification member: ${name}`);
+    const raw = Buffer.from(files[name].base64, "base64");
+    assert.equal(raw.toString("base64"), files[name].base64);
+    assert.equal(hash(raw), files[name].sha256);
+    const expected =
+      qualified.reports[name]?.sha256 ??
+      qualified.evidence[name] ??
+      (name === "release-manifest.json"
+        ? qualified.manifestSha256
+        : name === "publication-origins.json"
+          ? qualified.originsSha256
+          : null);
+    if (expected) assert.equal(hash(raw), expected);
+  }
 }
 
 /** Explicit immutable ref selections are authenticated before any checkpoint fields are consumed. */
@@ -438,8 +478,6 @@ export function legacyArchiveSettled(entry, checkpoints) {
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   return checkpoints.some((checkpoint) => {
-    const target = checkpoint.targetQualification,
-      tag = `v${target.qualified.version}`;
     const original = checkpoint.writers.some(
       (writer) =>
         key(writer) === key(entry) &&
@@ -448,49 +486,58 @@ export function legacyArchiveSettled(entry, checkpoints) {
           writerObservationIdentity(entry),
         ),
     );
-    if (!original || target.archive.immutable !== true) return false;
-    const qualificationSha256 = hash(
-      Buffer.from(
-        // Historical terminal receipts hash this exact serialized qualification envelope.
-        JSON.stringify(target.qualified),
-      ),
+    return (
+      original &&
+      checkpointTargets(checkpoint).some((target) => {
+        const tag = `v${target.qualified.version}`;
+        if (target.archive.immutable !== true) return false;
+        const qualificationSha256 = hash(
+          Buffer.from(
+            // Historical terminal receipts hash this exact serialized qualification envelope.
+            JSON.stringify(target.qualified),
+          ),
+        );
+        const summary = records.some(
+          (record) =>
+            record.nativeReleaseAndEveryAssetVerified === true &&
+            record.immutable === true &&
+            record.source === target.qualified.source &&
+            record.tag === tag &&
+            record.releaseId === target.archive.releaseId &&
+            record.qualificationSha256 === qualificationSha256 &&
+            isDeepStrictEqual(
+              assets(record.assets),
+              assets(target.archive.assets),
+            ),
+        );
+        const nativeRelease = records.some(
+          (record) =>
+            record.id === target.archive.releaseId &&
+            record.tag_name === tag &&
+            record.draft === false &&
+            record.immutable === true &&
+            Array.isArray(record.assets) &&
+            isDeepStrictEqual(
+              assets(record.assets),
+              assets(target.archive.assets),
+            ) &&
+            record.assets.some(
+              (asset) =>
+                asset.name === "release-manifest.json" &&
+                asset.digest === `sha256:${target.qualified.manifestSha256}`,
+            ),
+        );
+        const nativeTag = records.some(
+          (record) =>
+            record.tag === tag &&
+            record.object?.sha === target.qualified.source &&
+            record.object.type === "commit" &&
+            record.verification?.verified === true &&
+            record.verification.reason === "valid",
+        );
+        return summary || (nativeRelease && nativeTag);
+      })
     );
-    const summary = records.some(
-      (record) =>
-        record.nativeReleaseAndEveryAssetVerified === true &&
-        record.immutable === true &&
-        record.source === target.qualified.source &&
-        record.tag === tag &&
-        record.releaseId === target.archive.releaseId &&
-        record.qualificationSha256 === qualificationSha256 &&
-        isDeepStrictEqual(assets(record.assets), assets(target.archive.assets)),
-    );
-    const nativeRelease = records.some(
-      (record) =>
-        record.id === target.archive.releaseId &&
-        record.tag_name === tag &&
-        record.draft === false &&
-        record.immutable === true &&
-        Array.isArray(record.assets) &&
-        isDeepStrictEqual(
-          assets(record.assets),
-          assets(target.archive.assets),
-        ) &&
-        record.assets.some(
-          (asset) =>
-            asset.name === "release-manifest.json" &&
-            asset.digest === `sha256:${target.qualified.manifestSha256}`,
-        ),
-    );
-    const nativeTag = records.some(
-      (record) =>
-        record.tag === tag &&
-        record.object?.sha === target.qualified.source &&
-        record.object.type === "commit" &&
-        record.verification?.verified === true &&
-        record.verification.reason === "valid",
-    );
-    return summary || (nativeRelease && nativeTag);
   });
 }
 
@@ -804,7 +851,7 @@ export function recoveryLineage(
   const lineage = [],
     seen = new Set();
   let selected = operation;
-  while (["partial", "continue"].includes(selected.operation)) {
+  while (resumesOperation(selected)) {
     const key = `${selected.originalOperationId}/${selected.originalDecisionSha256}`;
     assert.ok(
       !seen.has(key) && seen.size < 50,
@@ -852,7 +899,7 @@ export function verifyActiveOperations(
   const completed = new Set(),
     recovered = new Set();
   const operationKey = (id, digest) => `${id}/${digest}`;
-  const allowed = ["partial", "continue"].includes(operation.operation)
+  const allowed = resumesOperation(operation)
     ? recoveryLineage(operation, authenticated)
     : [];
   for (const entry of writers) {
@@ -867,7 +914,14 @@ export function verifyActiveOperations(
       if (record.status !== "complete") continue;
       const original = record.operation;
       assert.equal(original.operationId, record.operationId);
-      for (const service of ["npm", "github"]) {
+      // An npm-only retirement has no GitHub writer; every other completion
+      // still names and authenticates both original writers.
+      const services = githubWriterRequired(original)
+        ? ["npm", "github"]
+        : ["npm"];
+      if (!services.includes("github"))
+        assert.equal(record.originalWriters.github, null);
+      for (const service of services) {
         const context = record.originalWriters[service];
         assert.ok(
           authenticated.some(
@@ -881,7 +935,7 @@ export function verifyActiveOperations(
         );
       }
       completed.add(operationKey(record.operationId, record.decisionSha256));
-      if (["partial", "continue"].includes(original.operation)) {
+      if (resumesOperation(original)) {
         const key = operationKey(
           original.originalOperationId,
           original.originalDecisionSha256,
@@ -1013,20 +1067,26 @@ export function completedStagingRecovery(entry, journalSha256, writers) {
   });
 }
 
+/**
+ * Authenticate every prior writer effect before another release effect.
+ * `checkpoint` names the owner-selected signed refs; a caller that already
+ * authenticated exactly those refs in this operation may pass them as
+ * `checkpoints` so the same immutable bytes are not read and verified again.
+ */
 export async function admitPriorReleaseEffects(
   operation,
   {
     env = process.env,
     checkpoint,
+    checkpoints: authenticatedCheckpoints,
     gh = (args) => native("gh", args),
     admittedTarget,
     archiveObservation,
   } = {},
 ) {
-  const checkpoints = readSignedHistoryRefs(
-    checkpoint ? JSON.parse(checkpoint) : [],
-    gh,
-  );
+  const checkpoints =
+    authenticatedCheckpoints ??
+    readSignedHistoryRefs(checkpoint ? JSON.parse(checkpoint) : [], gh);
   const workflow =
     operation.operation === "stage"
       ? "publish"
@@ -1112,34 +1172,27 @@ export async function admitPriorReleaseEffects(
             );
             const reconciled =
               completedPartial ||
-              checkpoints.some((checkpoint) =>
-                Object.entries(checkpoint.targetQualification.files).some(
-                  ([proofName, proof]) => {
-                    if (!proofName.endsWith("-reconciliation.json"))
-                      return false;
-                    const record = JSON.parse(
-                      Buffer.from(proof.base64, "base64"),
-                    );
-                    return (
-                      record.journalSha256 === file.sha256 &&
-                      record.publicQualification?.run ===
-                        checkpoint.targetQualification.qualified.publication
-                          .run &&
-                      Object.keys(record.reports ?? {}).length > 0 &&
-                      Object.keys(record.reports).length ===
-                        Object.keys(
-                          checkpoint.targetQualification.qualified.reports,
-                        ).filter((value) => value.startsWith("registry-"))
-                          .length &&
-                      Object.entries(record.reports).every(
-                        ([reportName, digest]) =>
-                          checkpoint.targetQualification.qualified.reports[
-                            reportName
-                          ]?.sha256 === digest,
-                      )
-                    );
-                  },
-                ),
+              checkpoints.flatMap(checkpointTargets).some((target) =>
+                Object.entries(target.files).some(([proofName, proof]) => {
+                  if (!proofName.endsWith("-reconciliation.json")) return false;
+                  const record = JSON.parse(
+                    Buffer.from(proof.base64, "base64"),
+                  );
+                  return (
+                    record.journalSha256 === file.sha256 &&
+                    record.publicQualification?.run ===
+                      target.qualified.publication.run &&
+                    Object.keys(record.reports ?? {}).length > 0 &&
+                    Object.keys(record.reports).length ===
+                      Object.keys(target.qualified.reports).filter((value) =>
+                        value.startsWith("registry-"),
+                      ).length &&
+                    Object.entries(record.reports).every(
+                      ([reportName, digest]) =>
+                        target.qualified.reports[reportName]?.sha256 === digest,
+                    )
+                  );
+                }),
               );
             assert.ok(
               reconciled,
@@ -1160,17 +1213,25 @@ export async function admitPriorReleaseEffects(
           .map((line) => JSON.parse(line));
         assert.ok(
           entry.job.name === "archive" &&
-            checkpoints.some(
-              (checkpoint) =>
-                legacyArchiveSettled(entry, [checkpoint]) &&
-                records.every(
-                  (record) =>
-                    !record.args ||
-                    record.args.includes(
-                      `v${checkpoint.targetQualification.qualified.version}`,
-                    ) ||
-                    record.args[0] === "api",
-                ),
+            checkpoints.some((checkpoint) =>
+              // Each retained subject is judged alone, so the settled archive
+              // and the requested tag must belong to the same subject.
+              checkpointTargets(checkpoint).some(
+                (target) =>
+                  legacyArchiveSettled(entry, [
+                    {
+                      ...checkpoint,
+                      schemaVersion: 2,
+                      targetQualifications: [target],
+                    },
+                  ]) &&
+                  records.every(
+                    (record) =>
+                      !record.args ||
+                      record.args.includes(`v${target.qualified.version}`) ||
+                      record.args[0] === "api",
+                  ),
+              ),
             ),
           "Legacy failed writer requires independently verified immutable evidence in complete signed history",
         );
@@ -1224,7 +1285,7 @@ export async function admitPriorReleaseEffects(
       if (effect.outcome !== "acknowledged") {
         const proofs = [
           archiveObservation,
-          ...checkpoints.map(({ targetQualification: target }) => ({
+          ...checkpoints.flatMap(checkpointTargets).map((target) => ({
             qualified: target.qualified,
             archive: {
               ...target.archive,
@@ -1291,7 +1352,9 @@ export async function admitPriorReleaseEffects(
         effect.outcome =
           settlement.disposition === "applied"
             ? "acknowledged"
-            : "settled-not-applied";
+            : settlement.disposition === "rejected"
+              ? "settled-rejected"
+              : "settled-not-applied";
       }
     authenticated.push({ entry, bytes, context: first.context, effects });
     for (const effect of effects)
@@ -1304,7 +1367,7 @@ export async function admitPriorReleaseEffects(
           settled[effect.subject] = effect.target;
     }
   }
-  if (["partial", "continue"].includes(operation.operation)) {
+  if (resumesOperation(operation)) {
     verifyRecoveryAttribution(operation, authenticated);
     if (operation.operation === "partial")
       await admitRecoveryTargets(operation, checkpoints, gh, admittedTarget);
@@ -1368,6 +1431,8 @@ export function verifyRecoveryAttribution(operation, authenticated) {
     approved.manifestSha256,
     operation.affectedManifestSha256 ?? operation.manifestSha256,
   );
+  if (operation.operation === "retire-pilot")
+    return verifyRetirementResumption(operation, approved, authenticated);
   const completed = authenticated.some(
     ({ context, effects }) =>
       (context.operationId === approved.operationId ||
@@ -1458,6 +1523,65 @@ export function verifyRecoveryAttribution(operation, authenticated) {
   }
 }
 
+/**
+ * A resumed retirement may request only removals that its authenticated
+ * ancestors did not acknowledge. An acknowledged removal becomes an approved
+ * no-op; a refused request is repeated only when this decision names that
+ * exact rejection settlement; any other unresolved request blocks. The
+ * retired subject, stable guards and unrequested priors stay unchanged.
+ */
+function verifyRetirementResumption(operation, approved, authenticated) {
+  assert.equal(approved.operation, "retire-pilot");
+  assert.deepEqual(
+    approved.retired,
+    operation.retired,
+    "Resumption must retire the original subject",
+  );
+  assert.deepEqual(approved.guards, operation.guards);
+  const ancestors = recoveryLineage(operation, authenticated);
+  for (const name of releasePackages) {
+    const requests = ancestors.flatMap((parent) =>
+      parent.effects
+        .filter(
+          (effect) => effect.provider === "npm" && effect.subject === name,
+        )
+        .map((effect) => ({ parent, effect })),
+    );
+    for (const { parent, effect } of requests) {
+      assert.ok(
+        ["acknowledged", "settled-rejected"].includes(effect.outcome),
+        "Outstanding retirement requests must be settled before resumption",
+      );
+      if (effect.outcome === "settled-rejected")
+        assert.ok(
+          operation.settlements?.some(
+            (settlement) =>
+              settlement.disposition === "rejected" &&
+              settlement.journalSha256 === hash(parent.bytes) &&
+              settlement.sequence === effect.sequence,
+          ),
+          "A refused request is repeated only by a decision naming its rejection settlement",
+        );
+    }
+    const removed = requests.some(
+      ({ effect }) => effect.outcome === "acknowledged",
+    );
+    if (removed) {
+      assert.equal(
+        operation.priors[name],
+        null,
+        "Retirement cannot repeat an acknowledged removal",
+      );
+      assert.ok(operation.noops?.includes(name));
+    } else
+      assert.equal(
+        operation.priors[name],
+        approved.priors[name],
+        "Resumed retirement changed a prior it did not remove",
+      );
+  }
+}
+
 async function admitRecoveryTargets(
   operation,
   checkpoints,
@@ -1480,17 +1604,18 @@ async function admitRecoveryTargets(
       );
       continue;
     }
-    const target = checkpoints.find(
-      (checkpoint) =>
-        checkpoint.targetQualification.qualified.version ===
-          operation.targets[name] &&
-        checkpoint.targetQualification.qualificationSha256 === expected,
-    );
+    const target = checkpoints
+      .flatMap(checkpointTargets)
+      .find(
+        (candidate) =>
+          candidate.qualified.version === operation.targets[name] &&
+          candidate.qualificationSha256 === expected,
+      );
     assert.ok(
       target,
       "Recovery target lacks signed original public qualification",
     );
-    const { qualified, archive } = target.targetQualification;
+    const { qualified, archive } = target;
     assert.equal(
       qualified.archives.find((entry) => entry.package === name).integrity,
       operation.targetIntegrities[name],
@@ -1500,20 +1625,10 @@ async function admitRecoveryTargets(
       join(tmpdir(), "markdown-quality-recovery-target-"),
     );
     try {
-      const api = (path) =>
-        JSON.parse(gh(["api", `repos/${repository}/${path}`]));
-      const ref = api(`git/ref/tags/v${qualified.version}`);
-      assert.equal(ref.object.sha, archive.tagSha);
-      verifyReleaseTag(ref, api(`git/tags/${ref.object.sha}`), {
-        version: qualified.version,
-        source: { head: qualified.source },
+      const release = await verifyRetainedReleaseIdentity(qualified, archive, {
+        api: (path) => JSON.parse(gh(["api", `repos/${repository}/${path}`])),
+        verifyTag: verifyReleaseTag,
       });
-      const release = api(`releases/${archive.releaseId}`);
-      const identity = (assets) =>
-        assets
-          .map(({ id, name, size, digest }) => ({ id, name, size, digest }))
-          .sort((a, b) => a.id - b.id);
-      assert.deepEqual(identity(release.assets), identity(archive.assets));
       const acquired = acquireIndexedRelease(release, scratch, gh, {
         retainedQualification: qualified,
       });
@@ -1525,4 +1640,88 @@ async function admitRecoveryTargets(
       rmSync(scratch, { recursive: true, force: true });
     }
   }
+}
+
+/**
+ * Authenticate the current immutable identity of a signed checkpoint target:
+ * its signed source tag, release ID and asset IDs/names/sizes/digests must be
+ * the ones retained when that subject was qualified. Returns the live release.
+ */
+async function verifyRetainedReleaseIdentity(
+  qualified,
+  archive,
+  { api, verifyTag },
+) {
+  const reference = await api(`git/ref/tags/v${qualified.version}`);
+  assert.equal(
+    reference.object.sha,
+    archive.tagSha,
+    "Retained tag identity changed",
+  );
+  verifyTag(reference, await api(`git/tags/${reference.object.sha}`), {
+    version: qualified.version,
+    source: { head: qualified.source },
+  });
+  const release = await api(`releases/${archive.releaseId}`);
+  assert.equal(release.id, archive.releaseId);
+  assert.equal(release.immutable, true);
+  assert.equal(release.draft, false);
+  const identity = (assets) =>
+    assets
+      .map(({ id, name, size, digest }) => ({ id, name, size, digest }))
+      .sort((a, b) => a.id - b.id);
+  assert.deepEqual(
+    identity(release.assets),
+    identity(archive.assets),
+    "Retained release assets changed",
+  );
+  return release;
+}
+
+/**
+ * Admit the subject named by a pilot retirement. When it is the admitted
+ * stable subject, the caller's verified stable evidence is reused. An older
+ * subject must match one authenticated signed checkpoint's original accepted
+ * qualification and its current immutable identity; its retired code is not
+ * executed or audited again. Returns the retired identity with its tag object.
+ */
+export async function admitRetiredQualification(
+  operation,
+  { admitted, checkpoints, api, verifyTag = verifyReleaseTag },
+) {
+  const retired = operation.retired;
+  if (retired.qualificationSha256 === admitted.qualificationSha256) {
+    assert.equal(retired.version, admitted.qualified.version);
+    assert.equal(retired.source, admitted.qualified.source);
+    assert.equal(retired.manifestSha256, admitted.qualified.manifestSha256);
+    return { ...retired, tagSha: admitted.tagSha };
+  }
+  const matches = checkpoints
+    .flatMap(checkpointTargets)
+    .filter(
+      (target) =>
+        target.qualificationSha256 === retired.qualificationSha256 &&
+        target.qualified.version === retired.version,
+    );
+  assert.ok(
+    matches.length > 0,
+    "The retired pilot lacks signed original qualification",
+  );
+  const { qualified, archive } = matches[0];
+  for (const other of matches)
+    assert.deepEqual(other.archive, archive, "Conflicting retained subjects");
+  assert.equal(qualified.source, retired.source);
+  assert.equal(qualified.manifestSha256, retired.manifestSha256);
+  assert.equal(archive.releaseId, retired.releaseId);
+  assert.equal(archive.immutable, true);
+  const release = await verifyRetainedReleaseIdentity(qualified, archive, {
+    api,
+    verifyTag,
+  });
+  assert.equal(
+    release.prerelease,
+    retired.prerelease,
+    "Retired release classification differs from owner approval",
+  );
+  return { ...retired, tagSha: archive.tagSha };
 }

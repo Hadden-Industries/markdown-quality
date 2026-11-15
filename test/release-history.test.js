@@ -18,6 +18,8 @@ import {
   recoveryLineage,
   writerNeverRequested,
   legacyArchiveSettled,
+  checkpointTargets,
+  admitRetiredQualification,
 } from "../scripts/release-history.js";
 import {
   retainedArtifact,
@@ -29,6 +31,7 @@ import {
 import { verifySettlementObservation } from "../scripts/release-effects.js";
 import { verifyRecoveryAttribution } from "../scripts/release-history.js";
 import { releasePackages } from "../scripts/release-coordinates.js";
+import { retainedCheckpointTargets } from "../scripts/prepare-release-history.js";
 
 test("a second interrupted continuation preserves ancestor requests and the active operation chain", () => {
   const labels = (version) =>
@@ -459,6 +462,122 @@ test("native history retains inherited original executions and signed missing at
   assert.throws(() => verify([]), /owner-signed intent/u);
 });
 
+test("a failed native staging writer whose requests completed is exported with its original evidence and never inferred without it", async () => {
+  const repository = "Hadden-Industries/markdown-quality",
+    sha = "c".repeat(40);
+  // Mirrors E-03: both native requests completed, then the evidence step failed.
+  const run = {
+    id: 456,
+    run_attempt: 1,
+    run_number: 1,
+    workflow_id: 375858484,
+    head_branch: "main",
+    event: "workflow_dispatch",
+    created_at: new Date().toISOString(),
+    path: ".github/workflows/publish.yml",
+    head_sha: sha,
+    status: "completed",
+    conclusion: "failure",
+    repository: { id: 1, full_name: repository },
+    head_repository: { id: 1, full_name: repository },
+  };
+  const stage = {
+    id: 9001,
+    name: "stage",
+    run_id: run.id,
+    run_attempt: 1,
+    head_sha: sha,
+    status: "completed",
+    conclusion: "failure",
+    runner_id: 41,
+    started_at: "2026-11-14T00:00:00Z",
+    completed_at: "2026-11-14T00:05:00Z",
+    steps: [
+      ["Stage Windows package under reviewed channel", "success"],
+      ["Stage Linux package under reviewed channel", "success"],
+      ["Verify both native archives before core staging", "skipped"],
+      ["Stage coherent core under reviewed channel", "skipped"],
+      ["Run actions/upload-artifact", "failure"],
+    ].map(([name, conclusion]) => ({ name, status: "completed", conclusion })),
+  };
+  const artifact = {
+    id: 3001,
+    name: "publication-source-and-manifest-1",
+    size_in_bytes: 512,
+    digest: `sha256:${"e".repeat(64)}`,
+    expired: false,
+    workflow_run: {
+      id: run.id,
+      repository_id: 1,
+      head_repository_id: 1,
+      head_sha: sha,
+    },
+  };
+  let artifacts = [artifact],
+    downloads = 0;
+  const gh = (args) => {
+    const path = args[1];
+    if (path.includes("/actions/workflows/"))
+      return JSON.stringify([
+        {
+          total_count: Number(path.includes("publish.yml")),
+          workflow_runs: path.includes("publish.yml") ? [run] : [],
+        },
+      ]);
+    if (path.includes("/artifacts?"))
+      return JSON.stringify([{ artifacts: structuredClone(artifacts) }]);
+    if (path.endsWith("/jobs?per_page=100"))
+      return JSON.stringify({ total_count: 1, jobs: [stage] });
+    return JSON.stringify(run);
+  };
+  const options = {
+    env: { GH_TOKEN: "fixture" },
+    gh,
+    download: async ({ id, destination }) => {
+      assert.equal(id, artifact.id);
+      downloads++;
+      mkdirSync(join(destination, "staging-journal"), { recursive: true });
+      writeFileSync(
+        join(destination, "staging-journal", "win32-x64.jsonl"),
+        '{"state":"attempted"}\n{"state":"staged-awaiting-owner"}\n',
+      );
+    },
+    approvedControllers: new Set([sha]),
+    intents: [],
+    baseline: {
+      publish: { workflowId: run.workflow_id, runs: [] },
+      "github-release": { runs: [] },
+      "promote-release": { runs: [] },
+    },
+  };
+  const exported = await collectWriterHistory(options);
+  assert.equal(downloads, 1);
+  assert.deepEqual(exported.missing, []);
+  assert.equal(exported.writers.length, 1);
+  const [writer] = exported.writers;
+  assert.equal(writer.run.conclusion, "failure", "Original failure retained");
+  assert.equal(writer.job.conclusion, "failure");
+  assert.deepEqual(Object.keys(writer.files), [
+    "staging-journal/win32-x64.jsonl",
+  ]);
+  assert.deepEqual(exported.writerAttempts, [
+    { run, inventory: { total_count: 1, jobs: [stage] } },
+  ]);
+  artifacts = [];
+  const unproven = await collectWriterHistory(options);
+  assert.equal(downloads, 1, "No evidence is fabricated for a missing writer");
+  assert.deepEqual(unproven.writers, []);
+  assert.deepEqual(unproven.missing, [
+    {
+      workflow: run.path,
+      run: run.id,
+      attempt: 1,
+      job: stage.id,
+      reason: "missing-original-writer-artifact",
+    },
+  ]);
+});
+
 test("intent refs bind the protected tag name and exact annotated controller to the owner signature", () => {
   const controller = "a".repeat(40),
     tagSha = "b".repeat(40),
@@ -657,6 +776,44 @@ test("a pending family operation blocks a new ID until authenticated completion 
   );
 });
 
+test("an npm-only retirement completes without a GitHub writer while other operations still require theirs", () => {
+  const context = {
+    operationId: "retire",
+    decisionSha256: "retire-sha",
+    workflow: ".github/workflows/promote-release.yml",
+    job: "npm",
+  };
+  const writers = [{ context, entry: { job: { name: "npm" } }, effects: [{}] }];
+  const completed = (operation) => ({
+    job: { name: "Read-only release completion", conclusion: "success" },
+    files: {
+      "completion.json": {
+        base64: Buffer.from(
+          JSON.stringify({
+            status: "complete",
+            operationId: "retire",
+            decisionSha256: "retire-sha",
+            operation: { operationId: "retire", operation },
+            originalWriters: { npm: context, github: null },
+          }),
+        ).toString("base64"),
+      },
+    },
+  });
+  const next = { operationId: "next", operation: "promote" };
+  verifyActiveOperations(
+    next,
+    "next-sha",
+    [completed("retire-pilot")],
+    writers,
+  );
+  assert.throws(
+    () =>
+      verifyActiveOperations(next, "next-sha", [completed("promote")], writers),
+    /missing its exact original writer/u,
+  );
+});
+
 test("settlements require a structured independent original-effect observation; public absence is not a negative receipt", () => {
   const effect = {
     provider: "npm",
@@ -725,7 +882,8 @@ test("settlements require a structured independent original-effect observation; 
   );
 });
 
-test("expiry fallback requires a complete owner-signed history AND separate original target qualification", (t) => {
+/** Build an owner-signed single-target checkpoint and its real signature verifier. */
+function signedCheckpointHarness(t) {
   const f = releaseFixture(t),
     root = dirname(f.directory),
     key = join(root, "history-key");
@@ -849,6 +1007,66 @@ test("expiry fallback requires a complete owner-signed history AND separate orig
       command: () => bytes,
     });
   };
+  /** A complete original target record for another qualified fixture. */
+  const target = (fixture) => {
+    const bytes = Buffer.from(
+      JSON.stringify(fixture.qualified, null, 2) + "\n",
+    );
+    return {
+      qualified: fixture.qualified,
+      qualificationBase64: bytes.toString("base64"),
+      qualificationSha256: hash(bytes),
+      files: Object.fromEntries(
+        readdirSync(fixture.input)
+          .filter((name) => !name.endsWith(".tgz"))
+          .map((name) => [name, file(readFileSync(join(fixture.input, name)))]),
+      ),
+      archive: { releaseId: 60, immutable: true, assets: fixture.assets },
+      providers: [fixture.candidate, fixture.publication].map(
+        ({ data, expected }, index) => ({
+          ...data,
+          artifacts: [
+            {
+              id: 300 + index,
+              digest: `sha256:${"b".repeat(64)}`,
+              workflow_run: {
+                id: Number(expected.run),
+                head_sha: expected.source,
+              },
+            },
+          ],
+        }),
+      ),
+    };
+  };
+  return {
+    f,
+    root,
+    policy,
+    file,
+    run,
+    writer,
+    checkpoint,
+    reference,
+    annotation,
+    verify,
+    target,
+  };
+}
+
+test("expiry fallback requires a complete owner-signed history AND separate original target qualification", (t) => {
+  const {
+    f,
+    root,
+    policy,
+    file,
+    run,
+    writer,
+    checkpoint,
+    reference,
+    annotation,
+    verify,
+  } = signedCheckpointHarness(t);
   const admitted = verify(checkpoint);
   const original = retainedArtifact([admitted], 200, {
     name: "npm-operation-1",
@@ -912,4 +1130,139 @@ test("expiry fallback requires a complete owner-signed history AND separate orig
   const conflict = structuredClone(writer);
   conflict.files["effects.jsonl"] = file(Buffer.from("replacement snapshot\n"));
   assert.throws(() => mergeWriterHistory([writer], [conflict]), /Conflicting/u);
+});
+
+test("an extended checkpoint keeps distinct stable and retired subjects attributable and replays both after expiry", async (t) => {
+  const h = signedCheckpointHarness(t);
+  const older = releaseFixture(t, true, undefined, "1.0.1");
+  const stable = h.checkpoint.targetQualification;
+  const retired = h.target(older);
+  retired.archive.tagSha = "9".repeat(40);
+  const extended = structuredClone(h.checkpoint);
+  delete extended.targetQualification;
+  Object.assign(extended, {
+    schemaVersion: 2,
+    targetQualifications: [stable, retired],
+  });
+  const admitted = h.verify(extended);
+  assert.deepEqual(
+    checkpointTargets(admitted).map((target) => target.qualified.version),
+    ["1.0.2", "1.0.1"],
+  );
+  assert.deepEqual(
+    checkpointTargets(h.verify(h.checkpoint)).map(
+      (target) => target.qualificationSha256,
+    ),
+    [stable.qualificationSha256],
+    "Single-target checkpoints keep their original reader",
+  );
+  // Replay uses only signed bytes and current immutable identities: no
+  // Actions artifact or run is read for the retired subject.
+  const reads = [];
+  const api = async (path) => {
+    reads.push(path);
+    if (path === "git/ref/tags/v1.0.1")
+      return { object: { type: "tag", sha: "9".repeat(40) } };
+    if (path.startsWith("git/tags/")) return {};
+    if (path === "releases/60")
+      return {
+        id: 60,
+        tag_name: "v1.0.1",
+        immutable: true,
+        draft: false,
+        prerelease: false,
+        assets: structuredClone(retired.archive.assets),
+      };
+    throw new Error(`Unexpected replay read: ${path}`);
+  };
+  const identity = await admitRetiredQualification(
+    {
+      retired: {
+        version: "1.0.1",
+        source: older.qualified.source,
+        manifestSha256: older.qualified.manifestSha256,
+        qualificationSha256: retired.qualificationSha256,
+        releaseId: 60,
+        prerelease: false,
+      },
+    },
+    {
+      admitted: {
+        qualified: stable.qualified,
+        qualificationSha256: stable.qualificationSha256,
+      },
+      checkpoints: [admitted],
+      api,
+      verifyTag: () => {},
+    },
+  );
+  assert.equal(identity.tagSha, "9".repeat(40));
+  assert.deepEqual(reads, [
+    "git/ref/tags/v1.0.1",
+    `git/tags/${"9".repeat(40)}`,
+    "releases/60",
+  ]);
+  for (const [reason, mutate] of [
+    [
+      "a subject stored twice",
+      (value) => (value.targetQualifications = [stable, stable]),
+    ],
+    [
+      "a mixed single and extended format",
+      (value) => (value.targetQualification = stable),
+    ],
+    ["an empty target inventory", (value) => (value.targetQualifications = [])],
+    [
+      "an incomplete retired subject",
+      (value) =>
+        delete value.targetQualifications[1].files["release-manifest.json"],
+    ],
+    ["an unknown checkpoint format", (value) => (value.schemaVersion = 3)],
+  ]) {
+    const changed = structuredClone(extended);
+    mutate(changed);
+    assert.throws(() => h.verify(changed), undefined, reason);
+  }
+});
+
+test("a new checkpoint carries requested earlier subjects once each and reports unavailable ones", (t) => {
+  const h = signedCheckpointHarness(t);
+  const older = h.target(releaseFixture(t, true, undefined, "1.0.1"));
+  const current = h.checkpoint.targetQualification;
+  const earlier = structuredClone(h.checkpoint);
+  earlier.targetQualification = older;
+  const signed = [h.verify(earlier), h.verify(h.checkpoint)];
+  const unknown = "0".repeat(64);
+  const selected = retainedCheckpointTargets(current, signed, [
+    older.qualificationSha256,
+    current.qualificationSha256,
+    older.qualificationSha256,
+    unknown,
+  ]);
+  assert.deepEqual(
+    selected.targets.map((target) => target.qualificationSha256),
+    [current.qualificationSha256, older.qualificationSha256],
+  );
+  assert.deepEqual(selected.missing, [
+    {
+      qualificationSha256: unknown,
+      reason: "retained-target-qualification-unavailable",
+    },
+  ]);
+  assert.deepEqual(retainedCheckpointTargets(current, signed, []), {
+    targets: [current],
+    missing: [],
+  });
+  const conflicting = structuredClone(earlier);
+  conflicting.targetQualification.archive.releaseId = 61;
+  assert.throws(
+    () =>
+      retainedCheckpointTargets(
+        current,
+        [...signed, conflicting],
+        [older.qualificationSha256],
+      ),
+    /Conflicting retained subjects/u,
+  );
+  assert.throws(() => retainedCheckpointTargets(current, signed, ["F00"]));
 });

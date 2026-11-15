@@ -15,6 +15,8 @@ import {
 import { downloadPublicationArtifact } from "../scripts/publication-artifact.js";
 import { publicationHistoryFixture } from "./publication-history-fixture.js";
 import { providerFor } from "../scripts/release-continuation.js";
+import { verifyProvider } from "../scripts/release-assets.js";
+import { reviewedChannelStagingSteps } from "../scripts/publication-steps.js";
 import { checkWorkflows } from "../scripts/check-workflows.js";
 import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -307,6 +309,93 @@ test("successful mixed-attempt staging prerequisites retain their actual origins
     () => providerFor(f.run, observed.jobs, f.run.path, names, f.attempts),
     /latest prerequisite/u,
   );
+});
+
+test("a core continuation that failed only after its completed requests keeps its failed conclusion and reaches every finalization reader", () => {
+  const f = publicationHistoryFixture(1);
+  Object.assign(f.run, { status: "completed", conclusion: "failure" });
+  f.attempts[0].run = { ...f.run };
+  const names = [
+    "admit",
+    "decision",
+    "retained (windows-latest)",
+    "retained (ubuntu-24.04)",
+    "stage",
+  ];
+  // The step inventory mirrors publish.yml: the two retained native steps are
+  // skipped, the core request completes, then evidence upload reports failure.
+  const stage = (conclusions) => ({
+    ...f.job(1, "failure"),
+    steps: [
+      ["Authenticate this attempt before any staging write", "success"],
+      [reviewedChannelStagingSteps[0], "skipped"],
+      [reviewedChannelStagingSteps[1], "skipped"],
+      ["Verify both native archives before core staging", "success"],
+      [reviewedChannelStagingSteps[2], "success"],
+      [
+        "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+        "failure",
+      ],
+      ["Complete job", "success"],
+    ].map(([name, conclusion]) => ({
+      name,
+      status: "completed",
+      conclusion: conclusions[name] ?? conclusion,
+    })),
+  });
+  const inventory = (conclusions = {}, failedPrerequisite) => [
+    ...names.slice(0, -1).map((name, index) => ({
+      ...f.job(1, name === failedPrerequisite ? "failure" : "success", name),
+      id: 200 + index,
+      labels: name === "retained (ubuntu-24.04)" ? ["ubuntu-24.04"] : [],
+      steps: [],
+    })),
+    stage(conclusions),
+  ];
+  const admit = () => {
+    const observed = authenticatePublicationAttempts(f.run, f.attempts);
+    const expected = providerFor(
+      f.run,
+      observed.jobs,
+      f.run.path,
+      names,
+      f.attempts,
+    );
+    // Archival and history readers authenticate the same attempt through the
+    // shared provider contract rather than the attempt-history path.
+    verifyProvider({ run: f.run, jobs: observed.jobs }, expected);
+    return expected;
+  };
+  f.set(1, inventory());
+  assert.deepEqual(admit().jobs, names);
+  assert.equal(f.run.conclusion, "failure");
+  for (const [conclusions, failedPrerequisite, reason] of [
+    [
+      { "Verify both native archives before core staging": "failure" },
+      undefined,
+      "a failure before the core request",
+    ],
+    [
+      { [reviewedChannelStagingSteps[2]]: "failure" },
+      undefined,
+      "an unresolved core request",
+    ],
+    [
+      { [reviewedChannelStagingSteps[2]]: "skipped" },
+      undefined,
+      "a failed run without any completed request",
+    ],
+    [{}, "decision", "an unsuccessful owner decision"],
+    [{}, "retained (ubuntu-24.04)", "an unsuccessful retained native check"],
+  ]) {
+    f.set(1, inventory(conclusions, failedPrerequisite));
+    assert.throws(admit, undefined, reason);
+  }
+  f.set(
+    1,
+    inventory().filter((job) => job.name !== "stage"),
+  );
+  assert.throws(admit, undefined, "a missing stage job");
 });
 
 for (const fault of [

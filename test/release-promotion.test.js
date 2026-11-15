@@ -8,6 +8,10 @@ import {
   verifyStableCompletion,
 } from "../scripts/promote-release.js";
 import { verifyReleaseAcceptance } from "../scripts/release-acceptance.js";
+import {
+  readFamilyLabels,
+  readFamilyLabelSets,
+} from "../scripts/release-labels.js";
 import { hash } from "../scripts/release-bytes.js";
 
 const packages = [
@@ -34,6 +38,34 @@ test("npm label readback accepts the pinned CLI's single-result array", () => {
   });
   assert.deepEqual(readPackages, packages);
   assert.deepEqual(labels, initial());
+});
+
+test("a guarded family observation reads each package's native tags once for every selected label", () => {
+  const reads = [];
+  const command = (args) => {
+    reads.push(args[1]);
+    return JSON.stringify(
+      args[1] === packages[2]
+        ? { latest: "1.0.3" }
+        : [{ latest: "1.0.3", pilot: "1.0.3" }],
+    );
+  };
+  const families = readFamilyLabelSets(["pilot", "latest"], {
+    command,
+    deadline: performance.now() + 60000,
+  });
+  assert.deepEqual(reads, packages, "Three reads, not one per label");
+  assert.deepEqual(families, {
+    pilot: { ...initial(), [packages[2]]: null },
+    latest: initial(),
+  });
+  reads.length = 0;
+  assert.deepEqual(
+    readFamilyLabels("pilot", { command, deadline: performance.now() + 60000 }),
+    families.pilot,
+  );
+  assert.equal(reads.length, 3);
+  assert.throws(() => readFamilyLabelSets(["pilot", "pilot"], { command }));
 });
 
 test("stable labels advance natives first, core last, and a resumed partial promotion does not replay completed effects", async () => {

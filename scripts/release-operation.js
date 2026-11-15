@@ -41,6 +41,7 @@ export function readReleaseOperation(
       "continue",
       "partial",
       "verify",
+      "retire-pilot",
     ].includes(operation.operation),
   );
   assert.ok(
@@ -218,19 +219,12 @@ export function readReleaseOperation(
       operation.targetQualifications,
       "Partial recovery requires every prior target's original public qualification",
     );
-    for (const name of operation.scope.npm) {
+    for (const name of operation.scope.npm)
       if (operation.targets[name] === null)
-        assert.ok(
-          operation.approvedDeletions?.some(
-            (entry) =>
-              entry.package === name &&
-              entry.current === operation.priors[name] &&
-              entry.target === null,
-          ),
-          "Label deletion needs an explicit package/current/deletion preview",
-        );
-    }
+        requireApprovedDeletion(operation, name);
   }
+  if (operation.operation === "retire-pilot")
+    verifyPilotRetirement(operation, qualified);
   for (const name of releasePackages) {
     if (!operation.scope.npm.includes(name) && operation.operation !== "direct")
       assert.equal(
@@ -248,4 +242,144 @@ export function readReleaseOperation(
       );
   }
   return { operation, bytes };
+}
+
+/** A label removal needs the owner's exact package/current/absent preview, never an inferred one. */
+function requireApprovedDeletion(operation, name) {
+  assert.ok(
+    operation.approvedDeletions?.some(
+      (entry) =>
+        entry.package === name &&
+        entry.current === operation.priors[name] &&
+        entry.target === null,
+    ),
+    "Label deletion needs an explicit package/current/deletion preview",
+  );
+}
+
+/**
+ * Admit the npm-only retirement of an evaluated pilot alias family.
+ * The qualified subject is the current stable release: it must be GitHub
+ * latest and stable, and its three `latest` labels are frozen as guards.
+ * The retired subject is no later than that stable version; when it is the
+ * same subject its identity must equal the admitted stable qualification.
+ * Every present pilot alias needs an approved deletion and every absent alias
+ * an approved no-op, so the whole family is explicitly accounted for.
+ */
+function verifyPilotRetirement(operation, qualified) {
+  releaseVersion(qualified.version, { stable: true });
+  assert.equal(operation.label, "pilot", "Retirement removes pilot aliases");
+  assert.equal(operation.scope.github, false, "Retirement is npm-only");
+  assert.equal(operation.priorGithubLatest, operation.releaseId);
+  assert.equal(operation.priorPrerelease, false);
+  assert.deepEqual(
+    [...operation.scope.npm].sort(),
+    [...releasePackages].sort(),
+    "Retirement accounts for the whole pilot family",
+  );
+  assert.deepEqual(
+    Object.keys(operation.guards?.latest ?? {}).sort(),
+    [...releasePackages].sort(),
+  );
+  for (const name of releasePackages)
+    assert.equal(
+      operation.guards.latest[name],
+      qualified.version,
+      "Retirement requires the coherent stable latest family",
+    );
+  const retired = operation.retired;
+  assert.deepEqual(Object.keys(retired ?? {}).sort(), [
+    "manifestSha256",
+    "prerelease",
+    "qualificationSha256",
+    "releaseId",
+    "source",
+    "version",
+  ]);
+  releaseVersion(retired.version);
+  assert.ok(
+    !releaseSemver.gt(retired.version, qualified.version),
+    "A newer pilot candidate is not retired by this stable release",
+  );
+  assert.match(retired.source, /^[a-f0-9]{40}$/u);
+  assert.match(retired.manifestSha256, /^[a-f0-9]{64}$/u);
+  assert.match(retired.qualificationSha256, /^[a-f0-9]{64}$/u);
+  assert.ok(Number.isSafeInteger(retired.releaseId) && retired.releaseId > 0);
+  assert.equal(typeof retired.prerelease, "boolean");
+  if (retired.version === qualified.version)
+    assert.deepEqual(
+      retired,
+      {
+        version: qualified.version,
+        source: qualified.source,
+        manifestSha256: qualified.manifestSha256,
+        qualificationSha256: operation.qualificationSha256,
+        releaseId: operation.releaseId,
+        prerelease: false,
+      },
+      "The retired subject must be the admitted stable subject",
+    );
+  else assert.notEqual(retired.releaseId, operation.releaseId);
+  // A resumed retirement names its whole original writer; history admission
+  // then derives the remaining scope from that writer's authenticated effects.
+  const original = [
+    "originalOperationId",
+    "originalDecisionSha256",
+    "originalJournalSha256",
+    "originalWriter",
+  ];
+  assert.ok(
+    original.every((name) => operation[name] === undefined) ||
+      original.every((name) => operation[name] !== undefined),
+    "A resumed retirement names its complete original writer",
+  );
+  if (operation.originalOperationId !== undefined) {
+    assert.notEqual(operation.originalOperationId, operation.operationId);
+    assert.match(operation.originalDecisionSha256, /^[a-f0-9]{64}$/u);
+    assert.match(operation.originalJournalSha256, /^[a-f0-9]{64}$/u);
+    for (const name of ["run", "attempt", "job"])
+      assert.match(String(operation.originalWriter[name]), /^[1-9]\d{0,15}$/u);
+  }
+  const noops = new Set(operation.noops ?? []);
+  for (const name of releasePackages) {
+    assert.equal(operation.targets[name], null, "Retirement targets absence");
+    if (operation.priors[name] === null)
+      assert.ok(
+        noops.has(name),
+        "An absent pilot alias needs an approved no-op",
+      );
+    else {
+      assert.equal(
+        operation.priors[name],
+        retired.version,
+        "Each present pilot alias must name the retired subject",
+      );
+      assert.ok(!noops.has(name), "A present pilot alias is not a no-op");
+      requireApprovedDeletion(operation, name);
+    }
+  }
+}
+
+/**
+ * Whether an admitted operation has a GitHub writer. Pilot retirement is
+ * npm-only and must reach completion without acquiring GitHub write
+ * permission; every other variant retains its sealed GitHub writer record,
+ * including the zero-effect preflight of npm-only recovery variants.
+ */
+export function githubWriterRequired(operation) {
+  return operation.operation !== "retire-pilot";
+}
+
+/**
+ * Whether a decision resumes an interrupted original operation, so its
+ * authenticated ancestors may remain unfinished. Partial recovery and forward
+ * continuation always do; a pilot retirement does when it names an original
+ * retirement writer and the settlements that let it repeat refused requests.
+ */
+export function resumesOperation(operation) {
+  return (
+    ["partial", "continue"].includes(operation.operation) ||
+    (operation.operation === "retire-pilot" &&
+      operation.originalOperationId !== undefined)
+  );
 }

@@ -94,6 +94,11 @@ If the number was consumed by another dispatch, inspect that run before reservin
 Read-only completion, reconciliation and checkpoint export need no new writer intent.
 
 At cutover, keep the old writers quiescent and compare the 19 run IDs in `scripts/release-writer-baseline.json` with GitHub Actions and the release environments' deployment records.
+On 2026-11-15 the nine publish runs from 5–6 October 2026 in that baseline, `37381739004` through `37490858990`, returned no Actions artifacts.
+Run `37381739004` has no publisher job and `37413673170` skipped all three request steps.
+The other seven, `37391073949`, `37393670535`, `37408154658`, `37409484508`, `37412118242`, `37417063198` and `37490858990`, have publish jobs whose request steps ran, so they have no original writer evidence and admission reports them missing.
+For run `37393670535`, independent public custody exists: npm's signed SLSA provenance for `@hadden-industries/markdown-quality-win32-x64@1.0.0` names that run's attempt 1 and source `80f58a5df39ec4f1840b46f01f83416540cee283`, and its job history shows the Linux and core steps skipped.
+No current reader admits that provenance as writer evidence, so these runs remain an explicit release-readiness gap until an owner-accepted recovery contract with its own oracle exists.
 Account for any intervening runs in the baseline before enabling the controller.
 The baseline includes the original push-triggered publisher.
 The controller enumerates protected intent refs on every admission.
@@ -212,6 +217,8 @@ A later default, foreign origin or incomplete provider history blocks the reques
 An attempted stage remains pending or outcome-unknown until original provider evidence settles it; a public 404 does not authorize another request.
 An evidence-upload failure after completed native requests preserves those requests and the original failed workflow outcome.
 Continue with the original manifest and origin-map digests after owner approval and both public native checks; the core phase retains the two native origins instead of staging them again.
+Public finalization and archival accept a core staging attempt whose stage job failed only after its completed requests, for example at evidence upload, provided every prerequisite job succeeded and the attempt's own publication artifact authenticates.
+A failure before or during a request, an unsuccessful prerequisite or a run without a completed request still blocks, and the failed conclusion stays in the record.
 Known artifact metadata IDs may briefly return 404 while GitHub indexes them; the evidence reader retries only that exact metadata lookup within its existing read budget, without repeating an upload or npm request.
 
 The archival workflow's new decision route is read-only.
@@ -238,15 +245,16 @@ All three package keys are mandatory; null means explicitly observed absence.
 Already-at-target scoped labels require explicit noops.
 An unchanged scoped GitHub classification requires githubNoop.
 
-| Operation | Admitted scope                                                                                                          |
-| --------- | ----------------------------------------------------------------------------------------------------------------------- |
-| promote   | Strictly newer stable version; coherent prior family; Windows, Linux, core and GitHub                                   |
-| align     | Core and GitHub already identify the qualified stable target; only divergent companions change                          |
-| restore   | Previously qualified immutable stable family; full family plus GitHub; older version is allowed                         |
-| direct    | Reviewed latest staging already changed npm; no redundant npm requests; RC preserves prior GitHub stable line           |
-| continue  | Reconciled original effects stay guarded; only never-requested npm labels and outstanding GitHub classification proceed |
-| partial   | Exactly the interrupted operation's attributable labels, restored to their individually qualified original priors       |
-| verify    | Explicitly scoped no-effect observation; does not authorize a prior writer                                              |
+| Operation    | Admitted scope                                                                                                           |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| promote      | Strictly newer stable version; coherent prior family; Windows, Linux, core and GitHub                                    |
+| align        | Core and GitHub already identify the qualified stable target; only divergent companions change                           |
+| restore      | Previously qualified immutable stable family; full family plus GitHub; older version is allowed                          |
+| direct       | Reviewed latest staging already changed npm; no redundant npm requests; RC preserves prior GitHub stable line            |
+| continue     | Reconciled original effects stay guarded; only never-requested npm labels and outstanding GitHub classification proceed  |
+| partial      | Exactly the interrupted operation's attributable labels, restored to their individually qualified original priors        |
+| verify       | Explicitly scoped no-effect observation; does not authorize a prior writer                                               |
+| retire-pilot | Removes the evaluated `pilot` aliases, natives first; npm-only; the stable `latest` family and GitHub latest stay guards |
 
 Fresh admission verifies original public qualification/provenance, source/rights/distribution evidence, exact-source scans, current alert state, retained recipient-lock audits and current public package bytes.
 It authenticates all surviving and signed retained writer observations as one consistent union.
@@ -268,8 +276,45 @@ Approved prior-to-target propagation, transient resets/timeouts, temporary serve
 A third value, identity/digest/schema failure or ordinary authorization denial stops immediately.
 At expiry, completion.json records completion-unconfirmed, last confirmed observations, original writers and earliest useful retry where known.
 
-To rerun only final observation, select mode verify with the **original operation bytes/digest** and continuation-json containing admissionId, npmId, githubId, writerRun and writerAttempt.
+To rerun only final observation, select mode verify with the **original operation bytes/digest** and continuation-json containing admissionId, npmId, writerRun and writerAttempt, plus githubId when the operation has a GitHub writer.
+Completion refuses a missing GitHub writer for an operation that has one and any GitHub writer for an npm-only retirement.
 The writer jobs are skipped and no OIDC or contents-write authority is granted.
+
+### Retire an evaluated pilot alias
+
+`pilot` names an actively evaluated candidate and may be absent between candidates.
+Retire it only after the owner observes the stable and retired subjects and decides that no candidate is still being evaluated.
+Refresh the registry and GitHub observations at that decision; if a newer pilot candidate is present, narrow or defer the retirement.
+Version-pinned installs and immutable release assets keep identifying their original versions after retirement.
+
+Use operation `retire-pilot` with label `pilot`, scope.npm naming all three packages and scope.github false.
+The archive inputs, version, releaseId and qualification digest identify the current stable subject, which must be GitHub latest and stable.
+Set priors to the observed pilot value of every package and targets and targetIntegrities to null.
+Each present alias needs an approvedDeletions entry naming package, current value and null target; each absent alias needs an approved no-op.
+`guards.latest` freezes the coherent stable `latest` value of all three packages.
+`retired` names version, source, manifestSha256, qualificationSha256, releaseId and prerelease of the retired subject, which must be no later than the stable version.
+When it is the stable subject, admission reuses that verified stable evidence.
+An older subject must appear in a selected signed history checkpoint; admission checks its signed tag, immutable release ID and asset identities without executing or auditing its retired code again.
+The current stable target still receives its fresh security refresh.
+
+Admission publishes `github-writer=false` for this decision, so the GitHub job is skipped and never acquires contents-write permission.
+Immediately before each removal, the npm job rechecks the protected controller, stage guards, GitHub latest, the full pilot family and the full stable family from the same native tag reads.
+It then requests `npm dist-tag rm PACKAGE pilot --registry=https://registry.npmjs.org/ --json` through the isolated npm adapter.
+The `--json` flag changes only npm's reporting, so a refused request retains npm's own structured error code in the journal.
+A third value, a newer pilot, a changed stable value or a changed GitHub latest stops further requests and leaves the exact changed prefix in the journal.
+Completion authenticates the npm writer alone, observes the pilot and stable families at the same boundary and records a null GitHub writer.
+
+| Job       | Credentials                                  | Effect                                                   |
+| --------- | -------------------------------------------- | -------------------------------------------------------- |
+| admit     | Read-only contents, actions, security events | Full admission; publishes the GitHub writer decision     |
+| npm       | `npm-promotion` environment OIDC, read-only  | Ordered alias removals with intent, outcome and readback |
+| github    | Skipped for retirement                       | None                                                     |
+| complete  | Read-only contents and actions               | Authenticated read-only completion                       |
+| reconcile | Read-only contents and actions               | Provider observation for one original request            |
+
+Before a live retirement, the owner verifies a matching trusted-publisher configuration for each of the three packages, naming this repository, `promote-release.yml`, the `npm-promotion` environment and dist-tag permission.
+Read-only inspection and `npm whoami` cannot establish that OIDC mutation authority, and direct publication permission is configured separately.
+Restoring a removed alias is a new owner-reviewed availability operation with its own preimage and source evidence.
 Original successful writers are not replayed.
 Authenticated retained artifacts may supply expired inputs; conflicts with surviving native metadata block reuse.
 
@@ -296,6 +341,17 @@ Reference that job's URL and the observation file's SHA-256 in the next operatio
 Only an independent target-visible observation can support this applied settlement.
 An old label or public absence cannot establish `not-applied`; unresolved requests remain blocked.
 
+A refused npm label request has one supported settlement class: npm's structured `E401` refusal retained in the original journal.
+Run the same read-only reconcile mode for that request.
+The observation is `rejected` only when the journal's structured code is `E401` with a nonzero exit, the refused request is the writer's last and only unknown request, the original npm job and its request step both failed, and the prior value is still publicly visible.
+The reader retains the original job ID, step completion time and the SHA-256 and size of the native job log while it is still available, never the log content.
+A timeout, connection loss, missing log, other error code, later request or acknowledgement leaves the request unknown under the existing rules.
+Settle it with disposition `rejected`, the original decisionSha256, and a `rejection` record naming package, label, source, controller, run, attempt, job, step, stepCompletedAt, logSha256 and npmErrorCode exactly as observed.
+Repairing the trusted publisher grants no release-operation authority.
+A fresh retirement then binds originalOperationId, originalDecisionSha256, originalJournalSha256 and originalWriter run/attempt/job and carries that settlement in `settlements`.
+Removals the original writer acknowledged become approved no-ops with a null prior, the refused request may be issued again only because the decision names its settlement, and untouched aliases keep their original priors.
+The original failed journal, the settlement and the fresh operation remain separate retained records.
+
 For partial recovery, bind originalOperationId, originalDecisionSha256, originalJournalSha256 and originalWriter run/attempt/job.
 Admission derives affected labels from that journal and current approved preimages.
 Each non-null target names its separate signed original qualification digest in targetQualifications.
@@ -315,8 +371,14 @@ Changed package bytes require a new qualified version.
 Run release-history.yml before the earliest real Actions artifact expiry.
 The export retains original writer attempts/artifact identities separately from original source/public qualification, reports, recipient locks and immutable archive identities.
 A snapshot or admission result cannot stand in for a writer journal.
-Inspect summary.json for completeness, missing proof and earliestExpiry.
+Inspect summary.json for completeness, missing proof, retained targets and earliestExpiry.
 A successful immediate archive verification is different from recovery eligibility after expiry.
+After retiring an older pilot, pass its qualification digest in retained-qualifications so the export keeps that subject beside the current stable target.
+The export then uses checkpoint schema 2 with `targetQualifications`, storing each subject once by its qualification digest; without that input it keeps the single-target schema 1 format.
+A requested subject that no selected signed ref retains is reported missing and leaves the export incomplete.
+Readers select each format explicitly and validate every retained subject in the same way.
+Automatic checkpoint preparation after archival or a family operation is not enabled.
+A workflow-run trigger does not carry the original dispatch inputs that the maintained reader authenticates, so preparation stays an explicit owner dispatch.
 
 Sign the exact complete export through a fresh annotated release-history-* tag whose commit contains release-history.json at its root.
 Prepare that commit in a disposable directory or through the owner's existing evidence-signing route, preserving the current development checkout.

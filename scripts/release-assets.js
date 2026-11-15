@@ -27,6 +27,10 @@ import {
   verifyReleaseQualificationJob,
 } from "./release-qualification.js";
 import { registryJobNames, registryWorkflow } from "./release-qualification.js";
+import {
+  assertPublicationRequestsCompleted,
+  publicationWorkflow,
+} from "./publication-attempts.js";
 import { verifyReleaseAcceptance } from "./release-acceptance.js";
 import { bindStagingReconciliation } from "./release-staging-evidence.js";
 import { validateConsumer } from "./ci-consumer.js";
@@ -203,8 +207,14 @@ export function releaseNames(qualified) {
   ].sort();
 }
 
+/**
+ * Authenticate one provider run attempt and its required jobs against the
+ * identity recorded at qualification or staging. A staging attempt shares the
+ * completed-request rule with finalization; every other workflow must succeed.
+ */
 export function verifyProvider(provider, expected) {
   const { run, jobs } = provider;
+  const staging = expected.workflow === publicationWorkflow;
   assert.equal(run.repository.full_name, repository);
   assert.equal(String(run.id), expected.run);
   assert.equal(String(run.run_attempt), expected.attempt);
@@ -213,8 +223,9 @@ export function verifyProvider(provider, expected) {
   assert.equal(run.event, expected.event);
   assert.equal(run.head_branch, "main");
   assert.equal(run.status, "completed");
-  assert.equal(run.conclusion, "success");
   assert.equal(jobs.total_count, jobs.jobs.length);
+  if (staging) assertPublicationRequestsCompleted(run, jobs);
+  else assert.equal(run.conclusion, "success");
   for (const name of expected.jobs) {
     const matches = jobs.jobs.filter((j) => j.name === name);
     assert.equal(matches.length, 1, "Missing or duplicate required job");
@@ -223,7 +234,7 @@ export function verifyProvider(provider, expected) {
       continue;
     }
     assert.equal(matches[0].status, "completed");
-    assert.equal(matches[0].conclusion, "success");
+    if (!staging) assert.equal(matches[0].conclusion, "success");
     assert.equal(String(matches[0].run_id), expected.run);
     assert.equal(String(matches[0].run_attempt), expected.attempt);
     assert.equal(matches[0].head_sha ?? run.head_sha, expected.source);

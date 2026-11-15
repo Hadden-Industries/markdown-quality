@@ -34,6 +34,7 @@ import { stagingStepNames } from "./publication-steps.js";
 import { verifyReleaseAcceptance } from "./release-acceptance.js";
 import { readPackageTags } from "./release-labels.js";
 import {
+  assertPublicationRequestsCompleted,
   authenticatePublicationAttempts,
   readPublicationAttempts,
   publicationWorkflow,
@@ -68,16 +69,7 @@ export function providerFor(run, jobs, workflow, names, attempts) {
       observed.jobs,
       "Staging jobs differ from authenticated attempt history",
     );
-    assert.equal(run.status, "completed");
-    assert.equal(run.conclusion, "success");
-    for (const job of jobs.jobs) {
-      assert.equal(job.status, "completed");
-      assert.equal(
-        job.conclusion,
-        "success",
-        "The latest prerequisite execution must succeed",
-      );
-    }
+    assertPublicationRequestsCompleted(run, jobs);
   } else verifyProvider({ run, jobs }, expected);
   assert.deepEqual(
     jobs.jobs.map(({ name }) => name).sort(),

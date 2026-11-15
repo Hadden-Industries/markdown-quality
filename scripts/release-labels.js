@@ -55,10 +55,26 @@ export function readPackageTags(
 
 /** All package reads consume the caller's one operation budget. */
 export function readFamilyLabels(label, options = {}) {
+  return readFamilyLabelSets([label], options)[label];
+}
+
+/**
+ * Observe several labels of the three-package family from one native tag read
+ * per package, so a guarded family and its selected label describe the same
+ * registry responses. Returns `{label: {package: version | null}}`.
+ */
+export function readFamilyLabelSets(labels, options = {}) {
+  assert.ok(labels.length > 0 && new Set(labels).size === labels.length);
+  const tags = releasePackages.map((name) => readPackageTags(name, options));
   return Object.fromEntries(
-    releasePackages.map((name) => [
-      name,
-      readPackageTags(name, options)[label] ?? null,
+    labels.map((label) => [
+      label,
+      Object.fromEntries(
+        releasePackages.map((name, index) => [
+          name,
+          tags[index][label] ?? null,
+        ]),
+      ),
     ]),
   );
 }

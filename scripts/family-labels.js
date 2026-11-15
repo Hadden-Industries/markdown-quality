@@ -7,6 +7,26 @@ import { releasePackages } from "./release-coordinates.js";
 import { transientProviderRead } from "./release-readback.js";
 import { retryDelay } from "./github-evidence.js";
 
+/**
+ * Summarize a failed native label request without retaining npm's free text.
+ * The error code comes only from npm's `--json` error body; any other output
+ * leaves it null, so the request stays an unknown outcome for reconciliation.
+ */
+export function npmRequestDiagnostic(error) {
+  let code = null;
+  try {
+    const candidate = JSON.parse(error?.stdout ?? "")?.error?.code;
+    if (typeof candidate === "string" && /^E[0-9A-Z]{2,16}$/u.test(candidate))
+      code = candidate;
+  } catch {
+    /* No structured npm error body: the code remains unknown. */
+  }
+  return {
+    exitStatus: Number.isSafeInteger(error?.status) ? error.status : null,
+    npmErrorCode: code,
+  };
+}
+
 /** The caller authenticates settlements before passing their exact package targets. */
 export async function executeFamilyLabels({
   operation,
@@ -50,7 +70,7 @@ export async function executeFamilyLabels({
             [operation.priors[name], operation.targets[name]].includes(
               labels[name],
             ),
-            `Unexpected latest for ${name}; reconcile before changing labels`,
+            `Unexpected ${operation.label} for ${name}; reconcile before changing labels`,
           );
           if (
             labels[name] === operation.targets[name] &&
@@ -111,24 +131,31 @@ export async function executeFamilyLabels({
       target,
     });
     try {
-      write(effect, () =>
-        command(
-          target === null
-            ? [
-                "dist-tag",
-                "rm",
-                name,
-                operation.label,
-                "--registry=https://registry.npmjs.org/",
-              ]
-            : [
-                "dist-tag",
-                "add",
-                `${name}@${target}`,
-                operation.label,
-                "--registry=https://registry.npmjs.org/",
-              ],
-        ),
+      // `--json` changes only npm's reporting: a refused request then carries
+      // npm's own structured error, which the journal retains for recovery.
+      write(
+        effect,
+        () =>
+          command(
+            target === null
+              ? [
+                  "dist-tag",
+                  "rm",
+                  name,
+                  operation.label,
+                  "--registry=https://registry.npmjs.org/",
+                  "--json",
+                ]
+              : [
+                  "dist-tag",
+                  "add",
+                  `${name}@${target}`,
+                  operation.label,
+                  "--registry=https://registry.npmjs.org/",
+                  "--json",
+                ],
+          ),
+        { diagnose: npmRequestDiagnostic },
       );
     } catch (error) {
       record({ state: "outcome-unknown", package: name, target });

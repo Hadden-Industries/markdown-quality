@@ -100,6 +100,80 @@ export function attemptedPublicationJobs(jobs) {
   });
 }
 
+/**
+ * Decide whether one completed `stage` job finished every staging request it
+ * made. A failure is admissible only after the last request step (for example
+ * the evidence upload or job cleanup), because a later step cannot change an
+ * already completed provider request. Returns false for an unresolved,
+ * unattempted or pre-request failure. This rule admits only the job outcome:
+ * finalization separately downloads that attempt's digest-bound publication
+ * artifact and checks its origin map against these same steps.
+ */
+export function stagingRequestsCompleted(job) {
+  if (job.name !== "stage" || job.status !== "completed") return false;
+  if (job.conclusion === "success") return true;
+  if (job.conclusion !== "failure" || !Array.isArray(job.steps)) return false;
+  let names;
+  try {
+    names = stagingStepNames(job);
+  } catch {
+    return false;
+  }
+  const requests = names.map((name) =>
+    job.steps.findIndex((step) => step.name === name),
+  );
+  if (
+    requests.some((index) => index < 0) ||
+    names.some(
+      (name) => job.steps.filter((step) => step.name === name).length !== 1,
+    )
+  )
+    return false;
+  const last = Math.max(
+    ...requests.filter((index) => job.steps[index].conclusion !== "skipped"),
+  );
+  return (
+    Number.isFinite(last) &&
+    job.steps.every(
+      (step, index) =>
+        step.status === "completed" &&
+        (["success", "skipped"].includes(step.conclusion) || index > last),
+    )
+  );
+}
+
+/**
+ * Admit the conclusion of one staging attempt for finalization and archival.
+ * Prerequisite jobs must succeed. The run may retain its original failed
+ * conclusion only when that failure is confined to the stage job after its
+ * completed requests; the failure itself remains part of the observed record.
+ * Legacy `publish` attempts have no stage job and keep the all-success rule.
+ */
+export function assertPublicationRequestsCompleted(run, jobs) {
+  assert.equal(run.status, "completed");
+  const stages = jobs.jobs.filter((job) => job.name === "stage");
+  assert.ok(stages.length <= 1, "Duplicate staging job");
+  for (const job of jobs.jobs) {
+    assert.equal(job.status, "completed");
+    if (job.name === "stage")
+      assert.ok(
+        stagingRequestsCompleted(job),
+        "The staging job must complete its requests before any failure",
+      );
+    else
+      assert.equal(
+        job.conclusion,
+        "success",
+        "The latest prerequisite execution must succeed",
+      );
+  }
+  assert.ok(
+    run.conclusion === "success" ||
+      (run.conclusion === "failure" && stages[0]?.conclusion === "failure"),
+    "Staging run conclusion is not attributable to completed requests",
+  );
+}
+
 /** Select the latest observed prerequisites without relabelling retained jobs. */
 export function authenticatePublicationAttempts(run, attempts) {
   assert.ok(

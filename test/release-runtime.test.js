@@ -567,3 +567,40 @@ test("workflow contracts reject draft-permission, dependency-order and snapshot 
     );
   }
 });
+
+test("an npm-only family operation skips the GitHub writer only by its authenticated admission output", () => {
+  const path = ".github/workflows/promote-release.yml";
+  const original = parse(readFileSync(join(root, path), "utf8"));
+  checkWorkflows({ overrides: { [path]: JSON.stringify(original) } });
+  for (const [reason, mutate] of [
+    ["ungated GitHub writer", (doc) => delete doc.jobs.github.if],
+    [
+      "caller-selected GitHub skip",
+      (doc) =>
+        (doc.jobs.github.if =
+          "fromJSON(inputs.operation-json).scope.github == true"),
+    ],
+    [
+      "unconditional skipped writer at completion",
+      (doc) =>
+        (doc.jobs.complete.if = doc.jobs.complete.if.replace(
+          " && needs.admit.outputs.github-writer == 'false'",
+          "",
+        )),
+    ],
+    [
+      "unbound admission output",
+      (doc) =>
+        (doc.jobs.admit.outputs["github-writer"] =
+          "${{ inputs.operation-json }}"),
+    ],
+  ]) {
+    const doc = structuredClone(original);
+    mutate(doc);
+    assert.throws(
+      () => checkWorkflows({ overrides: { [path]: JSON.stringify(doc) } }),
+      undefined,
+      reason,
+    );
+  }
+});

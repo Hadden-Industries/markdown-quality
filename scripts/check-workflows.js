@@ -206,6 +206,31 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
   const publication = workflows.get("./.github/workflows/publish.yml");
   const archival = workflows.get("./.github/workflows/github-release.yml");
   const promotion = workflows.get("./.github/workflows/promote-release.yml");
+  // Only the authenticated admission decides that an operation is npm-only;
+  // completion may accept a skipped GitHub writer for exactly that decision.
+  const admitted = promotion.jobs.admit.steps.find(
+    (step) => step.id === "admitted",
+  );
+  assert.equal(
+    admitted?.run,
+    "node scripts/promote-release.js admit archive-inputs promotion-admission",
+    "promote-release: the GitHub writer decision must come from admission",
+  );
+  assert.equal(
+    promotion.jobs.admit.outputs["github-writer"],
+    "${{ steps.admitted.outputs.github-writer }}",
+  );
+  assert.equal(
+    promotion.jobs.github.if,
+    "needs.admit.outputs.github-writer == 'true'",
+    "promote-release: the GitHub writer must follow the admitted operation",
+  );
+  assert.ok(
+    promotion.jobs.complete.if.includes(
+      "(needs.github.result == 'success' || (needs.github.result == 'skipped' && needs.admit.outputs.github-writer == 'false'))",
+    ),
+    "promote-release: completion accepts a skipped GitHub writer only for an admitted npm-only operation",
+  );
   for (const [workflow, roles] of [
     [publication, []],
     [archival, ["legacy-decisions", "archive"]],

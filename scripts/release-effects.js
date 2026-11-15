@@ -39,7 +39,12 @@ export function createEffectJournal(directory, context) {
       });
       return result;
     },
-    write(effect, request) {
+    /**
+     * Record intent, then make exactly one request. A failure appends an
+     * outcome-unknown record; `diagnose(error)` may add a public-safe native
+     * diagnostic, which never changes that outcome by itself.
+     */
+    write(effect, request, { diagnose } = {}) {
       assert.ok(["npm", "github"].includes(effect.provider));
       if (effect.provider === "npm")
         assert.ok(releasePackages.includes(effect.subject));
@@ -68,10 +73,13 @@ export function createEffectJournal(directory, context) {
         });
         return result;
       } catch (error) {
+        const diagnostic = diagnose?.(error);
+        if (diagnostic) verifyRequestDiagnostic(diagnostic);
         append({
           state: "outcome-unknown",
           sequence,
           intentSha256: hash(intentBytes),
+          ...(diagnostic ? { diagnostic } : {}),
         });
         throw error;
       }
@@ -137,13 +145,50 @@ export function verifyEffectJournal(bytes, context) {
       assert.ok(["acknowledged", "outcome-unknown"].includes(record.state));
       assert.ok(intents.has(record.sequence) && !outcomes.has(record.sequence));
       assert.equal(record.intentSha256, intents.get(record.sequence).sha256);
+      if (record.diagnostic !== undefined) {
+        assert.equal(record.state, "outcome-unknown");
+        verifyRequestDiagnostic(record.diagnostic);
+      }
       outcomes.set(record.sequence, record);
     }
   }
-  return [...intents.values()].map(({ record }) => ({
-    ...record,
-    outcome: outcomes.get(record.sequence)?.state ?? "outcome-unknown",
-  }));
+  return [...intents.values()].map(({ record }) => {
+    const outcome = outcomes.get(record.sequence);
+    return {
+      ...record,
+      outcome: outcome?.state ?? "outcome-unknown",
+      ...(outcome?.diagnostic ? { diagnostic: outcome.diagnostic } : {}),
+    };
+  });
+}
+
+/** A retained native diagnostic is a public-safe exit status and error code only. */
+export function verifyRequestDiagnostic(diagnostic) {
+  assert.deepEqual(Object.keys(diagnostic).sort(), [
+    "exitStatus",
+    "npmErrorCode",
+  ]);
+  assert.ok(
+    diagnostic.exitStatus === null ||
+      Number.isSafeInteger(diagnostic.exitStatus),
+  );
+  assert.ok(
+    diagnostic.npmErrorCode === null ||
+      /^E[0-9A-Z]{2,16}$/u.test(diagnostic.npmErrorCode),
+  );
+  return diagnostic;
+}
+
+/** The writer step whose failure accompanies a refused native label request. */
+export const npmRequestStep = "Change only approved npm labels, natives first";
+
+/** The first supported rejection class: npm's structured HTTP 401 refusal. */
+export function npmRequestRejected(diagnostic) {
+  return (
+    diagnostic?.npmErrorCode === "E401" &&
+    Number.isSafeInteger(diagnostic.exitStatus) &&
+    diagnostic.exitStatus !== 0
+  );
 }
 
 /** A settlement binds the unknown original intent and independently retained provider observation. */
@@ -158,10 +203,19 @@ export function verifyEffectSettlement(settlement, journal, context) {
   );
   assert.ok(effect && effect.outcome === "outcome-unknown");
   assert.ok(
-    ["applied", "not-applied", "cancelled-before-request"].includes(
+    ["applied", "not-applied", "cancelled-before-request", "rejected"].includes(
       settlement.disposition,
     ),
   );
+  if (settlement.disposition === "rejected") {
+    // A refusal settles only the exact original request of the exact decision.
+    assert.equal(settlement.decisionSha256, context.decisionSha256);
+    assert.equal(effect.provider, "npm");
+    assert.ok(
+      npmRequestRejected(effect.diagnostic),
+      "Only npm's structured 401 refusal can settle a request as rejected",
+    );
+  }
   assert.ok(settlement.rationale?.trim().length >= 20);
   assert.ok(settlement.providerEvidence?.length > 0);
   for (const entry of settlement.providerEvidence) {
@@ -171,7 +225,7 @@ export function verifyEffectSettlement(settlement, journal, context) {
   return effect;
 }
 
-/** Only an independent native read-only reconciliation supports an explicit applied disposition. */
+/** Only an independent native read-only reconciliation supports an explicit applied or rejected disposition. */
 export function verifySettlementObservation(
   settlement,
   effect,
@@ -179,9 +233,8 @@ export function verifySettlementObservation(
   observation,
   producer,
 ) {
-  assert.equal(
-    settlement.disposition,
-    "applied",
+  assert.ok(
+    ["applied", "rejected"].includes(settlement.disposition),
     "A prior value or public absence cannot prove that an unknown request was not applied",
   );
   assert.equal(producer.run.path, ".github/workflows/promote-release.yml");
@@ -214,6 +267,10 @@ export function verifySettlementObservation(
       effect[name],
       "Settlement observation belongs to another effect",
     );
+  if (settlement.disposition === "rejected") {
+    verifyRejectionObservation(settlement, effect, context, observation);
+    return;
+  }
   assert.equal(observation.observedState, "target-visible");
   if (effect.provider === "npm")
     assert.equal(observation.observation.npm[effect.subject], effect.target);
@@ -228,6 +285,43 @@ export function verifySettlementObservation(
       effect.target.latest,
     );
   }
+}
+
+/**
+ * Bind an owner's rejection settlement to the read-only rejection observation:
+ * the same package/label endpoint, protected source and controller, original
+ * run/attempt/job/step and step completion time, native log digest and the
+ * journal's structured npm refusal, with the prior still publicly visible.
+ */
+function verifyRejectionObservation(settlement, effect, context, observation) {
+  assert.equal(observation.observedState, "rejected");
+  const observed = observation.rejection;
+  assert.deepEqual(observed.diagnostic, effect.diagnostic);
+  assert.ok(npmRequestRejected(observed.diagnostic));
+  assert.equal(observed.package, effect.subject);
+  assert.equal(observed.observedPrior, effect.prior);
+  assert.equal(observed.step, npmRequestStep);
+  assert.ok(
+    Date.parse(observed.stepCompletedAt) <= Date.parse(observation.observedAt),
+    "A rejection must be observed after its native step completed",
+  );
+  assert.deepEqual(
+    settlement.rejection,
+    {
+      package: effect.subject,
+      label: observed.label,
+      source: context.source,
+      controller: context.controller,
+      run: context.run,
+      attempt: context.attempt,
+      job: observed.job,
+      step: observed.step,
+      stepCompletedAt: observed.stepCompletedAt,
+      logSha256: observed.logSha256,
+      npmErrorCode: observed.diagnostic.npmErrorCode,
+    },
+    "Rejection settlement differs from its exact native observation",
+  );
 }
 
 /** Independently verified draft/immutable state may settle only the exact matching archive effect. */

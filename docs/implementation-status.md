@@ -1,5 +1,40 @@
 # Implementation decisions and evidence
 
+## Release controller hardening and pilot retirement on 2026-11-15
+
+The [hardening plan](plans/2026-11-14-release-controller-hardening-and-pilot-retirement.md) is implemented in source on `fix/release-controller` from baseline `18d9a9e`.
+No registry, GitHub release, trusted-publisher or environment mutation was performed, and no live retirement has been admitted.
+The work followed the HISEW implementation procedure without engine receipts, because the installed HISEW engine is registered for Codex only; no governed execution or verification record exists for this change.
+
+| Requirement | Source result                                                                                                                                                                                | Proof                                                                                    |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| REQ-01      | Unchanged: bundled-dependency staging already keeps original declarations and lock bytes, and the archive readers already select historical and current formats.                             | Existing bundled-dependency, packed-qualification and GitHub release suites              |
+| REQ-02      | Unchanged: both SHA-256 digest forms already canonicalize, and Markdown's skipped staging matrix job is reported as plain `retained` (run `42589874800`), so no alias was added.             | Existing evidence-transport and publication suites                                       |
+| REQ-03      | A core staging attempt whose stage job failed only after its completed requests now reaches finalization, archival and history readers through one shared rule; its failed conclusion stays. | Publication-attempt test with five refusal cases; failed native writer export regression |
+| REQ-04      | Unchanged: stale, misplaced and mismatched immutability observations and immutable archive recovery were already covered.                                                                    | Existing release-controls and GitHub release suites                                      |
+| REQ-05      | `retire-pilot` is admitted, written natives first, completed without a GitHub writer and accepted by the history reader; the workflow gates the GitHub job on the admitted decision.         | Six controller tests, completion-binding test, workflow contract test                    |
+| REQ-06      | npm's structured `E401` is retained in the journal, observed read-only as `rejected`, settled only by an exact owner record and repeated only by a fresh retirement naming that settlement.  | Two controller journey tests with adverse substitutions                                  |
+| REQ-07      | Checkpoint schema 2 retains distinct subjects once each; one admission authenticates signed history once; one native tag read per package serves both guarded label families.                | Extended checkpoint, retained-target, history-read and label-read tests                  |
+| REQ-08      | Protected-main, owner-intent, signature, security-refresh and service-isolation checks are unchanged, and every pre-effect refusal in the new tests asserts zero requests.                   | All release suites                                                                       |
+
+DEC-01 keeps the native npm CLI and the existing family-label executor; no dependency was added.
+DEC-02 keeps each rule with its owner: operation meaning in `release-operation.js`, completed staging requests in `publication-attempts.js`, journals and settlements in `release-effects.js`, retained subjects in `release-history.js` and the workflow gate in `check-workflows.js`.
+DEC-03 measured counts are local: a guarded retirement observation reads three package tag sets instead of six, and an older-subject retirement admission authenticates signed history once instead of twice.
+Hosted elapsed time, runner time, materializations and retained size were not measured and need the first live operations.
+
+Deviations from the plan's text:
+
+- The native request adds `--json` to `npm dist-tag rm|add`, so npm's own structured error, not parsed log text, supplies the rejection code.
+- Each retirement removal rechecks controller, stage guards, GitHub latest and both label families; an older retired release's classification is rechecked at admission and writer start.
+- Archive-input fallback now accepts identical copies of one retained subject across several signed checkpoints and refuses conflicting copies.
+- The shared retained-identity check also requires the release to be immutable, non-draft and the recorded ID when partial recovery admits a target.
+- Automatic checkpoint preparation was considered and not enabled, because a workflow-run trigger lacks the dispatch inputs the maintained reader authenticates.
+
+Remaining gaps before a live retirement:
+
+- Seven October 2026 publish runs in the writer baseline have no surviving Actions artifacts; the [release runbook](release-operations.md#reserve-each-release-writer-before-dispatch) records the inventory and public npm provenance for run `37393670535`.
+- Trusted-publisher dist-tag permission for all three packages, hosted qualification of this controller, CodeQL, Codex Security and the independent review route are not yet observed.
+
 ## Version 3.0.2
 
 The core package and both native packages share version 3.0.2, with synchronized source lockfile metadata.

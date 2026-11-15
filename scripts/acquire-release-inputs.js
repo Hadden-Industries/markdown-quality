@@ -8,7 +8,7 @@ import { native } from "./commands.js";
 import { hash } from "./release-bytes.js";
 import { downloadEvidence } from "./download-evidence.js";
 import { createRepositoryReader } from "./github-evidence.js";
-import { readSignedHistoryRefs } from "./release-history.js";
+import { checkpointTargets, readSignedHistoryRefs } from "./release-history.js";
 import { acquireIndexedRelease } from "./release-archive-reader.js";
 import { budgets } from "./qualification-budgets.js";
 
@@ -84,17 +84,18 @@ export async function acquireReleaseInputs(
     JSON.parse(env.HISTORY_CHECKPOINT || "[]"),
     gh,
   );
-  const matches = checkpoints.filter(
-    (checkpoint) =>
-      checkpoint.targetQualification.qualificationSha256 ===
-      env.QUALIFICATION_SHA,
-  );
-  assert.equal(
-    matches.length,
-    1,
+  // A subject may be retained by several signed checkpoints; every copy must
+  // be the same original record before its archival provenance is reused.
+  const matches = checkpoints
+    .flatMap(checkpointTargets)
+    .filter((target) => target.qualificationSha256 === env.QUALIFICATION_SHA);
+  assert.ok(
+    matches.length > 0,
     "Expired source artifacts need complete signed original qualification and writer history",
   );
-  const target = matches[0].targetQualification;
+  for (const other of matches)
+    assert.deepEqual(other, matches[0], "Conflicting retained subjects");
+  const target = matches[0];
   const original = target.archival;
   assert.ok(
     original,

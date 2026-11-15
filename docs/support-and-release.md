@@ -81,6 +81,9 @@ The [contract versions](centralized-contracts.md#contract-versions) section owns
 Do not republish existing archives or describe 2.0 behavior as the published 1.0.3 behavior.
 For 3.0.2 the owner reviews the staging channel before publication.
 The default is `pilot`, and the owner may explicitly select `latest`.
+`pilot` names a candidate that is actively being evaluated and may be absent between candidates.
+After an evaluated candidate is retired, an explicit `@pilot` install can fail until the next candidate is staged.
+Exact-version installs and immutable release assets keep identifying their original versions, so pin the exact qualified version.
 Dependency upgrades are classified from observed corpus and consumer deltas.
 Never overwrite a published version.
 
