@@ -11,12 +11,30 @@ The dependency refresh selects Node 26.13.1, ESLint 10.15.0, `glob` 14.0.6 and `
 Bundle checks and third-party notices match the updated frozen graph.
 The CLI and SDK contracts, schema versions and Snapper executable bytes carry forward from `v3.0.2`.
 
-The source plans record [release-controller hardening](plans/2026-11-14-release-controller-hardening-and-pilot-retirement.md), [qualification evidence reuse](plans/2026-11-14-release-qualification-evidence-reuse.md) and [JSON Quality workflow parity](plans/2026-11-16-json-quality-release-workflow-parity-implementation-plan.md).
+The source plans record [release-controller hardening](plans/2026-11-14-release-controller-hardening-and-pilot-retirement.md), [artifact promotion](plans/2026-11-16-release-artifact-promotion.md) and [JSON Quality workflow parity](plans/2026-11-16-json-quality-release-workflow-parity-implementation-plan.md).
+The artifact promotion contract supersedes the earlier [evidence-reuse draft](plans/2026-11-14-release-qualification-evidence-reuse.md).
 Treat each plan's proposals as pending until its implementation is recorded.
 In particular, automatic checkpoint preparation remains disabled.
 
-Fresh hosted qualification, owner decisions, registry delivery and immutable archival for 3.0.3 remain pending.
+Hosted validation of artifact promotion, owner decisions, registry delivery and immutable archival for this source remain unverified.
 Dated evidence below belongs to its original source and package family.
+
+## Release artifact promotion recorded on 2026-11-16
+
+Commits `7f8160d` and `ed55271` implement artifact promotion from baseline `79655986ead4e28b35e34c89c533420264601ee6`.
+Ordinary CI retains complete qualification, recipient locks and distribution inventories for the original core and native archives.
+A deliberate release request authenticates the ordinary merged PR, complete tree and ordered parents, runtime matrix, original producing attempts and artifact digests before reusing that evidence.
+It preserves the original package bytes and build commit while recording the landed release commit separately.
+Current security checks and owner-controlled publication remain required; unavailable evidence or `force-fresh` selects the complete fresh qualification graph.
+
+Fresh packs retain the producer lock too.
+Security refreshes verify the qualified source lock's digest and recover historical locks by exact source commit, rather than auditing a later controller's graph.
+Archival reads the original candidate, recipient and performance records from the retained promotion bundle when the original CI artifacts expire.
+Signed tags and corresponding source identify the authenticated landed commit; package provenance keeps the original build identity.
+
+Local validation covered source/workflow/formatting checks, release and CI regressions, artifact and lock substitution, delayed archival, and real root and isolated installed consumers with offline execution and lock replay.
+The final GPT-6 Astra Extra High source review and cumulative Codex Security review reported no remaining issues for `ed55271`.
+These results do not establish a hosted Actions run, registry publication or downstream adoption for this source.
 
 ## Release controller hardening and pilot retirement on 2026-11-15
 

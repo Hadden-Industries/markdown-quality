@@ -44,7 +44,8 @@ It has no publication authority.
 
 See [the artifact promotion contract](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/plans/2026-11-16-release-artifact-promotion.md) for the manifest and invalidation rules.
 
-The [convergence plan](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/plans/2026-10-29-github-actions-convergence-implementation-plan.md) supersedes the earlier automatic-CI/reuse design for current source.
+The earlier [CI convergence plan](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/plans/2026-10-29-github-actions-convergence-implementation-plan.md) records the deliberate qualification request boundary.
+The artifact promotion contract above replaces its mandatory fresh release execution when reusable evidence is admitted.
 Verify hosted acceptance for the exact candidate and inspect the live governance settings before release.
 
 The package repository, OwlAPI, and WebVOWL are public, as inspected through GitHub on 2026-10-05.

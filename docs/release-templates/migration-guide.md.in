@@ -26,6 +26,10 @@ The source lock selects `glob` 14.0.6 and `fast-xml-parser` 5.12.1, with an over
 The JSON Quality development dependency resolves to 1.0.1.
 
 Release maintainers should start with [the operation sequence](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md#manual-workflow-sequence).
+Release qualification can reuse complete PR evidence after an authenticated normal merge and promote the original tested archives.
+Inspect `REUSED` or `FRESH_REQUIRED` in the qualification summary; unavailable or changed evidence selects the complete fresh graph, and `force-fresh` deliberately requests a rebuild.
+For a promoted candidate, sign the version tag at `promotion.releaseCommit`; package identity retains the original build commit.
+Bind the owner review to the new release manifest's SHA-256, rather than the retained build manifest's digest.
 Before a writer dispatch, reserve its exact attempt with an owner-signed intent tag and capture the current private npm stage inventory.
 Archive acceptance can refresh its stage and immutability observations after an approval delay while retaining the approved package identities.
 Pilot retirement removes the reviewed `pilot` aliases through its own owner decision.

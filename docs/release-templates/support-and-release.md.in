@@ -25,6 +25,12 @@ The `v{{release.previousVersion}}` Git tag defines the source baseline for the c
   Build provenance retains the original commit, while promotion records the landed release commit.
   Current security and publication checks still run; unavailable evidence selects the fresh fallback.
   See [qualification reuse](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md#qualify-once-and-choose-the-channel).
+- **Audit the qualified source.**
+  Fresh and promoted candidates retain the original producer lock, and security checks verify its manifest digest before auditing it.
+  Historical candidates recover that lock from the exact source commit, so a later controller cannot substitute its own dependency graph.
+- **Keep proof through approval delays.**
+  Promoted bundles retain the original candidate reports, recipient observations and performance records.
+  Archival reads these authenticated copies when the original CI artifacts have expired.
 - **Authorize each writer.**
   Owner-signed reservations identify the exact workflow, run number, attempt, controller and decision digest.
   Admission accounts for missing and deleted writer runs through a complete signed inventory.
@@ -71,6 +77,7 @@ Configuration schema 3, preset `authored-gfm@2`, result schema 5, execution sche
 
 Update the exact version pin and consumer lock, then review the existing project checks.
 Every release requires qualification of its exact source and transported package family.
+Eligible releases satisfy that requirement with verified original CI evidence and unchanged archives; new release run IDs do not require repeating the same matrices.
 Local source verification and earlier release evidence remain bound to the source and archives they checked.
 
 ## Version 3.0.2

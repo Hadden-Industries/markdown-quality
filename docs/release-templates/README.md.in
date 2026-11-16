@@ -6,6 +6,7 @@ A repository can start with the defaults and no configuration file.
 
 Version **{{release.version}}** is a compatible patch release.
 It refreshes dependencies and improves release approval, evidence retention and recovery.
+Release preparation promotes the archives CI tested without repeating eligible qualification matrices.
 See [what changed in {{release.version}}](docs/support-and-release.md#{{release.versionAnchor}}) and [upgrade guidance](docs/migration-guide.md#{{release.migrationAnchor}}).
 
 ## Install and run

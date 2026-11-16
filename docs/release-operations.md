@@ -157,7 +157,7 @@ It must identify the original qualification; it cannot replace its acceptance or
 
 | Operation              | Workflow                     | Result                                                                                              |
 | ---------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------- |
-| Qualify source         | release-qualification.yml    | Fresh exact-source obligations and frozen tuple                                                     |
+| Qualify release        | release-qualification.yml    | Reuse verified CI archives and evidence, or run the complete fresh graph                            |
 | Stage natives          | publish.yml, phase natives   | Windows then Linux requests under the reviewed channel                                              |
 | Approve natives        | Owner's authenticated npm    | [Inspect each staged tarball](#inspect-a-staged-tarball-before-approval), then approve with 2FA     |
 | Stage core             | publish.yml, phase core      | New dispatch retains original origins and verifies both public natives first                        |

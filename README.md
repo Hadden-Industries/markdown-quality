@@ -8,6 +8,7 @@ A repository can start with the defaults and no configuration file.
 
 Version **3.0.3** is a compatible patch release.
 It refreshes dependencies and improves release approval, evidence retention and recovery.
+Release preparation promotes the archives CI tested without repeating eligible qualification matrices.
 See [what changed in 3.0.3](docs/support-and-release.md#version-303) and [upgrade guidance](docs/migration-guide.md#from-302-to-303).
 
 ## Install and run
