@@ -60,6 +60,41 @@ test("a lost stage acknowledgment remains unknown and the same workspace cannot 
   );
 });
 
+test("an attributable published native is checked with native JSON integrity before the next stage", (t) => {
+  const f = entryWorld(t, "stage");
+  const journals = join(f.job, "staging-journal");
+  passed(
+    f.entry("stage-release-package.js", ["win32-x64", f.bundle, journals]),
+  );
+  const staged = readFileSync(join(journals, "win32-x64.jsonl"), "utf8")
+    .trim()
+    .split("\n")
+    .map(JSON.parse)
+    .at(-1);
+  f.change((state) => {
+    state.approvals = [
+      {
+        actor: "fixture-owner",
+        stageId: staged.stageId,
+        integrity: staged.integrity,
+      },
+    ];
+    state.tags[staged.package].latest = f.manifest.version;
+  });
+  passed(
+    f.entry("stage-release-package.js", ["linux-x64", f.bundle, journals]),
+  );
+  assert.equal(
+    f
+      .state()
+      .calls.filter(
+        (call) => call.args[1] === "view" && call.args[3] === "dist.integrity",
+      ).length,
+    1,
+  );
+  assert.equal(f.state().requests.length, 2);
+});
+
 test("cold archive CLI consumes exact decisions and native signatures, publishes 18 assets and completes latest without npm relabelling", (t) => {
   const f = entryWorld(t, "archive");
   passed(f.entry("read-release-decisions.js", [join(f.job, "decisions")]));

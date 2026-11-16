@@ -30,6 +30,7 @@ import {
   legacyArchiveSettled,
   checkpointTargets,
   admitRetiredQualification,
+  latestPublicationWriteAt,
 } from "../scripts/release-history.js";
 import {
   retainedArtifact,
@@ -47,6 +48,8 @@ import {
   publicationSubject,
   readPublicationSubjects,
 } from "../scripts/publication-subjects.js";
+import { readStageInventory } from "../scripts/release-stage-guards.js";
+import { stageInventory } from "./release-fixture.js";
 import { verifyRecoveryAttribution } from "../scripts/release-history.js";
 import { releasePackages } from "../scripts/release-coordinates.js";
 import {
@@ -665,6 +668,40 @@ function nativeStagingHistoryFixture() {
   };
 }
 
+test("authenticated writer freshness refuses missing timestamps even beside a newer publication", async () => {
+  const f = nativeStagingHistoryFixture();
+  const observed = await collectWriterHistory(f.options);
+  const newer = structuredClone(observed.writers[0]);
+  newer.run.id += 1;
+  newer.job.run_id = newer.run.id;
+  newer.artifact.workflow_run.id = newer.run.id;
+  newer.run.updated_at = new Date(Date.now() + 1000).toISOString();
+  assert.throws(
+    () => latestPublicationWriteAt([...observed.writers, newer]),
+    /timestamp is missing/u,
+  );
+  observed.writers[0].run.updated_at = "malformed";
+  assert.throws(
+    () => latestPublicationWriteAt([newer, ...observed.writers]),
+    /timestamp is missing/u,
+  );
+  observed.writers[0].run.updated_at = "2026-01-01T00:00:00+03:00";
+  const newest = latestPublicationWriteAt([newer, ...observed.writers]);
+  assert.equal(newest, newer.run.updated_at);
+  assert.throws(
+    () => readStageInventory(stageInventory(), { latestStageWriteAt: newest }),
+    /last publication/u,
+  );
+  assert.equal(latestPublicationWriteAt([]), undefined);
+  assert.equal(
+    latestPublicationWriteAt([
+      { run: { path: f.run.path, updated_at: "2026-01-01T00:10:00+03:00" } },
+      { run: { path: f.run.path, updated_at: "2026-01-01T00:00:00Z" } },
+    ]),
+    "2026-01-01T00:00:00.000Z",
+  );
+});
+
 test("a failed native staging writer whose requests completed is exported with its original evidence and never inferred without it", async () => {
   const f = nativeStagingHistoryFixture();
   const { options, run, stage } = f;
@@ -1274,7 +1311,11 @@ function signedCheckpointHarness(t) {
       reference,
       annotation,
       signerPolicy: policy,
-      command: () => bytes,
+      command: (executable, args, options) => {
+        if (executable === "git" && args[0] === "show") return bytes;
+        assert.equal(executable, "ssh-keygen");
+        return native(executable, args, options);
+      },
     });
   };
   /** A complete original target record for another qualified fixture. */
@@ -1329,6 +1370,15 @@ test("compressed signed history admits the complete original target and writer e
   assert.deepEqual(
     h.verify(h.checkpoint, encodeHistoryCheckpoint),
     h.checkpoint,
+  );
+});
+
+test("the signed checkpoint harness rejects a cryptographically invalid signature", (t) => {
+  const h = signedCheckpointHarness(t);
+  h.annotation.verification.payload += "altered after signing";
+  assert.throws(
+    () => h.verify(h.checkpoint, encodeHistoryCheckpoint),
+    /ssh-keygen failed/u,
   );
 });
 

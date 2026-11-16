@@ -71,7 +71,7 @@ export function spawnSync(executable, args, options = {}) {
       if (!subject) throw Error("Unexpected fixture npm subject");
       return ok(
         command[2] === "dist.integrity"
-          ? subject.integrity
+          ? JSON.stringify(subject.integrity)
           : state.tags[subject.package],
       );
     }

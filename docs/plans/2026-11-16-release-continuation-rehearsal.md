@@ -80,6 +80,15 @@ Verification: all **325** release, publication, archive, registry-readback and n
 The exact frozen-input staging case passed separately.
 The signed local implementation commit and its subsequent Review Agent/Codex Security results are reported separately; these checks do not substitute for those reviews.
 
+The first final Review Agent pass at `2e6dc0767d39cf79847ca110a8a22bd23ac4b688` identified three P2 corrections.
+The authenticated freshness summary now rejects every missing or malformed publication timestamp and calculates the maximum numerically, so an absent older timestamp cannot hide a newer writer.
+The history test harness now intercepts only Git's fixture read and executes the real SSH verifier; a tampered signed payload is a failing negative control.
+The npm boundary now returns a JSON string for integrity queries, and a new entry-point case covers an attributable native already visible under the selected label before the next stage.
+The earlier claim of real history-signature verification was not supported by that harness until this correction.
+The original native-tag and intent entry-point tests did execute their real fixture-key SSH verifier.
+These corrections retain the live pause and require the final commit to receive both reviews again.
+After these corrections, all **328** release/publication tests passed; the source checks passed again and the added timestamp-ordering case passed separately after its final refinement.
+
 ## Planning worker handoff
 
 The next increment should establish a complete offline release journey before another hosted attempt.

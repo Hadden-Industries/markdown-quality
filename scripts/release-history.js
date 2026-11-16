@@ -1225,6 +1225,22 @@ export function completedStagingRecovery(entry, journalSha256, writers) {
   });
 }
 
+/** A missing original timestamp must never erase a newer writer observation. */
+export function latestPublicationWriteAt(writers) {
+  let latest;
+  for (const entry of writers) {
+    if (entry.run.path !== ".github/workflows/publish.yml") continue;
+    const raw = entry.run.updated_at;
+    const observed = typeof raw === "string" ? Date.parse(raw) : NaN;
+    assert.ok(
+      Number.isFinite(observed),
+      "Original publication writer timestamp is missing or invalid",
+    );
+    latest = latest === undefined ? observed : Math.max(latest, observed);
+  }
+  return latest === undefined ? undefined : new Date(latest).toISOString();
+}
+
 /**
  * Authenticate every prior writer effect before another release effect.
  * `checkpoint` names the owner-selected signed refs; a caller that already
@@ -1548,11 +1564,7 @@ export async function admitPriorReleaseEffects(
     settled,
     settledGithub,
     stagingReconciliations,
-    latestStageWriteAt: observed.writers
-      .filter((entry) => entry.run.path === ".github/workflows/publish.yml")
-      .map((entry) => entry.run.updated_at)
-      .sort()
-      .at(-1),
+    latestStageWriteAt: latestPublicationWriteAt(observed.writers),
   };
 }
 
