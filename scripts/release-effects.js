@@ -202,7 +202,7 @@ export const npmRequestStep = "Change only approved npm labels, natives first";
 /** Canonicalize the fixed native endpoint for the reviewed package family. */
 export function pilotTagDeleteEndpoint(name) {
   assert.ok(releasePackages.includes(name));
-  return `https://registry.npmjs.org/-/package/${name.replace("/", "%2f")}/dist-tags/pilot`;
+  return `https://registry.npmjs.org/-/package/${name.replaceAll("/", "%2f")}/dist-tags/pilot`;
 }
 
 /** Only the exact refused pilot removal can settle this effect. */

@@ -53,7 +53,7 @@ test("native npm reports the refused method and refuses to replay a failed DELET
   await once(server, "listening");
   t.after(() => new Promise((resolve) => server.close(resolve)));
   const registry = `http://127.0.0.1:${server.address().port}/`;
-  const endpoint = `${registry}-/package/${packageName.replace("/", "%2f")}/dist-tags/pilot`;
+  const endpoint = `${registry}-/package/@hadden-industries%2fmarkdown-quality-linux-x64/dist-tags/pilot`;
   const env = Object.fromEntries(
     Object.entries(process.env).filter(([name]) =>
       /^(?:systemroot|windir|path|pathext|temp|tmp|localappdata|appdata|userprofile|home)$/iu.test(
