@@ -419,6 +419,9 @@ Automatic checkpoint preparation after archival or a family operation is not ena
 A workflow-run trigger does not carry the original dispatch inputs that the maintained reader authenticates, so preparation stays an explicit owner dispatch.
 
 Sign the exact complete export through a fresh annotated release-history-* tag whose commit contains release-history.json at its root.
+New exports use a gzip/base64 JSON envelope to retain complete evidence within the 48 MiB signed Git transport limit, with a 256 MiB expanded limit and an exact original-byte digest.
+History retains admission reports, decisions, locks and reconciliation receipts; original package archives and verbose performance logs stay in the digest-bound immutable release assets.
+Readers verify the signed bytes before bounded decompression; original checkpoint schemas 1 and 2 and older plaintext exports keep their validation rules.
 Prepare that commit in a disposable directory or through the owner's existing evidence-signing route, preserving the current development checkout.
 Verify the tag locally with the owner's allowed signer and read it back after separately authorized publication.
 Pass the immutable ref names as a JSON array in history-checkpoints.

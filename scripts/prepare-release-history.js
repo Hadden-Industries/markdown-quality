@@ -30,6 +30,7 @@ import {
   readSignedHistoryRefs,
 } from "./release-history.js";
 import { requireManualControl } from "./release-continuation.js";
+import { encodeHistoryCheckpoint } from "./release-history-format.js";
 
 /**
  * Select the original qualified subjects a new checkpoint retains: the
@@ -58,6 +59,36 @@ export function retainedCheckpointTargets(current, checkpoints, requested) {
       });
   }
   return { targets, missing };
+}
+
+/** Immutable assets keep verbose logs and build outputs; history retains admission receipts. */
+export function retainedQualificationFiles(qualified, directory) {
+  const names = new Set([
+    "release-manifest.json",
+    "publication-origins.json",
+    "signed-tag.json",
+    ...Object.keys(qualified.reports),
+    ...Object.keys(qualified.evidence ?? {}).filter(
+      (name) =>
+        name.endsWith("-package-lock.json") ||
+        name.endsWith("-reconciliation.json") ||
+        [
+          "release-review.json",
+          "release-acceptance.json",
+          "security-evidence.json",
+          "distribution-evidence.json",
+          "native-build.json",
+          "native-rights.json",
+        ].includes(name),
+    ),
+  ]);
+  const files = {};
+  for (const name of readdirSync(directory)) {
+    if (!names.has(name)) continue;
+    const bytes = regularBytes(join(directory, name));
+    files[name] = { sha256: hash(bytes), base64: bytes.toString("base64") };
+  }
+  return files;
 }
 
 /** Source/native/registry bytes are retained separately from writer history so neither can substitute for the other. */
@@ -172,17 +203,7 @@ export async function prepareReleaseHistory(
       inventory: archiveJobs,
       artifact: archiveInputs[0],
     };
-    const files = {};
-    for (const name of readdirSync(logical)) {
-      if (
-        name.endsWith(".tgz") ||
-        name.endsWith(".tar") ||
-        name.endsWith(".tar.gz")
-      )
-        continue;
-      const bytes = regularBytes(join(logical, name));
-      files[name] = { sha256: hash(bytes), base64: bytes.toString("base64") };
-    }
+    const files = retainedQualificationFiles(qualified, logical);
     const missing = [...observed.missing];
     for (const provider of providers)
       for (const artifact of provider.artifacts)
@@ -237,11 +258,7 @@ export async function prepareReleaseHistory(
       missing,
     };
     mkdirSync(output);
-    const bytes = Buffer.from(JSON.stringify(checkpoint, null, 2) + "\n");
-    assert.ok(
-      bytes.length <= 48 * 1024 * 1024,
-      "Checkpoint exceeds the 48 MiB Git transport budget; retain prior signed history separately before exporting another range",
-    );
+    const bytes = encodeHistoryCheckpoint(checkpoint);
     writeFileSync(join(output, "release-history.json"), bytes, { flag: "wx" });
     const expiries = [
       ...observed.writers.map((writer) => writer.artifact),
@@ -252,6 +269,8 @@ export async function prepareReleaseHistory(
       .sort();
     const summary = {
       checkpointSha256: hash(bytes),
+      transportEncoding: "gzip+base64",
+      checkpointBytes: bytes.length,
       complete: checkpoint.complete,
       missing,
       targets: retained.targets.map((target) => ({

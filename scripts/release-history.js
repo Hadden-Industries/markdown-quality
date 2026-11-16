@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Retain native writer observations and original target qualification under owner-signed history refs. */
 import assert from "node:assert/strict";
+import {
+  decodeHistoryCheckpoint,
+  historyTransportLimit,
+} from "./release-history-format.js";
 import { releaseCommit } from "./release-qualification.js";
 import { sameJobExecution } from "./github-job-execution.js";
 import { isDeepStrictEqual } from "node:util";
@@ -150,7 +154,7 @@ export function verifySignedCheckpoint(
   { reference, annotation, command = native, signerPolicy } = {},
 ) {
   assert.ok(
-    bytes.length <= 48 * 1024 * 1024,
+    bytes.length <= historyTransportLimit,
     "Signed checkpoint exceeds the bounded Git transport",
   );
   assert.match(reference.ref, /^refs\/tags\/release-history-[A-Za-z0-9._-]+$/u);
@@ -168,7 +172,7 @@ export function verifySignedCheckpoint(
     Buffer.from(original).equals(bytes),
     "Checkpoint bytes differ from the signed history commit",
   );
-  const checkpoint = JSON.parse(bytes);
+  const checkpoint = decodeHistoryCheckpoint(bytes);
   assert.ok(
     [1, 2].includes(checkpoint.schemaVersion),
     "Unknown signed checkpoint format",

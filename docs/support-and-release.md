@@ -33,6 +33,7 @@ The `v3.0.2` Git tag defines the source baseline for the changes below.
 - **Keep proof through approval delays.**
   Promoted bundles retain the original candidate reports, recipient observations and performance records.
   Archival reads these authenticated copies when the original CI artifacts have expired.
+  Compressed signed history exports retain admission receipts and locks within bounded transport and decompression limits, while immutable assets retain packages and verbose logs.
 - **Authorize each writer.**
   Owner-signed reservations identify the exact workflow, run number, attempt, controller and decision digest.
   Admission accounts for missing and deleted writer runs through a complete signed inventory.

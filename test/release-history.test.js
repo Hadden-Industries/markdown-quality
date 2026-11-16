@@ -6,6 +6,7 @@ import { join, dirname } from "node:path";
 import { releaseFixture } from "./release-fixture.js";
 import { native } from "../scripts/commands.js";
 import { hash } from "../scripts/release-bytes.js";
+import { encodeHistoryCheckpoint } from "../scripts/release-history-format.js";
 import {
   readWriterIntents,
   verifyWriterInventory,
@@ -32,7 +33,10 @@ import { verifySettlementObservation } from "../scripts/release-effects.js";
 import { stagedUpload } from "./publication-history-fixture.js";
 import { verifyRecoveryAttribution } from "../scripts/release-history.js";
 import { releasePackages } from "../scripts/release-coordinates.js";
-import { retainedCheckpointTargets } from "../scripts/prepare-release-history.js";
+import {
+  retainedCheckpointTargets,
+  retainedQualificationFiles,
+} from "../scripts/prepare-release-history.js";
 
 test("a second interrupted continuation preserves ancestor requests and the active operation chain", () => {
   const labels = (version) =>
@@ -1004,8 +1008,11 @@ function signedCheckpointHarness(t) {
       }),
     },
   };
-  const verify = (value) => {
-    const bytes = Buffer.from(JSON.stringify(value));
+  const verify = (
+    value,
+    serialize = (record) => Buffer.from(JSON.stringify(record)),
+  ) => {
+    const bytes = serialize(value);
     return verifySignedCheckpoint(bytes, {
       reference,
       annotation,
@@ -1059,6 +1066,51 @@ function signedCheckpointHarness(t) {
     target,
   };
 }
+
+test("compressed signed history admits the complete original target and writer evidence", (t) => {
+  const h = signedCheckpointHarness(t);
+  assert.deepEqual(
+    h.verify(h.checkpoint, encodeHistoryCheckpoint),
+    h.checkpoint,
+  );
+});
+
+test("history retains admission receipts and locks without copying immutable verbose evidence", (t) => {
+  const h = signedCheckpointHarness(t);
+  const directory = join(h.root, "retention-selection");
+  mkdirSync(directory);
+  const required = [
+    "release-manifest.json",
+    "publication-origins.json",
+    "signed-tag.json",
+    "registry-lane.json",
+    "public-recipient-root-package-lock.json",
+    "stage-core-reconciliation.json",
+  ];
+  const omitted = [
+    "package.tgz",
+    "source.tar",
+    "performance-driver.stdout.txt",
+    "performance-qualification.json",
+  ];
+  for (const name of [...required, ...omitted])
+    writeFileSync(join(directory, name), name);
+  const files = retainedQualificationFiles(
+    {
+      reports: { "registry-lane.json": {} },
+      evidence: Object.fromEntries(
+        [...required.slice(4), ...omitted].map((name) => [
+          name,
+          "a".repeat(64),
+        ]),
+      ),
+    },
+    directory,
+  );
+  assert.deepEqual(Object.keys(files).sort(), required.sort());
+  for (const [name, file] of Object.entries(files))
+    assert.equal(Buffer.from(file.base64, "base64").toString(), name);
+});
 
 test("expiry fallback requires a complete owner-signed history AND separate original target qualification", (t) => {
   const {

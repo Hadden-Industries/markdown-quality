@@ -36,6 +36,14 @@ Local validation covered source/workflow/formatting checks, release and CI regre
 The final GPT-6 Astra Extra High source review and cumulative Codex Security review reported no remaining issues for `ed55271`.
 These results do not establish a hosted Actions run, registry publication or downstream adoption for this source.
 
+## Release qualification corrections recorded on 2026-11-16
+
+Release preparation on 2026-11-16 found stale CI contract fixtures and a checkpoint size limit that could not retain the full 3.0.1 evidence.
+The fixtures now include mandatory Distribution and target the fresh fallback's source gate.
+Signed history transport compresses complete original records with a byte digest and bounded expansion; plaintext checkpoint readers remain compatible.
+Checkpoint subjects retain admission receipts, owner decisions, locks and reconciliations; package builds and verbose performance records remain in the authenticated immutable release assets.
+These corrections require their own hosted acceptance before release.
+
 ## Release controller hardening and pilot retirement on 2026-11-15
 
 The [hardening plan](plans/2026-11-14-release-controller-hardening-and-pilot-retirement.md) is implemented in source on `fix/release-controller` from baseline `18d9a9e`.

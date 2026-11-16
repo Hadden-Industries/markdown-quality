@@ -668,10 +668,14 @@ test("partial reruns authenticate original executions despite mutable attempt an
 });
 test("skipped mandatory work and incomplete audit data remain blocking", () => {
   const needs = Object.fromEntries(
-    ["dependencies", "native", "policy", "product", "codeql"].map((name) => [
-      name,
-      { result: "success" },
-    ]),
+    [
+      "dependencies",
+      "native",
+      "policy",
+      "product",
+      "codeql",
+      "distribution",
+    ].map((name) => [name, { result: "success" }]),
   );
   requireResults(needs);
   needs.native.result = "skipped";

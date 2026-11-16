@@ -52,10 +52,10 @@ test("workflow contracts reject broken metadata, callers and shared deadline dri
     ],
     [
       "missing release source tools",
-      ".github/workflows/release-qualification.yml",
+      ".github/workflows/release-fresh-qualification.yml",
       (data) => {
         data.jobs.resolve.steps = data.jobs.resolve.steps.filter(
-          (step) => step.name !== "Install locked Node source-check tools",
+          (step) => step.uses !== "./.github/actions/setup-producer",
         );
       },
       /one blocking source gate with locked tools/u,
@@ -369,6 +369,7 @@ test("deliberate triggers and skip-resistant acceptance remain explicit", () => 
     "native",
     "dependencies",
     "codeql",
+    "distribution",
   ]);
   assert.deepEqual(Object.keys(read("qualification.yml").on), [
     "workflow_call",
