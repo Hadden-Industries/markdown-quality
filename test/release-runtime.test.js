@@ -568,6 +568,50 @@ test("workflow contracts reject draft-permission, dependency-order and snapshot 
   }
 });
 
+test("release jobs cannot inherit an unqualified hosted npm before registry reads", () => {
+  for (const [name, role] of [
+    ["release-registry.yml", "admit"],
+    ["release-registry.yml", "security"],
+    ["release-registry.yml", "qualified"],
+    ["github-release.yml", "prepare"],
+    ["github-release.yml", "archive"],
+    ["release-history.yml", "prepare"],
+  ]) {
+    const path = `.github/workflows/${name}`;
+    const original = parse(readFileSync(join(root, path), "utf8"));
+    for (const mutation of [
+      "missing acquisition",
+      "disabled acquisition",
+      "late acquisition",
+      "missing isolation",
+    ]) {
+      const doc = structuredClone(original);
+      const steps = doc.jobs[role].steps;
+      const acquire = steps.findIndex(
+        (step) => step.run === "node scripts/publication-npm.js acquire",
+      );
+      if (mutation === "missing acquisition") {
+        doc.jobs[role].steps = steps.filter(
+          (step) => step.run !== "node scripts/publication-npm.js acquire",
+        );
+      } else if (mutation === "disabled acquisition" && acquire >= 0) {
+        steps[acquire].if = false;
+      } else if (mutation === "late acquisition" && acquire >= 0) {
+        steps.push(...steps.splice(acquire, 1));
+      } else if (mutation === "missing isolation") {
+        doc.jobs[role].steps = steps.filter(
+          (step) => step.run !== "node scripts/publication-npm.js isolate",
+        );
+      }
+      assert.throws(
+        () => checkWorkflows({ overrides: { [path]: JSON.stringify(doc) } }),
+        /hosted npm must/u,
+        `${name}/${role}: ${mutation}`,
+      );
+    }
+  }
+});
+
 test("an npm-only family operation skips the GitHub writer only by its authenticated admission output", () => {
   const path = ".github/workflows/promote-release.yml";
   const original = parse(readFileSync(join(root, path), "utf8"));

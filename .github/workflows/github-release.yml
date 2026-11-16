@@ -142,6 +142,8 @@ jobs:
         with:
           node-version-file: .node-version
           package-manager-cache: false
+      - run: node scripts/publication-npm.js isolate
+      - run: node scripts/publication-npm.js acquire
       - uses: ./.github/actions/setup-python
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
@@ -182,6 +184,8 @@ jobs:
         with:
           node-version-file: .node-version
           package-manager-cache: false
+      - run: node scripts/publication-npm.js isolate
+      - run: node scripts/publication-npm.js acquire
       - uses: ./.github/actions/setup-python
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
