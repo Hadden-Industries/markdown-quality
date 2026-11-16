@@ -29,6 +29,7 @@ defaults:
   run:
     shell: bash
 env:
+  NPM_CONFIG_IGNORE_SCRIPTS: "true"
   ARCHIVE_RUN: ${{ inputs.archive-run }}
   ARCHIVE_ATTEMPT: ${{ inputs.archive-attempt }}
   QUALIFICATION_SHA: ${{ inputs.qualification-sha256 }}
@@ -48,6 +49,8 @@ jobs:
         with:
           node-version-file: .node-version
           package-manager-cache: false
+      - run: node scripts/publication-npm.js isolate
+      - run: node scripts/publication-npm.js acquire
       - uses: ./.github/actions/setup-python
       - name: Acquire the original qualified archive
         env:

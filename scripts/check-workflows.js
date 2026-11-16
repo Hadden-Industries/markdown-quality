@@ -80,6 +80,42 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
       `./.github/workflows/${name}`,
       read(`.github/workflows/${name}`),
     );
+  // Metadata reads also enforce repository devEngines. Provision the selected
+  // Node's qualified npm before any release command, including read-only jobs.
+  for (const [name, roles] of [
+    ["release-registry.yml", ["admit", "registry", "security", "qualified"]],
+    ["github-release.yml", ["prepare", "archive", "complete"]],
+    ["release-history.yml", ["prepare"]],
+  ]) {
+    const workflow = workflows.get(`./.github/workflows/${name}`);
+    assert.equal(workflow.env.NPM_CONFIG_IGNORE_SCRIPTS, "true");
+    for (const role of roles) {
+      const steps = workflow.jobs[role].steps;
+      const setup = steps.findIndex((step) =>
+        step.uses?.startsWith("actions/setup-node@"),
+      );
+      const isolate = steps.findIndex(
+        (step) => step.run === "node scripts/publication-npm.js isolate",
+      );
+      const acquire = steps.findIndex(
+        (step) => step.run === "node scripts/publication-npm.js acquire",
+      );
+      const consumer = steps.findIndex(
+        (step) =>
+          step.run && !step.run.startsWith("node scripts/publication-npm.js "),
+      );
+      assert.ok(
+        setup >= 0 &&
+          isolate > setup &&
+          acquire > isolate &&
+          consumer > acquire &&
+          [setup, isolate, acquire].every(
+            (index) => !Object.hasOwn(steps[index], "if"),
+          ),
+        `${name}/${role}: hosted npm must be isolated and acquired unconditionally before release commands`,
+      );
+    }
+  }
   // Maintained callers own the source gate; the reusable producer runs only
   // the remaining phase. Do not replace this dependency with a skip flag.
   for (const [path, workflow] of workflows)

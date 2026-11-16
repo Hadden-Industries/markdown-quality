@@ -17,6 +17,10 @@ The [previous guide at its integration baseline](https://github.com/Hadden-Indus
 
 ## Admission and governance
 
+Release jobs that read npm metadata, audit dependencies or verify public defaults first isolate npm configuration and acquire the producer npm pin from `assets/node-support.json` into the selected Node installation.
+The npm bundled with a hosted Node installation may be older than the repository's required developer toolchain; even a read-only `npm view` can then fail before qualification starts.
+The workflow contract check rejects missing, conditional or late npm provisioning in public qualification, archival and history jobs.
+
 Ordinary contributors use a PR targeting main and the strict `CI / acceptance` gate.
 The sole owner retains the declared direct-main bypass after appropriate local verification.
 Inspect with `node scripts/github-governance.js` before a release.
