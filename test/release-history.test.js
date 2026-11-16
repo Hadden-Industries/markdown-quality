@@ -135,6 +135,80 @@ test("a second interrupted continuation preserves ancestor requests and the acti
   assert.throws(() => recoveryLineage(decisionC, [b]), /Missing original/u);
 });
 
+test("a signed legacy archive that stopped at its first immutable-releases GET made no publication request", () => {
+  const records = [
+    {
+      id: 1,
+      state: "attempted",
+      args: [
+        "api",
+        "repos/Hadden-Industries/markdown-quality/immutable-releases",
+      ],
+    },
+    { id: 1, state: "failed-or-unknown", message: "GitHub returned HTTP 403" },
+  ];
+  const entryFor = (journal) => {
+    const raw = Buffer.from(
+      journal.map((record) => JSON.stringify(record)).join("\n") + "\n",
+    );
+    return {
+      attempt: 1,
+      run: { id: 80, path: ".github/workflows/github-release.yml" },
+      job: { id: 90, name: "archive", conclusion: "failure" },
+      inventory: { total_count: 0, jobs: [] },
+      artifact: { id: 200 },
+      files: {
+        "effects.jsonl": { sha256: hash(raw), base64: raw.toString("base64") },
+      },
+    };
+  };
+  const checkpointFor = (writers) => ({
+    writers,
+    targetQualification: {
+      qualified: { version: "3.0.1", source: "a".repeat(40) },
+      archive: { releaseId: 70, immutable: true, assets: [] },
+    },
+  });
+  const entry = entryFor(records);
+  assert.equal(legacyArchiveSettled(entry, [checkpointFor([entry])]), true);
+  assert.equal(legacyArchiveSettled(entry, [checkpointFor([])]), false);
+  for (const args of [
+    [
+      "api",
+      "repos/Hadden-Industries/markdown-quality/immutable-releases",
+      "--method",
+      "PUT",
+    ],
+    [
+      "api",
+      "repos/Hadden-Industries/markdown-quality/immutable-releases",
+      "-f",
+      "enabled=true",
+    ],
+    ["api", "repos/Hadden-Industries/markdown-quality/releases"],
+    ["release", "create", "v3.0.3"],
+  ]) {
+    const changed = entryFor([{ ...records[0], args }, records[1]]);
+    assert.equal(
+      legacyArchiveSettled(changed, [checkpointFor([changed])]),
+      false,
+    );
+  }
+  const laterWrite = entryFor([
+    ...records,
+    { id: 2, state: "attempted", args: ["release", "create", "v3.0.3"] },
+  ]);
+  assert.equal(
+    legacyArchiveSettled(laterWrite, [checkpointFor([laterWrite])]),
+    false,
+  );
+  const wrongResponse = entryFor([records[0], { ...records[1], id: 2 }]);
+  assert.equal(
+    legacyArchiveSettled(wrongResponse, [checkpointFor([wrongResponse])]),
+    false,
+  );
+});
+
 test("a legacy failed archive needs its exact signed native release ID, complete inventory and original source", () => {
   const qualified = {
     version: "4.0.0",

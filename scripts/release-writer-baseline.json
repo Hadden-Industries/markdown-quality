@@ -1,6 +1,22 @@
 {
   "publish": {
     "workflowId": 375858484,
+    "noRequestAttempts": [
+      {
+        "run": 43921765726,
+        "attempt": 1,
+        "job": 133491358751,
+        "controller": "a2bb644e92ace3ba7c4253ae2461510181a7220b",
+        "artifactId": 14255200518,
+        "artifactDigest": "sha256:a3522bf7c492e149758ddc5926e17560e18f560c47f11ee994e56a9b27fd9739",
+        "manifestSha256": "2615ed18ab41be5523f03f0ec5fb0c55b0abcbc4e25971ef4ac4da7e663c787a",
+        "evidence": {
+          "url": "https://github.com/Hadden-Industries/markdown-quality/actions/runs/43921765726/job/133491358751",
+          "jobLogSha256": "37dcf29639a73cb3577f2059a4127ee6412c525f86796bc7f521a8ff3975c83f"
+        },
+        "rationale": "The original Windows step failed in admitPriorReleaseEffects before stageReleaseArchive. The digest-verified complete original artifact contains no staging journal or startup record, and Linux/core request steps were skipped. Source and original logs were inspected under the owner-authorized release recovery; private npm stage inventories were empty. This explicit decision applies only to this original run, attempt, controller, job and artifact."
+      }
+    ],
     "runs": [
       37381739004,
       37391073949,

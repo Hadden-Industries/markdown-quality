@@ -468,7 +468,45 @@ export function writerNeverRequested(job) {
   );
 }
 
-/** A failed legacy run needs its own complete terminal receipt and the exact signed writer, never a matching tag alone. */
+/** Recognize only a failed first preflight GET, whose exact argv cannot select a write method. */
+function legacyArchiveStoppedAtImmutabilityRead(entry) {
+  if (
+    entry.run.path !== ".github/workflows/github-release.yml" ||
+    entry.job.conclusion !== "failure"
+  )
+    return false;
+  const journal = entry.files["effects.jsonl"];
+  if (!journal) return false;
+  try {
+    const records = Buffer.from(journal.base64, "base64")
+      .toString("utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    // Legacy call() records each request before invoking gh. This complete
+    // two-record journal therefore proves the writer stopped before any effect.
+    return (
+      records.length === 2 &&
+      isDeepStrictEqual(records[0], {
+        id: 1,
+        state: "attempted",
+        args: ["api", `repos/${repository}/immutable-releases`],
+      }) &&
+      isDeepStrictEqual(Object.keys(records[1]).sort(), [
+        "id",
+        "message",
+        "state",
+      ]) &&
+      records[1].id === 1 &&
+      records[1].state === "failed-or-unknown" &&
+      typeof records[1].message === "string"
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Require the exact signed writer and either a no-effect preflight or complete native immutable proof. */
 export function legacyArchiveSettled(entry, checkpoints) {
   if (entry.job.name !== "archive") return false;
   const records = Object.values(entry.files).flatMap((file) => {
@@ -498,6 +536,7 @@ export function legacyArchiveSettled(entry, checkpoints) {
           writerObservationIdentity(entry),
         ),
     );
+    if (original && legacyArchiveStoppedAtImmutabilityRead(entry)) return true;
     return (
       original &&
       checkpointTargets(checkpoint).some((target) => {
