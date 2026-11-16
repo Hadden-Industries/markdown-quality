@@ -40,7 +40,35 @@ import { encodeHistoryCheckpoint } from "./release-history-format.js";
  * requested subject that no input retains is reported missing.
  */
 export function retainedCheckpointTargets(current, checkpoints, requested) {
-  const targets = [current],
+  const previous = checkpoints
+    .flatMap(checkpointTargets)
+    .filter(
+      (target) => target.qualificationSha256 === current.qualificationSha256,
+    );
+  for (const other of previous)
+    assert.deepEqual(other, previous[0], "Conflicting retained subjects");
+  if (previous.length) {
+    const original = previous[0];
+    assert.equal(original.qualificationBase64, current.qualificationBase64);
+    assert.deepEqual(original.qualified, current.qualified);
+    for (const name of ["releaseId", "tagSha", "assets", "immutable"])
+      assert.deepEqual(
+        original.archive[name],
+        current.archive[name],
+        "Original immutable target changed",
+      );
+    if (original.archival && current.archival) {
+      assert.equal(original.archival.run.id, current.archival.run.id);
+      assert.equal(original.archival.attempt, current.archival.attempt);
+      assert.equal(
+        original.archival.artifact.digest,
+        current.archival.artifact.digest,
+      );
+    }
+  }
+  // Preserve the authenticated representation, including legacy file supersets,
+  // so earlier and later signed refs remain byte-equivalent recovery subjects.
+  const targets = [previous[0] ?? current],
     missing = [];
   for (const digest of requested) {
     assert.match(digest, /^[a-f0-9]{64}$/u);

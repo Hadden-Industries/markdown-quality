@@ -1283,6 +1283,55 @@ test("an extended checkpoint keeps distinct stable and retired subjects attribut
   }
 });
 
+test("re-export preserves an authenticated subject despite a smaller current receipt selection", (t) => {
+  const h = signedCheckpointHarness(t);
+  const original = h.checkpoint.targetQualification;
+  const current = structuredClone(original);
+  current.files = Object.fromEntries(
+    Object.entries(current.files).filter(
+      ([name]) =>
+        [
+          "release-manifest.json",
+          "publication-origins.json",
+          "signed-tag.json",
+        ].includes(name) ||
+        Object.hasOwn(current.qualified.reports, name) ||
+        name.endsWith("-package-lock.json"),
+    ),
+  );
+  const selected = retainedCheckpointTargets(
+    current,
+    [h.verify(h.checkpoint)],
+    [],
+  );
+  assert.equal(
+    hash(Buffer.from(JSON.stringify(selected.targets[0]))),
+    hash(Buffer.from(JSON.stringify(original))),
+  );
+  const exported = h.verify({
+    ...h.checkpoint,
+    targetQualification: selected.targets[0],
+  });
+  assert.deepEqual(exported.targetQualification, original);
+  for (const mutate of [
+    (value) => {
+      value.qualificationBase64 += "AA==";
+    },
+    (value) => {
+      value.archive.releaseId++;
+    },
+    (value) => {
+      value.archive.assets = [];
+    },
+  ]) {
+    const changed = structuredClone(current);
+    mutate(changed);
+    assert.throws(() =>
+      retainedCheckpointTargets(changed, [h.verify(h.checkpoint)], []),
+    );
+  }
+});
+
 test("a new checkpoint carries requested earlier subjects once each and reports unavailable ones", (t) => {
   const h = signedCheckpointHarness(t);
   const older = h.target(releaseFixture(t, true, undefined, "1.0.1"));

@@ -42,6 +42,7 @@ Release preparation on 2026-11-16 found stale CI contract fixtures and a checkpo
 The fixtures now include mandatory Distribution and target the fresh fallback's source gate.
 Signed history transport compresses complete original records with a byte digest and bounded expansion; plaintext checkpoint readers remain compatible.
 Checkpoint subjects retain admission receipts, owner decisions, locks and reconciliations; package builds and verbose performance records remain in the authenticated immutable release assets.
+Re-export preserves an already authenticated subject's original representation, including legacy file supersets, so older and newer signed refs remain compatible.
 These corrections require their own hosted acceptance before release.
 
 ## Release controller hardening and pilot retirement on 2026-11-15
