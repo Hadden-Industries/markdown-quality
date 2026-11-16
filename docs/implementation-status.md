@@ -1,11 +1,92 @@
 # Implementation decisions and evidence
 
+## Release preparation recorded on 2026-11-16
+
+The core package and both native package manifests prepare version 3.0.3 from the tagged 3.0.2 source.
+The [release notes](support-and-release.md#version-303) cover the complete change set, and the [migration guide](migration-guide.md#from-302-to-303) gives upgrade and maintainer actions.
+The source adds owner-signed writer reservations, current npm stage observations, bounded pilot retirement, exact artifact and staging recovery, legacy npm provenance recovery and retained-history verification.
+Checkpoint schema 2 can retain several original qualified subjects.
+
+The dependency refresh selects Node 26.13.1, ESLint 10.15.0, `glob` 14.0.6 and `fast-xml-parser` 5.12.1.
+Bundle checks and third-party notices match the updated frozen graph.
+The CLI and SDK contracts, schema versions and Snapper executable bytes carry forward from `v3.0.2`.
+
+The source plans record [release-controller hardening](plans/2026-11-14-release-controller-hardening-and-pilot-retirement.md), [artifact promotion](plans/2026-11-16-release-artifact-promotion.md) and [JSON Quality workflow parity](plans/2026-11-16-json-quality-release-workflow-parity-implementation-plan.md).
+The artifact promotion contract supersedes the earlier [evidence-reuse draft](plans/2026-11-14-release-qualification-evidence-reuse.md).
+Treat each plan's proposals as pending until its implementation is recorded.
+In particular, automatic checkpoint preparation remains disabled.
+
+Hosted validation of artifact promotion, owner decisions, registry delivery and immutable archival for this source remain unverified.
+Dated evidence below belongs to its original source and package family.
+
+## Release artifact promotion recorded on 2026-11-16
+
+Commits `7f8160d` and `ed55271` implement artifact promotion from baseline `79655986ead4e28b35e34c89c533420264601ee6`.
+Ordinary CI retains complete qualification, recipient locks and distribution inventories for the original core and native archives.
+A deliberate release request authenticates the ordinary merged PR, complete tree and ordered parents, runtime matrix, original producing attempts and artifact digests before reusing that evidence.
+It preserves the original package bytes and build commit while recording the landed release commit separately.
+Current security checks and owner-controlled publication remain required; unavailable evidence or `force-fresh` selects the complete fresh qualification graph.
+
+Fresh packs retain the producer lock too.
+Security refreshes verify the qualified source lock's digest and recover historical locks by exact source commit, rather than auditing a later controller's graph.
+Archival reads the original candidate, recipient and performance records from the retained promotion bundle when the original CI artifacts expire.
+Signed tags and corresponding source identify the authenticated landed commit; package provenance keeps the original build identity.
+
+Local validation covered source/workflow/formatting checks, release and CI regressions, artifact and lock substitution, delayed archival, and real root and isolated installed consumers with offline execution and lock replay.
+The final GPT-6 Astra Extra High source review and cumulative Codex Security review reported no remaining issues for `ed55271`.
+These results do not establish a hosted Actions run, registry publication or downstream adoption for this source.
+
+## Release qualification corrections recorded on 2026-11-16
+
+Release preparation on 2026-11-16 found stale CI contract fixtures and a checkpoint size limit that could not retain the full 3.0.1 evidence.
+The fixtures now include mandatory Distribution and target the fresh fallback's source gate.
+Signed history transport compresses complete original records with a byte digest and bounded expansion; plaintext checkpoint readers remain compatible.
+Checkpoint subjects retain admission receipts, owner decisions, locks and reconciliations; package builds and verbose performance records remain in the authenticated immutable release assets.
+Re-export preserves an already authenticated subject's original representation, including legacy file supersets, so older and newer signed refs remain compatible.
+The actual exporter retains that representation for single-target records and compares stable asset identities independently of download counters.
+The transported producer lock uses the same exact npm-root-key policy as its original source lock.
+These corrections require their own hosted acceptance before release.
+
+## Release controller hardening and pilot retirement on 2026-11-15
+
+The [hardening plan](plans/2026-11-14-release-controller-hardening-and-pilot-retirement.md) is implemented in source on `fix/release-controller` from baseline `18d9a9e`.
+No registry, GitHub release, trusted-publisher or environment mutation was performed, and no live retirement has been admitted.
+The work followed the HISEW implementation procedure without engine receipts, because the installed HISEW engine is registered for Codex only; no governed execution or verification record exists for this change.
+
+| Requirement | Source result                                                                                                                                                                                | Proof                                                                                    |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| REQ-01      | Unchanged: bundled-dependency staging already keeps original declarations and lock bytes, and the archive readers already select historical and current formats.                             | Existing bundled-dependency, packed-qualification and GitHub release suites              |
+| REQ-02      | Unchanged: both SHA-256 digest forms already canonicalize, and Markdown's skipped staging matrix job is reported as plain `retained` (run `42589874800`), so no alias was added.             | Existing evidence-transport and publication suites                                       |
+| REQ-03      | A core staging attempt whose stage job failed only after its completed requests now reaches finalization, archival and history readers through one shared rule; its failed conclusion stays. | Publication-attempt test with five refusal cases; failed native writer export regression |
+| REQ-04      | Unchanged: stale, misplaced and mismatched immutability observations and immutable archive recovery were already covered.                                                                    | Existing release-controls and GitHub release suites                                      |
+| REQ-05      | `retire-pilot` is admitted, written natives first, completed without a GitHub writer and accepted by the history reader; the workflow gates the GitHub job on the admitted decision.         | Six controller tests, completion-binding test, workflow contract test                    |
+| REQ-06      | npm's structured `E401` is retained in the journal, observed read-only as `rejected`, settled only by an exact owner record and repeated only by a fresh retirement naming that settlement.  | Two controller journey tests with adverse substitutions                                  |
+| REQ-07      | Checkpoint schema 2 retains distinct subjects once each; one admission authenticates signed history once; one native tag read per package serves both guarded label families.                | Extended checkpoint, retained-target, history-read and label-read tests                  |
+| REQ-08      | Protected-main, owner-intent, signature, security-refresh and service-isolation checks are unchanged, and every pre-effect refusal in the new tests asserts zero requests.                   | All release suites                                                                       |
+
+DEC-01 keeps the native npm CLI and the existing family-label executor; no dependency was added.
+DEC-02 keeps each rule with its owner: operation meaning in `release-operation.js`, completed staging requests in `publication-attempts.js`, journals and settlements in `release-effects.js`, retained subjects in `release-history.js`, strict legacy npm provenance recovery in `release-provenance-recovery.js` and the workflow gate in `check-workflows.js`.
+DEC-03 measured counts are local: a guarded retirement observation reads three package tag sets instead of six, and an older-subject retirement admission authenticates signed history once instead of twice.
+Hosted elapsed time, runner time, materializations and retained size were not measured and need the first live operations.
+
+Deviations from the plan's text:
+
+- The native request adds `--json` to `npm dist-tag rm|add`, so npm's own structured error, not parsed log text, supplies the rejection code.
+- Each retirement removal rechecks controller, stage guards, GitHub latest and both label families; an older retired release's classification is rechecked at admission and writer start.
+- Archive-input fallback now accepts identical copies of one retained subject across several signed checkpoints and refuses conflicting copies.
+- The shared retained-identity check also requires the release to be immutable, non-draft and the recorded ID when partial recovery admits a target.
+- Automatic checkpoint preparation was considered and not enabled, because a workflow-run trigger lacks the dispatch inputs the maintained reader authenticates.
+
+Remaining steps before a live retirement:
+
+- The seven October 2026 legacy `publish` runs (`37391073949` through `37490858990`) are now verified under `scripts/release-provenance-recovery.js` via `npm audit signatures` SLSA v1 provenance and strict failure-preemption rules (`37391073949` preempted by `37393670535`, `37393670535` published before step failure, `37408154658`–`37490858990` verified on npm); run `release-history.yml` and push an owner-signed `release-history-*` tag to seal both those recoveries and all active writer artifacts before Actions retention expires.
+- Trusted-publisher dist-tag permission for all three packages, hosted qualification of this controller, CodeQL, Codex Security and the independent review route are not yet observed.
+
 ## Version 3.0.2
 
-The core package and both native packages share version 3.0.2, with synchronized source lockfile metadata.
-The consumer and release guides describe this release and retain the earlier migration history.
-The release includes release CI convergence, dependency updates and the `fast-xml-parser >=5.12.0` development override.
-The source lock pins JSON Quality and its Windows and Linux companions to 1.0.1 for repository checks.
+The tagged 3.0.2 source prepared synchronized core and native package metadata.
+It included release CI convergence, dependency updates and the `fast-xml-parser >=5.12.0` development override.
+Its source lock pinned JSON Quality and its Windows and Linux companions to 1.0.1 for repository checks.
 Before each owner approval, the staged-tarball check compares downloaded bytes with the approved manifest's SHA-256 and SHA-512 SRI and retains the stage identity and observed digests.
 The [release runbook](release-operations.md) defines exact-source qualification, publication and promotion.
 Dated evidence below remains bound to its original candidate.

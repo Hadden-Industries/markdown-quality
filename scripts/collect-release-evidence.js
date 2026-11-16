@@ -23,12 +23,19 @@ import {
   readProvider,
   providerFor,
   verifyStagingContinuation,
+  verifyRetainedNativeOrigins,
 } from "./release-continuation.js";
-import { registryWorkflow, registryJobNames } from "./release-qualification.js";
+import {
+  registryWorkflow,
+  registryJobNames,
+  releaseCommit,
+} from "./release-qualification.js";
 import { prepareGithubRelease } from "./prepare-github-release.js";
 import { verifyReleaseAcceptance } from "./release-acceptance.js";
 import { bindStagingReconciliation } from "./release-staging-evidence.js";
-import { downloadPublicationArtifact } from "./publication-artifact.js";
+import { acquirePublicationArtifact } from "./publication-artifact.js";
+import { readSignedHistoryRefs } from "./release-history.js";
+import { qualificationArtifactDirectory } from "./release-reuse-evidence.js";
 
 assert.equal(
   process.argv.length,
@@ -85,7 +92,37 @@ try {
     context.qualification.run,
     context.qualification.attempt,
   );
-  const stage = readProvider(context.staging.run, context.staging.attempt);
+  let signed;
+  const stagingArtifacts = new Map();
+  const stagingArtifact = async ({ run, attempt }) => {
+    const key = `${run}/${attempt}`;
+    if (!stagingArtifacts.has(key)) {
+      assert.match(String(run), /^[1-9]\d{0,15}$/u);
+      assert.match(String(attempt), /^[1-9]\d{0,15}$/u);
+      const directory = join(scratch, `staging-${run}-${attempt}`);
+      const original = await acquirePublicationArtifact({
+        runId: run,
+        attempt,
+        destination: directory,
+        checkpoints: () =>
+          (signed ??= readSignedHistoryRefs(
+            JSON.parse(process.env.HISTORY_CHECKPOINT || "[]"),
+          )),
+      });
+      stagingArtifacts.set(key, {
+        original,
+        file: (name) => regularBytes(join(directory, name)),
+      });
+    }
+    return stagingArtifacts.get(key);
+  };
+  const coreStage = await stagingArtifact(context.staging);
+  const stage = readProvider(
+    context.staging.run,
+    context.staging.attempt,
+    undefined,
+    coreStage.original.publication,
+  );
   const originBytes = regularBytes(join(frozen, "publication-origins.json"));
   assert.deepEqual(
     verifyStagingContinuation({
@@ -98,6 +135,11 @@ try {
     }),
     context,
   );
+  await verifyRetainedNativeOrigins({
+    release,
+    context,
+    acquire: stagingArtifact,
+  });
   const qualified = {
     schemaVersion: 2,
     ...(context.origins.decision
@@ -108,6 +150,7 @@ try {
       : {}),
     version: release.version,
     source: release.source.head,
+    ...(release.promotion ? { promotion: release.promotion } : {}),
     manifestSha256: hash(bytes),
     originsSha256: hash(originBytes),
     archives: release.archives.map(
@@ -162,6 +205,13 @@ try {
     Buffer.from(JSON.stringify(stage, null, 2) + "\n"),
   );
   evidence("signed-tag.json", join(frozen, "signed-tag.json"));
+  if (release.promotion)
+    for (const name of [
+      "build-manifest.json",
+      "build-qualification.json",
+      "build-package-lock.json",
+    ])
+      evidence(name, join(frozen, name));
   for (const kind of ["candidate", "registry"])
     for (const os of release.qualificationMatrix.os)
       for (const node of release.qualificationMatrix.node) {
@@ -171,10 +221,18 @@ try {
               ? `candidate-${os}`
               : `candidate-${os}-${node}`
             : `registry-${os}-${node}-${publication.attempt}`;
-        const run =
-          kind === "candidate" ? qualified.candidate.run : publication.run;
+        const reportDirectory =
+          kind === "candidate"
+            ? qualificationArtifactDirectory({
+                release,
+                frozen,
+                run: qualified.candidate.run,
+                name: artifact,
+                download,
+              })
+            : download(publication.run, artifact);
         const reportBytes = regularBytes(
-          join(download(run, artifact), `${kind}-qualification.json`),
+          join(reportDirectory, `${kind}-qualification.json`),
         );
         const name = `${kind}-${os}-${node}.json`;
         qualified.reports[name] = {
@@ -201,6 +259,11 @@ try {
     "distribution-evidence.json",
     join(distribution, "distribution-evidence.json"),
   );
+  if (release.promotion)
+    evidence(
+      "build-distribution-evidence.json",
+      join(distribution, "build-distribution-evidence.json"),
+    );
   for (const [run, artifact, prefix] of [
     [
       qualified.candidate.run,
@@ -217,13 +280,28 @@ try {
     for (const name of readdirSync(security))
       evidence(`${prefix}${name}`, join(security, name));
     for (const os of release.qualificationMatrix.os) {
-      const recipient = download(run, `recipient-${os}`);
+      const recipient =
+        prefix === ""
+          ? qualificationArtifactDirectory({
+              release,
+              frozen,
+              run,
+              name: `recipient-${os}`,
+              download,
+            })
+          : download(run, `recipient-${os}`);
       for (const name of readdirSync(recipient))
         evidence(`${prefix}recipient-${os}-${name}`, join(recipient, name));
     }
   }
   for (const os of release.qualificationMatrix.os) {
-    const performance = download(qualified.candidate.run, `performance-${os}`);
+    const performance = qualificationArtifactDirectory({
+      release,
+      frozen,
+      run: qualified.candidate.run,
+      name: `performance-${os}`,
+      download,
+    });
     for (const entry of readdirSync(performance, { withFileTypes: true }))
       if (entry.isFile())
         evidence(
@@ -235,19 +313,9 @@ try {
     const archive = release.archives.find(
       ({ package: packageName }) => packageName === origin.package,
     );
-    const staged = join(scratch, `staging-${origin.run}-${origin.attempt}`);
-    if (!downloaded.has(staged)) {
-      const provider = readProvider(origin.run, origin.attempt);
-      await downloadPublicationArtifact({
-        run: provider.run,
-        attempt: origin.attempt,
-        destination: staged,
-      });
-      downloaded.set(staged, true);
-    }
-    const journal = regularBytes(
-      join(staged, "staging-journal", `${archive.name}.jsonl`),
-    );
+    const staged = await stagingArtifact(origin);
+    assert.equal(staged.original.run.head_sha, origin.source);
+    const journal = staged.file(`staging-journal/${archive.name}.jsonl`);
     qualified.evidence[`stage-${archive.name}.jsonl`] = save(
       `stage-${archive.name}.jsonl`,
       journal,
@@ -264,19 +332,9 @@ try {
       ),
     );
   }
-  const historyDirectory = join(
-    scratch,
-    `staging-${stage.run.id}-${stage.run.run_attempt}`,
-  );
-  if (!downloaded.has(historyDirectory))
-    await downloadPublicationArtifact({
-      run: stage.run,
-      attempt: stage.run.run_attempt,
-      destination: historyDirectory,
-    });
-  evidence(
+  qualified.evidence["publication-history.json"] = save(
     "publication-history.json",
-    join(historyDirectory, "provider/publication-history.json"),
+    coreStage.file("provider/publication-history.json"),
   );
   const materials = readJson(
     new URL("./release-materials.json", import.meta.url),
@@ -320,7 +378,7 @@ try {
     ["tool-manifest.json", "assets/tool-manifest.json"],
   ])
     qualified.materials[name] = hash(
-      native("git", ["show", `${qualified.source}:${path}`], {
+      native("git", ["show", `${releaseCommit(qualified)}:${path}`], {
         encoding: null,
       }),
     );

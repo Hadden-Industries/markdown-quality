@@ -10,6 +10,7 @@ import { readDraftDecisions } from "./release-acceptance.js";
 import { releaseVersion } from "./release-coordinates.js";
 import { verifyOwnerTagSignature } from "./release-signature.js";
 import { admitOwnerDispatch } from "./release-decision-transport.js";
+import { releaseCommit } from "./release-qualification.js";
 
 /** Check provider metadata separately from the native signing-provider boundary. */
 export function verifyTagMetadata(reference, annotation, release) {
@@ -18,7 +19,7 @@ export function verifyTagMetadata(reference, annotation, release) {
   assert.equal(annotation.sha, reference.object.sha);
   assert.equal(annotation.tag, `v${release.version}`);
   assert.equal(annotation.object.type, "commit");
-  assert.equal(annotation.object.sha, release.source.head);
+  assert.equal(annotation.object.sha, releaseCommit(release));
   assert.equal(
     annotation.verification?.verified,
     true,

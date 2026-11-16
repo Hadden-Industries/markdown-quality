@@ -31,7 +31,7 @@ on:
           - verify
           - reconcile
       continuation-json:
-        description: Verification-only admissionId, npmId, githubId, writerRun and writerAttempt
+        description: Verification-only admissionId, npmId, writerRun, writerAttempt and githubId when the operation has a GitHub writer
         required: false
         type: string
       history-checkpoints:
@@ -72,6 +72,7 @@ jobs:
       security-events: read
     outputs:
       artifact-id: ${{ steps.admission.outputs.artifact-id }}
+      github-writer: ${{ steps.admitted.outputs.github-writer }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -88,7 +89,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/acquire-release-inputs.js archive-inputs
-      - name: Admit the immutable family, exact source security and retained recipient locks
+      - id: admitted
+        name: Admit the immutable family, exact source security and retained recipient locks
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/promote-release.js admit archive-inputs promotion-admission
@@ -145,6 +147,7 @@ jobs:
     needs:
       - admit
       - npm
+    if: needs.admit.outputs.github-writer == 'true'
     environment: github-release
     runs-on: ubuntu-26.04
     timeout-minutes: 120
@@ -195,7 +198,7 @@ jobs:
       - admit
       - npm
       - github
-    if: always() && github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main' && (inputs.mode == 'verify' || (needs.admit.result == 'success' && needs.npm.result == 'success' && needs.github.result == 'success'))
+    if: always() && github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main' && (inputs.mode == 'verify' || (needs.admit.result == 'success' && needs.npm.result == 'success' && (needs.github.result == 'success' || (needs.github.result == 'skipped' && needs.admit.outputs.github-writer == 'false'))))
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:

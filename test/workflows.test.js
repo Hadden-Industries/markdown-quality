@@ -134,17 +134,25 @@ test("one producer owns packing and both ordinary and release qualification use 
   assert.equal(q.jobs.complete.if, "always()");
   assert.deepEqual(q.jobs.complete.needs, ["producer", "qualification"]);
   const release = workflow("release-qualification");
+  const fresh = workflow("release-fresh-qualification");
   assert.equal(
-    release.jobs.product.uses,
+    fresh.jobs.product.uses,
     "./.github/workflows/qualification.yml",
   );
-  assert.equal(release.jobs.product.with["release-mode"], true);
+  assert.equal(fresh.jobs.product.with["release-mode"], true);
+  assert.equal(workflow("ci").jobs.product.with["release-mode"], true);
+  assert.equal(
+    release.jobs.fresh.uses,
+    "./.github/workflows/release-fresh-qualification.yml",
+  );
+  assert.equal(release.jobs.fresh.if, "needs.resolve.outputs.reused != 'true'");
   assert.ok(!Object.hasOwn(release.jobs, "candidate"));
   for (const key of ["security", "distribution"])
     assert.ok(
       release.jobs[key].steps.some(
         (s) =>
-          s.with?.["artifact-id"] === "${{ needs.product.outputs.archive-id }}",
+          s.with?.["artifact-id"] ===
+          "${{ needs.resolve.outputs.archive-id || needs.fresh.outputs.archive-id }}",
       ),
     );
 });
@@ -350,7 +358,7 @@ test("release downloads have artifact-read permission and both graphs retain Win
       "read",
     );
   assert.equal(
-    release.jobs.native.uses,
+    workflow("release-fresh-qualification").jobs.native.uses,
     "./.github/workflows/native-qualification.yml",
   );
   assert.equal(

@@ -29,6 +29,7 @@ import {
   syncPackageVersions,
   checkPackageVersions,
 } from "../scripts/project-package-version.js";
+import { releaseDocumentationInputs } from "../scripts/release-documentation.js";
 const cli = fileURLToPath(new URL("../src/cli.js", import.meta.url));
 const repository = fileURLToPath(new URL("../", import.meta.url));
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -341,6 +342,7 @@ test("version projection preserves dependency resolution and validates all input
     ".json-quality.json",
     "packages/linux-x64/package.json",
     "packages/win32-x64/package.json",
+    ...releaseDocumentationInputs,
   ]) {
     mkdirSync(join(root, path, ".."), { recursive: true });
     cpSync(join(repository, path), join(root, path));
@@ -354,6 +356,63 @@ test("version projection preserves dependency resolution and validates all input
   );
   syncPackageVersions(root);
   checkPackageVersions(root);
+  const readmePath = join(root, "README.md");
+  const readmeBytes = readFileSync(readmePath);
+  assert.match(
+    readmeBytes.toString(),
+    /Version \*\*3\.1\.0\*\* is a compatible patch release/u,
+  );
+  assert.ok(readmeBytes.includes("markdown-quality@3.1.0"));
+  assert.ok(readmeBytes.includes("#from-302-to-310"));
+  assert.ok(
+    readFileSync(join(root, "docs/migration-guide.md"), "utf8").includes(
+      "## From 3.0.1 to 3.0.2",
+    ),
+  );
+
+  const comparisonPath = join(root, "docs/release-versions.json");
+  writeFileSync(comparisonPath, JSON.stringify({ previousVersion: "3.0.3" }));
+  syncPackageVersions(root);
+  checkPackageVersions(root);
+  const updatedReadme = readFileSync(readmePath);
+  assert.ok(updatedReadme.includes("#from-303-to-310"));
+  assert.ok(
+    readFileSync(join(root, "docs/support-and-release.md"), "utf8").includes(
+      "## Version 3.0.2",
+    ),
+  );
+
+  writeFileSync(
+    readmePath,
+    updatedReadme
+      .toString()
+      .replace("markdown-quality@3.1.0", "markdown-quality@0.0.0"),
+  );
+  assert.throws(
+    () => checkPackageVersions(root),
+    /Stale version projection: README/u,
+  );
+  syncPackageVersions(root);
+  assert.deepEqual(readFileSync(readmePath), updatedReadme);
+
+  const templatePath = join(root, "docs/release-templates/README.md.in");
+  const templateBytes = readFileSync(templatePath);
+  const unchangedLock = readFileSync(join(root, "package-lock.json"));
+  metadata.version = "3.1.1";
+  writeFileSync(join(root, "package.json"), JSON.stringify(metadata));
+  writeFileSync(
+    templatePath,
+    templateBytes.toString() + "\n{{release.unknown}}\n",
+  );
+  assert.throws(() => syncPackageVersions(root), /Unknown release variable/u);
+  assert.deepEqual(
+    readFileSync(join(root, "package-lock.json")),
+    unchangedLock,
+  );
+  assert.deepEqual(readFileSync(readmePath), updatedReadme);
+  writeFileSync(templatePath, templateBytes);
+  metadata.version = "3.1.0";
+  writeFileSync(join(root, "package.json"), JSON.stringify(metadata));
   const after = JSON.parse(readFileSync(join(root, "package-lock.json")));
   for (const key of ["version"]) after[key] = before[key];
   after.packages[""].version = before.packages[""].version;

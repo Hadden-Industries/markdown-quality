@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { verifyFailedNativeStage } from "./release-staging-evidence.js";
 
 import {
   legacyPublicationSteps,
@@ -222,6 +223,20 @@ export function planPublicationOrigins({
         },
         release.archives,
       );
+      if (
+        context.phase === "core" &&
+        !prewrite &&
+        job?.name === "stage" &&
+        run.conclusion === "failure" &&
+        prior.recovery === null
+      )
+        verifyFailedNativeStage({
+          run,
+          jobs,
+          release,
+          origins: prior,
+          journalFor: previous.journalFor,
+        });
       priorRecords = prior.records;
     } else {
       assert.equal(recovery.originsSha256, "");

@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { stageReleaseArchive } from "../scripts/stage-release-package.js";
 import {
+  readDraftDecisions,
   verifyReleaseAcceptance,
   reviewDecisions,
 } from "../scripts/release-acceptance.js";
@@ -250,6 +251,47 @@ test("new acceptance permits omitted trials while retaining exact qualification 
     );
   };
   assert.equal(check(acceptance).channel, "latest");
+  const acceptanceBytes = Buffer.from(JSON.stringify(acceptance));
+  const records = new Map([
+    ["release-review.json", reviewBytes],
+    ["release-acceptance.json", acceptanceBytes],
+  ]);
+  for (const isDraft of [true, false]) {
+    const gh = (args) => {
+      if (args[0] === "api")
+        return JSON.stringify({
+          tag_name: `v${release.version}`,
+          draft: false,
+          immutable: true,
+          prerelease: true,
+        });
+      if (args[1] === "view")
+        return JSON.stringify({
+          tagName: `v${release.version}`,
+          isDraft,
+          isPrerelease: true,
+        });
+      const name = args[args.indexOf("--pattern") + 1];
+      writeFileSync(join(args.at(-1), name), records.get(name));
+    };
+    for (const [name, bytes] of records) {
+      const read = () =>
+        readDraftDecisions(
+          release,
+          common.manifestSha256,
+          [
+            {
+              name,
+              digest: hash(bytes),
+              phase: name === "release-review.json" ? "review" : "acceptance",
+            },
+          ],
+          { repository: common.repository, gh, allowImmutableRelease: true },
+        );
+      if (isDraft) assert.throws(read, /historical schema-1/u);
+      else assert.deepEqual(read().get(name), bytes);
+    }
+  }
   const { immutabilityObservation, ...missingObservation } = acceptance;
   for (const misplaced of [
     missingObservation,

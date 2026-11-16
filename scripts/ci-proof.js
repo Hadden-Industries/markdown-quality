@@ -27,6 +27,7 @@ export function jobNames(matrix) {
   return [
     "Candidate policy",
     "Dependencies",
+    "Distribution",
     "CodeQL / Validate Actions approval model",
     "CodeQL / Scan actions",
     "CodeQL / Scan javascript-typescript",
@@ -44,7 +45,14 @@ export function jobNames(matrix) {
 export function requireResults(needs) {
   equal(
     Object.keys(needs).sort(),
-    ["dependencies", "native", "policy", "product", "codeql"].sort(),
+    [
+      "dependencies",
+      "native",
+      "policy",
+      "product",
+      "codeql",
+      "distribution",
+    ].sort(),
     "Incomplete mandatory predecessor graph",
   );
   for (const [name, value] of Object.entries(needs))

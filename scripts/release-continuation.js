@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Read-only admission of a public tuple after the owner's staged approvals. */
 import assert from "node:assert/strict";
-import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { native } from "./commands.js";
@@ -23,6 +31,9 @@ import {
   releaseQualificationJobNames,
   releaseQualificationWorkflow,
   registryWorkflow,
+  qualificationMode,
+  verifyReleaseQualificationJobs,
+  releaseCommit,
 } from "./release-qualification.js";
 import {
   validatePublicationOrigins,
@@ -33,7 +44,11 @@ import { verifyReleaseTag } from "./verify-release-tag.js";
 import { stagingStepNames } from "./publication-steps.js";
 import { verifyReleaseAcceptance } from "./release-acceptance.js";
 import { readPackageTags } from "./release-labels.js";
+import { acquirePublicationArtifact } from "./publication-artifact.js";
+import { readSignedHistoryRefs } from "./release-history.js";
+import { verifyNativeOriginArtifact } from "./release-staging-evidence.js";
 import {
+  assertPublicationRequestsCompleted,
   authenticatePublicationAttempts,
   readPublicationAttempts,
   publicationWorkflow,
@@ -50,7 +65,7 @@ export function requireManualControl(env, workflow) {
   assert.match(env.GITHUB_SHA, /^[a-f0-9]{40}$/u);
 }
 
-export function providerFor(run, jobs, workflow, names, attempts) {
+export function providerFor(run, jobs, workflow, names, attempts, mode) {
   const expected = {
     run: String(run.id),
     attempt: String(run.run_attempt),
@@ -58,6 +73,7 @@ export function providerFor(run, jobs, workflow, names, attempts) {
     workflow,
     event: "workflow_dispatch",
     jobs: names,
+    ...(mode ? { qualificationMode: mode } : {}),
   };
   if (workflow === publicationWorkflow && attempts) {
     const observed = authenticatePublicationAttempts(run, attempts);
@@ -68,16 +84,7 @@ export function providerFor(run, jobs, workflow, names, attempts) {
       observed.jobs,
       "Staging jobs differ from authenticated attempt history",
     );
-    assert.equal(run.status, "completed");
-    assert.equal(run.conclusion, "success");
-    for (const job of jobs.jobs) {
-      assert.equal(job.status, "completed");
-      assert.equal(
-        job.conclusion,
-        "success",
-        "The latest prerequisite execution must succeed",
-      );
-    }
+    assertPublicationRequestsCompleted(run, jobs);
   } else verifyProvider({ run, jobs }, expected);
   assert.deepEqual(
     jobs.jobs.map(({ name }) => name).sort(),
@@ -102,7 +109,9 @@ export function verifyStagingContinuation({
   assert.equal(hash(Buffer.from(origins.bytes)), originsSha);
   const map = JSON.parse(origins.bytes);
   assert.equal(release.source.clean, true);
-  assert.equal(release.source.head, candidate.run.head_sha);
+  assert.equal(releaseCommit(release), candidate.run.head_sha);
+  verifyReleaseQualificationJobs(candidate.run, candidate.jobs, release);
+  const mode = qualificationMode(release, candidate.jobs);
   const qualification = providerFor(
     candidate.run,
     candidate.jobs,
@@ -110,7 +119,10 @@ export function verifyStagingContinuation({
     releaseQualificationJobNames(
       release.qualificationMatrix,
       release.runtimePolicy,
+      mode,
     ),
+    undefined,
+    mode === "legacy" ? undefined : mode,
   );
   assert.equal(stage.runnerPolicy?.source, stage.run.head_sha);
   assert.match(stage.runnerPolicy.ubuntu, ubuntuRunnerPattern);
@@ -180,33 +192,26 @@ export function readProvider(
   runId,
   attempt,
   gh = (args) => native("gh", args),
+  retained,
 ) {
   assert.match(String(runId), /^[1-9]\d{0,15}$/u);
   if (attempt) assert.match(String(attempt), /^[1-9]\d{0,15}$/u);
+  if (retained) {
+    assert.equal(String(retained.run.id), String(runId));
+    assert.equal(String(retained.run.run_attempt), String(attempt));
+    return publicationRunnerPolicy(
+      authenticatePublicationAttempts(retained.run, retained.attempts),
+      gh,
+    );
+  }
   const path = `repos/${repository}/actions/runs/${runId}${attempt ? `/attempts/${attempt}` : ""}`;
   const run = JSON.parse(gh(["api", path]));
   assert.equal(String(run.id), String(runId));
   if (run.path === publicationWorkflow) {
-    const publication = readPublicationAttempts(runId, attempt, gh);
-    const source = publication.run.head_sha;
-    assert.match(source, /^[a-f0-9]{40}$/u);
-    const path = "assets/node-support.json";
-    const file = JSON.parse(
-      gh(["api", `repos/${repository}/contents/${path}?ref=${source}`]),
+    return publicationRunnerPolicy(
+      readPublicationAttempts(runId, attempt, gh),
+      gh,
     );
-    assert.equal(file.path, path);
-    assert.equal(file.encoding, "base64");
-    const policy = JSON.parse(
-      Buffer.from(file.content, "base64").toString("utf8"),
-    );
-    return {
-      ...publication,
-      runnerPolicy: {
-        source,
-        ubuntu: ubuntuRunner(policy),
-        windows: windowsRunner(policy),
-      },
-    };
   }
   const jobs = JSON.parse(
     gh([
@@ -217,14 +222,60 @@ export function readProvider(
   return { run, jobs };
 }
 
+function publicationRunnerPolicy(publication, gh) {
+  const source = publication.run.head_sha;
+  assert.match(source, /^[a-f0-9]{40}$/u);
+  const path = "assets/node-support.json";
+  const file = JSON.parse(
+    gh(["api", `repos/${repository}/contents/${path}?ref=${source}`]),
+  );
+  assert.equal(file.path, path);
+  assert.equal(file.encoding, "base64");
+  const policy = JSON.parse(
+    Buffer.from(file.content, "base64").toString("utf8"),
+  );
+  return {
+    ...publication,
+    runnerPolicy: {
+      source,
+      ubuntu: ubuntuRunner(policy),
+      windows: windowsRunner(policy),
+    },
+  };
+}
+
+/** Each retained native writer is authenticated once before public qualification. */
+export async function verifyRetainedNativeOrigins({
+  release,
+  context,
+  acquire,
+}) {
+  const originals = new Map();
+  for (const origin of context.origins.records.slice(0, 2)) {
+    assert.equal(origin.state, "retained");
+    originals.set(`${origin.run}/${origin.attempt}`, origin);
+  }
+  for (const origin of originals.values()) {
+    const { original, file } = await acquire(origin);
+    assert.equal(original.run.head_sha, origin.source);
+    verifyNativeOriginArtifact({
+      release,
+      manifestSha: context.manifestSha256,
+      continued: context.origins,
+      original,
+      file,
+    });
+  }
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   assert.equal(
     process.argv.length,
-    4,
-    "Usage: release-continuation.js ARCHIVES PREVIOUS_STAGE",
+    5,
+    "Usage: release-continuation.js ARCHIVES PREVIOUS_STAGE PROVIDER_DIRECTORY",
   );
   requireManualControl(process.env, registryWorkflow);
-  const [directory, previous] = process.argv
+  const [directory, previous, providerDirectory] = process.argv
     .slice(2)
     .map((path) => resolve(path));
   const bytes = readFileSync(join(directory, "release-manifest.json"));
@@ -241,9 +292,15 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       archive,
     );
   const candidate = readProvider(process.env.CANDIDATE_RUN);
+  const retainedPath = join(
+    providerDirectory,
+    "previous-publication-provider.json",
+  );
   const stage = readProvider(
     process.env.STAGING_RUN,
     process.env.STAGING_ATTEMPT,
+    undefined,
+    existsSync(retainedPath) ? readJson(retainedPath) : undefined,
   );
   const originBytes = readFileSync(
     join(previous, "frozen-release/publication-origins.json"),
@@ -256,6 +313,34 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     candidate,
     stage,
   });
+  const scratch = mkdtempSync(
+    join(tmpdir(), "markdown-quality-retained-stages-"),
+  );
+  try {
+    let signed;
+    await verifyRetainedNativeOrigins({
+      release,
+      context,
+      acquire: async (origin) => {
+        const destination = join(scratch, `${origin.run}-${origin.attempt}`);
+        const original = await acquirePublicationArtifact({
+          runId: origin.run,
+          attempt: origin.attempt,
+          destination,
+          checkpoints: () =>
+            (signed ??= readSignedHistoryRefs(
+              JSON.parse(process.env.HISTORY_CHECKPOINT || "[]"),
+            )),
+        });
+        return {
+          original,
+          file: (name) => readFileSync(join(destination, name)),
+        };
+      },
+    });
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
   const api = (path) =>
     JSON.parse(native("gh", ["api", `repos/${repository}/${path}`]));
   assert.equal(

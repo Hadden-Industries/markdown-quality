@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import assert from "node:assert/strict";
+import { releaseCommit } from "./release-qualification.js";
 import { mkdirSync, writeFileSync, rmSync, renameSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,7 +38,7 @@ export function prepareGithubRelease(qualified, input, output, cwd) {
           : materialPaths[name]
             ? native(
                 "git",
-                ["show", `${qualified.source}:${materialPaths[name]}`],
+                ["show", `${releaseCommit(qualified)}:${materialPaths[name]}`],
                 { cwd, encoding: null },
               )
             : regularBytes(join(input, name));

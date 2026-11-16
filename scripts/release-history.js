@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Retain native writer observations and original target qualification under owner-signed history refs. */
 import assert from "node:assert/strict";
+import {
+  decodeHistoryCheckpoint,
+  historyTransportLimit,
+} from "./release-history-format.js";
+import { releaseCommit } from "./release-qualification.js";
 import { sameJobExecution } from "./github-job-execution.js";
 import { isDeepStrictEqual } from "node:util";
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
@@ -23,12 +28,30 @@ import { verifyReleaseTag } from "./verify-release-tag.js";
 import { authenticateStagingRecovery } from "./release-staging-recovery.js";
 import { createRepositoryReader } from "./github-evidence.js";
 import { downloadEvidence } from "./download-evidence.js";
+import { publicationUploadAcknowledgment } from "./publication-upload.js";
 import { budgets } from "./qualification-budgets.js";
 import { retainedObservationIdentity } from "./release-retained-artifacts.js";
+import {
+  protectedControllerHistory,
+  legacyRunClosed,
+  outsideWriterRef,
+  readWriterIntents,
+  sameWriterRun,
+  verifyWriterInventory,
+  writerJobs,
+  writerWorkflow,
+} from "./release-writer-inventory.js";
 import {
   legacyPublicationSteps,
   stagingStepNames,
 } from "./publication-steps.js";
+import { githubWriterRequired, resumesOperation } from "./release-operation.js";
+import { releasePackages } from "./release-coordinates.js";
+import {
+  createLegacyProvenanceResolver,
+  LEGACY_RECOVERY_SOURCE,
+  verifyRecoveredProvenanceWriter,
+} from "./release-provenance-recovery.js";
 
 const repository = "Hadden-Industries/markdown-quality";
 const key = (entry) =>
@@ -55,6 +78,45 @@ const inventoryIdentity = (inventory) => ({
 });
 export const writerObservationIdentity = retainedObservationIdentity;
 
+const optionalReader = (name) =>
+  [
+    "admit",
+    "Read-only release completion",
+    "Read-only archive completion",
+    "reconcile",
+  ].includes(name);
+
+/** Partial reruns copy completed jobs under new IDs. Require the first execution's journal. */
+function originalExecution(job, executions) {
+  if (
+    job.status === "completed" &&
+    job.runner_id === 0 &&
+    !job.runner_name &&
+    Array.isArray(job.steps) &&
+    job.steps.length === 0
+  )
+    return false;
+  if (
+    job.conclusion === "skipped" ||
+    (job.status === "queued" && !job.steps?.length)
+  )
+    return false;
+  assert.equal(job.status, "completed", "Original writer is unresolved");
+  sameJobExecution(job, job);
+  const inherited = executions.find((prior) => sameJobExecution(prior, job));
+  if (inherited) {
+    assert.equal(job.conclusion, inherited.conclusion);
+    assert.deepEqual(
+      job.steps,
+      inherited.steps,
+      "Inherited writer execution changed",
+    );
+    return false;
+  }
+  executions.push(job);
+  return true;
+}
+
 /** Overlap is a consistency check, never a preference for whichever record permits a write. */
 export function mergeWriterHistory(...inventories) {
   const merged = new Map();
@@ -75,13 +137,24 @@ export function mergeWriterHistory(...inventories) {
   return [...merged.values()];
 }
 
+/**
+ * The original qualified subjects a signed checkpoint retains, selected by its
+ * actual format: schema 1 holds one target and schema 2 an explicit inventory
+ * in which each subject is stored once and remains attributable by digest.
+ */
+export function checkpointTargets(checkpoint) {
+  return checkpoint.schemaVersion === 2
+    ? checkpoint.targetQualifications
+    : [checkpoint.targetQualification];
+}
+
 /** Signed Git authenticates exact checkpoint bytes and permits no self-asserted signer identity. */
 export function verifySignedCheckpoint(
   bytes,
   { reference, annotation, command = native, signerPolicy } = {},
 ) {
   assert.ok(
-    bytes.length <= 48 * 1024 * 1024,
+    bytes.length <= historyTransportLimit,
     "Signed checkpoint exceeds the bounded Git transport",
   );
   assert.match(reference.ref, /^refs\/tags\/release-history-[A-Za-z0-9._-]+$/u);
@@ -99,8 +172,11 @@ export function verifySignedCheckpoint(
     Buffer.from(original).equals(bytes),
     "Checkpoint bytes differ from the signed history commit",
   );
-  const checkpoint = JSON.parse(bytes);
-  assert.equal(checkpoint.schemaVersion, 1);
+  const checkpoint = decodeHistoryCheckpoint(bytes);
+  assert.ok(
+    [1, 2].includes(checkpoint.schemaVersion),
+    "Unknown signed checkpoint format",
+  );
   assert.equal(checkpoint.repository, repository);
   assert.equal(
     checkpoint.complete,
@@ -108,23 +184,114 @@ export function verifySignedCheckpoint(
     "Incomplete checkpoint cannot authorize recovery",
   );
   assert.ok(checkpoint.writers?.length > 0, "Writer history is missing");
-  assert.ok(
-    checkpoint.targetQualification,
-    "Original target qualification is missing",
-  );
-  const { qualified, files, archive } = checkpoint.targetQualification;
+  if (checkpoint.schemaVersion === 1)
+    assert.equal(checkpoint.targetQualifications, undefined);
+  else {
+    assert.equal(
+      checkpoint.targetQualification,
+      undefined,
+      "An extended checkpoint lists every subject in targetQualifications",
+    );
+    assert.ok(
+      Array.isArray(checkpoint.targetQualifications) &&
+        checkpoint.targetQualifications.length > 0,
+      "Original target qualification is missing",
+    );
+    assert.equal(
+      new Set(
+        checkpoint.targetQualifications.map(
+          (target) => target?.qualificationSha256,
+        ),
+      ).size,
+      checkpoint.targetQualifications.length,
+      "Each retained subject is stored once",
+    );
+  }
+  for (const target of checkpointTargets(checkpoint))
+    verifyTargetQualification(target);
+  for (const entry of checkpoint.writers) {
+    const workflow = writerWorkflow(entry.run);
+    assert.ok(writerJobs[workflow].includes(entry.job.name));
+    assert.equal(entry.run.run_attempt, entry.attempt);
+    assert.equal(entry.run.head_sha, entry.job.head_sha);
+    assert.equal(entry.job.run_id, entry.run.id);
+    assert.equal(entry.job.run_attempt, entry.attempt);
+    assert.equal(entry.job.status, "completed");
+    assert.ok(entry.files && entry.artifact?.digest);
+    for (const file of Object.values(entry.files)) {
+      const raw = Buffer.from(file.base64, "base64");
+      assert.equal(raw.toString("base64"), file.base64);
+      assert.equal(hash(raw), file.sha256);
+    }
+    verifyRecoveredProvenanceWriter(entry);
+  }
+  const executions = new Map();
+  for (const { run, inventory } of [...(checkpoint.writerAttempts ?? [])].sort(
+    (a, b) => a.run.run_attempt - b.run.run_attempt,
+  )) {
+    const roles = writerJobs[writerWorkflow(run)];
+    const prior = executions.get(run.id) ?? [];
+    executions.set(run.id, prior);
+    assert.equal(inventory.total_count, inventory.jobs.length);
+    assert.equal(
+      new Set(inventory.jobs.map((job) => job.id)).size,
+      inventory.jobs.length,
+    );
+    const actual = checkpoint.writers.filter(
+      (entry) => entry.run.id === run.id && entry.attempt === run.run_attempt,
+    );
+    for (const job of inventory.jobs) {
+      assert.equal(job.run_id, run.id);
+      assert.equal(job.run_attempt, run.run_attempt);
+      assert.equal(job.head_sha, run.head_sha);
+      if (
+        roles.includes(job.name) &&
+        originalExecution(job, prior) &&
+        !optionalReader(job.name) &&
+        !writerNeverRequested(job)
+      )
+        assert.ok(
+          actual.some((entry) => entry.job.id === job.id),
+          "Signed attempt inventory lacks its original writer evidence",
+        );
+    }
+    for (const entry of actual) {
+      sameWriterRun(run, entry.run);
+      const job = inventory.jobs.find((job) => job.id === entry.job.id);
+      assert.ok(job);
+      assert.deepEqual(jobIdentity(job), jobIdentity(entry.job));
+      assert.deepEqual(
+        inventoryIdentity(inventory),
+        inventoryIdentity(entry.inventory),
+      );
+    }
+  }
+  for (const run of checkpoint.nonWriterRuns ?? [])
+    assert.ok(outsideWriterRef(run));
+  for (const { run, observedAt } of checkpoint.closedWriterRuns ?? []) {
+    writerWorkflow(run);
+    assert.ok(
+      legacyRunClosed(run, observedAt) &&
+        observedAt <= Date.parse(checkpoint.preparedAt),
+    );
+  }
+  return checkpoint;
+}
+
+/**
+ * Validate one retained original qualified subject: its exact qualification
+ * bytes, archival producer, both original providers and artifacts, immutable
+ * archive identity, recipient lock identities and every bound member file.
+ */
+function verifyTargetQualification(target) {
+  assert.ok(target, "Original target qualification is missing");
+  const { qualified, files, archive } = target;
   verifyQualification(qualified);
-  const qualificationBytes = Buffer.from(
-    checkpoint.targetQualification.qualificationBase64,
-    "base64",
-  );
-  assert.equal(
-    hash(qualificationBytes),
-    checkpoint.targetQualification.qualificationSha256,
-  );
+  const qualificationBytes = Buffer.from(target.qualificationBase64, "base64");
+  assert.equal(hash(qualificationBytes), target.qualificationSha256);
   assert.deepEqual(JSON.parse(qualificationBytes), qualified);
-  if (checkpoint.targetQualification.archival) {
-    const original = checkpoint.targetQualification.archival;
+  if (target.archival) {
+    const original = target.archival;
     assert.equal(original.run.repository.full_name, repository);
     assert.equal(original.run.path, ".github/workflows/github-release.yml");
     assert.equal(original.run.event, "workflow_dispatch");
@@ -149,12 +316,12 @@ export function verifySignedCheckpoint(
     );
     assert.match(original.artifact.digest, /^sha256:[a-f0-9]{64}$/u);
   }
-  assert.equal(checkpoint.targetQualification.providers.length, 2);
+  assert.equal(target.providers.length, 2);
   for (const [index, expected] of [
     qualified.candidate,
     qualified.publication,
   ].entries()) {
-    const provider = checkpoint.targetQualification.providers[index];
+    const provider = target.providers[index];
     verifyProvider(provider, expected);
     assert.ok(
       provider.artifacts.length > 0,
@@ -208,20 +375,6 @@ export function verifySignedCheckpoint(
           : null);
     if (expected) assert.equal(hash(raw), expected);
   }
-  for (const entry of checkpoint.writers) {
-    assert.equal(entry.run.repository.full_name, repository);
-    assert.equal(entry.run.head_sha, entry.job.head_sha);
-    assert.equal(entry.job.run_id, entry.run.id);
-    assert.equal(entry.job.run_attempt, entry.attempt);
-    assert.equal(entry.job.status, "completed");
-    assert.ok(entry.files && entry.artifact?.digest);
-    for (const file of Object.values(entry.files)) {
-      const raw = Buffer.from(file.base64, "base64");
-      assert.equal(raw.toString("base64"), file.base64);
-      assert.equal(hash(raw), file.sha256);
-    }
-  }
-  return checkpoint;
 }
 
 /** Explicit immutable ref selections are authenticated before any checkpoint fields are consumed. */
@@ -337,8 +490,6 @@ export function legacyArchiveSettled(entry, checkpoints) {
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   return checkpoints.some((checkpoint) => {
-    const target = checkpoint.targetQualification,
-      tag = `v${target.qualified.version}`;
     const original = checkpoint.writers.some(
       (writer) =>
         key(writer) === key(entry) &&
@@ -347,49 +498,58 @@ export function legacyArchiveSettled(entry, checkpoints) {
           writerObservationIdentity(entry),
         ),
     );
-    if (!original || target.archive.immutable !== true) return false;
-    const qualificationSha256 = hash(
-      Buffer.from(
-        // Historical terminal receipts hash this exact serialized qualification envelope.
-        JSON.stringify(target.qualified),
-      ),
+    return (
+      original &&
+      checkpointTargets(checkpoint).some((target) => {
+        const tag = `v${target.qualified.version}`;
+        if (target.archive.immutable !== true) return false;
+        const qualificationSha256 = hash(
+          Buffer.from(
+            // Historical terminal receipts hash this exact serialized qualification envelope.
+            JSON.stringify(target.qualified),
+          ),
+        );
+        const summary = records.some(
+          (record) =>
+            record.nativeReleaseAndEveryAssetVerified === true &&
+            record.immutable === true &&
+            record.source === target.qualified.source &&
+            record.tag === tag &&
+            record.releaseId === target.archive.releaseId &&
+            record.qualificationSha256 === qualificationSha256 &&
+            isDeepStrictEqual(
+              assets(record.assets),
+              assets(target.archive.assets),
+            ),
+        );
+        const nativeRelease = records.some(
+          (record) =>
+            record.id === target.archive.releaseId &&
+            record.tag_name === tag &&
+            record.draft === false &&
+            record.immutable === true &&
+            Array.isArray(record.assets) &&
+            isDeepStrictEqual(
+              assets(record.assets),
+              assets(target.archive.assets),
+            ) &&
+            record.assets.some(
+              (asset) =>
+                asset.name === "release-manifest.json" &&
+                asset.digest === `sha256:${target.qualified.manifestSha256}`,
+            ),
+        );
+        const nativeTag = records.some(
+          (record) =>
+            record.tag === tag &&
+            record.object?.sha === releaseCommit(target.qualified) &&
+            record.object.type === "commit" &&
+            record.verification?.verified === true &&
+            record.verification.reason === "valid",
+        );
+        return summary || (nativeRelease && nativeTag);
+      })
     );
-    const summary = records.some(
-      (record) =>
-        record.nativeReleaseAndEveryAssetVerified === true &&
-        record.immutable === true &&
-        record.source === target.qualified.source &&
-        record.tag === tag &&
-        record.releaseId === target.archive.releaseId &&
-        record.qualificationSha256 === qualificationSha256 &&
-        isDeepStrictEqual(assets(record.assets), assets(target.archive.assets)),
-    );
-    const nativeRelease = records.some(
-      (record) =>
-        record.id === target.archive.releaseId &&
-        record.tag_name === tag &&
-        record.draft === false &&
-        record.immutable === true &&
-        Array.isArray(record.assets) &&
-        isDeepStrictEqual(
-          assets(record.assets),
-          assets(target.archive.assets),
-        ) &&
-        record.assets.some(
-          (asset) =>
-            asset.name === "release-manifest.json" &&
-            asset.digest === `sha256:${target.qualified.manifestSha256}`,
-        ),
-    );
-    const nativeTag = records.some(
-      (record) =>
-        record.tag === tag &&
-        record.object?.sha === target.qualified.source &&
-        record.object.type === "commit" &&
-        record.verification?.verified === true &&
-        record.verification.reason === "valid",
-    );
-    return summary || (nativeRelease && nativeTag);
   });
 }
 
@@ -399,40 +559,110 @@ export async function collectWriterHistory({
   checkpoints = [],
   gh = (args) => native("gh", args),
   download = downloadEvidence,
+  readEvidence,
+  approvedControllers = protectedControllerHistory(env.GITHUB_SHA),
+  intents = readWriterIntents(gh),
+  requireIntent = false,
+  baseline,
+  npm,
+  readPackument,
+  recoverProvenance,
 } = {}) {
   const retained = mergeWriterHistory(
     ...checkpoints.map((checkpoint) => checkpoint.writers),
   );
+  const writerAttempts = checkpoints.flatMap(
+    (checkpoint) => checkpoint.writerAttempts ?? [],
+  );
+  const closedWriterRuns = new Map(
+    checkpoints
+      .flatMap((record) => record.closedWriterRuns ?? [])
+      .map((record) => [record.run.id, record]),
+  );
+  const nonWriterRuns = new Map(
+    checkpoints
+      .flatMap((record) => record.nonWriterRuns ?? [])
+      .map((run) => [run.id, run]),
+  );
+  for (const { run } of [...retained, ...writerAttempts]) {
+    writerWorkflow(run);
+    assert.ok(
+      approvedControllers.has(run.head_sha),
+      "Historical controller is outside protected main history",
+    );
+  }
   const live = [],
     missing = [];
   const scratch = mkdtempSync(
     join(env.RUNNER_TEMP ?? tmpdir(), "markdown-quality-writer-history-"),
   );
+  const recoverWriter =
+    recoverProvenance ??
+    createLegacyProvenanceResolver({
+      repository,
+      baseline,
+      gh,
+      npm,
+      readPackument,
+      tempRoot: env.RUNNER_TEMP ?? tmpdir(),
+    }).recoverWriter;
   try {
-    for (const workflow of [
-      "publish.yml",
-      "github-release.yml",
-      "promote-release.yml",
-    ]) {
+    for (const [name, jobsForWorkflow] of Object.entries(writerJobs)) {
+      const workflow = name + ".yml";
+      const observedAt = Date.now();
       const pages = JSON.parse(
         gh([
           "api",
-          `repos/${repository}/actions/workflows/${workflow}/runs?event=workflow_dispatch&per_page=100`,
+          `repos/${repository}/actions/workflows/${workflow}/runs?per_page=100`,
           "--paginate",
           "--slurp",
         ]),
       );
       const runs = pages.flatMap((page) => page.workflow_runs);
+      assert.ok(
+        pages.length && pages.every((page) => page.total_count === runs.length),
+        "Incomplete workflow run inventory",
+      );
+      verifyWriterInventory(
+        name,
+        runs,
+        checkpoints,
+        intents,
+        env,
+        requireIntent,
+        baseline,
+      );
       for (const run of runs) {
         const executions = [];
-        assert.equal(run.repository.full_name, repository);
         assert.equal(run.path, `.github/workflows/${workflow}`);
+        if (outsideWriterRef(run)) {
+          if (
+            intents.some(
+              (intent) =>
+                intent.workflow === name && intent.number === run.run_number,
+            )
+          )
+            nonWriterRuns.set(run.id, run);
+          continue;
+        }
+        if (
+          run.event !== "workflow_dispatch" &&
+          !(name === "publish" && run.event === "push")
+        )
+          continue;
+        writerWorkflow(run);
+        assert.ok(
+          approvedControllers.has(run.head_sha),
+          "Historical controller is outside protected main history",
+        );
         assert.ok(
           Number.isInteger(run.run_attempt) &&
             run.run_attempt > 0 &&
             run.run_attempt <= 50,
         );
         const current = String(run.id) === String(env.GITHUB_RUN_ID);
+        if (!current && legacyRunClosed(run, observedAt))
+          closedWriterRuns.set(run.id, { run, observedAt });
         if (!current)
           assert.equal(
             run.status,
@@ -448,13 +678,19 @@ export async function collectWriterHistory({
               String(entry.run.id) === String(run.id) &&
               entry.attempt === attempt,
           );
+          for (const entry of retainedAttempt) sameWriterRun(entry.run, run);
+          const signedAttempt = writerAttempts.find(
+            (entry) =>
+              entry.run.id === run.id && entry.run.run_attempt === attempt,
+          );
+          if (signedAttempt) sameWriterRun(signedAttempt.run, run);
           const readOriginal = (args, fallback) => {
             try {
               return JSON.parse(gh(args));
             } catch (error) {
               if (error.httpStatus !== 404) throw error;
               assert.ok(
-                retainedAttempt.length,
+                retainedAttempt.length || signedAttempt,
                 "Deleted original attempt requires complete signed history",
               );
               assert.ok(
@@ -472,14 +708,17 @@ export async function collectWriterHistory({
               "api",
               `repos/${repository}/actions/runs/${run.id}/attempts/${attempt}`,
             ],
-            (entries) => entries[0].run,
+            (entries) => signedAttempt?.run ?? entries[0].run,
           );
+          writerWorkflow(original);
+          sameWriterRun(original, run);
+          assert.equal(original.run_attempt, attempt);
           const jobs = readOriginal(
             [
               "api",
               `repos/${repository}/actions/runs/${run.id}/attempts/${attempt}/jobs?per_page=100`,
             ],
-            (entries) => entries[0].inventory,
+            (entries) => signedAttempt?.inventory ?? entries[0].inventory,
           );
           assert.equal(jobs.total_count, jobs.jobs.length);
           const artifactPages = readOriginal(
@@ -499,53 +738,13 @@ export async function collectWriterHistory({
             ],
           );
           const artifacts = artifactPages.flatMap((page) => page.artifacts);
-          for (const job of jobs.jobs.filter(
-            (entry) =>
-              ["stage", "publish", "archive", "npm", "github"].includes(
-                entry.name,
-              ) ||
-              (workflow === "promote-release.yml" &&
-                ["admit", "Read-only release completion", "reconcile"].includes(
-                  entry.name,
-                )) ||
-              (workflow === "github-release.yml" &&
-                entry.name === "Read-only archive completion"),
+          for (const job of jobs.jobs.filter((entry) =>
+            jobsForWorkflow.includes(entry.name),
           )) {
             assert.equal(job.run_id, original.id);
             assert.equal(job.run_attempt, attempt);
             assert.equal(job.head_sha, original.head_sha);
-            if (
-              job.status === "completed" &&
-              job.runner_id === 0 &&
-              !job.runner_name &&
-              Array.isArray(job.steps) &&
-              job.steps.length === 0
-            )
-              continue;
-            if (
-              job.conclusion === "skipped" ||
-              (job.status === "queued" && !job.steps?.length)
-            )
-              continue;
-            assert.equal(
-              job.status,
-              "completed",
-              "Original writer is unresolved",
-            );
-            sameJobExecution(job, job);
-            const inherited = executions.find((prior) =>
-              sameJobExecution(prior, job),
-            );
-            if (inherited) {
-              assert.equal(job.conclusion, inherited.conclusion);
-              assert.deepEqual(
-                job.steps,
-                inherited.steps,
-                "Inherited writer execution changed",
-              );
-              continue;
-            }
-            executions.push(job);
+            if (!originalExecution(job, executions)) continue;
             const base = { run: original, attempt, job, inventory: jobs };
             const names =
               job.name === "stage" || job.name === "publish"
@@ -570,13 +769,11 @@ export async function collectWriterHistory({
             assert.ok(matches.length <= 1, "Ambiguous writer artifact");
             const old = retained.find((entry) => key(entry) === key(base));
             if (!matches.length && !old && writerNeverRequested(job)) continue;
-            const readOnly = [
-              "admit",
-              "Read-only release completion",
-              "Read-only archive completion",
-              "reconcile",
-            ].includes(job.name);
-            if (readOnly && (!matches.length || matches[0].expired) && !old)
+            if (
+              optionalReader(job.name) &&
+              (!matches.length || matches[0].expired) &&
+              !old
+            )
               continue;
             if (!matches.length || matches[0].expired) {
               assert.ok(
@@ -588,20 +785,44 @@ export async function collectWriterHistory({
                 "Checkpoint original inventory changed",
               );
               if (old && matches.length) {
-                for (const name of [
-                  "id",
-                  "name",
-                  "size_in_bytes",
-                  "digest",
-                  "workflow_run",
-                ])
-                  assert.deepEqual(
-                    old.artifact[name],
-                    matches[0][name],
-                    "Checkpoint artifact identity changed",
+                if (
+                  old.artifact.source === LEGACY_RECOVERY_SOURCE &&
+                  matches[0].expired === true &&
+                  matches[0].source !== LEGACY_RECOVERY_SOURCE
+                ) {
+                  assert.equal(matches[0].name, old.artifact.name);
+                  assert.equal(
+                    matches[0].workflow_run?.id,
+                    old.artifact.workflow_run.id,
                   );
+                } else {
+                  for (const name of [
+                    "id",
+                    "name",
+                    "size_in_bytes",
+                    "digest",
+                    "workflow_run",
+                  ])
+                    assert.deepEqual(
+                      old.artifact[name],
+                      matches[0][name],
+                      "Checkpoint artifact identity changed",
+                    );
+                }
               }
-              if (!old)
+              if (!old) {
+                const recovered = await recoverWriter({
+                  run: original,
+                  attempt,
+                  job,
+                  inventory: jobs,
+                  observedAt,
+                  publishRuns: runs,
+                });
+                if (recovered) {
+                  live.push(recovered);
+                  continue;
+                }
                 missing.push({
                   workflow: original.path,
                   run: run.id,
@@ -609,15 +830,51 @@ export async function collectWriterHistory({
                   job: job.id,
                   reason: "missing-original-writer-artifact",
                 });
+              }
               continue;
             }
             const artifact = matches[0],
               destination = join(scratch, `${run.id}-${attempt}-${job.id}`);
-            const read = createRepositoryReader({
-              repository,
-              token: env.GH_TOKEN ?? env.GITHUB_TOKEN,
-              budgetMs: budgets.collection,
-            });
+            assert.equal(artifact.workflow_run.id, run.id);
+            assert.equal(
+              artifact.workflow_run.repository_id,
+              run.repository.id,
+            );
+            assert.equal(
+              artifact.workflow_run.head_repository_id,
+              run.head_repository.id,
+            );
+            assert.equal(artifact.workflow_run.head_sha, original.head_sha);
+            const read =
+              readEvidence ??
+              createRepositoryReader({
+                repository,
+                token: env.GH_TOKEN ?? env.GITHUB_TOKEN,
+                budgetMs: budgets.collection,
+              });
+            if (job.name === "stage") {
+              let acknowledgment;
+              try {
+                acknowledgment = await publicationUploadAcknowledgment(
+                  job,
+                  artifact.name,
+                  read,
+                );
+              } catch (error) {
+                if (!old || ![404, 410].includes(error.httpStatus)) throw error;
+                acknowledgment = old.artifact;
+              }
+              assert.ok(
+                acknowledgment,
+                "Original staging upload acknowledgment is unavailable",
+              );
+              for (const name of ["id", "name", "digest"])
+                assert.equal(
+                  artifact[name],
+                  acknowledgment[name],
+                  "Writer artifact differs from its original acknowledgment",
+                );
+            }
             await download({
               id: artifact.id,
               destination,
@@ -626,13 +883,37 @@ export async function collectWriterHistory({
               repositoryId: run.repository.id,
               headRepositoryId: run.head_repository.id,
               headSha: run.head_sha,
+              expectedArtifact: artifact,
             });
             live.push({ ...base, artifact, files: retainedFiles(destination) });
           }
+          writerAttempts.push({
+            run: original,
+            inventory: jobs,
+          });
         }
       }
     }
-    return { writers: mergeWriterHistory(retained, live), missing };
+    const attempts = new Map();
+    for (const entry of writerAttempts) {
+      const id = `${entry.run.id}/${entry.run.run_attempt}`;
+      const prior = attempts.get(id);
+      if (prior) {
+        sameWriterRun(entry.run, prior.run);
+        assert.deepEqual(
+          inventoryIdentity(entry.inventory),
+          inventoryIdentity(prior.inventory),
+        );
+      }
+      attempts.set(id, entry);
+    }
+    return {
+      writers: mergeWriterHistory(retained, live),
+      missing,
+      writerAttempts: [...attempts.values()],
+      closedWriterRuns: [...closedWriterRuns.values()],
+      nonWriterRuns: [...nonWriterRuns.values()],
+    };
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
@@ -647,7 +928,7 @@ export function recoveryLineage(
   const lineage = [],
     seen = new Set();
   let selected = operation;
-  while (["partial", "continue"].includes(selected.operation)) {
+  while (resumesOperation(selected)) {
     const key = `${selected.originalOperationId}/${selected.originalDecisionSha256}`;
     assert.ok(
       !seen.has(key) && seen.size < 50,
@@ -695,7 +976,7 @@ export function verifyActiveOperations(
   const completed = new Set(),
     recovered = new Set();
   const operationKey = (id, digest) => `${id}/${digest}`;
-  const allowed = ["partial", "continue"].includes(operation.operation)
+  const allowed = resumesOperation(operation)
     ? recoveryLineage(operation, authenticated)
     : [];
   for (const entry of writers) {
@@ -710,7 +991,14 @@ export function verifyActiveOperations(
       if (record.status !== "complete") continue;
       const original = record.operation;
       assert.equal(original.operationId, record.operationId);
-      for (const service of ["npm", "github"]) {
+      // An npm-only retirement has no GitHub writer; every other completion
+      // still names and authenticates both original writers.
+      const services = githubWriterRequired(original)
+        ? ["npm", "github"]
+        : ["npm"];
+      if (!services.includes("github"))
+        assert.equal(record.originalWriters.github, null);
+      for (const service of services) {
         const context = record.originalWriters[service];
         assert.ok(
           authenticated.some(
@@ -724,7 +1012,7 @@ export function verifyActiveOperations(
         );
       }
       completed.add(operationKey(record.operationId, record.decisionSha256));
-      if (["partial", "continue"].includes(original.operation)) {
+      if (resumesOperation(original)) {
         const key = operationKey(
           original.originalOperationId,
           original.originalDecisionSha256,
@@ -856,21 +1144,42 @@ export function completedStagingRecovery(entry, journalSha256, writers) {
   });
 }
 
+/**
+ * Authenticate every prior writer effect before another release effect.
+ * `checkpoint` names the owner-selected signed refs; a caller that already
+ * authenticated exactly those refs in this operation may pass them as
+ * `checkpoints` so the same immutable bytes are not read and verified again.
+ */
 export async function admitPriorReleaseEffects(
   operation,
   {
     env = process.env,
     checkpoint,
+    checkpoints: authenticatedCheckpoints,
     gh = (args) => native("gh", args),
     admittedTarget,
     archiveObservation,
   } = {},
 ) {
-  const checkpoints = readSignedHistoryRefs(
-    checkpoint ? JSON.parse(checkpoint) : [],
-    gh,
+  const checkpoints =
+    authenticatedCheckpoints ??
+    readSignedHistoryRefs(checkpoint ? JSON.parse(checkpoint) : [], gh);
+  const workflow =
+    operation.operation === "stage"
+      ? "publish"
+      : operation.operation === "archive"
+        ? "github-release"
+        : "promote-release";
+  assert.equal(
+    env.GITHUB_WORKFLOW_REF,
+    `${repository}/.github/workflows/${workflow}.yml@refs/heads/main`,
   );
-  const observed = await collectWriterHistory({ env, checkpoints, gh });
+  const observed = await collectWriterHistory({
+    env,
+    checkpoints,
+    gh,
+    requireIntent: true,
+  });
   assert.equal(
     observed.missing.length,
     0,
@@ -917,6 +1226,7 @@ export async function admitPriorReleaseEffects(
       stagingReconciliations.push(original.observation);
       continue;
     }
+    if (verifyRecoveredProvenanceWriter(entry)) continue;
     const journal = entry.files["effects.jsonl"];
     if (!journal) {
       // Historical staging retains its original narrower format. Unknown
@@ -940,34 +1250,27 @@ export async function admitPriorReleaseEffects(
             );
             const reconciled =
               completedPartial ||
-              checkpoints.some((checkpoint) =>
-                Object.entries(checkpoint.targetQualification.files).some(
-                  ([proofName, proof]) => {
-                    if (!proofName.endsWith("-reconciliation.json"))
-                      return false;
-                    const record = JSON.parse(
-                      Buffer.from(proof.base64, "base64"),
-                    );
-                    return (
-                      record.journalSha256 === file.sha256 &&
-                      record.publicQualification?.run ===
-                        checkpoint.targetQualification.qualified.publication
-                          .run &&
-                      Object.keys(record.reports ?? {}).length > 0 &&
-                      Object.keys(record.reports).length ===
-                        Object.keys(
-                          checkpoint.targetQualification.qualified.reports,
-                        ).filter((value) => value.startsWith("registry-"))
-                          .length &&
-                      Object.entries(record.reports).every(
-                        ([reportName, digest]) =>
-                          checkpoint.targetQualification.qualified.reports[
-                            reportName
-                          ]?.sha256 === digest,
-                      )
-                    );
-                  },
-                ),
+              checkpoints.flatMap(checkpointTargets).some((target) =>
+                Object.entries(target.files).some(([proofName, proof]) => {
+                  if (!proofName.endsWith("-reconciliation.json")) return false;
+                  const record = JSON.parse(
+                    Buffer.from(proof.base64, "base64"),
+                  );
+                  return (
+                    record.journalSha256 === file.sha256 &&
+                    record.publicQualification?.run ===
+                      target.qualified.publication.run &&
+                    Object.keys(record.reports ?? {}).length > 0 &&
+                    Object.keys(record.reports).length ===
+                      Object.keys(target.qualified.reports).filter((value) =>
+                        value.startsWith("registry-"),
+                      ).length &&
+                    Object.entries(record.reports).every(
+                      ([reportName, digest]) =>
+                        target.qualified.reports[reportName]?.sha256 === digest,
+                    )
+                  );
+                }),
               );
             assert.ok(
               reconciled,
@@ -988,17 +1291,25 @@ export async function admitPriorReleaseEffects(
           .map((line) => JSON.parse(line));
         assert.ok(
           entry.job.name === "archive" &&
-            checkpoints.some(
-              (checkpoint) =>
-                legacyArchiveSettled(entry, [checkpoint]) &&
-                records.every(
-                  (record) =>
-                    !record.args ||
-                    record.args.includes(
-                      `v${checkpoint.targetQualification.qualified.version}`,
-                    ) ||
-                    record.args[0] === "api",
-                ),
+            checkpoints.some((checkpoint) =>
+              // Each retained subject is judged alone, so the settled archive
+              // and the requested tag must belong to the same subject.
+              checkpointTargets(checkpoint).some(
+                (target) =>
+                  legacyArchiveSettled(entry, [
+                    {
+                      ...checkpoint,
+                      schemaVersion: 2,
+                      targetQualifications: [target],
+                    },
+                  ]) &&
+                  records.every(
+                    (record) =>
+                      !record.args ||
+                      record.args.includes(`v${target.qualified.version}`) ||
+                      record.args[0] === "api",
+                  ),
+              ),
             ),
           "Legacy failed writer requires independently verified immutable evidence in complete signed history",
         );
@@ -1052,7 +1363,7 @@ export async function admitPriorReleaseEffects(
       if (effect.outcome !== "acknowledged") {
         const proofs = [
           archiveObservation,
-          ...checkpoints.map(({ targetQualification: target }) => ({
+          ...checkpoints.flatMap(checkpointTargets).map((target) => ({
             qualified: target.qualified,
             archive: {
               ...target.archive,
@@ -1119,7 +1430,9 @@ export async function admitPriorReleaseEffects(
         effect.outcome =
           settlement.disposition === "applied"
             ? "acknowledged"
-            : "settled-not-applied";
+            : settlement.disposition === "rejected"
+              ? "settled-rejected"
+              : "settled-not-applied";
       }
     authenticated.push({ entry, bytes, context: first.context, effects });
     for (const effect of effects)
@@ -1132,7 +1445,7 @@ export async function admitPriorReleaseEffects(
           settled[effect.subject] = effect.target;
     }
   }
-  if (["partial", "continue"].includes(operation.operation)) {
+  if (resumesOperation(operation)) {
     verifyRecoveryAttribution(operation, authenticated);
     if (operation.operation === "partial")
       await admitRecoveryTargets(operation, checkpoints, gh, admittedTarget);
@@ -1196,6 +1509,8 @@ export function verifyRecoveryAttribution(operation, authenticated) {
     approved.manifestSha256,
     operation.affectedManifestSha256 ?? operation.manifestSha256,
   );
+  if (operation.operation === "retire-pilot")
+    return verifyRetirementResumption(operation, approved, authenticated);
   const completed = authenticated.some(
     ({ context, effects }) =>
       (context.operationId === approved.operationId ||
@@ -1286,6 +1601,65 @@ export function verifyRecoveryAttribution(operation, authenticated) {
   }
 }
 
+/**
+ * A resumed retirement may request only removals that its authenticated
+ * ancestors did not acknowledge. An acknowledged removal becomes an approved
+ * no-op; a refused request is repeated only when this decision names that
+ * exact rejection settlement; any other unresolved request blocks. The
+ * retired subject, stable guards and unrequested priors stay unchanged.
+ */
+function verifyRetirementResumption(operation, approved, authenticated) {
+  assert.equal(approved.operation, "retire-pilot");
+  assert.deepEqual(
+    approved.retired,
+    operation.retired,
+    "Resumption must retire the original subject",
+  );
+  assert.deepEqual(approved.guards, operation.guards);
+  const ancestors = recoveryLineage(operation, authenticated);
+  for (const name of releasePackages) {
+    const requests = ancestors.flatMap((parent) =>
+      parent.effects
+        .filter(
+          (effect) => effect.provider === "npm" && effect.subject === name,
+        )
+        .map((effect) => ({ parent, effect })),
+    );
+    for (const { parent, effect } of requests) {
+      assert.ok(
+        ["acknowledged", "settled-rejected"].includes(effect.outcome),
+        "Outstanding retirement requests must be settled before resumption",
+      );
+      if (effect.outcome === "settled-rejected")
+        assert.ok(
+          operation.settlements?.some(
+            (settlement) =>
+              settlement.disposition === "rejected" &&
+              settlement.journalSha256 === hash(parent.bytes) &&
+              settlement.sequence === effect.sequence,
+          ),
+          "A refused request is repeated only by a decision naming its rejection settlement",
+        );
+    }
+    const removed = requests.some(
+      ({ effect }) => effect.outcome === "acknowledged",
+    );
+    if (removed) {
+      assert.equal(
+        operation.priors[name],
+        null,
+        "Retirement cannot repeat an acknowledged removal",
+      );
+      assert.ok(operation.noops?.includes(name));
+    } else
+      assert.equal(
+        operation.priors[name],
+        approved.priors[name],
+        "Resumed retirement changed a prior it did not remove",
+      );
+  }
+}
+
 async function admitRecoveryTargets(
   operation,
   checkpoints,
@@ -1308,17 +1682,18 @@ async function admitRecoveryTargets(
       );
       continue;
     }
-    const target = checkpoints.find(
-      (checkpoint) =>
-        checkpoint.targetQualification.qualified.version ===
-          operation.targets[name] &&
-        checkpoint.targetQualification.qualificationSha256 === expected,
-    );
+    const target = checkpoints
+      .flatMap(checkpointTargets)
+      .find(
+        (candidate) =>
+          candidate.qualified.version === operation.targets[name] &&
+          candidate.qualificationSha256 === expected,
+      );
     assert.ok(
       target,
       "Recovery target lacks signed original public qualification",
     );
-    const { qualified, archive } = target.targetQualification;
+    const { qualified, archive } = target;
     assert.equal(
       qualified.archives.find((entry) => entry.package === name).integrity,
       operation.targetIntegrities[name],
@@ -1328,20 +1703,10 @@ async function admitRecoveryTargets(
       join(tmpdir(), "markdown-quality-recovery-target-"),
     );
     try {
-      const api = (path) =>
-        JSON.parse(gh(["api", `repos/${repository}/${path}`]));
-      const ref = api(`git/ref/tags/v${qualified.version}`);
-      assert.equal(ref.object.sha, archive.tagSha);
-      verifyReleaseTag(ref, api(`git/tags/${ref.object.sha}`), {
-        version: qualified.version,
-        source: { head: qualified.source },
+      const release = await verifyRetainedReleaseIdentity(qualified, archive, {
+        api: (path) => JSON.parse(gh(["api", `repos/${repository}/${path}`])),
+        verifyTag: verifyReleaseTag,
       });
-      const release = api(`releases/${archive.releaseId}`);
-      const identity = (assets) =>
-        assets
-          .map(({ id, name, size, digest }) => ({ id, name, size, digest }))
-          .sort((a, b) => a.id - b.id);
-      assert.deepEqual(identity(release.assets), identity(archive.assets));
       const acquired = acquireIndexedRelease(release, scratch, gh, {
         retainedQualification: qualified,
       });
@@ -1353,4 +1718,88 @@ async function admitRecoveryTargets(
       rmSync(scratch, { recursive: true, force: true });
     }
   }
+}
+
+/**
+ * Authenticate the current immutable identity of a signed checkpoint target:
+ * its signed source tag, release ID and asset IDs/names/sizes/digests must be
+ * the ones retained when that subject was qualified. Returns the live release.
+ */
+async function verifyRetainedReleaseIdentity(
+  qualified,
+  archive,
+  { api, verifyTag },
+) {
+  const reference = await api(`git/ref/tags/v${qualified.version}`);
+  assert.equal(
+    reference.object.sha,
+    archive.tagSha,
+    "Retained tag identity changed",
+  );
+  verifyTag(reference, await api(`git/tags/${reference.object.sha}`), {
+    version: qualified.version,
+    source: { head: releaseCommit(qualified) },
+  });
+  const release = await api(`releases/${archive.releaseId}`);
+  assert.equal(release.id, archive.releaseId);
+  assert.equal(release.immutable, true);
+  assert.equal(release.draft, false);
+  const identity = (assets) =>
+    assets
+      .map(({ id, name, size, digest }) => ({ id, name, size, digest }))
+      .sort((a, b) => a.id - b.id);
+  assert.deepEqual(
+    identity(release.assets),
+    identity(archive.assets),
+    "Retained release assets changed",
+  );
+  return release;
+}
+
+/**
+ * Admit the subject named by a pilot retirement. When it is the admitted
+ * stable subject, the caller's verified stable evidence is reused. An older
+ * subject must match one authenticated signed checkpoint's original accepted
+ * qualification and its current immutable identity; its retired code is not
+ * executed or audited again. Returns the retired identity with its tag object.
+ */
+export async function admitRetiredQualification(
+  operation,
+  { admitted, checkpoints, api, verifyTag = verifyReleaseTag },
+) {
+  const retired = operation.retired;
+  if (retired.qualificationSha256 === admitted.qualificationSha256) {
+    assert.equal(retired.version, admitted.qualified.version);
+    assert.equal(retired.source, admitted.qualified.source);
+    assert.equal(retired.manifestSha256, admitted.qualified.manifestSha256);
+    return { ...retired, tagSha: admitted.tagSha };
+  }
+  const matches = checkpoints
+    .flatMap(checkpointTargets)
+    .filter(
+      (target) =>
+        target.qualificationSha256 === retired.qualificationSha256 &&
+        target.qualified.version === retired.version,
+    );
+  assert.ok(
+    matches.length > 0,
+    "The retired pilot lacks signed original qualification",
+  );
+  const { qualified, archive } = matches[0];
+  for (const other of matches)
+    assert.deepEqual(other.archive, archive, "Conflicting retained subjects");
+  assert.equal(qualified.source, retired.source);
+  assert.equal(qualified.manifestSha256, retired.manifestSha256);
+  assert.equal(archive.releaseId, retired.releaseId);
+  assert.equal(archive.immutable, true);
+  const release = await verifyRetainedReleaseIdentity(qualified, archive, {
+    api,
+    verifyTag,
+  });
+  assert.equal(
+    release.prerelease,
+    retired.prerelease,
+    "Retired release classification differs from owner approval",
+  );
+  return { ...retired, tagSha: archive.tagSha };
 }

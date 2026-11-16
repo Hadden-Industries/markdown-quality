@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Read-only admission, isolated writers, and independently rerunnable family completion. */
 import assert from "node:assert/strict";
+import { releaseCommit } from "./release-qualification.js";
 import {
   mkdtempSync,
   mkdirSync,
@@ -22,8 +23,11 @@ import {
 import { gitSource, verifyPublicRegistryArchives } from "./github-release.js";
 import { requireManualControl } from "./release-continuation.js";
 import { verifyReleaseTag } from "./verify-release-tag.js";
-import { readReleaseOperation } from "./release-operation.js";
-import { readFamilyLabels } from "./release-labels.js";
+import {
+  githubWriterRequired,
+  readReleaseOperation,
+} from "./release-operation.js";
+import { readFamilyLabels, readFamilyLabelSets } from "./release-labels.js";
 import { createEffectJournal } from "./release-effects.js";
 import { admitServiceArtifact } from "./promotion-handoff.js";
 import { executeFamilyLabels } from "./family-labels.js";
@@ -35,6 +39,7 @@ import { releasePackages } from "./release-coordinates.js";
 import { verifyNoPendingStages } from "./release-stage-guards.js";
 import {
   admitPriorReleaseEffects,
+  admitRetiredQualification,
   readSignedHistoryRefs,
 } from "./release-history.js";
 import {
@@ -45,10 +50,16 @@ import {
 } from "./release-retained-artifacts.js";
 
 /** The provider interface keeps fixture transports outside the authorization and effect decisions. */
-export function nativeReleaseProvider(env = process.env) {
+export function nativeReleaseProvider(
+  env = process.env,
+  {
+    readHistory = readSignedHistoryRefs,
+    admitHistory = admitPriorReleaseEffects,
+  } = {},
+) {
   let retained;
   const checkpoints = (deadline = Date.now() + budgets.read) =>
-    (retained ??= readSignedHistoryRefs(
+    (retained ??= readHistory(
       JSON.parse(env.HISTORY_CHECKPOINT || "[]"),
       (args, options = {}) => {
         const remaining = deadline - Date.now();
@@ -80,11 +91,27 @@ export function nativeReleaseProvider(env = process.env) {
     npm: npmCommand,
     labels: (label, deadline) =>
       readFamilyLabels(label, { deadline, now: Date.now }),
+    labelSets: (labels, deadline) =>
+      readFamilyLabelSets(labels, { deadline, now: Date.now }),
+    retired: (operation, admitted, deadline) =>
+      admitRetiredQualification(operation, {
+        admitted,
+        checkpoints: checkpoints(deadline),
+        api: (path) => api(path, deadline),
+        verifyTag: verifyReleaseTag,
+      }),
     verifyTag: verifyReleaseTag,
     security: refreshReleaseSecurity,
     publicBytes: verifyPublicRegistryArchives,
+    // Admission authenticates the selected immutable checkpoints once for the
+    // retired subject and prior effects, under the admission's collection budget.
     history: (operation, checkpoint, admittedTarget) =>
-      admitPriorReleaseEffects(operation, { env, checkpoint, admittedTarget }),
+      admitHistory(operation, {
+        env,
+        checkpoint,
+        admittedTarget,
+        checkpoints: checkpoints(Date.now() + budgets.collection),
+      }),
     checkpoints,
     service: (service, directory, id, expected, gh, deadline) =>
       admitServiceArtifact(service, directory, id, expected, gh, {
@@ -154,6 +181,59 @@ async function unchangedArchive(provider, admission, deadline) {
     admission.archive.inventory,
   );
   return release;
+}
+
+/**
+ * Observe the operation's selected label family. Pilot retirement reads the
+ * stable `latest` family from the same native responses and stops before
+ * returning when it differs from the owner's frozen guard.
+ */
+async function selectedFamily(provider, operation, deadline) {
+  if (operation.operation !== "retire-pilot")
+    return provider.labels(operation.label, deadline);
+  const families = await provider.labelSets(
+    [operation.label, "latest"],
+    deadline,
+  );
+  assert.deepEqual(
+    families.latest,
+    operation.guards.latest,
+    "Stable latest family changed; stop before another pilot request",
+  );
+  return families[operation.label];
+}
+
+/** Retirement keeps the stable GitHub latest release as an excluded guard. */
+async function verifyStableGithubLatest(provider, operation, deadline) {
+  if (operation.operation !== "retire-pilot") return;
+  assert.equal(
+    (await latestRelease(provider, false, deadline))?.id,
+    operation.priorGithubLatest,
+    "GitHub latest changed; stop before another pilot request",
+  );
+}
+
+/** An older retired subject keeps its admitted signed tag and immutable release classification. */
+async function verifyUnchangedRetiredRelease(provider, admission, deadline) {
+  const retired = admission.retired;
+  if (retired.releaseId === admission.operation.releaseId) return;
+  const reference = await provider.api(
+    `git/ref/tags/v${retired.version}`,
+    deadline,
+  );
+  assert.equal(
+    reference.object.sha,
+    retired.tagSha,
+    "Retired tag identity changed after admission",
+  );
+  const release = await provider.api(`releases/${retired.releaseId}`, deadline);
+  assert.equal(release.immutable, true);
+  assert.equal(release.draft, false);
+  assert.equal(
+    release.prerelease,
+    retired.prerelease,
+    "Retired release classification changed after admission",
+  );
 }
 
 async function latestRelease(provider, expectedAbsence, deadline) {
@@ -230,7 +310,10 @@ export async function runReleaseController({
       provider.verifyTag(
         reference,
         await provider.api(`git/tags/${reference.object.sha}`, deadline),
-        { version: qualified.version, source: { head: qualified.source } },
+        {
+          version: qualified.version,
+          source: { head: releaseCommit(qualified) },
+        },
       );
       const release = await provider.api(
         `releases/${operation.releaseId}`,
@@ -260,6 +343,20 @@ export async function runReleaseController({
           "--format",
           "json",
         ]);
+      // An identical retired subject reuses this verified stable evidence; an
+      // older one is read from signed history without executing retired code.
+      const retired =
+        operation.operation === "retire-pilot"
+          ? await provider.retired(
+              operation,
+              {
+                qualified,
+                qualificationSha256: env.QUALIFICATION_SHA,
+                tagSha: reference.object.sha,
+              },
+              deadline,
+            )
+          : undefined;
       const security = provider.security(qualified, logical);
       await provider.publicBytes(qualified);
       const history = await provider.history(
@@ -283,7 +380,7 @@ export async function runReleaseController({
         "GitHub prior differs from owner approval",
       );
       assert.equal(release.prerelease, operation.priorPrerelease);
-      const labels = await provider.labels(operation.label, deadline);
+      const labels = await selectedFamily(provider, operation, deadline);
       for (const name of releasePackages) {
         const expected =
           operation.operation === "direct"
@@ -312,6 +409,7 @@ export async function runReleaseController({
         context: contextFor("admit", operation, env),
         security,
         history,
+        ...(retired ? { retired } : {}),
         archive: {
           tagSha: reference.object.sha,
           inventory: release.assets.map(({ id, name, size, digest }) => ({
@@ -392,14 +490,23 @@ export async function runReleaseController({
     });
     await unchangedArchive(provider, admission, deadline);
     const effects = writerEffects;
+    if (admission.retired)
+      await verifyUnchangedRetiredRelease(provider, admission, deadline);
     const labels = await executeFamilyLabels({
       operation,
+      // Each observation precedes a possible request, so every guard is
+      // rechecked immediately before each native-first removal.
       readLabels: async (end) => {
         await checkController();
-        return provider.labels(operation.label, end);
+        verifyNoPendingStages(operation.stageInventory, {
+          latestStageWriteAt: admission.history.latestStageWriteAt,
+        });
+        await verifyStableGithubLatest(provider, operation, end);
+        return selectedFamily(provider, operation, end);
       },
       command: provider.npm,
-      write: (effect, request) => effects.write(effect, request),
+      write: (effect, request, options) =>
+        effects.write(effect, request, options),
       now,
       sleep,
       random,
@@ -448,6 +555,10 @@ export async function runReleaseController({
     }
   }
   if (phase === "github") {
+    assert.ok(
+      githubWriterRequired(operation),
+      "This npm-only operation has no GitHub writer",
+    );
     await checkController();
     verifyNoPendingStages(operation.stageInventory, {
       latestStageWriteAt: admission.history.latestStageWriteAt,
@@ -472,7 +583,7 @@ export async function runReleaseController({
       sleep,
       random,
       deadline,
-      readFamily: (end) => provider.labels(operation.label, end),
+      readFamily: (end) => selectedFamily(provider, operation, end),
       readGithub: async (end) => ({
         release: await unchangedArchive(provider, admission, end),
         latest: await latestRelease(
@@ -528,51 +639,60 @@ export async function runReleaseController({
       archive: admission.archive,
     });
   }
-  const github = await serviceResult(
-    "github",
-    env.RELEASE_GITHUB_DIRECTORY ?? "github-operation",
-    env.RELEASE_GITHUB_RESULT_ID,
-  );
-  assert.deepEqual(github.record.operation, operation);
-  assert.deepEqual(github.record.archive, admission.archive);
-  const expectedGithubWrites =
-    operation.scope.github &&
-    (operation.priorPrerelease !== operation.targetPrerelease ||
-      operation.priorGithubLatest !== operation.targetGithubLatest)
-      ? 1
-      : 0;
-  assert.equal(
-    github.effects.length,
-    expectedGithubWrites,
-    "Missing or additional GitHub effects",
-  );
-  if (expectedGithubWrites) {
-    assert.equal(github.effects[0].subject, operation.releaseId);
-    assert.equal(github.effects[0].operation, "classify-release");
-    assert.deepEqual(github.effects[0].prior, {
-      latest: operation.priorGithubLatest,
-      prerelease: operation.priorPrerelease,
-    });
-    assert.deepEqual(github.effects[0].target, {
-      latest: operation.targetGithubLatest,
-      prerelease: operation.targetPrerelease,
-    });
-  }
-  assert.equal(
-    github.record.npmResultSha256,
-    hash(
-      regularBytes(
-        join(env.NPM_DIRECTORY ?? "npm-operation", "npm-result.json"),
+  // The admitted operation decides whether a GitHub writer exists; an
+  // npm-only retirement can neither omit a required writer nor borrow one.
+  let github = null;
+  if (githubWriterRequired(operation)) {
+    github = await serviceResult(
+      "github",
+      env.RELEASE_GITHUB_DIRECTORY ?? "github-operation",
+      env.RELEASE_GITHUB_RESULT_ID,
+    );
+    assert.deepEqual(github.record.operation, operation);
+    assert.deepEqual(github.record.archive, admission.archive);
+    const expectedGithubWrites =
+      operation.scope.github &&
+      (operation.priorPrerelease !== operation.targetPrerelease ||
+        operation.priorGithubLatest !== operation.targetGithubLatest)
+        ? 1
+        : 0;
+    assert.equal(
+      github.effects.length,
+      expectedGithubWrites,
+      "Missing or additional GitHub effects",
+    );
+    if (expectedGithubWrites) {
+      assert.equal(github.effects[0].subject, operation.releaseId);
+      assert.equal(github.effects[0].operation, "classify-release");
+      assert.deepEqual(github.effects[0].prior, {
+        latest: operation.priorGithubLatest,
+        prerelease: operation.priorPrerelease,
+      });
+      assert.deepEqual(github.effects[0].target, {
+        latest: operation.targetGithubLatest,
+        prerelease: operation.targetPrerelease,
+      });
+    }
+    assert.equal(
+      github.record.npmResultSha256,
+      hash(
+        regularBytes(
+          join(env.NPM_DIRECTORY ?? "npm-operation", "npm-result.json"),
+        ),
       ),
-    ),
-  );
+    );
+  } else
+    assert.ok(
+      !env.RELEASE_GITHUB_RESULT_ID,
+      "This npm-only operation has no GitHub writer to authenticate",
+    );
   const result = await verifyReleaseCompletion({
     operation,
     now,
     sleep,
     random,
     deadline,
-    readFamily: (end) => provider.labels(operation.label, end),
+    readFamily: (end) => selectedFamily(provider, operation, end),
     readGithub: async (end) => ({
       release: await unchangedArchive(provider, admission, end),
       latest: await latestRelease(
@@ -594,7 +714,7 @@ export async function runReleaseController({
         decisionSha256: env.OPERATION_SHA,
         originalWriters: {
           npm: npm.record.context,
-          github: github.record.context,
+          github: github?.record.context ?? null,
         },
       },
       null,

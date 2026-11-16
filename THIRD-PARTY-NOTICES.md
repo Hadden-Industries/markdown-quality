@@ -12,7 +12,7 @@ That policy text retains CC BY-SA 4.0, its attribution and the indicated changes
 | Direct runtime dependency       | Version | Declared license                  |
 | ------------------------------- | ------- | --------------------------------- |
 | Prettier                        | 3.10.1  | MIT                               |
-| ESLint                          | 10.14.0 | MIT                               |
+| ESLint                          | 10.15.0 | MIT                               |
 | ESLint Markdown                 | 8.0.3   | MIT                               |
 | Ajv                             | 8.20.0  | MIT                               |
 | mdast-util-from-markdown        | 2.1.0   | MIT                               |
@@ -61,7 +61,7 @@ Those terms permit use and redistribution subject to retaining the notices.
 The core archive bundles ESLint Markdown's and ESLint's complete runtime dependency closures, including KaTeX 0.19.1 and minimatch 11.0.8, using npm's native `bundleDependencies` mechanism.
 
 Each package retains its upstream executable source and original notices.
-Vendored metadata repairs change `micromark-extension-math` 3.1.0's `dependencies.katex` declaration from `^0.16.0` to `0.19.1` for GHSA-238p-pmpm-9mq7, and ESLint 10.14.0's and `@eslint/config-array` 0.23.5's `dependencies.minimatch` declarations from `^10.2.6` and `^10.2.4` respectively to `11.0.8` for GHSA-g3hv-75wg-m249.
+Vendored metadata repairs change `micromark-extension-math` 3.1.0's `dependencies.katex` declaration from `^0.16.0` to `0.19.1` for GHSA-238p-pmpm-9mq7, and ESLint 10.15.0's and `@eslint/config-array` 0.23.6's `dependencies.minimatch` declarations from `^11.0.5` to `11.0.8` for GHSA-g3hv-75wg-m249.
 
 The generated `assets/bundled-dependencies.json` records original registry URLs and integrity values, package licenses, every shipped file hash, and before/after hashes for those metadata repairs.
 The producer override remains a build input and is removed from the published manifest; it is not a recipient security control.

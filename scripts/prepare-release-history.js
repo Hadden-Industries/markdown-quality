@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Prepare a complete public-safe checkpoint; the owner signs a fresh history ref separately. */
 import assert from "node:assert/strict";
+import { releaseCommit } from "./release-qualification.js";
 import {
   mkdtempSync,
   mkdirSync,
@@ -24,10 +25,113 @@ import {
 import { gitSource } from "./github-release.js";
 import { verifyReleaseTag } from "./verify-release-tag.js";
 import {
+  checkpointTargets,
   collectWriterHistory,
   readSignedHistoryRefs,
 } from "./release-history.js";
 import { requireManualControl } from "./release-continuation.js";
+import { encodeHistoryCheckpoint } from "./release-history-format.js";
+
+/**
+ * Select the original qualified subjects a new checkpoint retains: the
+ * current target first, then each owner-requested earlier subject copied from
+ * the authenticated input checkpoints. Each subject is stored once and stays
+ * attributable by its qualification digest; conflicting copies refuse, and a
+ * requested subject that no input retains is reported missing.
+ */
+export function retainedCheckpointTargets(current, checkpoints, requested) {
+  const previous = checkpoints
+    .flatMap(checkpointTargets)
+    .filter(
+      (target) => target.qualificationSha256 === current.qualificationSha256,
+    );
+  for (const other of previous)
+    assert.deepEqual(other, previous[0], "Conflicting retained subjects");
+  if (previous.length) {
+    const original = previous[0];
+    assert.equal(original.qualificationBase64, current.qualificationBase64);
+    assert.deepEqual(original.qualified, current.qualified);
+    for (const name of ["releaseId", "tagSha", "immutable"])
+      assert.deepEqual(
+        original.archive[name],
+        current.archive[name],
+        "Original immutable target changed",
+      );
+    const assetIdentity = (assets) =>
+      assets
+        .map((asset) => ({
+          id: asset.id,
+          name: asset.name,
+          size: asset.size,
+          digest: asset.digest ?? `sha256:${asset.sha256}`,
+        }))
+        .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    assert.deepEqual(
+      assetIdentity(original.archive.assets),
+      assetIdentity(current.archive.assets),
+      "Original immutable assets changed",
+    );
+    if (original.archival && current.archival) {
+      assert.equal(original.archival.run.id, current.archival.run.id);
+      assert.equal(original.archival.attempt, current.archival.attempt);
+      assert.equal(
+        original.archival.artifact.digest,
+        current.archival.artifact.digest,
+      );
+    }
+  }
+  // Preserve the authenticated representation, including legacy file supersets,
+  // so earlier and later signed refs remain byte-equivalent recovery subjects.
+  const targets = [previous[0] ?? current],
+    missing = [];
+  for (const digest of requested) {
+    assert.match(digest, /^[a-f0-9]{64}$/u);
+    if (targets.some((target) => target.qualificationSha256 === digest))
+      continue;
+    const matches = checkpoints
+      .flatMap(checkpointTargets)
+      .filter((target) => target.qualificationSha256 === digest);
+    for (const other of matches)
+      assert.deepEqual(other, matches[0], "Conflicting retained subjects");
+    if (matches.length) targets.push(matches[0]);
+    else
+      missing.push({
+        qualificationSha256: digest,
+        reason: "retained-target-qualification-unavailable",
+      });
+  }
+  return { targets, missing };
+}
+
+/** Immutable assets keep verbose logs and build outputs; history retains admission receipts. */
+export function retainedQualificationFiles(qualified, directory) {
+  const names = new Set([
+    "release-manifest.json",
+    "publication-origins.json",
+    "signed-tag.json",
+    ...Object.keys(qualified.reports),
+    ...Object.keys(qualified.evidence ?? {}).filter(
+      (name) =>
+        name.endsWith("-package-lock.json") ||
+        name.endsWith("-reconciliation.json") ||
+        [
+          "release-review.json",
+          "release-acceptance.json",
+          "security-evidence.json",
+          "distribution-evidence.json",
+          "native-build.json",
+          "native-rights.json",
+        ].includes(name),
+    ),
+  ]);
+  const files = {};
+  for (const name of readdirSync(directory)) {
+    if (!names.has(name)) continue;
+    const bytes = regularBytes(join(directory, name));
+    files[name] = { sha256: hash(bytes), base64: bytes.toString("base64") };
+  }
+  return files;
+}
 
 /** Source/native/registry bytes are retained separately from writer history so neither can substitute for the other. */
 export async function prepareReleaseHistory(
@@ -38,6 +142,7 @@ export async function prepareReleaseHistory(
     gh = (args) => native("gh", args),
     history = collectWriterHistory,
     verifyTag = verifyReleaseTag,
+    readCheckpoints = readSignedHistoryRefs,
   } = {},
 ) {
   const qualifiedBytes = regularBytes(join(input, "qualification.json"));
@@ -57,7 +162,7 @@ export async function prepareReleaseHistory(
     const reference = api(`git/ref/tags/v${qualified.version}`);
     verifyTag(reference, api(`git/tags/${reference.object.sha}`), {
       version: qualified.version,
-      source: { head: qualified.source },
+      source: { head: releaseCommit(qualified) },
     });
     const release = api(`releases/tags/v${qualified.version}`);
     assert.equal(release.immutable, true);
@@ -108,14 +213,13 @@ export async function prepareReleaseHistory(
       }
       providers.push({ ...provider, artifacts });
     }
-    const observed = await history({
-      env,
+    // One authenticated read of the input checkpoints serves both the writer
+    // history and the selection of earlier subjects to retain.
+    const signed = readCheckpoints(
+      JSON.parse(env.HISTORY_CHECKPOINT || "[]"),
       gh,
-      checkpoints: readSignedHistoryRefs(
-        JSON.parse(env.HISTORY_CHECKPOINT || "[]"),
-        gh,
-      ),
-    });
+    );
+    const observed = await history({ env, gh, checkpoints: signed });
     const archiveRun = api(
       `actions/runs/${env.ARCHIVE_RUN}/attempts/${env.ARCHIVE_ATTEMPT}`,
     );
@@ -142,17 +246,7 @@ export async function prepareReleaseHistory(
       inventory: archiveJobs,
       artifact: archiveInputs[0],
     };
-    const files = {};
-    for (const name of readdirSync(logical)) {
-      if (
-        name.endsWith(".tgz") ||
-        name.endsWith(".tar") ||
-        name.endsWith(".tar.gz")
-      )
-        continue;
-      const bytes = regularBytes(join(logical, name));
-      files[name] = { sha256: hash(bytes), base64: bytes.toString("base64") };
-    }
+    const files = retainedQualificationFiles(qualified, logical);
     const missing = [...observed.missing];
     for (const provider of providers)
       for (const artifact of provider.artifacts)
@@ -161,43 +255,53 @@ export async function prepareReleaseHistory(
             artifact: artifact.id,
             reason: "original-qualification-artifact-expired",
           });
+    const current = {
+      archival,
+      qualified,
+      qualificationBase64: qualifiedBytes.toString("base64"),
+      qualificationSha256: hash(qualifiedBytes),
+      providers,
+      files,
+      archive: {
+        prerelease: release.prerelease,
+        latestId: (() => {
+          try {
+            return api("releases/latest").id;
+          } catch (error) {
+            if (error.httpStatus !== 404) throw error;
+            return null;
+          }
+        })(),
+        releaseId: release.id,
+        immutable: true,
+        tagSha: reference.object.sha,
+        assets: release.assets,
+      },
+    };
+    // A retirement of an older pilot retains that subject beside the current
+    // stable target; without a request the original single-target format stays.
+    const retained = retainedCheckpointTargets(
+      current,
+      signed,
+      JSON.parse(env.RETAINED_QUALIFICATIONS || "[]"),
+    );
+    missing.push(...retained.missing);
     const checkpoint = {
-      schemaVersion: 1,
+      schemaVersion: retained.targets.length === 1 ? 1 : 2,
       repository,
       complete: missing.length === 0,
       preparedAt: new Date().toISOString(),
       writers: observed.writers,
-      targetQualification: {
-        archival,
-        qualified,
-        qualificationBase64: qualifiedBytes.toString("base64"),
-        qualificationSha256: hash(qualifiedBytes),
-        providers,
-        files,
-        archive: {
-          prerelease: release.prerelease,
-          latestId: (() => {
-            try {
-              return api("releases/latest").id;
-            } catch (error) {
-              if (error.httpStatus !== 404) throw error;
-              return null;
-            }
-          })(),
-          releaseId: release.id,
-          immutable: true,
-          tagSha: reference.object.sha,
-          assets: release.assets,
-        },
-      },
+      writerAttempts: observed.writerAttempts,
+      closedWriterRuns: observed.closedWriterRuns,
+      nonWriterRuns: observed.nonWriterRuns,
+      ...(retained.targets.length === 1
+        ? { targetQualification: retained.targets[0] }
+        : { targetQualifications: retained.targets }),
       missing,
     };
     mkdirSync(output);
-    const bytes = Buffer.from(JSON.stringify(checkpoint, null, 2) + "\n");
-    assert.ok(
-      bytes.length <= 48 * 1024 * 1024,
-      "Checkpoint exceeds the 48 MiB Git transport budget; retain prior signed history separately before exporting another range",
-    );
+    const bytes = encodeHistoryCheckpoint(checkpoint);
     writeFileSync(join(output, "release-history.json"), bytes, { flag: "wx" });
     const expiries = [
       ...observed.writers.map((writer) => writer.artifact),
@@ -208,8 +312,14 @@ export async function prepareReleaseHistory(
       .sort();
     const summary = {
       checkpointSha256: hash(bytes),
+      transportEncoding: "gzip+base64",
+      checkpointBytes: bytes.length,
       complete: checkpoint.complete,
       missing,
+      targets: retained.targets.map((target) => ({
+        version: target.qualified.version,
+        qualificationSha256: target.qualificationSha256,
+      })),
       earliestExpiry: expiries[0] ?? null,
       immediateArchiveVerified: true,
       recoveryAfterExpiry: "unproven-until-owner-signs-a-complete-checkpoint",

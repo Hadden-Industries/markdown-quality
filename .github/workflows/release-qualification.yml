@@ -6,6 +6,10 @@ on:
         description: Exact owner-selected version already committed on main
         required: true
         type: string
+      force-fresh:
+        description: Deliberately rebuild and rerun the complete qualification graph
+        type: boolean
+        default: false
 permissions:
   contents: read
   actions: read
@@ -17,8 +21,13 @@ jobs:
     if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-26.04
     timeout-minutes: 120
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
     outputs:
-      runtimes: ${{ steps.resolve.outputs.matrix }}
+      reused: ${{ steps.reuse.outputs.reused }}
+      archive-id: ${{ steps.archive.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -27,53 +36,48 @@ jobs:
         with:
           node-version-file: .node-version
           package-manager-cache: false
-      - name: Check requested version and freeze one matrix for all release gates
+      - uses: ./.github/actions/setup-python
+      - name: Check the requested version and current runtime policy
         id: resolve
         env:
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
-          node --input-type=module -e 'import assert from "node:assert/strict"; import {readFileSync} from "node:fs"; const p=JSON.parse(readFileSync("package.json")); assert.match(process.env.RELEASE_VERSION,/^[1-9]\d*\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u); assert.equal(p.version,process.env.RELEASE_VERSION);'
+          node --input-type=module -e 'import assert from "node:assert/strict"; import {readFileSync} from "node:fs"; assert.match(process.env.RELEASE_VERSION,/^[1-9]\d*\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u); assert.equal(JSON.parse(readFileSync("package.json")).version,process.env.RELEASE_VERSION);'
           matrix=$(node scripts/node-matrix.js)
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-      - name: Install locked Node source-check tools
-        run: |
-          node scripts/qualification-process.js producer-npm
-          npm ci --ignore-scripts --no-audit --no-fund
-      - name: Check source presentation before fan-out
-        run: npm run check:source
-  product:
+      - name: Reuse complete original CI qualification when eligible
+        id: reuse
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_MATRIX: ${{ steps.resolve.outputs.matrix }}
+          FORCE_FRESH: ${{ inputs.force-fresh }}
+        run: node scripts/release-reuse.js reused-release
+      - name: Retain unchanged archives and separate promotion authorization
+        id: archive
+        if: steps.reuse.outputs.reused == 'true'
+        uses: ./.github/actions/upload-evidence
+        timeout-minutes: 5
+        with:
+          name: qualified-producer-${{ github.run_attempt }}
+          path: reused-release
+          retention-days: 30
+  fresh:
     needs: resolve
-    uses: ./.github/workflows/qualification.yml
+    if: needs.resolve.outputs.reused != 'true'
+    uses: ./.github/workflows/release-fresh-qualification.yml
+    with:
+      version: ${{ inputs.version }}
     permissions:
       contents: read
       actions: read
       pull-requests: read
-    with:
-      matrix: ${{ needs.resolve.outputs.runtimes }}
-      release-mode: true
-  scans:
-    needs: resolve
-    uses: ./.github/workflows/security.yml
-    permissions:
-      contents: read
       security-events: write
-  native:
-    needs: resolve
-    uses: ./.github/workflows/native-qualification.yml
-  dependencies:
-    needs: resolve
-    runs-on: ubuntu-26.04
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-producer
-      - run: npm run check:dependency-audit
   security:
     needs:
-      - product
-      - scans
+      - resolve
+      - fresh
+    if: always() && needs.resolve.result == 'success' && (needs.resolve.outputs.reused == 'true' || needs.fresh.result == 'success')
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     permissions:
@@ -88,18 +92,24 @@ jobs:
         with:
           node-version-file: .node-version
           package-manager-cache: false
+      - name: Provision the pinned npm audit client
+        run: node scripts/qualification-process.js producer-npm
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/download-evidence
         timeout-minutes: 15
         with:
-          artifact-id: ${{ needs.product.outputs.archive-id }}
+          artifact-id: ${{ needs.resolve.outputs.archive-id || needs.fresh.outputs.archive-id }}
           path: frozen-release
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        if: needs.resolve.outputs.reused != 'true'
         with:
           pattern: recipient-*
           path: recipient-security
           digest-mismatch: error
-      - name: Require exact-source CodeQL and recipient dependency audit
+      - name: Use the original recipient graphs without reinstalling
+        if: needs.resolve.outputs.reused == 'true'
+        run: node scripts/release-reuse-evidence.js recipients frozen-release recipient-security
+      - name: Require original CodeQL and current recipient dependency audits
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/qualify-release-security.js frozen-release release-security
@@ -111,7 +121,10 @@ jobs:
           if-no-files-found: error
           retention-days: 90
   distribution:
-    needs: product
+    needs:
+      - resolve
+      - fresh
+    if: always() && needs.resolve.result == 'success' && (needs.resolve.outputs.reused == 'true' || needs.fresh.result == 'success')
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     steps:
@@ -126,17 +139,22 @@ jobs:
       - uses: ./.github/actions/download-evidence
         timeout-minutes: 15
         with:
-          artifact-id: ${{ needs.product.outputs.archive-id }}
+          artifact-id: ${{ needs.resolve.outputs.archive-id || needs.fresh.outputs.archive-id }}
           path: frozen-release
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        if: needs.resolve.outputs.reused != 'true'
         with:
           pattern: recipient-*
           path: recipient-security
           digest-mismatch: error
-      - name: Generate and validate distribution inventories against exact archives
+      - name: Generate inventories for freshly qualified archives
+        if: needs.resolve.outputs.reused != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/qualify-distribution-sbom.js frozen-release distribution-evidence
+      - name: Reuse inventories of the unchanged original archives
+        if: needs.resolve.outputs.reused == 'true'
+        run: node scripts/release-reuse-evidence.js distribution frozen-release distribution-evidence
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
@@ -147,19 +165,16 @@ jobs:
   qualified:
     needs:
       - resolve
-      - product
-      - scans
+      - fresh
       - security
       - distribution
-      - dependencies
-      - native
     if: always()
     runs-on: ubuntu-26.04
-    timeout-minutes: 120
+    timeout-minutes: 20
     steps:
-      - name: Require every pre-publication gate without skipped work
+      - name: Require complete qualification and fresh release gates
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
         run: |
-          node --input-type=module -e 'import assert from "node:assert/strict"; const needs=JSON.parse(process.env.NEEDS_JSON); assert.deepEqual(Object.keys(needs).sort(),["dependencies","distribution","native","product","resolve","scans","security"]); for(const [name,job] of Object.entries(needs)) assert.equal(job.result,"success",name);'
-          echo 'Qualification completed. Review the exact archives, gate evidence and manifest digest. Create and verify the signed source tag before manually staging native packages. This run has no publishing authority.' >> "$GITHUB_STEP_SUMMARY"
+          node --input-type=module -e 'import assert from "node:assert/strict"; const n=JSON.parse(process.env.NEEDS_JSON); assert.deepEqual(Object.keys(n).sort(),["distribution","fresh","resolve","security"]); for(const k of ["resolve","security","distribution"]) assert.equal(n[k].result,"success"); assert.equal(n.fresh.result,n.resolve.outputs.reused==="true"?"skipped":"success");'
+          echo 'Qualified unchanged archives. Verify the signed landed-source tag and approve publication separately. No publishing authority was granted.' >> "$GITHUB_STEP_SUMMARY"

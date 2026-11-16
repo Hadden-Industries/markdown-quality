@@ -15,6 +15,7 @@ import { releaseVersion } from "./release-coordinates.js";
 import {
   releaseQualificationWorkflow,
   verifyReleaseQualificationJobs,
+  verifyPromotion,
 } from "./release-qualification.js";
 
 const repository = "Hadden-Industries/markdown-quality";
@@ -86,9 +87,6 @@ export function verifyPublication({
   assert.equal(run.event, "workflow_dispatch");
   assert.equal(run.path, releaseQualificationWorkflow);
   assert.equal(run.head_branch, "main");
-  const artifactSource = candidate.source;
-  assert.match(artifactSource, /^[a-f0-9]{40}$/u);
-  assert.equal(run.head_sha, artifactSource);
   assert.equal(run.status, "completed");
   assert.equal(run.conclusion, "success");
   const manifestBytes = bytes(
@@ -97,6 +95,10 @@ export function verifyPublication({
   );
   assert.equal(digest(manifestBytes), manifestSha);
   const release = JSON.parse(manifestBytes);
+  if (release.promotion) verifyPromotion(release, candidate.source);
+  else assert.equal(release.source.head, candidate.source);
+  const artifactSource = release.source.head;
+  assert.match(artifactSource, /^[a-f0-9]{40}$/u);
   const runtimePolicyPath = join(root, "assets/node-support.json");
   if (existsSync(runtimePolicyPath)) {
     assert.ok(
@@ -219,6 +221,15 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
                   1_048_576,
                 )
               : null,
+            journalFor: (name) =>
+              bytes(
+                join(
+                  "previous-publication",
+                  "staging-journal",
+                  `${name}.jsonl`,
+                ),
+                1_048_576,
+              ),
           },
         }
       : {}),

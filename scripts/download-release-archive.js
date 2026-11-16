@@ -5,6 +5,9 @@ import { resolve } from "node:path";
 import { createRepositoryReader } from "./github-evidence.js";
 import { downloadEvidence } from "./download-evidence.js";
 import { verifyProducingAttempt } from "./ci-proof.js";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { verifyReleaseQualificationJobs } from "./release-qualification.js";
 const repository = "Hadden-Industries/markdown-quality";
 const read = createRepositoryReader({
   repository,
@@ -27,9 +30,15 @@ const jobs = await read(
   `/actions/runs/${runId}/jobs?filter=latest&per_page=100`,
 );
 assert.equal(jobs.total_count, jobs.jobs.length);
-const producer = jobs.jobs.filter(
-  (job) => job.name === "product / Reference producer",
+const producer = jobs.jobs.filter((job) =>
+  [
+    "product / Reference producer",
+    "fresh / product / Reference producer",
+  ].includes(job.name),
 );
+// A reused run uploads unchanged archives from its successful trusted resolver.
+if (producer.length === 0)
+  producer.push(...jobs.jobs.filter((job) => job.name === "resolve"));
 assert.equal(producer.length, 1);
 let producingAttempt;
 for (let attempt = 1; attempt <= run.run_attempt; attempt++) {
@@ -58,3 +67,10 @@ await downloadEvidence({
   repositoryId: run.repository.id,
   headSha: run.head_sha,
 });
+verifyReleaseQualificationJobs(
+  run,
+  jobs,
+  JSON.parse(
+    readFileSync(join(resolve(process.argv[3]), "release-manifest.json")),
+  ),
+);

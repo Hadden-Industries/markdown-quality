@@ -2,6 +2,7 @@
 /** Release-specific admission of native CodeQL and npm recipient audit evidence. */
 import assert from "node:assert/strict";
 import {
+  existsSync,
   mkdirSync,
   readFileSync,
   writeFileSync,
@@ -14,25 +15,78 @@ import { fileURLToPath } from "node:url";
 import { native, npmCommand } from "./commands.js";
 import { hash, readJson, regularBytes, repository } from "./release-assets.js";
 import { reportCiResult } from "./ci-result.js";
-import { releaseQualificationWorkflow } from "./release-qualification.js";
+import {
+  releaseQualificationWorkflow,
+  releaseCommit,
+} from "./release-qualification.js";
+import { verifyBuildEvidence } from "./release-reuse-evidence.js";
+
+/** Resolve the immutable producer graph before consulting current advisories. */
+export function qualifiedProducerLock(
+  release,
+  directory,
+  {
+    readSourceLock = (source) =>
+      Buffer.from(
+        native("gh", [
+          "api",
+          `repos/${repository}/contents/package-lock.json?ref=${source}`,
+          "--jq",
+          ".content",
+        ]),
+        "base64",
+      ),
+  } = {},
+) {
+  assert.match(release.source.head, /^[a-f0-9]{40}$/u);
+  assert.match(release.source.lockSha256, /^[a-f0-9]{64}$/u);
+  const path = join(directory, "build-package-lock.json");
+  const lock = existsSync(path)
+    ? regularBytes(path, 4_194_304)
+    : Buffer.from(readSourceLock(release.source.head));
+  assert.ok(
+    lock.length > 0 && lock.length <= 4_194_304,
+    "Invalid producer lock size",
+  );
+  assert.equal(
+    hash(lock),
+    release.source.lockSha256,
+    "Qualified producer lock changed",
+  );
+  return lock;
+}
 
 /** Select the analyses that may satisfy exact-source release security coverage. */
-export function verifyCodeqlAnalyses(analyses, source) {
+export function verifyCodeqlAnalyses(analyses, source, authority = {}) {
   assert.ok(Array.isArray(analyses));
   assert.match(source, /^[a-f0-9]{40}$/u);
   return ["actions", "javascript-typescript", "python"].map((language) => {
     const matches = analyses.filter(
       (analysis) =>
         analysis.commit_sha === source &&
-        analysis.ref === "refs/heads/main" &&
+        analysis.ref === (authority.ref ?? "refs/heads/main") &&
         analysis.category === `/language:${language}` &&
-        analysis.analysis_key === `${releaseQualificationWorkflow}:codeql` &&
+        analysis.analysis_key ===
+          `${authority.workflow ?? releaseQualificationWorkflow}:codeql` &&
         analysis.tool?.name === "CodeQL",
     );
     assert.ok(matches.length, `Missing exact-source CodeQL ${language}`);
     // Provider listing is newest first. Never substitute an older successful
     // scan when the newest exact-source analysis failed or warned.
     const analysis = matches[0];
+    if (authority.executions) {
+      const producer = authority.executions.find(
+        (item) => item.job.name === `CodeQL / Scan ${language}`,
+      );
+      assert.ok(producer, "Missing original CodeQL execution");
+      assert.ok(
+        Date.parse(analysis.created_at) >=
+          Date.parse(producer.job.started_at) &&
+          Date.parse(analysis.created_at) <=
+            Date.parse(producer.job.completed_at),
+        "CodeQL analysis is outside the original producing execution",
+      );
+    }
     assert.equal(analysis.error, "", `CodeQL ${language} failed`);
     assert.equal(
       analysis.warning,
@@ -52,6 +106,49 @@ export function verifyCodeqlAnalyses(analyses, source) {
     assert.ok(Number.isSafeInteger(analysis.id) && analysis.id > 0);
     return analysis;
   });
+}
+
+/** Original PR scans keep their own ref, workflow, commit and producing execution. */
+export function codeqlAuthority(release, directory) {
+  if (!release.promotion) return {};
+  const receipt = verifyBuildEvidence(release, directory);
+  return {
+    ref: `refs/pull/${receipt.pullRequest}/merge`,
+    workflow: ".github/workflows/ci.yml",
+    executions: receipt.executions,
+  };
+}
+
+/** Refresh advisories against an unchanged lock without installing dependencies or scripts. */
+export function auditRecipientLock(lock, { command = npmCommand } = {}) {
+  const parsed = JSON.parse(lock);
+  assert.equal(parsed.lockfileVersion, 3);
+  assert.ok(parsed.packages?.[""]);
+  const directory = mkdtempSync(join(tmpdir(), "markdown-quality-lock-audit-"));
+  try {
+    writeFileSync(join(directory, "package-lock.json"), lock, { flag: "wx" });
+    writeFileSync(
+      join(directory, "package.json"),
+      JSON.stringify(parsed.packages[""]),
+      { flag: "wx" },
+    );
+    const raw = command(
+      [
+        "audit",
+        "--package-lock-only",
+        "--ignore-scripts",
+        "--json",
+        "--audit-level=none",
+        "--registry=https://registry.npmjs.org/",
+      ],
+      { cwd: directory },
+    );
+    verifyRecipientAudit(JSON.parse(raw));
+    assert.ok(readFileSync(join(directory, "package-lock.json")).equals(lock));
+    return raw;
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 }
 
 /** Require a completed native audit of the actual recipient graph, with no findings. */
@@ -117,7 +214,16 @@ export function refreshReleaseSecurity(
   { command = npmCommand, gh = (args) => native("gh", args) } = {},
 ) {
   const original = readJson(join(logical, "codeql-analyses.json"));
-  const scans = verifyCodeqlAnalyses(original, qualified.source);
+  const scans = verifyCodeqlAnalyses(
+    original,
+    qualified.source,
+    qualified.promotion
+      ? codeqlAuthority(
+          readJson(join(logical, "release-manifest.json")),
+          logical,
+        )
+      : {},
+  );
   const alerts = JSON.parse(
     gh([
       "api",
@@ -143,34 +249,7 @@ export function refreshReleaseSecurity(
           qualified.evidence[name],
           "Retained recipient lock changed",
         );
-        const parsed = JSON.parse(lock);
-        assert.equal(parsed.lockfileVersion, 3);
-        assert.ok(parsed.packages?.[""]);
-        const directory = join(scratch, `${platform}-${layout}`);
-        mkdirSync(directory);
-        writeFileSync(join(directory, "package-lock.json"), lock, {
-          flag: "wx",
-        });
-        writeFileSync(
-          join(directory, "package.json"),
-          JSON.stringify(parsed.packages[""]),
-          { flag: "wx" },
-        );
-        const raw = command(
-          [
-            "audit",
-            "--package-lock-only",
-            "--ignore-scripts",
-            "--json",
-            "--audit-level=none",
-            "--registry=https://registry.npmjs.org/",
-          ],
-          { cwd: directory },
-        );
-        verifyRecipientAudit(JSON.parse(raw));
-        assert.ok(
-          readFileSync(join(directory, "package-lock.json")).equals(lock),
-        );
+        const raw = auditRecipientLock(lock, { command });
         audits.push({
           name,
           lockSha256: hash(lock),
@@ -203,7 +282,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const releaseBytes = readFileSync(join(directory, "release-manifest.json"));
   const release = JSON.parse(releaseBytes);
   assert.equal(
-    release.source.head,
+    process.env.RELEASE_SOURCE ? release.source.head : releaseCommit(release),
     process.env.RELEASE_SOURCE || process.env.GITHUB_SHA,
   );
   const record = (name, value) =>
@@ -219,10 +298,27 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
         "--slurp",
       ]),
     ).flat();
+  const authority = codeqlAuthority(release, directory);
   const analyses = list(
-    "code-scanning/analyses?ref=refs%2Fheads%2Fmain&tool_name=CodeQL&per_page=100",
+    `code-scanning/analyses?ref=${encodeURIComponent(authority.ref ?? "refs/heads/main")}&tool_name=CodeQL&per_page=100`,
   );
-  const selected = verifyCodeqlAnalyses(analyses, release.source.head);
+  const selected = verifyCodeqlAnalyses(
+    analyses,
+    release.source.head,
+    authority,
+  );
+  const alerts = list("code-scanning/alerts?state=open&per_page=100");
+  assert.equal(
+    alerts.length,
+    0,
+    "Current security observations require disposition",
+  );
+  const producerLock = qualifiedProducerLock(release, directory);
+  const sourceAudit = auditRecipientLock(producerLock);
+  writeFileSync(join(output, "source-package-lock.json"), producerLock, {
+    flag: "wx",
+  });
+  record("source-audit.json", JSON.parse(sourceAudit));
   record("codeql-analyses.json", selected);
   const scans = selected.map((analysis) => {
     const sarif = JSON.parse(
@@ -249,12 +345,25 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     for (const layout of ["root", "isolated"]) {
       const name = `${layout}-audit.json`;
       const path = join("recipient-security", `recipient-${platform}`, name);
-      const audit = readJson(path);
+      const audit = release.promotion
+        ? JSON.parse(
+            auditRecipientLock(
+              readFileSync(
+                join(
+                  "recipient-security",
+                  `recipient-${platform}`,
+                  `${layout}-package-lock.json`,
+                ),
+              ),
+            ),
+          )
+        : readJson(path);
       verifyRecipientAudit(audit);
+      record(`${platform}-${layout}-audit.json`, audit);
       recipient.push({
         platform,
         layout,
-        auditSha256: hash(readFileSync(path)),
+        auditSha256: hash(Buffer.from(JSON.stringify(audit, null, 2) + "\n")),
       });
     }
   }

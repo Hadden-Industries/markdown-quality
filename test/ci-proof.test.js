@@ -30,6 +30,8 @@ import {
 } from "../scripts/runner-policy.js";
 import { budgets } from "../scripts/qualification-budgets.js";
 import { nodeMatrixFixture, nextPatchVersion } from "./node-matrix-fixture.js";
+import { reuseQualification } from "../scripts/release-reuse.js";
+import { mkdir } from "node:fs/promises";
 
 const noWait = async () => {};
 const newerPythonVersion = nextPatchVersion(pythonVersion);
@@ -265,10 +267,14 @@ function fixture(attempt = 1, fork = false) {
         .digest("hex");
     }
   const needs = Object.fromEntries(
-    ["policy", "product", "native", "dependencies", "codeql"].map((name) => [
-      name,
-      { result: "success" },
-    ]),
+    [
+      "policy",
+      "product",
+      "native",
+      "dependencies",
+      "codeql",
+      "distribution",
+    ].map((name) => [name, { result: "success" }]),
   );
   const main = {
     ...ctx,
@@ -404,6 +410,156 @@ async function observation(f, attempt = 1) {
     },
   };
 }
+
+test("manual release consumes an authenticated merge's original archives without repacking", async (t) => {
+  const temporary = await mkdtemp(join(tmpdir(), "release-reuse-integration-"));
+  t.after(() => rm(temporary, { recursive: true, force: true }));
+  const f = fixture();
+  const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
+  const archiveBytes = Buffer.from(
+    "independently authored, qualified package bytes",
+  );
+  const sbomBytes = Buffer.from("{}\n");
+  const lock = await readFile(new URL("../package-lock.json", import.meta.url));
+  const archives = ["win32-x64", "linux-x64", "core"].map((name) => {
+    const suffix = name === "core" ? "" : `-${name}`;
+    return {
+      name,
+      package: `@hadden-industries/markdown-quality${suffix}`,
+      version: "1.0.3",
+      filename: `hadden-industries-markdown-quality${suffix}-1.0.3.tgz`,
+      sha256: digest(archiveBytes),
+      integrity:
+        "sha512-" + createHash("sha512").update(archiveBytes).digest("base64"),
+    };
+  });
+  const manifestBytes = Buffer.from(
+    // json-identity-contract: bytes; owner: release promotion fixture; reason: The independent producer bytes are hashed and must survive promotion unchanged.
+    JSON.stringify({
+      version: "1.0.3",
+      source: {
+        head: f.ctx.sha,
+        tree: f.ctx.snapshot.tree,
+        clean: true,
+        lockSha256: digest(lock),
+      },
+      qualificationMatrix: f.matrix,
+      runtimePolicy: nodeSupport,
+      sbom: { filename: "source-sbom.cdx.json", sha256: digest(sbomBytes) },
+      archives,
+    }) + "\n",
+  );
+  for (const record of f.records) {
+    record.consumer.manifestSha256 = digest(manifestBytes);
+    record.consumer.archiveSha256 = digest(manifestBytes);
+    record.consumer.archives = archives.map(
+      ({ package: packageName, sha256 }) => ({ package: packageName, sha256 }),
+    );
+  }
+  const observationInput = await observation(f);
+  const { receipt } = await proof(f);
+  const extra = [];
+  let nextId = 800;
+  const add = (name, producing) =>
+    extra.push({
+      id: nextId++,
+      name,
+      expired: false,
+      digest: "sha256:" + "a".repeat(64),
+      created_at: new Date(
+        Date.parse(producing.job.started_at) + 1,
+      ).toISOString(),
+      workflow_run: f.artifact.workflow_run,
+    });
+  for (const os of f.matrix.os)
+    for (const node of f.matrix.node) {
+      const producer = receipt.executions.find(
+        (item) => item.job.name === `Product / Qualify ${os} / Node ${node}`,
+      );
+      const reference = node === nodeSupport.reference;
+      add(reference ? `candidate-${os}` : `candidate-${os}-${node}`, producer);
+      if (reference) {
+        add(`recipient-${os}`, producer);
+        add(`performance-${os}`, producer);
+      }
+    }
+  add(
+    "release-distribution-1",
+    receipt.executions.find((item) => item.job.name === "Distribution"),
+  );
+  let tamper = false;
+  const transfers = [];
+  const input = {
+    environment: {
+      GITHUB_REPOSITORY: repository,
+      GITHUB_REPOSITORY_ID: "11",
+      GITHUB_REF: "refs/heads/main",
+      GITHUB_EVENT_NAME: "workflow_dispatch",
+      GITHUB_SHA: f.main.sha,
+      GITHUB_RUN_ID: "72",
+      GITHUB_RUN_ATTEMPT: "1",
+      RELEASE_VERSION: "1.0.3",
+    },
+    snapshot: f.main.snapshot,
+    matrix: f.matrix,
+    now: () => f.now,
+    destination: join(temporary, "promoted"),
+    read: async (path) => {
+      if (path === "/git/ref/heads/main")
+        return { object: { sha: f.main.sha } };
+      const value = await observationInput.read(path);
+      return path === "/actions/runs/71/artifacts?per_page=100"
+        ? { total_count: 1 + extra.length, artifacts: [f.artifact, ...extra] }
+        : value;
+    },
+    // The provider transfer boundary is synthetic; admission and all package-byte checks are real.
+    download: async ({ id, destination }) => {
+      transfers.push(id);
+      await mkdir(destination, { recursive: true });
+      if (id === 502) {
+        await writeFile(
+          join(destination, "release-manifest.json"),
+          manifestBytes,
+        );
+        await writeFile(join(destination, "source-sbom.cdx.json"), sbomBytes);
+        await writeFile(join(destination, "build-package-lock.json"), lock);
+        for (const archive of archives)
+          await writeFile(
+            join(destination, archive.filename),
+            tamper ? "substituted" : archiveBytes,
+          );
+      }
+    },
+  };
+  const result = await reuseQualification(input);
+  assert.equal(result.reused, "true", result.reason);
+  const promoted = JSON.parse(
+    await readFile(join(input.destination, "release-manifest.json")),
+  );
+  assert.equal(promoted.source.head, f.ctx.sha);
+  assert.equal(promoted.promotion.releaseCommit, f.main.sha);
+  assert.equal(promoted.promotion.buildManifestSha256, digest(manifestBytes));
+  assert.deepEqual(
+    await readFile(join(input.destination, "build-manifest.json")),
+    manifestBytes,
+  );
+  for (const archive of archives)
+    assert.deepEqual(
+      await readFile(join(input.destination, archive.filename)),
+      archiveBytes,
+    );
+  assert.equal(transfers.length, 1 + extra.length);
+  tamper = true;
+  const failed = await reuseQualification({
+    ...input,
+    destination: join(temporary, "refused"),
+  });
+  assert.equal(failed.reused, "false");
+  await assert.rejects(
+    readFile(join(temporary, "refused", "release-manifest.json")),
+    { code: "ENOENT" },
+  );
+});
 test("observer reruns ignore prior host attempts and partial probes remain FULL_REQUIRED", async () => {
   const input = await observation(fixture(), 2),
     read = input.read;

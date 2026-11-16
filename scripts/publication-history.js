@@ -2,11 +2,12 @@
 /** Read native provider history before granting any new staging effect. */
 import assert from "node:assert/strict";
 import {
+  appendFileSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
   writeFileSync,
-  appendFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -26,13 +27,18 @@ import {
   readPublicationAttempts,
   verifyFirstStagingAttempt,
 } from "./publication-attempts.js";
-import { downloadPublicationArtifact } from "./publication-artifact.js";
+import { acquirePublicationArtifact } from "./publication-artifact.js";
 import {
   publicationSubject,
   readPublicationSubjects,
   matchPublicationSubject,
   readArchivedPublicationSubjects,
 } from "./publication-subjects.js";
+import { readSignedHistoryRefs } from "./release-history.js";
+import {
+  createLegacyProvenanceResolver,
+  verifyRecoveredProvenanceWriter,
+} from "./release-provenance-recovery.js";
 
 export { attemptedPublicationJobs } from "./publication-attempts.js";
 
@@ -44,6 +50,20 @@ const admitSubject = (entry, subject) => {
   entry.subject = Object.freeze({ ...subject });
   admittedSubjects.set(entry, entry.subject);
 };
+function mergePublicationSubject(left, right) {
+  assert.equal(
+    left.version,
+    right.version,
+    "Conflicting publication version evidence",
+  );
+  if (left.manifestSha256 && right.manifestSha256)
+    assert.equal(
+      left.manifestSha256,
+      right.manifestSha256,
+      "Conflicting publication version evidence",
+    );
+  return left.manifestSha256 ? left : right;
+}
 export function verifyPublicationHistory(release, map, history) {
   assert.match(String(map.attempt), /^[1-9]\d{0,15}$/u);
   const current = history.filter(
@@ -155,11 +175,93 @@ export function verifyPublicationHistory(release, map, history) {
   }
 }
 
+function checkpointPublicationSubjects(signedCheckpoints, scratch) {
+  const subjects = [];
+  for (const checkpoint of signedCheckpoints) {
+    const attemptsByRun = new Map();
+    for (const attempt of checkpoint.writerAttempts ?? []) {
+      const list = attemptsByRun.get(attempt.run.id) ?? [];
+      list.push({ run: attempt.run, jobs: attempt.inventory });
+      attemptsByRun.set(attempt.run.id, list);
+    }
+    for (const list of attemptsByRun.values())
+      list.sort((a, b) => a.run.run_attempt - b.run.run_attempt);
+    for (const entry of checkpoint.writers) {
+      if (entry.run.path !== ".github/workflows/publish.yml") continue;
+      const recoveryDoc = verifyRecoveredProvenanceWriter(entry);
+      const attempts = attemptsByRun.get(entry.run.id) ?? [
+        { run: entry.run, jobs: entry.inventory },
+      ];
+      if (recoveryDoc) {
+        subjects.push({
+          run: entry.run,
+          attempts,
+          subject: { version: recoveryDoc.version },
+        });
+        continue;
+      }
+      const manifestFile = entry.files["frozen-release/release-manifest.json"];
+      if (!manifestFile) continue;
+      const manifestBytes = Buffer.from(manifestFile.base64, "base64");
+      subjects.push({
+        run: entry.run,
+        attempts,
+        subject: publicationSubject(manifestBytes),
+      });
+      if (
+        entry.run.status === "completed" &&
+        entry.run.conclusion === "success" &&
+        entry.files["provider/publication-history.json"]
+      ) {
+        const dir = mkdtempSync(join(scratch, "checkpoint-"));
+        mkdirSync(join(dir, "frozen-release"), { recursive: true });
+        mkdirSync(join(dir, "provider"), { recursive: true });
+        writeFileSync(
+          join(dir, "frozen-release/release-manifest.json"),
+          manifestBytes,
+        );
+        writeFileSync(
+          join(dir, "provider/publication-history.json"),
+          Buffer.from(
+            entry.files["provider/publication-history.json"].base64,
+            "base64",
+          ),
+        );
+        if (entry.files["provider/staging-history.json"])
+          writeFileSync(
+            join(dir, "provider/staging-history.json"),
+            Buffer.from(
+              entry.files["provider/staging-history.json"].base64,
+              "base64",
+            ),
+          );
+        subjects.push(
+          ...readPublicationSubjects(
+            dir,
+            { run: entry.run, attempt: entry.attempt, attempts },
+            manifestBytes,
+          ),
+        );
+      }
+    }
+  }
+  return subjects;
+}
+
 export async function readPublicationHistory(
   currentRun,
   gh = (args) => native("gh", args),
-  download = downloadPublicationArtifact,
-  { version, archives = readArchivedPublicationSubjects } = {},
+  download,
+  {
+    version,
+    archives = readArchivedPublicationSubjects,
+    env = process.env,
+    checkpoints,
+    baseline,
+    npm,
+    readPackument,
+    recoverSubject,
+  } = {},
 ) {
   if (version !== undefined) releaseVersion(version);
   const pages = JSON.parse(
@@ -179,6 +281,11 @@ export async function readPublicationHistory(
   assert.equal(new Set(runs.map((run) => run.id)).size, runs.length);
   const current = runs.find((run) => String(run.id) === String(currentRun));
   assert.ok(current, "Current run absent from native history");
+  let signed = checkpoints;
+  const originalCheckpoints = () =>
+    (signed ??= env.HISTORY_CHECKPOINT
+      ? readSignedHistoryRefs(JSON.parse(env.HISTORY_CHECKPOINT), gh)
+      : []);
   const scratch = mkdtempSync(join(tmpdir(), "publication-history-"));
   try {
     const history = [];
@@ -220,15 +327,13 @@ export async function readPublicationHistory(
       const matches = subjects.filter((cached) =>
         matchPublicationSubject(cached, entry),
       );
-      for (const cached of matches) {
-        if (entry.subject)
-          assert.deepEqual(
-            entry.subject,
-            cached.subject,
-            "Conflicting publication version evidence",
-          );
-        admitSubject(entry, cached.subject);
-      }
+      for (const cached of matches)
+        admitSubject(
+          entry,
+          entry.subject
+            ? mergePublicationSubject(entry.subject, cached.subject)
+            : cached.subject,
+        );
       return version && entry.subject && entry.subject.version !== version;
     };
     for (const entry of history) {
@@ -242,11 +347,23 @@ export async function readPublicationHistory(
       const directory = join(scratch, String(entry.run.id));
       const attempt = entry.jobs.jobs[0].run_attempt;
       try {
-        await download({ run: entry.run, attempt, destination: directory });
+        if (download)
+          await download({ run: entry.run, attempt, destination: directory });
+        else {
+          const original = entry.attempts[attempt - 1];
+          await acquirePublicationArtifact({
+            runId: entry.run.id,
+            attempt,
+            destination: directory,
+            observed: { run: original.run, inventory: original.jobs },
+            checkpoints: originalCheckpoints,
+          });
+        }
       } catch (error) {
         // Only authenticated unavailability can be discharged by an independently
         // verified other-version subject; digest/provider/ambiguity failures stop here.
         if (
+          ![404, 410].includes(error.httpStatus) &&
           ![
             "PUBLICATION_ARTIFACT_MISSING",
             "EVIDENCE_ARTIFACT_EXPIRED",
@@ -260,8 +377,12 @@ export async function readPublicationHistory(
         join(directory, "frozen-release/release-manifest.json"),
       );
       const subject = publicationSubject(entry.manifestBytes);
-      if (entry.subject) assert.deepEqual(entry.subject, subject);
-      admitSubject(entry, subject);
+      admitSubject(
+        entry,
+        entry.subject
+          ? mergePublicationSubject(entry.subject, subject)
+          : subject,
+      );
       try {
         entry.originsBytes = readFileSync(
           join(directory, "frozen-release/publication-origins.json"),
@@ -283,6 +404,46 @@ export async function readPublicationHistory(
     }
     if (version && [...missing.keys()].some((entry) => !classify(entry)))
       subjects.push(...archives(gh, scratch));
+    if (version && [...missing.keys()].some((entry) => !classify(entry))) {
+      const signedCheckpoints = originalCheckpoints();
+      if (signedCheckpoints.length)
+        subjects.push(
+          ...checkpointPublicationSubjects(signedCheckpoints, scratch),
+        );
+    }
+    if (version && [...missing.keys()].some((entry) => !classify(entry))) {
+      const resolveSubject =
+        recoverSubject ??
+        createLegacyProvenanceResolver({
+          repository,
+          baseline,
+          runs: history.map((item) => item.run),
+          gh,
+          npm,
+          readPackument,
+          tempRoot: env.RUNNER_TEMP ?? tmpdir(),
+        }).recoverSubject;
+      for (const [entry] of missing) {
+        if (classify(entry)) continue;
+        const job = entry.jobs.jobs[0];
+        const attemptRecord = entry.attempts.find(
+          (candidate) => candidate.run.run_attempt === job.run_attempt,
+        );
+        const recovered = await resolveSubject({
+          run: entry.run,
+          attempt: job.run_attempt,
+          job,
+          inventory: attemptRecord?.jobs ?? entry.jobs,
+          publishRuns: history.map((item) => item.run),
+        });
+        if (recovered)
+          subjects.push({
+            run: entry.run,
+            attempts: entry.attempts,
+            subject: recovered,
+          });
+      }
+    }
     for (const entry of history)
       if (
         String(entry.run.id) !== String(currentRun) &&
@@ -386,7 +547,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
               run,
               jobs,
               attempts,
-              subject,
+              subject: subject?.manifestSha256 ? subject : null,
               manifestSha256: manifestBytes
                 ? hash(manifestBytes)
                 : (subject?.manifestSha256 ?? null),

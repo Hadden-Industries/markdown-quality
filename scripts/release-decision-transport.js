@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { hash } from "./release-bytes.js";
 import { native } from "./commands.js";
 import { verifyReleaseAcceptance } from "./release-acceptance.js";
+import { releaseCommit } from "./release-qualification.js";
 
 /** Leave room for the other inputs in GitHub's 65,535-byte dispatch envelope. */
 export function ownerDispatchBytes(env) {
@@ -105,7 +106,7 @@ export function admitOwnerDispatch(
       "--binary",
       "--no-ext-diff",
       "--no-textconv",
-      release.source.head,
+      releaseCommit(release),
       env.GITHUB_SHA,
     ],
     { encoding: null },

@@ -144,5 +144,14 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     output: resolve(process.argv[4]),
   });
   process.stdout.write(JSON.stringify(result) + "\n");
+  // The workflow schedules the GitHub writer from the authenticated decision,
+  // so an npm-only retirement never acquires GitHub write permission.
+  if (process.argv[2] === "admit" && process.env.GITHUB_OUTPUT) {
+    const { githubWriterRequired } = await import("./release-operation.js");
+    appendFileSync(
+      process.env.GITHUB_OUTPUT,
+      `github-writer=${githubWriterRequired(result.operation)}\n`,
+    );
+  }
   if (result.status === "completion-unconfirmed") process.exitCode = 1;
 }

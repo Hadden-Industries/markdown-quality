@@ -18,6 +18,10 @@ on:
         description: Optional JSON array of previous signed history refs
         required: false
         type: string
+      retained-qualifications:
+        description: Optional JSON array of earlier qualification.json SHA-256 digests to retain from those signed refs, such as a retired pilot subject
+        required: false
+        type: string
 permissions:
   contents: read
   actions: read
@@ -29,6 +33,7 @@ env:
   ARCHIVE_ATTEMPT: ${{ inputs.archive-attempt }}
   QUALIFICATION_SHA: ${{ inputs.qualification-sha256 }}
   HISTORY_CHECKPOINT: ${{ inputs.history-checkpoints }}
+  RETAINED_QUALIFICATIONS: ${{ inputs.retained-qualifications }}
 jobs:
   prepare:
     if: github.repository == 'Hadden-Industries/markdown-quality' && github.ref == 'refs/heads/main'

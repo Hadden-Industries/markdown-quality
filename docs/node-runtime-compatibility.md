@@ -17,7 +17,7 @@ Tested LTS families: 22, 24, 26.
 Other engine-compatible releases receive best-effort compatibility.
 Producer npm: 12.2.2; consumer npm: 11.21.2.
 
-Development/release reference: 26.13.0.
+Development/release reference: 26.13.1.
 
 <!-- node-support:end -->
 
@@ -87,6 +87,8 @@ An explicit imminent-LTS family exception remains policy-owned; parity alone doe
 The reference is independently admitted within a supported family; it need not equal a minimum.
 The matrix is frozen into candidate evidence and every resulting Windows/Linux consumer job is required for publication admission.
 Reference performance jobs and artifact names retain their existing identities.
+An eligible normal merge can reuse these completed jobs for its unchanged archives through [release qualification](ci-trust.md#interpret-the-main-qualification-result).
+Admission still requires the current policy and matrix to match; a new release run does not itself require another matrix execution.
 
 The producer performs source-wide checks and isolated JSON tooling on its reference runtime.
 Consumer lanes run runtime-sensitive source regressions and both transported installation layouts on their selected runtime, using the separately pinned floor-compatible npm.

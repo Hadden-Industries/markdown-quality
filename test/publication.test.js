@@ -5,6 +5,7 @@ import { nodeSupport, qualificationMatrix } from "../scripts/node-matrix.js";
 import { fixtureJobLabels, nodeMatrixFixture } from "./node-matrix-fixture.js";
 import { publicationHistoryFixture } from "./publication-history-fixture.js";
 import { reviewedChannelStagingSteps } from "../scripts/publication-steps.js";
+import { verifyRetainedNativeOrigins } from "../scripts/release-continuation.js";
 import {
   mkdtempSync,
   mkdirSync,
@@ -182,6 +183,79 @@ function fixture(t) {
 test("exact qualified opaque tuple is admitted without extraction or execution", (t) => {
   const { input } = fixture(t);
   assert.equal(verifyPublication(input).version, "1.0.0");
+});
+
+test("publication preserves PR-built bytes while admitting their landed release commit", (t) => {
+  const { input, manifest, serialize } = fixture(t);
+  const landed = "b".repeat(40);
+  manifest.source.tree = "c".repeat(40);
+  manifest.promotion = {
+    schemaVersion: 1,
+    buildCommit: source,
+    releaseCommit: landed,
+    tree: manifest.source.tree,
+    parents: ["d".repeat(40), "e".repeat(40)],
+    buildManifestSha256: "f".repeat(64),
+    proofSha256: "1".repeat(64),
+    run: 71,
+    attempt: 1,
+    pullRequest: 17,
+  };
+  input.run.head_sha = landed;
+  input.currentRef.object.sha = landed;
+  input.context.head = landed;
+  input.context.decision = {
+    channel: "pilot",
+    operationId: "release-qualified-artifacts",
+    reviewSha256: "9".repeat(64),
+  };
+  const names = ["resolve", "fresh", "security", "distribution", "qualified"];
+  input.jobs = {
+    total_count: names.length,
+    jobs: names.map((name) => ({
+      name,
+      run_id: input.run.id,
+      run_attempt: 1,
+      head_sha: landed,
+      status: "completed",
+      conclusion: name === "fresh" ? "skipped" : "success",
+      labels: [],
+    })),
+  };
+  serialize();
+  const admitted = verifyPublication(input);
+  assert.equal(admitted.source, source);
+  assert.equal(admitted.publicationOrigins.artifactSource, source);
+  assert.ok(
+    admitted.publicationOrigins.records.every(
+      (record) => record.source === landed,
+    ),
+  );
+  assert.doesNotThrow(() =>
+    preparePublicationEnvironment(
+      manifest,
+      input.manifestSha,
+      admitted.publicationOrigins,
+      input.context,
+    ),
+  );
+  input.jobs.jobs.find((job) => job.name === "security").conclusion = "skipped";
+  assert.throws(() => verifyPublication(input));
+});
+
+test("the full fallback remains complete and cannot substitute skipped matrix jobs", (t) => {
+  const { input } = fixture(t);
+  const nested = input.jobs.jobs
+    .filter((job) => !["security", "distribution"].includes(job.name))
+    .map((job) => ({ ...job, name: `fresh / ${job.name}` }));
+  const wrapper = ["resolve", "security", "distribution", "qualified"].map(
+    (name) => ({ ...input.jobs.jobs[0], name }),
+  );
+  input.jobs.jobs = [...nested, ...wrapper];
+  input.jobs.total_count = input.jobs.jobs.length;
+  assert.equal(verifyPublication(input).source, source);
+  nested.find((job) => job.name.includes(" / Qualify ")).conclusion = "skipped";
+  assert.throws(() => verifyPublication(input));
 });
 test("the retired fixture branch cannot enter current release evidence", (t) => {
   const { input } = fixture(t);
@@ -557,7 +631,7 @@ function recoveryFixture(t) {
   return { ...data, control };
 }
 
-test("completed native requests survive a later upload failure without replay or relabelled success", (t) => {
+test("completed native receipts survive a later upload failure without replay or relabelled success", async (t) => {
   const { input, manifest } = fixture(t);
   input.context.decision = {
     channel: "latest",
@@ -580,7 +654,7 @@ test("completed native requests survive a later upload failure without replay or
         conclusion: index < 2 ? "success" : "skipped",
       })),
       {
-        name: "Run actions/upload-artifact",
+        name: "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
         status: "completed",
         conclusion: "failure",
       },
@@ -599,9 +673,11 @@ test("completed native requests survive a later upload failure without replay or
       conclusion: "failure",
     },
     jobs: {
-      total_count: 2,
+      total_count: 4,
       jobs: [
         stage,
+        { ...stage, name: "admit", conclusion: "success", steps: [] },
+        { ...stage, name: "decision", conclusion: "success", steps: [] },
         { ...stage, name: "retained", conclusion: "skipped", steps: [] },
       ],
     },
@@ -618,6 +694,48 @@ test("completed native requests survive a later upload failure without replay or
     recoveryOriginsSha: sha(originsBytes),
   };
   input.currentRef.object.sha = input.context.head;
+  assert.throws(
+    () => verifyPublication(input),
+    /Missing complete original native receipt/u,
+  );
+  const nativeJournals = new Map(
+    manifest.archives.slice(0, 2).map((archive) => {
+      const identity = {
+        package: archive.package,
+        version: manifest.version,
+        sha256: archive.sha256,
+        integrity: archive.integrity,
+        tag: original.decision.channel,
+        decision: original.decision,
+        origin: { source, run: "456", attempt: "1" },
+      };
+      return [
+        archive.name,
+        Buffer.from(
+          [
+            { ...identity, state: "attempted" },
+            {
+              ...identity,
+              state: "staged-awaiting-owner",
+              stageId: `stage-${archive.name}`,
+            },
+          ]
+            .map((record) => JSON.stringify(record) + "\n")
+            .join(""),
+        ),
+      ];
+    }),
+  );
+  const readJournal = (name) => nativeJournals.get(name);
+  input.previous.journalFor = (name) => readJournal("win32-x64");
+  assert.throws(
+    () => verifyPublication(input),
+    /Staging journal package mismatch/u,
+  );
+  input.previous.journalFor = readJournal;
+  stage.steps[1].conclusion = "failure";
+  assert.throws(() => verifyPublication(input));
+  stage.steps[1].conclusion = "success";
   const continued = verifyPublication(input).publicationOrigins;
   assert.deepEqual(
     continued.records.map(({ state }) => state),
@@ -639,6 +757,26 @@ test("completed native requests survive a later upload failure without replay or
   assert.equal(env.STAGE_CORE, "true");
   assert.equal(input.previous.run.conclusion, "failure");
   assert.equal(stage.conclusion, "failure");
+  let reads = 0;
+  await verifyRetainedNativeOrigins({
+    release: manifest,
+    context: { manifestSha256: input.manifestSha, origins: continued },
+    acquire: async () => {
+      reads++;
+      return {
+        original: { run: input.previous.run, inventory: input.previous.jobs },
+        file: (name) =>
+          ({
+            "frozen-release/release-manifest.json":
+              input.previous.manifestBytes,
+            "frozen-release/publication-origins.json": originsBytes,
+            "staging-journal/linux-x64.jsonl": readJournal("linux-x64"),
+            "staging-journal/win32-x64.jsonl": readJournal("win32-x64"),
+          })[name],
+      };
+    },
+  });
+  assert.equal(reads, 1);
   input.previous.originsBytes = Buffer.from("{}");
   assert.throws(
     () => verifyPublication(input),

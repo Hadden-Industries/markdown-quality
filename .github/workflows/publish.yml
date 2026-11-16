@@ -74,6 +74,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+          fetch-depth: 0
           ref: ${{ github.sha }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
@@ -102,10 +103,6 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" > provider/current-ref.json
           gh api "repos/$GITHUB_REPOSITORY/environments/npm-publication" > provider/environment.json
           gh api "repos/$GITHUB_REPOSITORY/environments/npm-publication/deployment-branch-policies?per_page=100" > provider/branches.json
-          if [[ -n "$RECOVERY_RUN" ]]; then
-            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RECOVERY_RUN/attempts/$RECOVERY_ATTEMPT" > provider/previous-run.json
-            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RECOVERY_RUN/attempts/$RECOVERY_ATTEMPT/jobs?per_page=100" > provider/previous-jobs.json
-          fi
       - name: Bind the original candidate source and attempt
         id: candidate
         run: node scripts/prepare-publication-environment.js --candidate-context provider
@@ -130,7 +127,7 @@ jobs:
         if: inputs.recovery-run != ''
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node scripts/publication-artifact.js "$RECOVERY_RUN" "$RECOVERY_ATTEMPT" previous-publication --allow-prewrite-admission
+        run: node scripts/publication-artifact.js "$RECOVERY_RUN" "$RECOVERY_ATTEMPT" previous-publication provider --allow-prewrite-admission
         timeout-minutes: 15
       - name: Verify approved archives and bind publication origins before any effect
         run: node scripts/verify-publication.js frozen-release "$MANIFEST_SHA" provider
@@ -212,6 +209,8 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.sha }}
+          # Retained qualification reads signed checkpoint commits from local Git.
+          fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version-file: .node-version

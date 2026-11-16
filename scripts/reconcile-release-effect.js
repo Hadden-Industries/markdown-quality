@@ -9,7 +9,11 @@ import { hash, releaseBytes } from "./release-bytes.js";
 import { ownerDispatchBytes } from "./release-decision-transport.js";
 import { readFamilyLabels } from "./release-labels.js";
 import { releasePackages, releaseVersion } from "./release-coordinates.js";
-import { verifyEffectJournal } from "./release-effects.js";
+import {
+  npmRequestStep,
+  npmRequestRejected,
+  verifyEffectJournal,
+} from "./release-effects.js";
 import {
   authenticateArtifact,
   restoreRetainedFiles,
@@ -103,6 +107,65 @@ export async function acquireReconciliation(
     });
 }
 
+/**
+ * Establish that one unknown npm request was refused. The evidence is npm's
+ * structured 401 retained in the authenticated journal, the original writer
+ * job and its request step failing with this as the final request, the time-
+ * bounded native job log digest, and the prior still publicly visible. A
+ * current value or error text alone never suffices; returns null otherwise.
+ */
+async function observeRejection({
+  effect,
+  effects,
+  jobs,
+  service,
+  label,
+  operation,
+  initial,
+  jobLog,
+}) {
+  if (
+    effect.outcome !== "outcome-unknown" ||
+    operation !== "retire-pilot" ||
+    label !== "pilot" ||
+    !npmRequestRejected(effect) ||
+    effects.at(-1) !== effect ||
+    effects.filter((value) => value.outcome === "outcome-unknown").length !==
+      1 ||
+    initial[effect.subject] !== effect.prior
+  )
+    return null;
+  const writers = jobs?.jobs?.filter((job) => job.name === service) ?? [];
+  if (writers.length !== 1) return null;
+  const [job] = writers;
+  const steps = (job.steps ?? []).filter(
+    (step) => step.name === npmRequestStep,
+  );
+  if (
+    job.status !== "completed" ||
+    job.conclusion !== "failure" ||
+    steps.length !== 1 ||
+    steps[0].status !== "completed" ||
+    steps[0].conclusion !== "failure" ||
+    !Number.isFinite(Date.parse(steps[0].completed_at))
+  )
+    return null;
+  // Logs expire with the run; retain only their digest, never the content.
+  const log = await jobLog(job.id);
+  assert.ok(Buffer.isBuffer(log) && log.length > 0, "Native job log missing");
+  return {
+    package: effect.subject,
+    label,
+    job: job.id,
+    step: npmRequestStep,
+    stepCompletedAt: steps[0].completed_at,
+    diagnostic: effect.diagnostic,
+    logSha256: hash(log),
+    logBytes: log.length,
+    observedPrior: initial[effect.subject],
+  };
+}
+
 export async function reconcileReleaseEffect(
   input,
   output,
@@ -116,6 +179,7 @@ export async function reconcileReleaseEffect(
     authenticate,
     verifyTag = verifyReleaseTag,
     gh = (args, options) => native("gh", args, options),
+    jobLog,
   } = {},
 ) {
   const { operation, selected, expected } = reconciliationSelection(env),
@@ -129,15 +193,17 @@ export async function reconcileReleaseEffect(
       budgetMs: budgets.collection,
     });
   const api = (path) => read(path.startsWith("/") ? path : `/${path}`);
-  if (authenticate) await authenticate();
-  else
-    await authenticateArtifact(selected.artifactId, expected, {
-      api,
-      checkpoints: readSignedHistoryRefs(
-        JSON.parse(env.HISTORY_CHECKPOINT || "[]"),
-      ),
-      directory: input,
-    });
+  // The authenticated original attempt inventory supplies the writer job and
+  // step evidence that a rejection observation requires.
+  const original = authenticate
+    ? await authenticate()
+    : await authenticateArtifact(selected.artifactId, expected, {
+        api,
+        checkpoints: readSignedHistoryRefs(
+          JSON.parse(env.HISTORY_CHECKPOINT || "[]"),
+        ),
+        directory: input,
+      });
   const bytes = releaseBytes(join(input, "effects.jsonl"), 16 * 1024 * 1024);
   assert.equal(hash(bytes), selected.journalSha256);
   const context = JSON.parse(bytes.toString("utf8").split("\n")[0]).context;
@@ -154,7 +220,8 @@ export async function reconcileReleaseEffect(
     manifestSha256: operation.manifestSha256,
   }))
     assert.equal(context[name], value);
-  const effect = verifyEffectJournal(bytes, context).find(
+  const effects = verifyEffectJournal(bytes, context);
+  const effect = effects.find(
     (record) => record.sequence === Number(selected.sequence),
   );
   assert.ok(["outcome-unknown", "acknowledged"].includes(effect?.outcome));
@@ -183,6 +250,46 @@ export async function reconcileReleaseEffect(
       [operation.priors[name], operation.targets[name]].includes(initial[name]),
       "Unexpected provider value during reconciliation",
     );
+  const rejection = await observeRejection({
+    effect,
+    effects,
+    jobs: original?.jobs,
+    service: selected.service,
+    label: operation.label,
+    operation: operation.operation,
+    initial,
+    jobLog:
+      jobLog ??
+      ((id) =>
+        read(`/actions/jobs/${id}/logs`, {
+          raw: true,
+          maximumBytes: 16 * 1024 * 1024,
+        })),
+  });
+  if (rejection) {
+    const record = {
+      schemaVersion: 1,
+      kind: "release-effect-observation",
+      readerController: env.GITHUB_SHA,
+      observedAt: new Date().toISOString(),
+      originalContext: context,
+      journalSha256: hash(bytes),
+      sequence: effect.sequence,
+      effect,
+      observation: { npm: initial },
+      observedState: "rejected",
+      rejection,
+      wholeOperationComplete: false,
+      completion: null,
+    };
+    mkdirSync(output);
+    writeFileSync(
+      join(output, "provider-observation.json"),
+      JSON.stringify(record, null, 2) + "\n",
+      { flag: "wx" },
+    );
+    return record;
+  }
   const observedOperation = {
     ...operation,
     targets:

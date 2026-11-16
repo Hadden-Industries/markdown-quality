@@ -23,6 +23,7 @@ export async function downloadEvidence({
   repositoryId,
   headRepositoryId = repositoryId,
   headSha,
+  expectedArtifact,
   maximum = artifactLimits.payloadBytes,
   now = Date.now,
   deadline = now() + budgets.collection,
@@ -31,6 +32,14 @@ export async function downloadEvidence({
   const admit = (metadata) => {
     assert.equal(metadata.id, id);
     assert.match(metadata.digest, /^sha256:[a-f0-9]{64}$/u);
+    if (expectedArtifact) {
+      assert.equal(metadata.name, expectedArtifact.name);
+      assert.equal(
+        metadata.digest,
+        expectedArtifact.digest,
+        "Artifact digest differs from the original acknowledgment",
+      );
+    }
     assert.equal(metadata.workflow_run.id, runId);
     assert.equal(metadata.workflow_run.repository_id, repositoryId);
     assert.equal(metadata.workflow_run.head_repository_id, headRepositoryId);
@@ -98,6 +107,7 @@ export async function downloadEvidence({
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
+  return metadata;
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const deadline = Date.now() + budgets.collection - 2000;

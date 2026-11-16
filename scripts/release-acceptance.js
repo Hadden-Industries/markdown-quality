@@ -74,7 +74,19 @@ export function readDraftDecisions(
           scratch,
         ]);
         const bytes = releaseBytes(join(scratch, name), 16 * 1024 * 1024);
-        verifyReleaseAcceptance(bytes, digest, release, manifestSha, phase);
+        const decision = verifyReleaseAcceptance(
+          bytes,
+          digest,
+          release,
+          manifestSha,
+          phase,
+        );
+        if (draft.isDraft)
+          assert.equal(
+            decision.schemaVersion,
+            1,
+            "Mutable drafts are only authorized for historical schema-1 decisions",
+          );
         return [name, bytes];
       }),
     );

@@ -165,6 +165,11 @@ export function packRelease(output, qualificationMatrix) {
     );
     const sbomBytes = JSON.stringify(sbom, null, 2) + "\n";
     writeFileSync(join(output, "source-sbom.cdx.json"), sbomBytes);
+    const producerLock = readFileSync(join(root, "package-lock.json"));
+    if (digest(producerLock) !== sourceIdentity.lockSha256)
+      throw new Error("Producer lock changed during packing");
+    // Both fresh and promoted candidates audit this graph, never a later controller's graph.
+    writeFileSync(join(output, "build-package-lock.json"), producerLock);
     const inventory = {
       schemaVersion: 1,
       version: metadata.version,
