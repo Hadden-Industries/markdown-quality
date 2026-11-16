@@ -35,6 +35,7 @@ import { verifyReleaseAcceptance } from "./release-acceptance.js";
 import { bindStagingReconciliation } from "./release-staging-evidence.js";
 import { acquirePublicationArtifact } from "./publication-artifact.js";
 import { readSignedHistoryRefs } from "./release-history.js";
+import { qualificationArtifactDirectory } from "./release-reuse-evidence.js";
 
 assert.equal(
   process.argv.length,
@@ -220,12 +221,18 @@ try {
               ? `candidate-${os}`
               : `candidate-${os}-${node}`
             : `registry-${os}-${node}-${publication.attempt}`;
-        const run =
+        const reportDirectory =
           kind === "candidate"
-            ? String(release.promotion?.run ?? qualified.candidate.run)
-            : publication.run;
+            ? qualificationArtifactDirectory({
+                release,
+                frozen,
+                run: qualified.candidate.run,
+                name: artifact,
+                download,
+              })
+            : download(publication.run, artifact);
         const reportBytes = regularBytes(
-          join(download(run, artifact), `${kind}-qualification.json`),
+          join(reportDirectory, `${kind}-qualification.json`),
         );
         const name = `${kind}-${os}-${node}.json`;
         qualified.reports[name] = {
@@ -273,21 +280,28 @@ try {
     for (const name of readdirSync(security))
       evidence(`${prefix}${name}`, join(security, name));
     for (const os of release.qualificationMatrix.os) {
-      const recipient = download(
-        prefix === "" && release.promotion
-          ? String(release.promotion.run)
-          : run,
-        `recipient-${os}`,
-      );
+      const recipient =
+        prefix === ""
+          ? qualificationArtifactDirectory({
+              release,
+              frozen,
+              run,
+              name: `recipient-${os}`,
+              download,
+            })
+          : download(run, `recipient-${os}`);
       for (const name of readdirSync(recipient))
         evidence(`${prefix}recipient-${os}-${name}`, join(recipient, name));
     }
   }
   for (const os of release.qualificationMatrix.os) {
-    const performance = download(
-      String(release.promotion?.run ?? qualified.candidate.run),
-      `performance-${os}`,
-    );
+    const performance = qualificationArtifactDirectory({
+      release,
+      frozen,
+      run: qualified.candidate.run,
+      name: `performance-${os}`,
+      download,
+    });
     for (const entry of readdirSync(performance, { withFileTypes: true }))
       if (entry.isFile())
         evidence(

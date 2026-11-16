@@ -19,7 +19,40 @@ import {
   verifyBuildEvidence,
   reuseDistributionEvidence,
   retainRecipientEvidence,
+  qualificationArtifactDirectory,
 } from "../scripts/release-reuse-evidence.js";
+
+test("archival consumes promoted evidence after original CI artifacts expire", (t) => {
+  const f = retained(t);
+  const download = () => {
+    throw new Error("Original CI artifact expired");
+  };
+  for (const name of [
+    "candidate-ubuntu-26.04",
+    "recipient-ubuntu-26.04",
+    "performance-ubuntu-26.04",
+  ])
+    assert.equal(
+      qualificationArtifactDirectory({
+        release: f.release,
+        frozen: f.directory,
+        run: "20",
+        name,
+        download,
+      }),
+      join(f.directory, "qualification-evidence", name),
+    );
+  assert.equal(
+    qualificationArtifactDirectory({
+      release: {},
+      frozen: f.directory,
+      run: "42",
+      name: "candidate-linux",
+      download: (run, name) => `${run}/${name}`,
+    }),
+    "42/candidate-linux",
+  );
+});
 import { verifyTagMetadata } from "../scripts/verify-release-tag.js";
 
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");

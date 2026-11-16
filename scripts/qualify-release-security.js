@@ -2,6 +2,7 @@
 /** Release-specific admission of native CodeQL and npm recipient audit evidence. */
 import assert from "node:assert/strict";
 import {
+  existsSync,
   mkdirSync,
   readFileSync,
   writeFileSync,
@@ -19,6 +20,41 @@ import {
   releaseCommit,
 } from "./release-qualification.js";
 import { verifyBuildEvidence } from "./release-reuse-evidence.js";
+
+/** Resolve the immutable producer graph before consulting current advisories. */
+export function qualifiedProducerLock(
+  release,
+  directory,
+  {
+    readSourceLock = (source) =>
+      Buffer.from(
+        native("gh", [
+          "api",
+          `repos/${repository}/contents/package-lock.json?ref=${source}`,
+          "--jq",
+          ".content",
+        ]),
+        "base64",
+      ),
+  } = {},
+) {
+  assert.match(release.source.head, /^[a-f0-9]{40}$/u);
+  assert.match(release.source.lockSha256, /^[a-f0-9]{64}$/u);
+  const path = join(directory, "build-package-lock.json");
+  const lock = existsSync(path)
+    ? regularBytes(path, 4_194_304)
+    : Buffer.from(readSourceLock(release.source.head));
+  assert.ok(
+    lock.length > 0 && lock.length <= 4_194_304,
+    "Invalid producer lock size",
+  );
+  assert.equal(
+    hash(lock),
+    release.source.lockSha256,
+    "Qualified producer lock changed",
+  );
+  return lock;
+}
 
 /** Select the analyses that may satisfy exact-source release security coverage. */
 export function verifyCodeqlAnalyses(analyses, source, authority = {}) {
@@ -277,13 +313,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     0,
     "Current security observations require disposition",
   );
-  const sourceAudit = auditRecipientLock(
-    readFileSync(
-      release.promotion
-        ? join(directory, "build-package-lock.json")
-        : "package-lock.json",
-    ),
-  );
+  const producerLock = qualifiedProducerLock(release, directory);
+  const sourceAudit = auditRecipientLock(producerLock);
+  writeFileSync(join(output, "source-package-lock.json"), producerLock, {
+    flag: "wx",
+  });
   record("source-audit.json", JSON.parse(sourceAudit));
   record("codeql-analyses.json", selected);
   const scans = selected.map((analysis) => {

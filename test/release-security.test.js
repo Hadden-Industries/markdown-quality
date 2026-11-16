@@ -6,6 +6,7 @@ import {
   verifyRecipientAudit,
   verifyCodeqlSarif,
   refreshReleaseSecurity,
+  qualifiedProducerLock,
 } from "../scripts/qualify-release-security.js";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -84,6 +85,55 @@ test("fresh admission audits retained original locks, preserves native audit out
     /lock changed/u,
   );
   assert.equal(calls, 0);
+});
+
+test("fresh candidates retain their producer lock across a changed controller", (t) => {
+  const directory = mkdtempSync(join(tmpdir(), "release-source-lock-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const original = Buffer.from('{"lockfileVersion":3,"packages":{"":{}}}\n');
+  const release = { source: { head: source, lockSha256: hash(original) } };
+  writeFileSync(join(directory, "build-package-lock.json"), original);
+  assert.deepEqual(
+    qualifiedProducerLock(release, directory, {
+      readSourceLock: () => {
+        throw new Error("Controller source must not be audited");
+      },
+    }),
+    original,
+  );
+  writeFileSync(join(directory, "build-package-lock.json"), "substituted");
+  assert.throws(
+    () =>
+      qualifiedProducerLock(release, directory, {
+        readSourceLock: () => original,
+      }),
+    /producer lock/u,
+  );
+});
+
+test("historical fresh candidates acquire the exact qualified source lock and reject substitutions", (t) => {
+  const directory = mkdtempSync(join(tmpdir(), "release-historical-lock-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const original = Buffer.from('{"lockfileVersion":3,"packages":{"":{}}}\n');
+  const release = { source: { head: source, lockSha256: hash(original) } };
+  let selected;
+  assert.deepEqual(
+    qualifiedProducerLock(release, directory, {
+      readSourceLock: (commit) => {
+        selected = commit;
+        return original;
+      },
+    }),
+    original,
+  );
+  assert.equal(selected, source);
+  assert.throws(
+    () =>
+      qualifiedProducerLock(release, directory, {
+        readSourceLock: () => Buffer.from("controller lock"),
+      }),
+    /producer lock/u,
+  );
 });
 
 test("a prior source's successful CodeQL analysis cannot qualify this release", () => {

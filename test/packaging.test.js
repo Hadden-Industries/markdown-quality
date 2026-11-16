@@ -56,6 +56,12 @@ test("packed root and isolated consumers install without lifecycle scripts and e
   const output = join(temp, "archives"),
     release = phase("pack archives", () => packRelease(output));
   const producer = producerToolchain();
+  const producerLock = readFileSync(join(output, "build-package-lock.json"));
+  assert.equal(digest(producerLock), release.source.lockSha256);
+  assert.deepEqual(
+    producerLock,
+    readFileSync(new URL("../package-lock.json", import.meta.url)),
+  );
   assert.equal(
     release.build.npm,
     nativeCommand(producer.executable, [producer.cli, "--version"]).trim(),

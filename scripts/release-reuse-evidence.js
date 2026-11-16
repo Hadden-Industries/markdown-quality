@@ -15,6 +15,21 @@ import { verifyPromotion } from "./release-qualification.js";
 
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
+/** Resolve original qualification files without granting them new producer identity. */
+export function qualificationArtifactDirectory({
+  release,
+  frozen,
+  run,
+  name,
+  download,
+}) {
+  assert.match(name, /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/u);
+  // The caller authenticated the frozen release inputs; these files keep their original identity.
+  return release.promotion
+    ? join(frozen, "qualification-evidence", name)
+    : download(run, name);
+}
+
 /** Original package and qualification records remain independently hash-addressable. */
 export function verifyBuildEvidence(release, directory) {
   verifyPromotion(release, release.promotion.releaseCommit);

@@ -20,6 +20,9 @@ Historical records keep their original readers and rules.
   A skipped fallback is accepted only alongside verified promotion; it never means the original tests passed by being skipped.
 - `release-reuse-evidence.js` binds retained inventories to the original manifest and carries both original evidence and the new promotion subject.
   Current security audits use the original locks with lifecycle scripts disabled and no dependency installation.
+- `pack.js` retains the original producer lock for fresh candidates too.
+  Security readers verify its manifest digest before auditing; older candidates without it acquire the lock at the exact original source commit and verify the same digest.
+  Archival consumes promoted reports, recipient observations and performance files from the authenticated retained bundle, so expiry of the original CI artifacts does not discard surviving proof.
 - Publication, continuation, signed-tag verification, source archival and retained-history readers preserve original package provenance while identifying the landed release commit separately.
 
 ## Immutable subjects and invalidation

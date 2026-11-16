@@ -40,7 +40,7 @@ Changed inputs, absent or expired evidence, an unsupported merge shape or an exp
 Reuse never consumes another promotion record as its original proof.
 It has no publication authority.
 
-See [the artifact promotion contract](plans/2026-11-16-release-artifact-promotion.md) for the manifest and invalidation rules.
+See [the artifact promotion contract](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/plans/2026-11-16-release-artifact-promotion.md) for the manifest and invalidation rules.
 
 The [convergence plan](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/plans/2026-10-29-github-actions-convergence-implementation-plan.md) supersedes the earlier automatic-CI/reuse design for current source.
 Verify hosted acceptance for the exact candidate and inspect the live governance settings before release.

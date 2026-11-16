@@ -522,6 +522,7 @@ test("manual release consumes an authenticated merge's original archives without
           manifestBytes,
         );
         await writeFile(join(destination, "source-sbom.cdx.json"), sbomBytes);
+        await writeFile(join(destination, "build-package-lock.json"), lock);
         for (const archive of archives)
           await writeFile(
             join(destination, archive.filename),

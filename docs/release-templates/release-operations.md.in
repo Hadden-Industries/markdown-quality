@@ -52,6 +52,8 @@ The core archive embeds its original build commit and tree.
 An equal-tree normal merge can have a different commit SHA; promotion preserves the tested archives rather than repacking them.
 The new release manifest's `promotion` records the original build commit, landed release commit, tree, ordered parents, original CI run/attempt and digests of `build-manifest.json` and `build-qualification.json`.
 The original build manifest and qualification record are retained unchanged alongside the producer lock.
+Fresh packs retain their producer lock too; historical candidates without one acquire it at the original source commit and verify its manifest digest before auditing.
+Promoted reports and observations are read from the retained qualification bundle during archival, so delayed owner approvals do not require the original CI artifacts to remain available.
 The owner approves the new release-manifest digest; package provenance and checksums continue to describe the original bytes.
 Preserve earlier manifests and approvals under their original tuples; leave checksum pins for unchanged native executables, corresponding source archives and acquisition tools intact.
 

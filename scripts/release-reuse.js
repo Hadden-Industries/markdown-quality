@@ -265,11 +265,14 @@ export async function reuseQualification({
       await transfer(artifact, join(scratch, "evidence", name));
     }
     retainPromotedManifest(archives, promoted, manifestBytes, proofBytes);
-    const producerLock = readFileSync("package-lock.json");
+    const producerLockPath = join(archives, "build-package-lock.json");
+    const retainedLock = existsSync(producerLockPath);
+    const producerLock = readFileSync(
+      retainedLock ? producerLockPath : "package-lock.json",
+    );
     assert.equal(hash(producerLock), promoted.source.lockSha256);
-    writeFileSync(join(archives, "build-package-lock.json"), producerLock, {
-      flag: "wx",
-    });
+    if (!retainedLock)
+      writeFileSync(producerLockPath, producerLock, { flag: "wx" });
     assert.equal((await read("/git/ref/heads/main")).object.sha, ctx.sha);
     admitted = true;
     cpSync(archives, destination, {
