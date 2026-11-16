@@ -348,6 +348,16 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
       "Publication downloads must retain original producer IDs",
     );
   }
+  for (const role of ["retained", "stage"]) {
+    const checkout = publication.jobs[role].steps.find((step) =>
+      step.uses?.startsWith("actions/checkout@"),
+    );
+    assert.equal(
+      checkout?.with?.["fetch-depth"],
+      0,
+      `Publication ${role} must fetch full history for signed checkpoints`,
+    );
+  }
   const stageSteps = publication.jobs.stage.steps;
   const guards = stageSteps.filter((step) => step.id === "staging_history");
   assert.equal(guards.length, 1, "Missing publication attempt admission");
