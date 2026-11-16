@@ -19,8 +19,20 @@ import { createRepositoryReader } from "./github-evidence.js";
 import { downloadEvidence } from "./download-evidence.js";
 import { verifyArchiveBytes } from "./release-bytes.js";
 import { verifyPromotion } from "./release-qualification.js";
+import { budgets } from "./qualification-budgets.js";
 
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
+
+/** One bounded collection covers the original proof and its retained bundles. */
+export function createReleaseReuseReader(token, options = {}) {
+  return createRepositoryReader({
+    ...options,
+    repository,
+    token,
+    budgetMs: budgets.collection,
+    maximumRequests: 128,
+  });
+}
 
 /** Bind a retained artifact to its original successful job, including partial reruns. */
 export function selectQualificationArtifact(inventory, name, execution) {
@@ -188,9 +200,10 @@ export async function reuseQualification({
     const selection = await selectProof({ ctx, read, now: now() });
     const receipt = await readRawProof(selection.artifact, read);
     // These are recorded supported-platform contracts, not newly allocated runners.
-    const hosts = matrix.os.map(
-      (os) => receipt.lanes.find((lane) => lane.lane.os === os)?.host,
-    );
+    const hosts = matrix.os.map((os) => ({
+      ...receipt.lanes.find((lane) => lane.lane.os === os)?.host,
+      lane: os,
+    }));
     await verifyProof({
       ctx,
       matrix,
@@ -309,10 +322,7 @@ export async function reuseQualification({
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const matrix = JSON.parse(process.env.RELEASE_MATRIX);
-  const read = createRepositoryReader({
-    repository,
-    token: process.env.GH_TOKEN,
-  });
+  const read = createReleaseReuseReader(process.env.GH_TOKEN);
   const result =
     process.env.FORCE_FRESH === "true"
       ? { reused: "false", reason: "Owner requested fresh qualification" }
