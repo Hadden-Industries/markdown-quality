@@ -1,0 +1,131 @@
+# Contributing
+
+Markdown Quality is AGPL-3.0-only.
+Preserve the original `LICENSE` bytes, component attribution and corresponding source/build materials; do not add an "or later" grant.
+The adapted [Code of Conduct](CODE_OF_CONDUCT.md) retains its separate CC BY-SA 4.0 terms and governs community interactions.
+Vulnerabilities use the private reporting channel in [SECURITY.md](SECURITY.md), not public issues or pull requests.
+
+## Development setup
+
+Use the reference Node version in [node-support.json](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/assets/node-support.json) and an existing stable Python interpreter at least as new as [.python-version](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/.python-version) for explicit native asset preparation.
+Change Node selections in that policy and run `npm run sync:node`; `npm run check:node` verifies the generated declarations.
+The same policy owns the exact producer npm and the separate consumer-qualification npm.
+Contributor installs enforce the generated npm minimum in `devEngines.packageManager`; use the producer selection to reproduce CI.
+See [why contributor and consumer npm requirements differ](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/node-runtime-compatibility.md#contributor-and-consumer-npm) before changing either requirement.
+
+The [support policy](docs/support-and-release.md) records the qualified source matrix and explains why published 1.0.3 still has different immutable runtime metadata.
+Do not assume an unreleased source qualification changes an installed npm release.
+
+```sh
+npm ci --ignore-scripts
+# Use the repository .venv interpreter, or the explicitly activated CI environment.
+.venv/bin/python scripts/acquire-native.py
+npm run check:markdown
+npm test
+```
+
+Asset acquisition downloads only frozen manifest inputs and verifies their identities before preparation.
+Create `.venv` with the declared stable Python version before native preparation.
+On Windows its interpreter is `.venv/Scripts/python.exe`; on Linux it is `.venv/bin/python`.
+The verification driver selects that interpreter explicitly, or uses the hosted action's activated `VIRTUAL_ENV`.
+
+To use already verified archives offline, run `python scripts/prepare-native.py --archives /path/to/verified/archives` instead.
+Check and format operations never acquire native executables; consumers do not need Python.
+Retain the lockfile and follow [native build requirements](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/native-builds.md) for an actual native upgrade.
+
+## Release versions and documentation
+
+Set the package family's version in `package.json`.
+Declare the previous comparison version in `docs/release-versions.json` when starting a new release's notes.
+Edit maintained guides in `docs/release-templates/*.md.in`, then run `npm run sync:version`.
+Commit the templates together with their rendered Markdown and projected package metadata.
+
+The same command synchronizes native package versions, lock metadata, the packed attribution path, documentation version text, installation pins, release links and section anchors.
+Run `npm run check:version` to detect drift.
+The source check and release packer require that check before proceeding.
+Historical notes and dated evidence retain their literal original versions in the templates.
+
+Write each release's package documentation for readers of that published version.
+Keep temporary preparation and delivery observations in the dated implementation record.
+
+## Changes and verification
+
+The root `package.json` selects the release version once.
+Run `npm run sync:version` to update both companion manifests, the package family's lockfile entries and the packed Linux `cargo-notices.json` path in `.json-quality.json`.
+The projection validates all inputs before writing and preserves the pinned attribution values, dependency resolution and native bytes.
+`npm run check:version` detects drift before packing or full verification.
+
+For CLI changes, use exact Node test selectors and the existing installed consumer corpus's `selection: "cli"` subset before broader release qualification.
+The 3.0 CLI requires `--write` for physical repair; SDK calls retain their existing semantics.
+
+Use JavaScript ES modules and repository-native parser, schema and CLI boundaries.
+Describe the consumer problem and scope before a substantive change; keep unrelated edits separate.
+Preserve meaningful independent fixtures for changed behavior, including exact output, native exit meanings, real paths, literal content and operational failures.
+Do not mock formatter output as proof of integration, relax failing assertions or add local compatibility shims.
+
+```sh
+npm run format:code
+npm run format:markdown
+npm run check:markdown
+npm run check:focused
+npm run check:architecture
+npm run check:affected
+npm run check:full
+```
+
+Run the focused checks while iterating and affected checks for the final change.
+Use the full profile for a consolidated source candidate; installed/transported package checks remain separate evidence where packaging is affected.
+
+Record commands, results and actual gaps in the PR or task; a local pass is not hosted, release or consumer acceptance.
+The maintainer may iterate directly on `main`; these instructions do not require a PR or change branch controls.
+
+Development-only [dependency graphs and affected JavaScript tests](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/dependency-graph-and-tests.md) support explicit baseline inspection, selected execution and shadow comparisons.
+Without an explicit baseline, `check:affected` runs the full JavaScript inventory.
+Keep the complete `npm test` and `check:full` paths for final assurance.
+Full verification checks code formatting and source identity lint before native evidence and the test suite, and checks Markdown before those expensive stages.
+CI and release admission run source formatting, identity lint, version, runtime, workflow and architecture checks once through `check:source`, then the reusable producer runs `check:qualification` without repeating them.
+The default `check:full` command still runs both stages, and `check:product` retains its standalone product-only contract.
+Packed JSON consumers and final generated JSON checks retain their producer prerequisites.
+
+## Markdown ownership
+
+Use semantic sentence lines and the package's `authored-gfm@2` defaults.
+`format:markdown` and `check:markdown` invoke this source CLI directly with `--reconcile-inventory git`, so selection is reconciled with tracked Git Markdown; no self-dependency is installed.
+`format` combines `format:code` and guarded Markdown formatting; Prettier's generic invocation excludes Markdown.
+
+The `prettier` package script declares the generic formatting scope once: the repository root with `.gitignore` and `.prettierignore` boundaries, including every supported file under `.github`.
+`format:code` and `format:code:check` reuse that script with `--write` and `--check`; the full verifier delegates to `format:code:check`.
+`check:formatting-and-markdown` combines that read-only check with `check:markdown`, matching the two owners used by `format`.
+
+`check:dependency-audit` runs the dependency security audit; the former `inspect:json` and `format:json:check` scripts are removed.
+New workflow files enter both formatting and verification automatically; Markdown and JSON-family exclusions keep their dedicated tools responsible for presentation and guarded writes.
+
+The repository's sparse `.markdown-quality.json` declares only its scope exceptions: `include` adds root, `docs` and `.github` Markdown, and `exclude` omits retained research and review evidence.
+Every other setting comes from the package defaults; literal test fixtures stay outside the included scope.
+Markdown checks never read `.prettierignore`, whose `**/*.md` entry separates generic Prettier ownership from this native Markdown pipeline.
+
+Physical local link targets must exist.
+Trailing spaces and two-space hard breaks are disallowed outside the documented literal-code exceptions; use explicit backslash breaks where needed.
+Fenced and indented code preserve their content; sensitive inline/HTML cases can require manual correction instead of an unsafe rewrite.
+Review any actual formatting diff and rerun the check for convergence.
+
+## JSON ownership
+
+The manifest declares JSON Quality `>=1.0.1` as a development dependency.
+With the {{release.version}} source lockfile, `npm ci --ignore-scripts` installs JSON Quality 1.0.1 and the matching native companion for the development platform.
+Follow [JSON development checks](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/json-quality.md) for complete discovery, protected native evidence, real package qualification and guarded formatting.
+
+Generic Prettier excludes JSON; `npm run check:full` composes product checks, source identity lint, consumer tests, actual packed JSON and the final complete-root JSON check.
+`check:product` retains the product suite on Node 22 and future declared product runtimes; it does not claim JSON-tool qualification there.
+Architecture inspection uses the root development dependencies installed on the reference tooling runtime.
+
+## Proposals and release boundaries
+
+For a bug, provide the exact package/source identity, OS, Node version, invocation and smallest non-sensitive input showing expected and actual behavior.
+For a feature, describe the use case, existing alternatives and compatibility implications.
+Use the repository issue forms or concise PR template; do not upload credentials or private documents.
+
+Dependabot proposes npm and Action updates for review; it does not merge them or upgrade frozen native assets automatically.
+Native upgrades require fresh source/component, rights, parity and platform evidence.
+Follow [release operations](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md) for coordinated immutable archives and recoverable publication.
+Publication and tag promotion each require a separate owner decision.

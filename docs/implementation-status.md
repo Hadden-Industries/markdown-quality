@@ -1,5 +1,23 @@
 # Implementation decisions and evidence
 
+## Release preparation recorded on 2026-11-16
+
+The core package and both native package manifests prepare version 3.0.3 from the tagged 3.0.2 source.
+The [release notes](support-and-release.md#version-303) cover the complete change set, and the [migration guide](migration-guide.md#from-302-to-303) gives upgrade and maintainer actions.
+The source adds owner-signed writer reservations, current npm stage observations, bounded pilot retirement, exact artifact and staging recovery, legacy npm provenance recovery and retained-history verification.
+Checkpoint schema 2 can retain several original qualified subjects.
+
+The dependency refresh selects Node 26.13.1, ESLint 10.15.0, `glob` 14.0.6 and `fast-xml-parser` 5.12.1.
+Bundle checks and third-party notices match the updated frozen graph.
+The CLI and SDK contracts, schema versions and Snapper executable bytes carry forward from `v3.0.2`.
+
+The source plans record [release-controller hardening](plans/2026-11-14-release-controller-hardening-and-pilot-retirement.md), [qualification evidence reuse](plans/2026-11-14-release-qualification-evidence-reuse.md) and [JSON Quality workflow parity](plans/2026-11-16-json-quality-release-workflow-parity-implementation-plan.md).
+Treat each plan's proposals as pending until its implementation is recorded.
+In particular, automatic checkpoint preparation remains disabled.
+
+Fresh hosted qualification, owner decisions, registry delivery and immutable archival for 3.0.3 remain pending.
+Dated evidence below belongs to its original source and package family.
+
 ## Release controller hardening and pilot retirement on 2026-11-15
 
 The [hardening plan](plans/2026-11-14-release-controller-hardening-and-pilot-retirement.md) is implemented in source on `fix/release-controller` from baseline `18d9a9e`.
@@ -37,10 +55,9 @@ Remaining steps before a live retirement:
 
 ## Version 3.0.2
 
-The core package and both native packages share version 3.0.2, with synchronized source lockfile metadata.
-The consumer and release guides describe this release and retain the earlier migration history.
-The release includes release CI convergence, dependency updates and the `fast-xml-parser >=5.12.1` development override.
-The source lock pins JSON Quality and its Windows and Linux companions to 1.0.1 for repository checks.
+The tagged 3.0.2 source prepared synchronized core and native package metadata.
+It included release CI convergence, dependency updates and the `fast-xml-parser >=5.12.0` development override.
+Its source lock pinned JSON Quality and its Windows and Linux companions to 1.0.1 for repository checks.
 Before each owner approval, the staged-tarball check compares downloaded bytes with the approved manifest's SHA-256 and SHA-512 SRI and retains the stage identity and observed digests.
 The [release runbook](release-operations.md) defines exact-source qualification, publication and promotion.
 Dated evidence below remains bound to its original candidate.
