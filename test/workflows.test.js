@@ -44,7 +44,10 @@ test("read-only release preparation cannot depend on draft visibility", () => {
     true,
   );
   const archive = workflow("github-release");
-  assert.equal(archive.jobs.complete.if, "needs.archive.result == 'success'");
+  assert.equal(
+    archive.jobs.complete.if,
+    "${{ !cancelled() && needs.prepare.result == 'success' }}",
+  );
   assert.equal(archive.jobs.decisions.permissions.contents, "read");
   assert.equal(archive.jobs.decisions.environment, undefined);
   assert.equal(archive.jobs["legacy-decisions"].permissions.contents, "write");

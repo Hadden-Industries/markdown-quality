@@ -166,6 +166,7 @@ jobs:
           retention-days: 90
   archive:
     needs: prepare
+    if: ${{ !cancelled() && needs.prepare.result == 'success' }}
     environment: github-release
     runs-on: ubuntu-26.04
     timeout-minutes: 120
@@ -207,7 +208,7 @@ jobs:
   complete:
     name: Read-only archive completion
     needs: [prepare, archive]
-    if: needs.archive.result == 'success'
+    if: ${{ !cancelled() && needs.prepare.result == 'success' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
@@ -226,6 +227,11 @@ jobs:
           package-manager-cache: false
       - run: node scripts/publication-npm.js isolate
       - run: node scripts/publication-npm.js acquire
+      - name: Require a successful archival writer
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          node --input-type=module -e 'import assert from "node:assert/strict"; assert.equal(JSON.parse(process.env.NEEDS_JSON).archive.result, "success", "Archival writer did not succeed");'
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           artifact-ids: ${{ needs.prepare.outputs.artifact-id }}

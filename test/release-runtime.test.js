@@ -568,6 +568,90 @@ test("workflow contracts reject draft-permission, dependency-order and snapshot 
   }
 });
 
+test("archival gates cannot inherit a skipped decision branch or report a skipped writer as success", () => {
+  const path = ".github/workflows/github-release.yml";
+  const original = parse(readFileSync(join(root, path), "utf8"));
+  for (const [reason, mutate] of [
+    ["implicit writer success", (doc) => delete doc.jobs.archive.if],
+    [
+      "implicit completion success",
+      (doc) => (doc.jobs.complete.if = "needs.archive.result == 'success'"),
+    ],
+    ["ungated writer", (doc) => (doc.jobs.archive.if = "${{ !cancelled() }}")],
+    [
+      "missing completion assertion",
+      (doc) => {
+        doc.jobs.complete.steps = doc.jobs.complete.steps.filter(
+          (step) => step.name !== "Require a successful archival writer",
+        );
+      },
+    ],
+    [
+      "disabled completion assertion",
+      (doc) => {
+        doc.jobs.complete.steps.find(
+          (step) => step.name === "Require a successful archival writer",
+        ).if = false;
+      },
+    ],
+    [
+      "unbound writer result",
+      (doc) => {
+        delete doc.jobs.complete.steps.find(
+          (step) => step.name === "Require a successful archival writer",
+        ).env.NEEDS_JSON;
+      },
+    ],
+  ]) {
+    const doc = structuredClone(original);
+    mutate(doc);
+    assert.throws(
+      () => checkWorkflows({ overrides: { [path]: JSON.stringify(doc) } }),
+      /archival (?:writer|completion)/u,
+      reason,
+    );
+  }
+});
+
+test("the actual archival completion command refuses a skipped, failed or cancelled writer", () => {
+  const document = parse(
+    readFileSync(join(root, ".github/workflows/github-release.yml"), "utf8"),
+  );
+  const gate = document.jobs.complete.steps.find(
+    (step) => step.name === "Require a successful archival writer",
+  );
+  assert.ok(
+    gate,
+    "Completion must verify the writer before downloading its evidence",
+  );
+  const command = /^node --input-type=module -e '([^']+)'\s*$/u.exec(gate.run);
+  assert.ok(command, "Exercise the exact declared native Node command");
+  for (const result of ["success", "skipped", "failure", "cancelled"]) {
+    const observed = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", command[1]],
+      {
+        cwd: root,
+        env: {
+          ...process.env,
+          NEEDS_JSON: JSON.stringify({
+            prepare: { result: "success" },
+            archive: { result },
+          }),
+        },
+        encoding: "utf8",
+        timeout: 10000,
+        windowsHide: true,
+      },
+    );
+    assert.ifError(observed.error);
+    assert.equal(observed.signal, null);
+    assert.equal(observed.status, result === "success" ? 0 : 1, result);
+    if (result !== "success")
+      assert.match(observed.stderr, /Archival writer did not succeed/u);
+  }
+});
+
 test("release jobs cannot inherit an unqualified hosted npm before registry reads", () => {
   for (const [name, role] of [
     ["release-registry.yml", "admit"],

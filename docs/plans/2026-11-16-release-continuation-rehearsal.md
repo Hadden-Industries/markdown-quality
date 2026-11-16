@@ -491,3 +491,22 @@ The first implementation increment is deliberately short:
 3. Add one cold entry-point fixture with the real 23,612,807-byte history and exact frozen manifest/packages.
 4. Demonstrate the old history failure, then reach Windows and Linux staging exactly once with the repair; add stale-inventory and lost-acknowledgment controls.
 5. Carry those emitted artifacts into the core-continuation slice instead of generating another synthetic successful admission.
+
+## Hosted scheduler correction, 17 November 2026
+
+Public qualification run `43969567116/1` passed all eleven jobs for the original 3.0.3 package tuple.
+Archival run `43971573004/1` then authenticated its decisions and prepared its evidence successfully, but GitHub skipped both `archive` and completion without starting a runner or executing any writer step.
+The overall run still reported success.
+The unused `legacy-decisions` branch was skipped, and the downstream jobs relied on implicit status checks.
+The earlier cold CLI journey did not model this hosted scheduler behavior.
+
+[GitHub documents skip propagation through a dependency chain](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-jobs) and recommends an explicit status function to override the default.
+For a publication job, use [the cancellation-aware `!cancelled()` condition](https://docs.github.com/en/actions/how-tos/troubleshoot-workflows) together with successful preparation.
+Apply that condition to the writer and completion, preserving their original dependencies and permissions.
+Completion must independently require a successful writer before downloading its journal; a skipped or failed writer must not produce a successful release run.
+
+The regression oracle is the actual original run's empty skipped-writer inventory, not its green aggregate conclusion.
+Workflow mutation checks must reject implicit status checks, a writer without successful preparation, and an omitted completion assertion.
+Execute the completion step's actual native Node program with successful, skipped, failed and cancelled writer results; only success may pass.
+Retain the successful public qualification instead of running its matrix again.
+After landing and reviewing this controller correction, reserve a new archival run and retain the earlier signed reservation and original skipped-run evidence unchanged.
