@@ -53,6 +53,9 @@ jobs:
           RELEASE_MATRIX: ${{ steps.resolve.outputs.matrix }}
           FORCE_FRESH: ${{ inputs.force-fresh }}
         run: node scripts/release-reuse.js reused-release
+      - name: Install frozen upload tooling for retained evidence
+        if: steps.reuse.outputs.reused == 'true'
+        uses: ./.github/actions/setup-producer
       - name: Retain unchanged archives and separate promotion authorization
         id: archive
         if: steps.reuse.outputs.reused == 'true'
