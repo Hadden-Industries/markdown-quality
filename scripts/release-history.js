@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Retain native writer observations and original target qualification under owner-signed history refs. */
 import assert from "node:assert/strict";
+import { releaseCommit } from "./release-qualification.js";
 import { sameJobExecution } from "./github-job-execution.js";
 import { isDeepStrictEqual } from "node:util";
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
@@ -537,7 +538,7 @@ export function legacyArchiveSettled(entry, checkpoints) {
         const nativeTag = records.some(
           (record) =>
             record.tag === tag &&
-            record.object?.sha === target.qualified.source &&
+            record.object?.sha === releaseCommit(target.qualified) &&
             record.object.type === "commit" &&
             record.verification?.verified === true &&
             record.verification.reason === "valid",
@@ -1733,7 +1734,7 @@ async function verifyRetainedReleaseIdentity(
   );
   verifyTag(reference, await api(`git/tags/${reference.object.sha}`), {
     version: qualified.version,
-    source: { head: qualified.source },
+    source: { head: releaseCommit(qualified) },
   });
   const release = await api(`releases/${archive.releaseId}`);
   assert.equal(release.id, archive.releaseId);

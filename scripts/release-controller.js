@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Read-only admission, isolated writers, and independently rerunnable family completion. */
 import assert from "node:assert/strict";
+import { releaseCommit } from "./release-qualification.js";
 import {
   mkdtempSync,
   mkdirSync,
@@ -309,7 +310,10 @@ export async function runReleaseController({
       provider.verifyTag(
         reference,
         await provider.api(`git/tags/${reference.object.sha}`, deadline),
-        { version: qualified.version, source: { head: qualified.source } },
+        {
+          version: qualified.version,
+          source: { head: releaseCommit(qualified) },
+        },
       );
       const release = await provider.api(
         `releases/${operation.releaseId}`,

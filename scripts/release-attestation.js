@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Observe immutable release indexing; native gh still owns cryptographic verification. */
 import assert from "node:assert/strict";
+import { releaseCommit } from "./release-qualification.js";
 import { setTimeout as delay } from "node:timers/promises";
 import { native } from "./commands.js";
 import { budgets } from "./qualification-budgets.js";
@@ -37,7 +38,7 @@ export async function waitForReleaseAttestation(
   const releaseId = release.id;
   const expectedSource = {
     version: qualified.version,
-    source: { head: qualified.source },
+    source: { head: releaseCommit(qualified) },
   };
   const tag = `v${expectedSource.version}`;
   const read = (path) => {

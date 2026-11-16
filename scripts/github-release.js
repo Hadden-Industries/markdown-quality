@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import assert from "node:assert/strict";
+import { releaseCommit } from "./release-qualification.js";
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,7 +36,7 @@ export function gitSource(qualified, cwd) {
       "archive",
       "--format=tar",
       `--prefix=markdown-quality-${qualified.version}/`,
-      qualified.source,
+      releaseCommit(qualified),
     ],
     { cwd, encoding: null },
   );
@@ -156,7 +157,7 @@ export async function deliverRelease({
     assert.equal(reference.object.type, "tag");
     verifyTag(reference, api(`git/tags/${reference.object.sha}`), {
       version: qualified.version,
-      source: { head: qualified.source },
+      source: { head: releaseCommit(qualified) },
     });
     return reference;
   };

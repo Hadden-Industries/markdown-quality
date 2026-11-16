@@ -93,6 +93,35 @@ test("a prior source's successful CodeQL analysis cannot qualify this release", 
   assert.throws(() => verifyCodeqlAnalyses(provider, source), /CodeQL/u);
 });
 
+test("reused CodeQL keeps the original PR ref, CI workflow and producing execution", () => {
+  const provider = analyses().map((analysis) => ({
+    ...analysis,
+    ref: "refs/pull/17/merge",
+    analysis_key: ".github/workflows/ci.yml:codeql",
+    created_at: "2026-11-16T10:02:00Z",
+  }));
+  const authority = {
+    ref: "refs/pull/17/merge",
+    workflow: ".github/workflows/ci.yml",
+    executions: ["actions", "javascript-typescript", "python"].map(
+      (language) => ({
+        job: {
+          name: `CodeQL / Scan ${language}`,
+          started_at: "2026-11-16T10:00:00Z",
+          completed_at: "2026-11-16T10:05:00Z",
+        },
+      }),
+    ),
+  };
+  assert.equal(verifyCodeqlAnalyses(provider, source, authority).length, 3);
+  assert.throws(() => verifyCodeqlAnalyses(provider, source));
+  provider[0].created_at = "2026-11-16T10:06:00Z";
+  assert.throws(
+    () => verifyCodeqlAnalyses(provider, source, authority),
+    /producing execution/u,
+  );
+});
+
 test("failed newer exact-source scans cannot be hidden by successful older analyses", () => {
   const provider = analyses();
   provider.unshift({

@@ -31,6 +31,9 @@ import {
   releaseQualificationJobNames,
   releaseQualificationWorkflow,
   registryWorkflow,
+  qualificationMode,
+  verifyReleaseQualificationJobs,
+  releaseCommit,
 } from "./release-qualification.js";
 import {
   validatePublicationOrigins,
@@ -62,7 +65,7 @@ export function requireManualControl(env, workflow) {
   assert.match(env.GITHUB_SHA, /^[a-f0-9]{40}$/u);
 }
 
-export function providerFor(run, jobs, workflow, names, attempts) {
+export function providerFor(run, jobs, workflow, names, attempts, mode) {
   const expected = {
     run: String(run.id),
     attempt: String(run.run_attempt),
@@ -70,6 +73,7 @@ export function providerFor(run, jobs, workflow, names, attempts) {
     workflow,
     event: "workflow_dispatch",
     jobs: names,
+    ...(mode ? { qualificationMode: mode } : {}),
   };
   if (workflow === publicationWorkflow && attempts) {
     const observed = authenticatePublicationAttempts(run, attempts);
@@ -105,7 +109,9 @@ export function verifyStagingContinuation({
   assert.equal(hash(Buffer.from(origins.bytes)), originsSha);
   const map = JSON.parse(origins.bytes);
   assert.equal(release.source.clean, true);
-  assert.equal(release.source.head, candidate.run.head_sha);
+  assert.equal(releaseCommit(release), candidate.run.head_sha);
+  verifyReleaseQualificationJobs(candidate.run, candidate.jobs, release);
+  const mode = qualificationMode(release, candidate.jobs);
   const qualification = providerFor(
     candidate.run,
     candidate.jobs,
@@ -113,7 +119,10 @@ export function verifyStagingContinuation({
     releaseQualificationJobNames(
       release.qualificationMatrix,
       release.runtimePolicy,
+      mode,
     ),
+    undefined,
+    mode === "legacy" ? undefined : mode,
   );
   assert.equal(stage.runnerPolicy?.source, stage.run.head_sha);
   assert.match(stage.runnerPolicy.ubuntu, ubuntuRunnerPattern);

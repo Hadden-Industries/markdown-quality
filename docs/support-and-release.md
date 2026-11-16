@@ -22,6 +22,11 @@ The `v3.0.2` Git tag defines the source baseline for the changes below.
 
 ### Changes since 3.0.2
 
+- **Promote the archives CI tested.**
+  Eligible normal merges reuse complete PR qualification and the original package bytes during release preparation.
+  Build provenance retains the original commit, while promotion records the landed release commit.
+  Current security and publication checks still run; unavailable evidence selects the fresh fallback.
+  See [qualification reuse](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/release-operations.md#qualify-once-and-choose-the-channel).
 - **Authorize each writer.**
   Owner-signed reservations identify the exact workflow, run number, attempt, controller and decision digest.
   Admission accounts for missing and deleted writer runs through a complete signed inventory.

@@ -85,7 +85,8 @@ Development-only [dependency graphs and affected JavaScript tests](https://githu
 Without an explicit baseline, `check:affected` runs the full JavaScript inventory.
 Keep the complete `npm test` and `check:full` paths for final assurance.
 Full verification checks code formatting and source identity lint before native evidence and the test suite, and checks Markdown before those expensive stages.
-CI and release admission run source formatting, identity lint, version, runtime, workflow and architecture checks once through `check:source`, then the reusable producer runs `check:qualification` without repeating them.
+CI and fresh release admission run source formatting, identity lint, version, runtime, workflow and architecture checks once through `check:source`, then the reusable producer runs `check:qualification` without repeating them.
+Release preparation reuses eligible complete CI qualification and the exact tested archives after an authenticated normal merge; it refreshes current security checks and falls back to fresh qualification when reuse is unavailable.
 The default `check:full` command still runs both stages, and `check:product` retains its standalone product-only contract.
 Packed JSON consumers and final generated JSON checks retain their producer prerequisites.
 

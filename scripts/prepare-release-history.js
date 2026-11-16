@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Prepare a complete public-safe checkpoint; the owner signs a fresh history ref separately. */
 import assert from "node:assert/strict";
+import { releaseCommit } from "./release-qualification.js";
 import {
   mkdtempSync,
   mkdirSync,
@@ -87,7 +88,7 @@ export async function prepareReleaseHistory(
     const reference = api(`git/ref/tags/v${qualified.version}`);
     verifyTag(reference, api(`git/tags/${reference.object.sha}`), {
       version: qualified.version,
-      source: { head: qualified.source },
+      source: { head: releaseCommit(qualified) },
     });
     const release = api(`releases/tags/v${qualified.version}`);
     assert.equal(release.immutable, true);

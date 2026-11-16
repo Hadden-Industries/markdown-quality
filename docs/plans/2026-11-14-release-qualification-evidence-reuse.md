@@ -1,7 +1,8 @@
 # Reusing PR evidence during release qualification
 
 **Status.**
-Draft HISEW R2 implementation plan for a subsequent release.
+Historical draft, superseded by [release artifact promotion](2026-11-16-release-artifact-promotion.md).
+Its fresh packing and repeated runtime-matrix proposal does not govern the implemented promotion path.
 The release owner decides whether to enable reuse after the comparison described below.
 The baseline is merge commit `39d80c30df1a19869f7cdb7fc0109eb3111d790b`.
 Markdown Quality 3.0.2 follows the existing fresh qualification contract.

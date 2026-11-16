@@ -12,7 +12,7 @@ Before a writer dispatch, prepare [the owner decision](#exact-owner-decisions) a
 For an interrupted operation, use [recovery and retained proof](#interruption-partial-recovery-and-retained-proof).
 For a completed evaluation, use [pilot retirement](#retire-an-evaluated-pilot-alias).
 
-The [release CI convergence plan](plans/2026-11-13-release-ci-convergence-implementation-plan.md) governs new operations.
+The [artifact promotion contract](plans/2026-11-16-release-artifact-promotion.md) governs qualification reuse for new operations.
 The [previous guide at its integration baseline](https://github.com/Hadden-Industries/markdown-quality/blob/e62b95aa648679cd37b2d70a3463d96c5e17edce/docs/release-operations.md) describes historical draft decisions and schema-1 pilot acceptance.
 
 ## Admission and governance
@@ -36,14 +36,25 @@ A changed preimage requires a new owner review.
 Set the coordinated version in root package.json, project it with `npm run sync:version`, and check version consistency before freezing.
 Dispatch `release-qualification.yml` on `main` with the committed version `3.0.3`.
 The workflow requires a three-part numeric version with a positive major and accepts no prerelease suffix.
-Run the frozen Node matrix on both x64 platforms selected by [the runtime policy](../assets/node-support.json), covering both installed layouts.
-Qualification also requires source, product, architecture and JSON checks, exact-source Actions/JavaScript/Python CodeQL, recipient audit, native/rights/distribution evidence and both pinned OwlAPI/WebVOWL performance corpora.
-One producer packs the exact core, Windows and Linux archives used by all lanes.
-Ordinary CI, an installed-only diagnostic and earlier release evidence cannot replace this qualification.
+The workflow first looks for complete successful CI qualification of the same ordinary merged PR.
+It authenticates the original run and producing attempts, complete tree and ordered parents, current runtime matrix and retained artifact digests.
+Eligible qualification supplies the original core, Windows and Linux archives, source/product/architecture/JSON checks, native validation, both installed layouts and both pinned OwlAPI/WebVOWL performance corpora without repeating them.
+CI also retains recipient locks, candidate reports and distribution inventories for that tuple.
+The release gate refreshes current vulnerability observations and audits the retained locks without reinstalling dependencies.
+Original Actions/JavaScript/Python CodeQL analyses retain their build commit, PR ref, workflow and execution identities.
+
+The summary reports `REUSED` or `FRESH_REQUIRED` and the original CI run when reused.
+Missing, expired, mismatched or incomplete qualification falls back to the complete fresh graph on both x64 platforms selected by [the runtime policy](../assets/node-support.json).
+Set `force-fresh: true` only when deliberately requesting a full rebuild and qualification.
+An installed-only diagnostic, an earlier release or a reused receipt cannot seed this promotion path.
 
 Packing generates each archive's SHA-256 and SHA-512 SRI in `release-manifest.json` from its actual bytes.
 When selecting new package-source bytes or shipped documentation, pack and qualify that exact committed source, then bind the resulting manifest's SHA-256 as the new owner review's `manifestSha256`.
-The core archive embeds the source commit and tree, so selecting another package-source commit also changes that identity when the edit is confined to release tooling.
+The core archive embeds its original build commit and tree.
+An equal-tree normal merge can have a different commit SHA; promotion preserves the tested archives rather than repacking them.
+The new release manifest's `promotion` records the original build commit, landed release commit, tree, ordered parents, original CI run/attempt and digests of `build-manifest.json` and `build-qualification.json`.
+The original build manifest and qualification record are retained unchanged alongside the producer lock.
+The owner approves the new release-manifest digest; package provenance and checksums continue to describe the original bytes.
 Preserve earlier manifests and approvals under their original tuples; leave checksum pins for unchanged native executables, corresponding source archives and acquisition tools intact.
 
 For 3.0.3 choose the default channel `pilot` or explicitly select `latest` in the owner review.
@@ -51,7 +62,7 @@ Npm channel selection is independent of GitHub classification.
 The downstream family-operation rules also support an already qualified RC as npm's default while GitHub latest remains the prior stable security line.
 Both channels retain native-first staging, separate owner 2FA approvals, public qualification of the exact tuple and immutable archival.
 
-Sign an annotated `vVERSION` tag at the package-source commit using the owner's local signing route.
+Sign an annotated `vVERSION` tag at the landed release commit recorded by `promotion.releaseCommit`, or at the package-source commit for a fresh qualification, using the owner's local signing route.
 Do not rewrite a published tag.
 Admission checks GitHub's verified annotation, exact tag/source payload and an actual OpenSSH verification against `scripts/release-signers.json`.
 Key rotation must retain exact historical tag-object exceptions; a signature by another GitHub-verified key is insufficient.
@@ -66,6 +77,7 @@ Never place credentials or embargoed finding details in these records.
 
 The review binds repository, owner, acceptedAt, operationId, version, package source, manifestSha256, candidate run/attempt, controller and controllerDeltaSha256.
 The delta is SHA-256 of native `git diff --binary --no-ext-diff --no-textconv SOURCE CONTROLLER` bytes.
+For promoted artifacts, use the authenticated landed release commit as SOURCE; its complete tree equals the original build tree, so the content delta is identical and does not depend on retaining a synthetic PR commit locally.
 It permits a reviewed controller correction without relabelling original packages.
 The record includes `channel` and `guards`: exact selectedLabels and defaults for all three packages, plus GitHub latest release ID or explicit null.
 An absent label is an approved preimage, not an inference from a failed read.

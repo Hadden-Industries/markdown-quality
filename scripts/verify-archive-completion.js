@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Independent archive completion: native producer authentication, bounded reads, zero mutations. */
 import assert from "node:assert/strict";
+import { releaseCommit } from "./release-qualification.js";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -101,7 +102,7 @@ export async function verifyArchiveCompletion(
   const ref = await read(`/git/ref/tags/v${qualified.version}`);
   verifyTag(ref, await read(`/git/tags/${ref.object.sha}`), {
     version: qualified.version,
-    source: { head: qualified.source },
+    source: { head: releaseCommit(qualified) },
   });
   if (qualified.channel === undefined) {
     assert.ok(

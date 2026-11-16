@@ -129,6 +129,43 @@ test("public qualification admits the original source through a later reviewed c
   );
 });
 
+test("public continuation keeps the build source distinct from the qualified landed commit", () => {
+  const input = fixture();
+  const landed = "c".repeat(40);
+  input.release.source.tree = "d".repeat(40);
+  input.release.promotion = {
+    schemaVersion: 1,
+    buildCommit: input.release.source.head,
+    releaseCommit: landed,
+    tree: input.release.source.tree,
+    parents: ["e".repeat(40), "f".repeat(40)],
+    buildManifestSha256: "1".repeat(64),
+    proofSha256: "2".repeat(64),
+    run: 71,
+    attempt: 1,
+    pullRequest: 17,
+  };
+  input.candidate.run.head_sha = landed;
+  const template = input.candidate.jobs.jobs[0];
+  input.candidate.jobs.jobs = [
+    "resolve",
+    "fresh",
+    "security",
+    "distribution",
+    "qualified",
+  ].map((name) => ({
+    ...template,
+    name,
+    head_sha: landed,
+    conclusion: name === "fresh" ? "skipped" : "success",
+  }));
+  input.candidate.jobs.total_count = input.candidate.jobs.jobs.length;
+  const result = verifyStagingContinuation(input);
+  assert.equal(result.qualification.source, landed);
+  assert.equal(result.qualification.qualificationMode, "reused");
+  assert.equal(result.origins.artifactSource, input.release.source.head);
+});
+
 test("ordinary CI, skipped gates, missing core requests and substituted origins cannot qualify public release", () => {
   for (const change of [
     (f) => (f.candidate.run.event = "push"),

@@ -25,6 +25,8 @@ import {
   releaseQualificationJobNames,
   releaseQualificationWorkflow,
   verifyReleaseQualificationJob,
+  verifyPromotion,
+  releaseCommit,
 } from "./release-qualification.js";
 import { registryJobNames, registryWorkflow } from "./release-qualification.js";
 import {
@@ -35,6 +37,7 @@ import { verifyReleaseAcceptance } from "./release-acceptance.js";
 import { bindStagingReconciliation } from "./release-staging-evidence.js";
 import { validateConsumer } from "./ci-consumer.js";
 import { releaseVersion, releaseChannel } from "./release-coordinates.js";
+import { verifyBuildEvidence } from "./release-reuse-evidence.js";
 
 export const repository = "Hadden-Industries/markdown-quality";
 export { hash } from "./release-bytes.js";
@@ -103,6 +106,7 @@ export function verifyQualification(qualified) {
         ? releaseQualificationJobNames(
             qualified.candidate.matrix,
             qualified.candidate.runtimePolicy,
+            qualified.candidate.qualificationMode,
           )
         : qualified.candidate.matrix
           ? candidateJobNames(
@@ -149,7 +153,27 @@ export function verifyQualification(qualified) {
     ];
     assert.ok(expected.jobs.every((job) => permitted.includes(job)));
   }
-  assert.equal(qualified.candidate.source, qualified.source);
+  if (qualified.promotion) {
+    verifyPromotion(
+      {
+        ...qualified,
+        source: {
+          head: qualified.source,
+          tree: qualified.promotion.tree,
+          clean: true,
+        },
+      },
+      qualified.candidate.source,
+    );
+    assert.equal(qualified.candidate.qualificationMode, "reused");
+    for (const name of [
+      "build-manifest.json",
+      "build-qualification.json",
+      "build-package-lock.json",
+      "build-distribution-evidence.json",
+    ])
+      assert.ok(qualified.evidence?.[name], `Missing ${name}`);
+  } else assert.equal(qualified.candidate.source, qualified.source);
   if (current) {
     for (const name of [
       "distribution-sbom.cdx.json",
@@ -230,6 +254,14 @@ export function verifyProvider(provider, expected) {
     const matches = jobs.jobs.filter((j) => j.name === name);
     assert.equal(matches.length, 1, "Missing or duplicate required job");
     if (expected.workflow === releaseQualificationWorkflow) {
+      if (expected.qualificationMode === "reused" && name === "fresh") {
+        assert.equal(matches[0].status, "completed");
+        assert.equal(matches[0].conclusion, "skipped");
+        assert.equal(matches[0].head_sha, run.head_sha);
+        assert.equal(String(matches[0].run_id), expected.run);
+        assert.equal(String(matches[0].run_attempt), expected.attempt);
+        continue;
+      }
       verifyReleaseQualificationJob(run, matches[0]);
       continue;
     }
@@ -256,6 +288,15 @@ export function verifyPayloads(qualified, directory, sourceArchive) {
   const manifest = JSON.parse(manifestBytes);
   assert.equal(manifest.version, qualified.version);
   assert.equal(manifest.source.head, qualified.source);
+  if (qualified.promotion) {
+    assert.deepEqual(manifest.promotion, qualified.promotion);
+    assert.equal(releaseCommit(manifest), qualified.candidate.source);
+    verifyBuildEvidence(manifest, directory);
+    assert.equal(
+      hash(regularBytes(join(directory, "build-package-lock.json"))),
+      manifest.source.lockSha256,
+    );
+  } else assert.equal(manifest.promotion, undefined);
   assert.equal(manifest.source.clean, true);
   assert.deepEqual(qualified.candidate.matrix, manifest.qualificationMatrix);
   assert.deepEqual(qualified.candidate.runtimePolicy, manifest.runtimePolicy);
@@ -307,6 +348,14 @@ export function verifyPayloads(qualified, directory, sourceArchive) {
         policy: qualified.candidate.runtimePolicy,
       });
     assert.equal(report.passed, true);
+    if (qualified.schemaVersion === 2)
+      assert.equal(
+        report.manifestSha256,
+        qualified.promotion && name.startsWith("candidate-")
+          ? qualified.promotion.buildManifestSha256
+          : qualified.manifestSha256,
+        "Report does not identify its original archive manifest",
+      );
     assert.equal(report.version, qualified.version);
     assert.equal(report.candidate, qualified.source);
     assert.equal(report.platform, expected.platform);
@@ -410,6 +459,24 @@ export function verifyPayloads(qualified, directory, sourceArchive) {
     const distribution = readJson(
       join(directory, "distribution-evidence.json"),
     );
+    if (qualified.promotion) {
+      const originalBytes = regularBytes(
+        join(directory, "build-distribution-evidence.json"),
+      );
+      const original = JSON.parse(originalBytes);
+      const { reused, manifestSha256, ...retained } = distribution;
+      assert.equal(manifestSha256, qualified.manifestSha256);
+      assert.equal(reused.run, qualified.promotion.run);
+      assert.equal(reused.evidenceSha256, hash(originalBytes));
+      assert.equal(
+        reused.manifestSha256,
+        qualified.promotion.buildManifestSha256,
+      );
+      assert.deepEqual(
+        { ...retained, manifestSha256: reused.manifestSha256 },
+        original,
+      );
+    }
     for (const payload of distribution.payloads)
       assert.equal(
         qualified.evidence[payload.name],

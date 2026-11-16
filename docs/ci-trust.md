@@ -9,7 +9,7 @@ Selecting `installed-only` runs the packed-recipient diagnostic.
 Opening a ready PR, draft updates and later synchronization do not launch full ordinary qualification.
 
 Changed heads require another deliberate ready checkpoint; strict required acceptance prevents stale qualification from authorizing a changed tree.
-`ci.yml` freezes one matrix and coordinates the reference producer, runtime consumers, frozen native validation, dependency review/audit and explicit Actions, JavaScript/TypeScript and Python CodeQL scans.
+`ci.yml` freezes one matrix and coordinates the reference producer, runtime consumers, frozen native validation, dependency review/audit, distribution inventories and explicit Actions, JavaScript/TypeScript and Python CodeQL scans.
 
 `CI / acceptance` requires the complete authenticated successful inventory, both installed layouts and reference corpus evidence; skipped or missing obligations fail.
 The policy job runs source admission before the producer builds the shared archive tuple and runs the final JSON check.
@@ -33,8 +33,16 @@ Archive extraction rejects redirects, traversal, duplicate paths, linked members
 GitHub API permissions are read-only; no extra credential or publication authority is granted.
 
 Main observation is a reuse decision, not newly executed qualification or release proof.
-Manual `release-qualification.yml` always runs fresh exact-source product, corpus, explicit security, recipient audit and distribution inventory obligations through the common graph.
+Manual `release-qualification.yml` can promote the exact archives from an authenticated ordinary merged PR whose complete qualification inputs still match.
+Its successful resolver supplies original source, native, runtime and corpus evidence; the fresh branch is skipped only after that admission.
+CI retains the recipient locks and distribution inventories during the original qualification.
+Release security refreshes current alerts and advisory checks against those locks; it reuses the original exact-source CodeQL executions.
+The original build commit stays in package identity and provenance, while separate promotion metadata authorizes the landed release commit and its signed tag.
+Changed inputs, absent or expired evidence, an unsupported merge shape or an explicit `force-fresh` request runs the fresh qualification graph.
+Reuse never consumes another promotion record as its original proof.
 It has no publication authority.
+
+See [the artifact promotion contract](plans/2026-11-16-release-artifact-promotion.md) for the manifest and invalidation rules.
 
 The [convergence plan](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/plans/2026-10-29-github-actions-convergence-implementation-plan.md) supersedes the earlier automatic-CI/reuse design for current source.
 Verify hosted acceptance for the exact candidate and inspect the live governance settings before release.

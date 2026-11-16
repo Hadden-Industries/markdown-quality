@@ -184,6 +184,79 @@ test("exact qualified opaque tuple is admitted without extraction or execution",
   const { input } = fixture(t);
   assert.equal(verifyPublication(input).version, "1.0.0");
 });
+
+test("publication preserves PR-built bytes while admitting their landed release commit", (t) => {
+  const { input, manifest, serialize } = fixture(t);
+  const landed = "b".repeat(40);
+  manifest.source.tree = "c".repeat(40);
+  manifest.promotion = {
+    schemaVersion: 1,
+    buildCommit: source,
+    releaseCommit: landed,
+    tree: manifest.source.tree,
+    parents: ["d".repeat(40), "e".repeat(40)],
+    buildManifestSha256: "f".repeat(64),
+    proofSha256: "1".repeat(64),
+    run: 71,
+    attempt: 1,
+    pullRequest: 17,
+  };
+  input.run.head_sha = landed;
+  input.currentRef.object.sha = landed;
+  input.context.head = landed;
+  input.context.decision = {
+    channel: "pilot",
+    operationId: "release-qualified-artifacts",
+    reviewSha256: "9".repeat(64),
+  };
+  const names = ["resolve", "fresh", "security", "distribution", "qualified"];
+  input.jobs = {
+    total_count: names.length,
+    jobs: names.map((name) => ({
+      name,
+      run_id: input.run.id,
+      run_attempt: 1,
+      head_sha: landed,
+      status: "completed",
+      conclusion: name === "fresh" ? "skipped" : "success",
+      labels: [],
+    })),
+  };
+  serialize();
+  const admitted = verifyPublication(input);
+  assert.equal(admitted.source, source);
+  assert.equal(admitted.publicationOrigins.artifactSource, source);
+  assert.ok(
+    admitted.publicationOrigins.records.every(
+      (record) => record.source === landed,
+    ),
+  );
+  assert.doesNotThrow(() =>
+    preparePublicationEnvironment(
+      manifest,
+      input.manifestSha,
+      admitted.publicationOrigins,
+      input.context,
+    ),
+  );
+  input.jobs.jobs.find((job) => job.name === "security").conclusion = "skipped";
+  assert.throws(() => verifyPublication(input));
+});
+
+test("the full fallback remains complete and cannot substitute skipped matrix jobs", (t) => {
+  const { input } = fixture(t);
+  const nested = input.jobs.jobs
+    .filter((job) => !["security", "distribution"].includes(job.name))
+    .map((job) => ({ ...job, name: `fresh / ${job.name}` }));
+  const wrapper = ["resolve", "security", "distribution", "qualified"].map(
+    (name) => ({ ...input.jobs.jobs[0], name }),
+  );
+  input.jobs.jobs = [...nested, ...wrapper];
+  input.jobs.total_count = input.jobs.jobs.length;
+  assert.equal(verifyPublication(input).source, source);
+  nested.find((job) => job.name.includes(" / Qualify ")).conclusion = "skipped";
+  assert.throws(() => verifyPublication(input));
+});
 test("the retired fixture branch cannot enter current release evidence", (t) => {
   const { input } = fixture(t);
   assert.equal(verifyPublication(input).version, "1.0.0");

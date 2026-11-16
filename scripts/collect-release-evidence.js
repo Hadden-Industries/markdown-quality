@@ -25,7 +25,11 @@ import {
   verifyStagingContinuation,
   verifyRetainedNativeOrigins,
 } from "./release-continuation.js";
-import { registryWorkflow, registryJobNames } from "./release-qualification.js";
+import {
+  registryWorkflow,
+  registryJobNames,
+  releaseCommit,
+} from "./release-qualification.js";
 import { prepareGithubRelease } from "./prepare-github-release.js";
 import { verifyReleaseAcceptance } from "./release-acceptance.js";
 import { bindStagingReconciliation } from "./release-staging-evidence.js";
@@ -145,6 +149,7 @@ try {
       : {}),
     version: release.version,
     source: release.source.head,
+    ...(release.promotion ? { promotion: release.promotion } : {}),
     manifestSha256: hash(bytes),
     originsSha256: hash(originBytes),
     archives: release.archives.map(
@@ -199,6 +204,13 @@ try {
     Buffer.from(JSON.stringify(stage, null, 2) + "\n"),
   );
   evidence("signed-tag.json", join(frozen, "signed-tag.json"));
+  if (release.promotion)
+    for (const name of [
+      "build-manifest.json",
+      "build-qualification.json",
+      "build-package-lock.json",
+    ])
+      evidence(name, join(frozen, name));
   for (const kind of ["candidate", "registry"])
     for (const os of release.qualificationMatrix.os)
       for (const node of release.qualificationMatrix.node) {
@@ -209,7 +221,9 @@ try {
               : `candidate-${os}-${node}`
             : `registry-${os}-${node}-${publication.attempt}`;
         const run =
-          kind === "candidate" ? qualified.candidate.run : publication.run;
+          kind === "candidate"
+            ? String(release.promotion?.run ?? qualified.candidate.run)
+            : publication.run;
         const reportBytes = regularBytes(
           join(download(run, artifact), `${kind}-qualification.json`),
         );
@@ -238,6 +252,11 @@ try {
     "distribution-evidence.json",
     join(distribution, "distribution-evidence.json"),
   );
+  if (release.promotion)
+    evidence(
+      "build-distribution-evidence.json",
+      join(distribution, "build-distribution-evidence.json"),
+    );
   for (const [run, artifact, prefix] of [
     [
       qualified.candidate.run,
@@ -254,13 +273,21 @@ try {
     for (const name of readdirSync(security))
       evidence(`${prefix}${name}`, join(security, name));
     for (const os of release.qualificationMatrix.os) {
-      const recipient = download(run, `recipient-${os}`);
+      const recipient = download(
+        prefix === "" && release.promotion
+          ? String(release.promotion.run)
+          : run,
+        `recipient-${os}`,
+      );
       for (const name of readdirSync(recipient))
         evidence(`${prefix}recipient-${os}-${name}`, join(recipient, name));
     }
   }
   for (const os of release.qualificationMatrix.os) {
-    const performance = download(qualified.candidate.run, `performance-${os}`);
+    const performance = download(
+      String(release.promotion?.run ?? qualified.candidate.run),
+      `performance-${os}`,
+    );
     for (const entry of readdirSync(performance, { withFileTypes: true }))
       if (entry.isFile())
         evidence(
@@ -337,7 +364,7 @@ try {
     ["tool-manifest.json", "assets/tool-manifest.json"],
   ])
     qualified.materials[name] = hash(
-      native("git", ["show", `${qualified.source}:${path}`], {
+      native("git", ["show", `${releaseCommit(qualified)}:${path}`], {
         encoding: null,
       }),
     );
