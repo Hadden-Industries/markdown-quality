@@ -43,6 +43,8 @@ The fixtures now include mandatory Distribution and target the fresh fallback's 
 Signed history transport compresses complete original records with a byte digest and bounded expansion; plaintext checkpoint readers remain compatible.
 Checkpoint subjects retain admission receipts, owner decisions, locks and reconciliations; package builds and verbose performance records remain in the authenticated immutable release assets.
 Re-export preserves an already authenticated subject's original representation, including legacy file supersets, so older and newer signed refs remain compatible.
+The actual exporter retains that representation for single-target records and compares stable asset identities independently of download counters.
+The transported producer lock uses the same exact npm-root-key policy as its original source lock.
 These corrections require their own hosted acceptance before release.
 
 ## Release controller hardening and pilot retirement on 2026-11-15

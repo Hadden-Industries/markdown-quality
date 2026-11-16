@@ -1,12 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, mkdirSync, writeFileSync } from "node:fs";
+import {
+  readFileSync,
+  readdirSync,
+  mkdirSync,
+  writeFileSync,
+  cpSync,
+} from "node:fs";
 import { join, dirname } from "node:path";
 import { releaseFixture } from "./release-fixture.js";
 import { native } from "../scripts/commands.js";
 import { hash } from "../scripts/release-bytes.js";
-import { encodeHistoryCheckpoint } from "../scripts/release-history-format.js";
+import {
+  encodeHistoryCheckpoint,
+  decodeHistoryCheckpoint,
+} from "../scripts/release-history-format.js";
 import {
   readWriterIntents,
   verifyWriterInventory,
@@ -36,6 +45,7 @@ import { releasePackages } from "../scripts/release-coordinates.js";
 import {
   retainedCheckpointTargets,
   retainedQualificationFiles,
+  prepareReleaseHistory,
 } from "../scripts/prepare-release-history.js";
 
 test("a second interrupted continuation preserves ancestor requests and the active operation chain", () => {
@@ -1330,6 +1340,143 @@ test("re-export preserves an authenticated subject despite a smaller current rec
       retainedCheckpointTargets(changed, [h.verify(h.checkpoint)], []),
     );
   }
+});
+
+test("actual single-target export preserves signed subjects when asset download counters change", async (t) => {
+  const h = signedCheckpointHarness(t);
+  const source = h.f.qualified.source;
+  const previous = structuredClone(h.checkpoint);
+  const assetRows = h.f.assets.map((asset, index) => ({
+    id: 1000 + index,
+    name: asset.name,
+    size: asset.size,
+    digest: `sha256:${asset.sha256}`,
+    state: "uploaded",
+    download_count: 1,
+  }));
+  previous.targetQualification.archive = {
+    ...previous.targetQualification.archive,
+    tagSha: "c".repeat(40),
+    assets: assetRows,
+  };
+  const archiveRun = {
+    id: 40,
+    repository: { full_name: "Hadden-Industries/markdown-quality" },
+    path: ".github/workflows/github-release.yml",
+    event: "workflow_dispatch",
+    head_branch: "main",
+    head_sha: source,
+  };
+  const archiveJobs = {
+    total_count: 1,
+    jobs: [
+      {
+        name: "prepare",
+        conclusion: "success",
+        run_attempt: 1,
+        run_id: 40,
+        head_sha: source,
+      },
+    ],
+  };
+  const archiveArtifact = {
+    id: 400,
+    name: "archive-inputs-1",
+    digest: `sha256:${"a".repeat(64)}`,
+    expired: false,
+    workflow_run: { id: 40, head_sha: source },
+  };
+  previous.targetQualification.archival = {
+    run: archiveRun,
+    attempt: 1,
+    inventory: archiveJobs,
+    artifact: archiveArtifact,
+  };
+  const signed = h.verify(previous);
+  const input = join(h.root, "export-inputs"),
+    output = join(h.root, "export-result");
+  mkdirSync(input);
+  cpSync(h.f.directory, join(input, "bundle"), { recursive: true });
+  writeFileSync(
+    join(input, "qualification.json"),
+    Buffer.from(signed.targetQualification.qualificationBase64, "base64"),
+  );
+  const gh = (args) => {
+    if (args[0] === "release") return "{}";
+    const path = args[1].replace(
+      "repos/Hadden-Industries/markdown-quality/",
+      "",
+    );
+    if (path.startsWith("git/ref/"))
+      return JSON.stringify({ object: { sha: "c".repeat(40) } });
+    if (path.startsWith("git/tags/")) return "{}";
+    if (path === "releases/latest")
+      return JSON.stringify({
+        id: previous.targetQualification.archive.releaseId,
+      });
+    if (path.startsWith("releases/tags/"))
+      return JSON.stringify({
+        id: previous.targetQualification.archive.releaseId,
+        immutable: true,
+        draft: false,
+        prerelease: false,
+        assets: assetRows.map((asset) => ({ ...asset, download_count: 2 })),
+      });
+    for (const provider of [h.f.candidate, h.f.publication]) {
+      const prefix = `actions/runs/${provider.expected.run}`;
+      if (path === `${prefix}/attempts/1`)
+        return JSON.stringify(provider.data.run);
+      if (path === `${prefix}/attempts/1/jobs?per_page=100`)
+        return JSON.stringify(provider.data.jobs);
+      if (path === `${prefix}/artifacts?per_page=100`)
+        return JSON.stringify([
+          {
+            artifacts: [
+              {
+                id: Number(provider.expected.run),
+                expired: false,
+                digest: `sha256:${"b".repeat(64)}`,
+                workflow_run: {
+                  id: Number(provider.expected.run),
+                  head_sha: source,
+                },
+              },
+            ],
+          },
+        ]);
+    }
+    if (path === "actions/runs/40/attempts/1")
+      return JSON.stringify(archiveRun);
+    if (path === "actions/runs/40/attempts/1/jobs?per_page=100")
+      return JSON.stringify(archiveJobs);
+    if (path === "actions/runs/40/artifacts?per_page=100")
+      return JSON.stringify([{ artifacts: [archiveArtifact] }]);
+    throw new Error(`Unexpected provider read: ${path}`);
+  };
+  await prepareReleaseHistory(input, output, {
+    env: {
+      QUALIFICATION_SHA: signed.targetQualification.qualificationSha256,
+      ARCHIVE_RUN: "40",
+      ARCHIVE_ATTEMPT: "1",
+    },
+    gh,
+    verifyTag: () => {},
+    readCheckpoints: () => [signed],
+    history: async () => ({
+      writers: [h.writer],
+      writerAttempts: [],
+      closedWriterRuns: [],
+      nonWriterRuns: [],
+      missing: [],
+    }),
+  });
+  const exported = decodeHistoryCheckpoint(
+    readFileSync(join(output, "release-history.json")),
+  );
+  assert.equal(
+    hash(Buffer.from(JSON.stringify(exported.targetQualification))),
+    hash(Buffer.from(JSON.stringify(signed.targetQualification))),
+  );
 });
 
 test("a new checkpoint carries requested earlier subjects once each and reports unavailable ones", (t) => {

@@ -51,12 +51,26 @@ export function retainedCheckpointTargets(current, checkpoints, requested) {
     const original = previous[0];
     assert.equal(original.qualificationBase64, current.qualificationBase64);
     assert.deepEqual(original.qualified, current.qualified);
-    for (const name of ["releaseId", "tagSha", "assets", "immutable"])
+    for (const name of ["releaseId", "tagSha", "immutable"])
       assert.deepEqual(
         original.archive[name],
         current.archive[name],
         "Original immutable target changed",
       );
+    const assetIdentity = (assets) =>
+      assets
+        .map((asset) => ({
+          id: asset.id,
+          name: asset.name,
+          size: asset.size,
+          digest: asset.digest ?? `sha256:${asset.sha256}`,
+        }))
+        .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    assert.deepEqual(
+      assetIdentity(original.archive.assets),
+      assetIdentity(current.archive.assets),
+      "Original immutable assets changed",
+    );
     if (original.archival && current.archival) {
       assert.equal(original.archival.run.id, current.archival.run.id);
       assert.equal(original.archival.attempt, current.archival.attempt);
@@ -128,6 +142,7 @@ export async function prepareReleaseHistory(
     gh = (args) => native("gh", args),
     history = collectWriterHistory,
     verifyTag = verifyReleaseTag,
+    readCheckpoints = readSignedHistoryRefs,
   } = {},
 ) {
   const qualifiedBytes = regularBytes(join(input, "qualification.json"));
@@ -200,7 +215,7 @@ export async function prepareReleaseHistory(
     }
     // One authenticated read of the input checkpoints serves both the writer
     // history and the selection of earlier subjects to retain.
-    const signed = readSignedHistoryRefs(
+    const signed = readCheckpoints(
       JSON.parse(env.HISTORY_CHECKPOINT || "[]"),
       gh,
     );
@@ -281,7 +296,7 @@ export async function prepareReleaseHistory(
       closedWriterRuns: observed.closedWriterRuns,
       nonWriterRuns: observed.nonWriterRuns,
       ...(retained.targets.length === 1
-        ? { targetQualification: current }
+        ? { targetQualification: retained.targets[0] }
         : { targetQualifications: retained.targets }),
       missing,
     };

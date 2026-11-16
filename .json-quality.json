@@ -39,7 +39,8 @@
     },
     {
       "paths": [
-        "package-lock.json"
+        "package-lock.json",
+        "dist/json-qualification/build-package-lock.json"
       ],
       "owner": "Native npm lock writer",
       "reason": "npm owns lock bytes and its exact root package key.",
