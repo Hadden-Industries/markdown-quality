@@ -494,7 +494,8 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
         );
         inputs(path, job.with, called.on.workflow_call?.inputs);
       }
-      for (const step of job.steps ?? []) {
+      const steps = job.steps ?? [];
+      for (const [index, step] of steps.entries()) {
         if (step["timeout-minutes"])
           assert.ok(
             job["timeout-minutes"] > step["timeout-minutes"],
@@ -515,6 +516,21 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
         const action = actions.get(local);
         assert.ok(action, `${path}: unresolved local action ${step.uses}`);
         inputs(path, step.with, action.inputs);
+        if (local === "./.github/actions/upload-evidence")
+          assert.ok(
+            steps
+              .slice(0, index)
+              .some(
+                (prior) =>
+                  (prior.uses === "./.github/actions/setup-producer" ||
+                    (path === "./.github/workflows/markdown-quality.yml" &&
+                      prior["working-directory"] === "producer" &&
+                      prior.run ===
+                        "npm ci --ignore-scripts --no-audit --no-fund")) &&
+                  (!prior.if || prior.if === step.if),
+              ),
+            `${path}: SDK upload requires prior frozen producer dependencies on the same path`,
+          );
         if (transferBudgets.has(local)) {
           callers++;
           assert.equal(

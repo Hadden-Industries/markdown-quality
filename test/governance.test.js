@@ -69,6 +69,51 @@ test("workflow contracts reject broken metadata, callers and shared deadline dri
       /composite-step timeout/u,
     ],
     [
+      "missing release reuse upload tools",
+      ".github/workflows/release-qualification.yml",
+      (data) => {
+        data.jobs.resolve.steps = data.jobs.resolve.steps.filter(
+          (step) => step.uses !== "./.github/actions/setup-producer",
+        );
+      },
+      /SDK upload requires prior frozen producer dependencies/u,
+    ],
+    [
+      "skipped release reuse upload tools",
+      ".github/workflows/release-qualification.yml",
+      (data) => {
+        data.jobs.resolve.steps.find(
+          (step) => step.uses === "./.github/actions/setup-producer",
+        ).if = "false";
+      },
+      /SDK upload requires prior frozen producer dependencies/u,
+    ],
+    [
+      "missing immutable shared producer upload tools",
+      ".github/workflows/markdown-quality.yml",
+      (data) => {
+        for (const job of Object.values(data.jobs))
+          if (job.steps)
+            job.steps = job.steps.filter(
+              (step) =>
+                step.run !== "npm ci --ignore-scripts --no-audit --no-fund",
+            );
+      },
+      /SDK upload requires prior frozen producer dependencies/u,
+    ],
+    [
+      "late release reuse upload tools",
+      ".github/workflows/release-qualification.yml",
+      (data) => {
+        const index = data.jobs.resolve.steps.findIndex(
+          (step) => step.uses === "./.github/actions/setup-producer",
+        );
+        const [setup] = data.jobs.resolve.steps.splice(index, 1);
+        data.jobs.resolve.steps.push(setup);
+      },
+      /SDK upload requires prior frozen producer dependencies/u,
+    ],
+    [
       "shell credential boundary",
       upload,
       (data) => {
