@@ -19,7 +19,7 @@ No CLI, SDK, configuration, preset or schema-version migration is required from 
 Configuration schema 3, preset `authored-gfm@2`, result schema 5, execution schema 2 and comparison schema 3 are retained.
 
 The patch updates Markdown and HTML tooling, dependency locks and release CI.
-Repository development also enforces `fast-xml-parser >=5.12.0`; the source lock resolves 5.12.0.
+Repository development also enforces `fast-xml-parser >=5.12.1`; the source lock resolves 5.12.1.
 The 3.0.2 source lock selects JSON Quality 1.0.1 for repository development checks.
 Release maintainers should use the [3.0.2 release runbook](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.2/docs/release-operations.md) for coordinated family staging, qualification, archival and promotion.
 

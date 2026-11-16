@@ -17,7 +17,7 @@ The core package and both native packages share version 3.0.2.
 This patch retains the CLI, SDK, configuration and schema contracts described in the [3.0.2 migration notes](migration-guide.md#from-301-to-302).
 It preserves the runtime floor and retained Snapper executable bytes.
 
-The release includes updated Markdown and HTML tooling, refreshed dependency locks and an explicit `fast-xml-parser >=5.12.0` development override.
+The release includes updated Markdown and HTML tooling, refreshed dependency locks and an explicit `fast-xml-parser >=5.12.1` development override.
 Release CI adds coordinated family operations and retained release evidence, with aligned CodeQL Actions and query packs.
 Owner approval includes an independent comparison of each downloaded staged tarball with the approved qualification manifest.
 The report-validation and performance repairs from 3.0.1 carry forward.

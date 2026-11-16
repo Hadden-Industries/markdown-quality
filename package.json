@@ -106,7 +106,7 @@
   "dependencies": {
     "@eslint/markdown": "8.0.3",
     "ajv": "8.20.0",
-    "eslint": "10.14.0",
+    "eslint": "10.15.0",
     "github-slugger": "2.0.0",
     "mdast-util-from-markdown": "2.1.0",
     "mdast-util-frontmatter": "2.0.1",
@@ -118,8 +118,8 @@
     "prettier": "3.10.1"
   },
   "overrides": {
-    "fast-xml-parser": ">=5.12.0",
-    "glob": "14.0.3",
+    "fast-xml-parser": ">=5.12.1",
+    "glob": "14.0.6",
     "minimatch": "11.0.8",
     "micromark-extension-math": {
       "katex": "0.19.1"
