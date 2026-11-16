@@ -66,15 +66,14 @@ function originalBytes(value) {
   return Buffer.from(value.data);
 }
 
-/** The caller must first authenticate the owning publication artifact or immutable release. */
-export function readPublicationSubjects(
+function readSubjectReceipt(
   directory,
   owner,
   manifestBytes,
   { providerDirectory = join(directory, "provider") } = {},
 ) {
   const path = join(providerDirectory, "publication-history.json");
-  if (!existsSync(path)) return [];
+  if (!existsSync(path)) return;
   const receipt = JSON.parse(releaseBytes(path, 16 * 1024 * 1024));
   assert.equal(receipt.schemaVersion, 1);
   assert.equal(String(receipt.run), String(owner.run.id));
@@ -100,6 +99,10 @@ export function readPublicationSubjects(
     new Set(snapshots.map((entry) => entry.run.id)).size,
     snapshots.length,
   );
+  return { receipt, snapshots };
+}
+
+function derivePublicationSubjects(receipt, snapshots, owner) {
   return receipt.history.flatMap((entry) => {
     if (entry.run.id === owner.run.id) return [];
     let subject = entry.subject;
@@ -126,6 +129,32 @@ export function readPublicationSubjects(
     effects(entry);
     return [{ ...entry, subject }];
   });
+}
+
+/** The caller must first authenticate the owning publication artifact or immutable release. */
+export function readPublicationSubjects(
+  directory,
+  owner,
+  manifestBytes,
+  options,
+) {
+  const parsed = readSubjectReceipt(directory, owner, manifestBytes, options);
+  if (!parsed) return [];
+  return derivePublicationSubjects(parsed.receipt, parsed.snapshots, owner);
+}
+
+/** Prove the existing cold reader gets identical subjects without the recursive transport copy. */
+export function canOmitPublicationSnapshot(directory, owner, manifestBytes) {
+  const parsed = readSubjectReceipt(directory, owner, manifestBytes);
+  if (!parsed) return false;
+  // Validate the original first: compaction must never conceal contradictory evidence.
+  const original = derivePublicationSubjects(
+    parsed.receipt,
+    parsed.snapshots,
+    owner,
+  );
+  const compact = derivePublicationSubjects(parsed.receipt, [], owner);
+  return isDeepStrictEqual(original, compact);
 }
 
 /** Only cryptographically verified immutable release assets can replace expired transport copies. */

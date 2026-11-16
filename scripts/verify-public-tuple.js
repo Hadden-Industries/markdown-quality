@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readJson } from "./release-assets.js";
 import { native } from "./commands.js";
+import { budgets } from "./qualification-budgets.js";
 
 assert.equal(
   process.argv.length,
@@ -40,5 +41,5 @@ if (process.env.RELEASE_SECURITY_OUTPUT)
   args.push("--security-output", process.env.RELEASE_SECURITY_OUTPUT);
 native(process.execPath, [...args, output], {
   env: { ...process.env, CANDIDATE_RUN: map.candidateRun },
-  timeout: 1_200_000,
+  timeout: budgets.registry,
 });

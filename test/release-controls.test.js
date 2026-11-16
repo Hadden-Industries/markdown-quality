@@ -17,14 +17,49 @@ import { governance } from "../scripts/github-governance.js";
 import {
   verifyNoPendingStages,
   readStageInventory,
+  verifyStageGuards,
 } from "../scripts/release-stage-guards.js";
 import { stageInventory } from "./release-fixture.js";
-import { archivePreflight } from "../scripts/release-decision-transport.js";
+import {
+  archivePreflight,
+  verifyDispatchPayload,
+} from "../scripts/release-decision-transport.js";
 
 const packages = ["win32-x64", "linux-x64", "core"].map(
   (name) =>
     `@hadden-industries/markdown-quality${name === "core" ? "" : `-${name}`}`,
 );
+
+test("the actual dispatch envelope counts combined decisions, escaping and UTF-8 bytes", () => {
+  const payload = {
+    ref: "main",
+    inputs: {
+      "review-json": "a".repeat(24000),
+      "acceptance-json": "b".repeat(24000),
+      "preflight-json": "c".repeat(17000),
+    },
+  };
+  assert.ok(verifyDispatchPayload(payload).inputBytes < 65535);
+  payload.inputs["preflight-json"] += "c".repeat(1000);
+  assert.throws(() => verifyDispatchPayload(payload), /Combined owner/u);
+  assert.throws(
+    () =>
+      verifyDispatchPayload({
+        ref: "main",
+        inputs: { review: '"'.repeat(33000) },
+      }),
+    /Combined owner/u,
+  );
+  assert.throws(
+    () =>
+      verifyDispatchPayload({
+        ref: "main",
+        inputs: { review: "é".repeat(33000) },
+      }),
+    /Combined owner/u,
+  );
+  assert.throws(() => verifyDispatchPayload({ ...payload, ref: "other" }));
+});
 
 test("fresh owner stage inventories block old-version pending requests and intervening publications", () => {
   const fresh = stageInventory();
@@ -77,6 +112,76 @@ test("fresh owner stage inventories block old-version pending requests and inter
       }),
     /Another publication/u,
   );
+});
+
+test("staging guards consume the authenticated admission timestamp without reopening the history snapshot", (t) => {
+  const directory = mkdtempSync(join(tmpdir(), "release-guard-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const review = {
+    channel: "latest",
+    stageInventory: stageInventory(),
+    guards: {
+      selectedLabels: Object.fromEntries(
+        packages.map((name) => [name, "3.0.1"]),
+      ),
+      defaults: Object.fromEntries(packages.map((name) => [name, "3.0.1"])),
+      githubLatest: 70,
+    },
+  };
+  const release = {
+    version: "4.0.0",
+    archives: packages.map((name, index) => ({
+      name: ["win32-x64", "linux-x64", "core"][index],
+      package: name,
+    })),
+  };
+  const map = {
+    run: "20",
+    records: packages.map((name) => ({ package: name, state: "planned" })),
+  };
+  let observations = 0;
+  const options = {
+    tags: () => {
+      observations++;
+      return { latest: "3.0.1" };
+    },
+    gh: () => JSON.stringify({ id: 70 }),
+    command: () => {
+      throw new Error("No npm effect or integrity request expected");
+    },
+    latestStageWriteAt: new Date(
+      Date.parse(review.stageInventory.checkedAt) + 1000,
+    ).toISOString(),
+  };
+  assert.throws(
+    () =>
+      verifyStageGuards(
+        review,
+        release,
+        release.archives[0],
+        map,
+        directory,
+        options,
+      ),
+    /last publication/u,
+  );
+  assert.equal(
+    observations,
+    0,
+    "Stale inventory is refused before provider observations",
+  );
+  options.latestStageWriteAt = new Date(
+    Date.parse(review.stageInventory.checkedAt) - 1000,
+  ).toISOString();
+  verifyStageGuards(
+    review,
+    release,
+    release.archives[0],
+    map,
+    directory,
+    options,
+  );
+  assert.equal(observations, 3);
 });
 
 test("fresh archive observations retain the original decision digests and exact owner bytes", () => {

@@ -4,6 +4,37 @@ import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { hash, releaseBytes } from "./release-bytes.js";
+import { gzipSync, gunzipSync } from "node:zlib";
+
+/** Preserve legacy snapshots byte-for-byte without recursively expanding numeric Buffer arrays. */
+export function retainPublicationSnapshot(bytes) {
+  assert.ok(bytes.length > 0 && bytes.length <= 64 * 1024 * 1024);
+  return {
+    sha256: hash(bytes),
+    encoding: "gzip+base64",
+    uncompressedBytes: bytes.length,
+    base64: gzipSync(bytes).toString("base64"),
+  };
+}
+
+export function retainedFileBytes(file) {
+  const transport = Buffer.from(file.base64, "base64");
+  assert.equal(transport.toString("base64"), file.base64);
+  let bytes = transport;
+  if (file.encoding !== undefined) {
+    assert.equal(file.encoding, "gzip+base64");
+    assert.ok(
+      Number.isSafeInteger(file.uncompressedBytes) &&
+        file.uncompressedBytes > 0 &&
+        file.uncompressedBytes <= 64 * 1024 * 1024,
+      "Retained snapshot exceeds its expanded budget",
+    );
+    bytes = gunzipSync(transport, { maxOutputLength: file.uncompressedBytes });
+    assert.equal(bytes.length, file.uncompressedBytes);
+  }
+  assert.equal(hash(bytes), file.sha256);
+  return bytes;
+}
 
 /** Provider presentation metadata may drift; original executions, artifacts and bytes may not. */
 export function retainedObservationIdentity(entry) {
@@ -107,8 +138,7 @@ export function restoreRetainedFiles(directory, entry) {
   for (const [name, file] of Object.entries(entry.files)) {
     assert.match(name, /^[A-Za-z0-9][A-Za-z0-9._/-]{0,240}$/u);
     assert.ok(!name.split("/").some((part) => ["", ".", ".."].includes(part)));
-    const bytes = Buffer.from(file.base64, "base64");
-    assert.equal(hash(bytes), file.sha256);
+    const bytes = retainedFileBytes(file);
     mkdirSync(dirname(join(directory, name)), { recursive: true });
     writeFileSync(join(directory, name), bytes, { flag: "wx" });
   }

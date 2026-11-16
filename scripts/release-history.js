@@ -8,7 +8,13 @@ import {
 import { releaseCommit } from "./release-qualification.js";
 import { sameJobExecution } from "./github-job-execution.js";
 import { isDeepStrictEqual } from "node:util";
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { native } from "./commands.js";
@@ -30,7 +36,11 @@ import { createRepositoryReader } from "./github-evidence.js";
 import { downloadEvidence } from "./download-evidence.js";
 import { publicationUploadAcknowledgment } from "./publication-upload.js";
 import { budgets } from "./qualification-budgets.js";
-import { retainedObservationIdentity } from "./release-retained-artifacts.js";
+import {
+  retainedObservationIdentity,
+  retainedFileBytes,
+  retainPublicationSnapshot,
+} from "./release-retained-artifacts.js";
 import {
   protectedControllerHistory,
   legacyRunClosed,
@@ -47,6 +57,7 @@ import {
 } from "./publication-steps.js";
 import { githubWriterRequired, resumesOperation } from "./release-operation.js";
 import { releasePackages } from "./release-coordinates.js";
+import { canOmitPublicationSnapshot } from "./publication-subjects.js";
 import {
   createLegacyProvenanceResolver,
   LEGACY_RECOVERY_SOURCE,
@@ -218,10 +229,10 @@ export function verifySignedCheckpoint(
     assert.equal(entry.job.run_attempt, entry.attempt);
     assert.equal(entry.job.status, "completed");
     assert.ok(entry.files && entry.artifact?.digest);
-    for (const file of Object.values(entry.files)) {
-      const raw = Buffer.from(file.base64, "base64");
-      assert.equal(raw.toString("base64"), file.base64);
-      assert.equal(hash(raw), file.sha256);
+    for (const [name, file] of Object.entries(entry.files)) {
+      if (file.encoding !== undefined)
+        assert.equal(name, "provider/staging-history.json");
+      retainedFileBytes(file);
     }
     verifyRecoveredProvenanceWriter(entry);
   }
@@ -411,8 +422,21 @@ export function readSignedHistoryRefs(
   });
 }
 
-function retainedFiles(root) {
+function retainedFiles(root, owner, previous) {
   const files = {};
+  const snapshot = "provider/staging-history.json";
+  const manifestPath = join(root, "frozen-release/release-manifest.json");
+  // Existing signed file maps are immutable. New receipts can omit a recursive
+  // snapshot only after the actual cold subject consumer proves it redundant.
+  const omitSnapshot =
+    !previous?.files[snapshot] &&
+    existsSync(join(root, snapshot)) &&
+    existsSync(manifestPath) &&
+    canOmitPublicationSnapshot(
+      root,
+      owner,
+      releaseBytes(manifestPath, 1_048_576),
+    );
   const visit = (directory, prefix = "") => {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const name = prefix + entry.name;
@@ -422,13 +446,21 @@ function retainedFiles(root) {
       // hundreds of megabytes of packages into a single Git evidence blob.
       if (name === "draft-readback" || name.startsWith("draft-readback/"))
         continue;
+      if (omitSnapshot && name === snapshot) continue;
       if (entry.isDirectory()) visit(join(directory, entry.name), `${name}/`);
       else {
         const bytes = releaseBytes(
           join(directory, entry.name),
           64 * 1024 * 1024,
         );
-        files[name] = { sha256: hash(bytes), base64: bytes.toString("base64") };
+        if (previous?.files[name]) {
+          assert.equal(hash(bytes), previous.files[name].sha256);
+          files[name] = previous.files[name];
+        } else
+          files[name] =
+            name === snapshot
+              ? retainPublicationSnapshot(bytes)
+              : { sha256: hash(bytes), base64: bytes.toString("base64") };
       }
     }
   };
@@ -673,6 +705,7 @@ export async function collectWriterHistory({
       );
       for (const run of runs) {
         const executions = [];
+        const attemptHistory = [];
         assert.equal(run.path, `.github/workflows/${workflow}`);
         if (outsideWriterRef(run)) {
           if (
@@ -760,6 +793,7 @@ export async function collectWriterHistory({
             (entries) => signedAttempt?.inventory ?? entries[0].inventory,
           );
           assert.equal(jobs.total_count, jobs.jobs.length);
+          attemptHistory.push({ run: original, jobs });
           const artifactPages = readOriginal(
             [
               "api",
@@ -924,7 +958,15 @@ export async function collectWriterHistory({
               headSha: run.head_sha,
               expectedArtifact: artifact,
             });
-            live.push({ ...base, artifact, files: retainedFiles(destination) });
+            live.push({
+              ...base,
+              artifact,
+              files: retainedFiles(
+                destination,
+                { run: original, attempt, attempts: attemptHistory },
+                old,
+              ),
+            });
           }
           writerAttempts.push({
             run: original,

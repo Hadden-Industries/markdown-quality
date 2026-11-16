@@ -413,6 +413,11 @@ test("reviewed no-request recovery keeps original failed staging evidence withou
     "failure",
     "Original failure remains inspectable",
   );
+  assert.equal(
+    original.manifestBytes,
+    undefined,
+    "A settled no-request snapshot does not duplicate the original manifest",
+  );
   for (const key of [
     "job",
     "controller",

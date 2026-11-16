@@ -89,6 +89,10 @@ Each accepted decision names its reviewer, meaningful rationale and HTTPS eviden
 Existing schema-1 records retain their original stricter contract and do not gain authority from schema-2 defaults.
 
 Before archival, supply the same raw review plus schema-2 `release-acceptance.json` and its digest.
+Before any dispatch, save the exact `{ "ref": "main", "inputs": { ... } }` request locally and run `node scripts/release-decision-transport.js PATH_TO_DISPATCH_JSON`.
+This checks all inputs together, including JSON escaping, against a conservative UTF-8 interpretation of [GitHub's combined 65,535-character input limit](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onworkflow_dispatchinputs).
+Individual decision limits cannot establish that the combined request fits.
+Dispatch those exact checked bytes; do not add a preflight record afterward without checking the new complete request.
 Acceptance binds that review, source/controller/candidate/channel/guards and completed publicQualificationRun/Attempt.
 Its trials may record OwlAPI, WebVOWL or restoration as accepted with the exact tuple/evidence, or skipped with a reason.
 Downstream adoption and timed rehearsal are optional.
@@ -372,6 +376,9 @@ Extra arguments, another endpoint or any subsequent request do not qualify for t
 A staging step that started remains a possible request unless an explicitly reviewed no-request recovery entry in `scripts/release-writer-baseline.json` binds its original run, attempt, controller, job, manifest and immutable artifact digest.
 Recovery authenticates that original artifact, requires the failed first staging step and skipped later steps, rejects any staging intent, and preserves the complete failed attempt inventory.
 Neither an empty npm stage list nor a missing journal alone authorizes replay; another run, rerun or changed artifact cannot inherit the decision.
+Before each stage request, prior-effect admission refreshes the latest original publication timestamp; the stage guard uses that authenticated summary to enforce private-inventory freshness.
+It does not reparse the full retained staging-history snapshot, which remains available for original-attempt recovery.
+New staging snapshots use compact JSON and omit duplicate manifests for reviewed no-request attempts; each exact original manifest remains in its authenticated original artifact and signed history.
 
 For an unknown family writer, dispatch mode `reconcile` with its original operation bytes/digest and continuation-json containing artifactId, writerRun, writerAttempt, service (`npm` or `github`), sequence and journalSha256.
 The read-only job authenticates the exact original artifact and records a typed `provider-observation.json` for that effect.
@@ -425,6 +432,11 @@ A workflow-run trigger does not carry the original dispatch inputs that the main
 
 Sign the exact complete export through a fresh annotated release-history-* tag whose commit contains release-history.json at its root.
 New exports use a gzip/base64 JSON envelope to retain complete evidence within the 48 MiB signed Git transport limit, with a 256 MiB expanded limit and an exact original-byte digest.
+Existing signed writer file maps remain unchanged during re-export.
+For new writers, the retained subject reader first authenticates the original receipt and snapshot; the recursive `provider/staging-history.json` copy can be omitted only when the receipt alone yields identical authenticated subjects.
+Legacy claims that still need original manifests retain that exact snapshot as `gzip+base64` with its original SHA-256 and expanded byte count, bounded at 64 MiB per snapshot.
+Cold readers authenticate the signed representation, decode it within that bound and verify the original bytes before use.
+Compression applies to this snapshot member only; it does not replace journals, original decisions, manifests, origins or provider identities.
 History retains admission reports, decisions, locks and reconciliation receipts; original package archives and verbose performance logs stay in the digest-bound immutable release assets.
 Readers verify the signed bytes before bounded decompression; original checkpoint schemas 1 and 2 and older plaintext exports keep their validation rules.
 Prepare that commit in a disposable directory or through the owner's existing evidence-signing route, preserving the current development checkout.
@@ -434,12 +446,21 @@ Protect history refs against update and deletion; do not place a signing key in 
 Retain public-safe exports under the maintained lifetime plus three years after support ends.
 Unsigned, incomplete, conflicting or untrusted exports leave recovery after expiry unproven.
 Legacy records lacking complete proof remain inspectable; they cannot authorize an unsupported effect.
+When preparing the next checkpoint, calculate `QUALIFICATION_SHA` from the exact retained `qualification.json` file bytes.
+The archive journal's historical `qualificationSha256` binds `JSON.stringify(qualified)` and is a different representation; do not substitute it for the file digest.
 
 Consumer restoration is separate: restore only migration-owned manifest/lock/workflow/document preimages and check unrelated-file sentinels.
 A provider label rollback cannot restore formatted document bytes.
 Consumer trials and timed rehearsals remain optional.
 
 ## Diagnostics and native coverage
+
+Run `node --test test/release-entrypoints.test.js` before a controller continuation.
+These cold-process fixtures exercise native staging, unknown acknowledgments, real fixture-key intent signatures, decision transfer, compact archival, direct latest classification and read-only completion.
+They refuse unexpected processes and network routes and exclude project dependencies from jobs that do not install them.
+Set `MQ_RELEASE_REHEARSAL_SOURCE` to a digest-verified retained qualification directory to exercise staging with its exact manifest and tarballs.
+The fixtures model external provider responses and GitHub's native release verifier; they do not establish live permissions, owner 2FA approval, future provider availability or execution of another platform's runtime.
+The original complete CI and release qualification remain authoritative for those runtime lanes.
 
 Manual main-qualification.yml offers full or installed-only.
 The diagnostic packs once, transports exact archives, verifies both root/isolated layouts on both OS families, runs the selected native/CLI corpus and offline replay, and reports a distinct installed-only scope.

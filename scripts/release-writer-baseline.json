@@ -15,6 +15,20 @@
           "jobLogSha256": "37dcf29639a73cb3577f2059a4127ee6412c525f86796bc7f521a8ff3975c83f"
         },
         "rationale": "The original Windows step failed in admitPriorReleaseEffects before stageReleaseArchive. The digest-verified complete original artifact contains no staging journal or startup record, and Linux/core request steps were skipped. Source and original logs were inspected under the owner-authorized release recovery; private npm stage inventories were empty. This explicit decision applies only to this original run, attempt, controller, job and artifact."
+      },
+      {
+        "run": 43933819869,
+        "attempt": 1,
+        "job": 133533743930,
+        "controller": "fcb614b8b95011d9f68f9e397a09714166bc89a6",
+        "artifactId": 14259058285,
+        "artifactDigest": "sha256:1176aaf7d550e6e7858a02c41d61f49e656ad8e72d688cb1f86c03fcfdee42a3",
+        "manifestSha256": "2615ed18ab41be5523f03f0ec5fb0c55b0abcbc4e25971ef4ac4da7e663c787a",
+        "evidence": {
+          "url": "https://github.com/Hadden-Industries/markdown-quality/actions/runs/43933819869/job/133533743930",
+          "jobLogSha256": "562cf580ba43a97b294fcb48f881de191f2ddec95fa58294b5a1b2b6493b7c74"
+        },
+        "rationale": "The original Windows step completed prior-effect admission, then failed reading the 23612807-byte staging-history snapshot through a redundant 16 MiB preflight limit, before stageReleaseArchive. The digest-verified complete original artifact contains no staging journal or startup record, and Linux/core request steps were skipped. Original source and logs were inspected under owner-authorized release recovery; private npm stage inventories were empty. This explicit decision applies only to this original run, attempt, controller, job and artifact."
       }
     ],
     "runs": [

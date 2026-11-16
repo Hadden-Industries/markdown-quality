@@ -86,6 +86,7 @@ export function verifyStageGuards(
     command = npmCommand,
     gh = (args) => native("gh", args),
     history = [],
+    latestStageWriteAt,
   } = {},
 ) {
   const channel = releaseChannel(review.channel),
@@ -95,6 +96,7 @@ export function verifyStageGuards(
   const inventory = readStageInventory(review.stageInventory, {
     history,
     currentRun: map.run,
+    latestStageWriteAt,
   });
   for (const [index, name] of releasePackages.entries()) {
     const subject = release.archives.find((value) => value.package === name);
