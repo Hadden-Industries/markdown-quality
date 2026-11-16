@@ -197,6 +197,42 @@ test("evidence GET retries classified transient responses within one finite budg
   assert.equal(calls, 3);
 });
 
+test("evidence readers keep a finite request limit including storage redirects", async () => {
+  const options = {
+    repository: "Hadden-Industries/markdown-quality",
+    token: "fixture",
+    now: () => 0,
+    fetchImpl: async () => Response.json({ retained: true }),
+  };
+  const read = createRepositoryReader(options);
+  for (let index = 0; index < 64; index++) await read("/actions/runs/1");
+  await assert.rejects(read("/actions/runs/1"), /budget exhausted/u);
+  for (const maximumRequests of [0, -1, 1.5, 129, Infinity])
+    assert.throws(() =>
+      createRepositoryReader({ ...options, maximumRequests }),
+    );
+  let calls = 0;
+  const redirect = createRepositoryReader({
+    ...options,
+    maximumRequests: 1,
+    fetchImpl: async () => {
+      calls++;
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location:
+            "https://fixture.blob.core.windows.net/archive?signature=fixture",
+        },
+      });
+    },
+  });
+  await assert.rejects(
+    redirect("/actions/artifacts/1/zip", { raw: true }),
+    /budget exhausted/u,
+  );
+  assert.equal(calls, 1);
+});
+
 test("an acknowledged artifact waits for its exact metadata ID before downloading", async () => {
   const requests = [],
     waits = [];

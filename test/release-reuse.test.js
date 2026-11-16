@@ -14,13 +14,37 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { selectQualificationArtifact } from "../scripts/release-reuse.js";
+import {
+  createReleaseReuseReader,
+  selectQualificationArtifact,
+} from "../scripts/release-reuse.js";
 import {
   verifyBuildEvidence,
   reuseDistributionEvidence,
   retainRecipientEvidence,
   qualificationArtifactDirectory,
 } from "../scripts/release-reuse-evidence.js";
+
+test("release evidence collection has a finite request and time budget", async () => {
+  const { budgets } = await import("../scripts/qualification-budgets.js");
+  let time = 0;
+  const read = createReleaseReuseReader("fixture", {
+    now: () => time,
+    fetchImpl: async () => {
+      time += budgets.read + 1;
+      return Response.json({ retained: true });
+    },
+  });
+  assert.deepEqual(await read("/actions/runs/1"), { retained: true });
+  time = budgets.collection;
+  await assert.rejects(read("/actions/runs/1"), /budget exhausted/u);
+  const count = createReleaseReuseReader("fixture", {
+    now: () => 0,
+    fetchImpl: async () => Response.json({ retained: true }),
+  });
+  for (let index = 0; index < 128; index++) await count("/actions/runs/1");
+  await assert.rejects(count("/actions/runs/1"), /budget exhausted/u);
+});
 
 test("archival consumes promoted evidence after original CI artifacts expire", (t) => {
   const f = retained(t);

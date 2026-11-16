@@ -532,6 +532,13 @@ export async function verifyProof({
     run,
     matrix,
   );
+  // Completed attempt inventories are shared by all jobs in this admission.
+  // Mutable run and artifact observations below still use fresh native reads.
+  const attempts = new Map();
+  const readAttempt = (path) => {
+    if (!attempts.has(path)) attempts.set(path, read(path));
+    return attempts.get(path);
+  };
   assert.ok(Array.isArray(receipt.executions));
   equal(
     receipt.executions.map((value) => value.job.name).sort(),
@@ -546,7 +553,12 @@ export async function verifyProof({
       sameJobExecution(execution.job, latest),
       "Original execution changed",
     );
-    await verifyProducingAttempt(latest, execution.runAttempt, run, read);
+    await verifyProducingAttempt(
+      latest,
+      execution.runAttempt,
+      run,
+      readAttempt,
+    );
   }
   assert.equal(hosts.length, matrix.os.length);
   for (const lane of matrix.os) {
@@ -575,7 +587,7 @@ export async function verifyProof({
       ),
       record.runAttempt,
       run,
-      read,
+      readAttempt,
     );
   }
   const final = await read(`/actions/runs/${run.id}`);

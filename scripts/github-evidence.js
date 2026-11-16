@@ -61,10 +61,16 @@ export function createRepositoryReader({
   deadline = now() + budgetMs,
   accept = "application/vnd.github+json",
   maximumDownloadBytes = artifactLimits.collectionBytes,
+  maximumRequests = 64,
 } = {}) {
   assert.match(repository, /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u);
   assert.ok(token, "Read-only GitHub token unavailable");
   assert.ok([budgets.read, budgets.collection].includes(budgetMs));
+  assert.ok(
+    Number.isSafeInteger(maximumRequests) &&
+      maximumRequests > 0 &&
+      maximumRequests <= 128,
+  );
   assert.ok(
     Number.isSafeInteger(maximumDownloadBytes) && maximumDownloadBytes > 0,
   );
@@ -102,7 +108,7 @@ export function createRepositoryReader({
     );
     for (let attempt = 0; attempt < 3; attempt++) {
       const remaining = end - now();
-      if (requests >= 64 || remaining <= 0) throw limit();
+      if (requests >= maximumRequests || remaining <= 0) throw limit();
       requests++;
       let response, bytes;
       try {
@@ -131,7 +137,7 @@ export function createRepositoryReader({
             "Unexpected artifact storage origin",
           );
           await response.body?.cancel();
-          if (++requests > 64 || now() >= end) throw limit();
+          if (++requests > maximumRequests || now() >= end) throw limit();
           // Never forward the GitHub credential to signed object-storage URLs.
           response = await fetchImpl(location, {
             redirect: "error",

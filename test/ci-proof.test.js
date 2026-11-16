@@ -411,10 +411,34 @@ async function observation(f, attempt = 1) {
   };
 }
 
+test("reuse shares completed attempt inventories but rechecks mutable run state", async () => {
+  const input = await proof(fixture());
+  const reads = new Map();
+  const original = input.read;
+  input.read = async (path) => {
+    reads.set(path, (reads.get(path) ?? 0) + 1);
+    return original(path);
+  };
+  await verifyProof(input);
+  assert.equal(reads.get("/actions/runs/71/attempts/1/jobs?per_page=100"), 1);
+  assert.equal(reads.get("/actions/runs/71"), 1);
+  await assert.rejects(
+    verifyProof({
+      ...input,
+      read: async (path) =>
+        path === "/actions/runs/71"
+          ? { ...fixture().run, run_attempt: 2 }
+          : original(path),
+    }),
+  );
+});
+
 test("manual release consumes an authenticated merge's original archives without repacking", async (t) => {
   const temporary = await mkdtemp(join(tmpdir(), "release-reuse-integration-"));
   t.after(() => rm(temporary, { recursive: true, force: true }));
   const f = fixture();
+  // Real producer receipts keep the lane beside the host identity, not inside it.
+  for (const record of f.records) delete record.host.lane;
   const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
   const archiveBytes = Buffer.from(
     "independently authored, qualified package bytes",
