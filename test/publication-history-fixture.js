@@ -1,6 +1,29 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { stagingSteps } from "../scripts/publication-origins.js";
 
+export function stagedUpload(job, artifact, conclusion = "success") {
+  const step = {
+    name: "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+    status: "completed",
+    conclusion,
+    started_at: job.completed_at,
+    completed_at: job.completed_at,
+  };
+  return {
+    step,
+    log: Buffer.from(
+      [
+        `##[group]${step.name}`,
+        `SHA256 digest of uploaded artifact is ${artifact.digest.slice(7)}`,
+        `Artifact ${artifact.name} successfully finalized. Artifact ID ${artifact.id}`,
+        "Post job cleanup.",
+      ]
+        .map((line) => `${job.completed_at} ${line}\n`)
+        .join(""),
+    ),
+  };
+}
+
 export function publicationHistoryFixture(attempt = 2) {
   const run = {
     id: 11,

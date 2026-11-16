@@ -219,6 +219,15 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
                   1_048_576,
                 )
               : null,
+            journalFor: (name) =>
+              bytes(
+                join(
+                  "previous-publication",
+                  "staging-journal",
+                  `${name}.jsonl`,
+                ),
+                1_048_576,
+              ),
           },
         }
       : {}),

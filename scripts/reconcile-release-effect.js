@@ -120,13 +120,15 @@ async function observeRejection({
   jobs,
   service,
   label,
+  operation,
   initial,
   jobLog,
 }) {
   if (
     effect.outcome !== "outcome-unknown" ||
-    effect.provider !== "npm" ||
-    !npmRequestRejected(effect.diagnostic) ||
+    operation !== "retire-pilot" ||
+    label !== "pilot" ||
+    !npmRequestRejected(effect) ||
     effects.at(-1) !== effect ||
     effects.filter((value) => value.outcome === "outcome-unknown").length !==
       1 ||
@@ -254,6 +256,7 @@ export async function reconcileReleaseEffect(
     jobs: original?.jobs,
     service: selected.service,
     label: operation.label,
+    operation: operation.operation,
     initial,
     jobLog:
       jobLog ??

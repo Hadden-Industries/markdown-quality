@@ -33,6 +33,7 @@ import {
   admitRetiredQualification,
 } from "../scripts/release-history.js";
 import {
+  pilotTagDeleteEndpoint,
   verifyEffectJournal,
   verifyEffectSettlement,
   verifySettlementObservation,
@@ -771,6 +772,7 @@ const removal = (name) => [
   name,
   "pilot",
   "--registry=https://registry.npmjs.org/",
+  "--fetch-retries=0",
   "--json",
 ];
 
@@ -1087,23 +1089,32 @@ test("completion binds the GitHub writer only when the admitted operation produc
 const npmStep = "Change only approved npm labels, natives first";
 
 /** npm's own `--json` error body for a refused registry request. */
-const rejectedRequest = (code = "E401") =>
+const originalPilotDelete = {
+  method: "DELETE",
+  status: 401,
+  endpoint: pilotTagDeleteEndpoint(releasePackages[1]),
+};
+const rejectedRequest = (summary) =>
   Object.assign(new Error("npm failed (status=1, signal=null)"), {
     status: 1,
+    signal: null,
     stdout: JSON.stringify({
-      error: { code, summary: "Unable to authenticate", detail: "" },
+      error: { code: "E401", summary, detail: "" },
     }),
   });
 
 /** Run an interrupted retirement whose Linux removal npm refuses with 401. */
-async function rejectedRetirement(t) {
+async function rejectedRetirement(
+  t,
+  summary = `401 Unauthorized - DELETE ${originalPilotDelete.endpoint}`,
+) {
   const f = retirement(t);
   await f.runPhase("admit");
   const npm = f.provider.npm;
   f.provider.npm = (args) => {
     if (args[2] !== releasePackages[1]) return npm(args);
     f.writes.push({ provider: "npm", args });
-    throw rejectedRequest();
+    throw rejectedRequest(summary);
   };
   await assert.rejects(f.runPhase("npm"), /npm failed/u);
   f.provider.npm = npm;
@@ -1189,6 +1200,7 @@ test("a structured native 401 is retained beside an unknown request and observed
   assert.deepEqual(effects[1].diagnostic, {
     exitStatus: 1,
     npmErrorCode: "E401",
+    refusal: originalPilotDelete,
   });
   const writes = r.f.writes.length;
   const observation = await r.observe();
@@ -1200,7 +1212,11 @@ test("a structured native 401 is retained beside an unknown request and observed
     job: r.job.id,
     step: npmStep,
     stepCompletedAt: r.job.steps[0].completed_at,
-    diagnostic: { exitStatus: 1, npmErrorCode: "E401" },
+    diagnostic: {
+      exitStatus: 1,
+      npmErrorCode: "E401",
+      refusal: originalPilotDelete,
+    },
     logSha256: hash(r.log),
     logBytes: r.log.length,
     observedPrior: "1.0.2",
@@ -1298,6 +1314,7 @@ test("only a fresh decision naming the exact rejection settlement repeats the re
       stepCompletedAt: r.job.steps[0].completed_at,
       logSha256: hash(r.log),
       npmErrorCode: "E401",
+      refusal: originalPilotDelete,
     },
   };
   const effect = verifyEffectSettlement(settlement, r.journal, r.context);
@@ -1311,6 +1328,14 @@ test("only a fresh decision naming the exact rejection settlement repeats the re
   for (const [reason, change] of [
     ["source", (value) => (value.rejection.source = "f".repeat(40))],
     ["endpoint label", (value) => (value.rejection.label = "latest")],
+    [
+      "wrong endpoint proof",
+      (value) =>
+        (value.rejection.refusal = {
+          ...originalPilotDelete,
+          endpoint: pilotTagDeleteEndpoint(releasePackages[0]),
+        }),
+    ],
     ["package", (value) => (value.rejection.package = releasePackages[2])],
     [
       "step time",

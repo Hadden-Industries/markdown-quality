@@ -6,25 +6,48 @@ import { npmCommand } from "./commands.js";
 import { releasePackages } from "./release-coordinates.js";
 import { transientProviderRead } from "./release-readback.js";
 import { retryDelay } from "./github-evidence.js";
+import { pilotTagDeleteEndpoint } from "./release-effects.js";
 
 /**
  * Summarize a failed native label request without retaining npm's free text.
  * The error code comes only from npm's `--json` error body; any other output
  * leaves it null, so the request stays an unknown outcome for reconciliation.
  */
-export function npmRequestDiagnostic(error) {
-  let code = null;
+export function npmRequestDiagnostic(error, expectedDelete) {
+  const exitStatus = Number.isSafeInteger(error?.status) ? error.status : null;
+  let nativeError;
   try {
-    const candidate = JSON.parse(error?.stdout ?? "")?.error?.code;
-    if (typeof candidate === "string" && /^E[0-9A-Z]{2,16}$/u.test(candidate))
-      code = candidate;
+    nativeError = JSON.parse(error?.stdout ?? "")?.error;
   } catch {
     /* No structured npm error body: the code remains unknown. */
   }
-  return {
-    exitStatus: Number.isSafeInteger(error?.status) ? error.status : null,
-    npmErrorCode: code,
+  const code = nativeError?.code;
+  const diagnostic = {
+    exitStatus,
+    npmErrorCode:
+      typeof code === "string" && /^E[0-9A-Z]{2,16}$/u.test(code) ? code : null,
   };
+  if (
+    expectedDelete &&
+    code === "E401" &&
+    exitStatus > 0 &&
+    error.signal === null &&
+    error.cause === undefined &&
+    typeof nativeError.summary === "string"
+  ) {
+    // The native error summary starts with the request coordinates before any
+    // registry response text. Persist only the matched, reviewed endpoint.
+    const match = /^401 Unauthorized - DELETE (\S+)(?: - [\s\S]*)?$/u.exec(
+      nativeError.summary,
+    );
+    if (match?.[1] === expectedDelete)
+      diagnostic.refusal = {
+        method: "DELETE",
+        status: 401,
+        endpoint: expectedDelete,
+      };
+  }
+  return diagnostic;
 }
 
 /** The caller authenticates settlements before passing their exact package targets. */
@@ -124,6 +147,12 @@ export async function executeFamilyLabels({
       integrity: operation.targetIntegrities?.[name] ?? null,
       step: `npm/${name}`,
     };
+    const retiredPilotDelete =
+      operation.operation === "retire-pilot" &&
+      operation.label === "pilot" &&
+      target === null
+        ? pilotTagDeleteEndpoint(name)
+        : undefined;
     record({
       state: "attempted",
       package: name,
@@ -144,6 +173,9 @@ export async function executeFamilyLabels({
                   name,
                   operation.label,
                   "--registry=https://registry.npmjs.org/",
+                  // Each retirement intent covers one registry request, even
+                  // when npm's HTTP client could retry the DELETE internally.
+                  ...(retiredPilotDelete ? ["--fetch-retries=0"] : []),
                   "--json",
                 ]
               : [
@@ -155,7 +187,9 @@ export async function executeFamilyLabels({
                   "--json",
                 ],
           ),
-        { diagnose: npmRequestDiagnostic },
+        {
+          diagnose: (error) => npmRequestDiagnostic(error, retiredPilotDelete),
+        },
       );
     } catch (error) {
       record({ state: "outcome-unknown", package: name, target });

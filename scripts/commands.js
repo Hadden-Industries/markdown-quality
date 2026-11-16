@@ -165,6 +165,8 @@ function runNpm(executable, cli, args, options) {
       `npm ${args[0]} failed after ${Math.round(performance.now() - started)}ms (status=${result.status}, signal=${result.signal}, error=${result.error?.code ?? "none"}): ${diagnostic}${result.error ? ` ${result.error.message}` : ""}`,
       { cause: result.error },
     );
+    error.status = result.status;
+    error.signal = result.signal;
     error.stdout = String(result.stdout ?? "").slice(-8192);
     error.stderr = String(stderr).slice(-8192);
     error.code = result.error?.code;

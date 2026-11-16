@@ -27,7 +27,7 @@ import {
   readPublicationAttempts,
   verifyFirstStagingAttempt,
 } from "./publication-attempts.js";
-import { downloadPublicationArtifact } from "./publication-artifact.js";
+import { acquirePublicationArtifact } from "./publication-artifact.js";
 import {
   publicationSubject,
   readPublicationSubjects,
@@ -251,7 +251,7 @@ function checkpointPublicationSubjects(signedCheckpoints, scratch) {
 export async function readPublicationHistory(
   currentRun,
   gh = (args) => native("gh", args),
-  download = downloadPublicationArtifact,
+  download,
   {
     version,
     archives = readArchivedPublicationSubjects,
@@ -281,6 +281,11 @@ export async function readPublicationHistory(
   assert.equal(new Set(runs.map((run) => run.id)).size, runs.length);
   const current = runs.find((run) => String(run.id) === String(currentRun));
   assert.ok(current, "Current run absent from native history");
+  let signed = checkpoints;
+  const originalCheckpoints = () =>
+    (signed ??= env.HISTORY_CHECKPOINT
+      ? readSignedHistoryRefs(JSON.parse(env.HISTORY_CHECKPOINT), gh)
+      : []);
   const scratch = mkdtempSync(join(tmpdir(), "publication-history-"));
   try {
     const history = [];
@@ -342,11 +347,23 @@ export async function readPublicationHistory(
       const directory = join(scratch, String(entry.run.id));
       const attempt = entry.jobs.jobs[0].run_attempt;
       try {
-        await download({ run: entry.run, attempt, destination: directory });
+        if (download)
+          await download({ run: entry.run, attempt, destination: directory });
+        else {
+          const original = entry.attempts[attempt - 1];
+          await acquirePublicationArtifact({
+            runId: entry.run.id,
+            attempt,
+            destination: directory,
+            observed: { run: original.run, inventory: original.jobs },
+            checkpoints: originalCheckpoints,
+          });
+        }
       } catch (error) {
         // Only authenticated unavailability can be discharged by an independently
         // verified other-version subject; digest/provider/ambiguity failures stop here.
         if (
+          ![404, 410].includes(error.httpStatus) &&
           ![
             "PUBLICATION_ARTIFACT_MISSING",
             "EVIDENCE_ARTIFACT_EXPIRED",
@@ -388,11 +405,7 @@ export async function readPublicationHistory(
     if (version && [...missing.keys()].some((entry) => !classify(entry)))
       subjects.push(...archives(gh, scratch));
     if (version && [...missing.keys()].some((entry) => !classify(entry))) {
-      const signedCheckpoints =
-        checkpoints ??
-        (env.HISTORY_CHECKPOINT
-          ? readSignedHistoryRefs(JSON.parse(env.HISTORY_CHECKPOINT), gh)
-          : []);
+      const signedCheckpoints = originalCheckpoints();
       if (signedCheckpoints.length)
         subjects.push(
           ...checkpointPublicationSubjects(signedCheckpoints, scratch),

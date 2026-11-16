@@ -23,6 +23,7 @@ import { verifyReleaseTag } from "./verify-release-tag.js";
 import { authenticateStagingRecovery } from "./release-staging-recovery.js";
 import { createRepositoryReader } from "./github-evidence.js";
 import { downloadEvidence } from "./download-evidence.js";
+import { publicationUploadAcknowledgment } from "./publication-upload.js";
 import { budgets } from "./qualification-budgets.js";
 import { retainedObservationIdentity } from "./release-retained-artifacts.js";
 import {
@@ -553,6 +554,7 @@ export async function collectWriterHistory({
   checkpoints = [],
   gh = (args) => native("gh", args),
   download = downloadEvidence,
+  readEvidence,
   approvedControllers = protectedControllerHistory(env.GITHUB_SHA),
   intents = readWriterIntents(gh),
   requireIntent = false,
@@ -838,11 +840,36 @@ export async function collectWriterHistory({
               run.head_repository.id,
             );
             assert.equal(artifact.workflow_run.head_sha, original.head_sha);
-            const read = createRepositoryReader({
-              repository,
-              token: env.GH_TOKEN ?? env.GITHUB_TOKEN,
-              budgetMs: budgets.collection,
-            });
+            const read =
+              readEvidence ??
+              createRepositoryReader({
+                repository,
+                token: env.GH_TOKEN ?? env.GITHUB_TOKEN,
+                budgetMs: budgets.collection,
+              });
+            if (job.name === "stage") {
+              let acknowledgment;
+              try {
+                acknowledgment = await publicationUploadAcknowledgment(
+                  job,
+                  artifact.name,
+                  read,
+                );
+              } catch (error) {
+                if (!old || ![404, 410].includes(error.httpStatus)) throw error;
+                acknowledgment = old.artifact;
+              }
+              assert.ok(
+                acknowledgment,
+                "Original staging upload acknowledgment is unavailable",
+              );
+              for (const name of ["id", "name", "digest"])
+                assert.equal(
+                  artifact[name],
+                  acknowledgment[name],
+                  "Writer artifact differs from its original acknowledgment",
+                );
+            }
             await download({
               id: artifact.id,
               destination,
@@ -851,6 +878,7 @@ export async function collectWriterHistory({
               repositoryId: run.repository.id,
               headRepositoryId: run.head_repository.id,
               headSha: run.head_sha,
+              expectedArtifact: artifact,
             });
             live.push({ ...base, artifact, files: retainedFiles(destination) });
           }

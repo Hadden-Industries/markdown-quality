@@ -217,10 +217,18 @@ Each stage rechecks all approved defaults and earlier attributable approvals imm
 A later default, foreign origin or incomplete provider history blocks the request.
 An attempted stage remains pending or outcome-unknown until original provider evidence settles it; a public 404 does not authorize another request.
 An evidence-upload failure after completed native requests preserves those requests and the original failed workflow outcome.
-Continue with the original manifest and origin-map digests after owner approval and both public native checks; the core phase retains the two native origins instead of staging them again.
+Continue with the original manifest and origin-map digests, both original completed native staging receipts, owner approval and both public native checks.
+The core phase retains both native origins.
+A missing, mismatched or unresolved receipt goes through the reconciliation procedure before core staging.
+The consumer identifies the exact artifact ID and digest from the original attempt's upload step and verifies the bytes before extracting them.
+If the artifact or run has expired, supply the complete original attempt inventory and both journal byte streams through `history-checkpoints` on the staging, public qualification and archival dispatches.
+The retained copy must agree with surviving provider evidence.
 Public finalization and archival accept a core staging attempt whose stage job failed only after its completed requests, for example at evidence upload, provided every prerequisite job succeeded and the attempt's own publication artifact authenticates.
 A failure before or during a request, an unsuccessful prerequisite or a run without a completed request still blocks, and the failed conclusion stays in the record.
-Known artifact metadata IDs may briefly return 404 while GitHub indexes them; the evidence reader retries only that exact metadata lookup within its existing read budget, without repeating an upload or npm request.
+Known artifact metadata IDs may briefly return 404 while GitHub indexes them.
+The reader retries that exact ID within its existing read budget.
+If the budget expires, use the original run, attempt and known artifact ID for a read-only retry.
+The original writer conclusion and request journals remain the basis for any later owner decision.
 
 The archival workflow's new decision route is read-only.
 The protected legacy-decisions job accepts only schema-1 records from a mutable draft.
@@ -342,12 +350,17 @@ Reference that job's URL and the observation file's SHA-256 in the next operatio
 Only an independent target-visible observation can support this applied settlement.
 An old label or public absence cannot establish `not-applied`; unresolved requests remain blocked.
 
-A refused npm label request has one supported settlement class: npm's structured `E401` refusal retained in the original journal.
+A refused pilot retirement has one supported settlement class.
+The original journal must identify HTTP 401 on the exact package's `pilot` DELETE at the npm registry.
 Run the same read-only reconcile mode for that request.
-The observation is `rejected` only when the journal's structured code is `E401` with a nonzero exit, the refused request is the writer's last and only unknown request, the original npm job and its request step both failed, and the prior value is still publicly visible.
+The retirement writer disables npm fetch retries for that removal.
+The journal retains the nonzero exit, `E401` and the provider-reported method, status and endpoint.
+The observation is `rejected` only when the refused request is the writer's last and only unknown request, the original npm job and its request step both failed, and the prior value is still publicly visible.
 The reader retains the original job ID, step completion time and the SHA-256 and size of the native job log while it is still available, never the log content.
-A timeout, connection loss, missing log, other error code, later request or acknowledgement leaves the request unknown under the existing rules.
+A timeout, connection loss, preliminary GET or OIDC failure, bare `E401`, missing log, ambiguous earlier DELETE, later request or conflicting acknowledgement leaves the request unknown under the existing rules.
 Settle it with disposition `rejected`, the original decisionSha256, and a `rejection` record naming package, label, source, controller, run, attempt, job, step, stepCompletedAt, logSha256 and npmErrorCode exactly as observed.
+Include `refusal` with the original method, status and endpoint.
+After the original logs expire, complete signed history can replay the previously authenticated proof and its original journal bindings.
 Repairing the trusted publisher grants no release-operation authority.
 A fresh retirement then binds originalOperationId, originalDecisionSha256, originalJournalSha256 and originalWriter run/attempt/job and carries that settlement in `settlements`.
 Removals the original writer acknowledged become approved no-ops with a null prior, the refused request may be issued again only because the decision names its settlement, and untouched aliases keep their original priors.

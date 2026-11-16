@@ -29,6 +29,7 @@ import {
   authenticateArtifact,
 } from "../scripts/release-retained-artifacts.js";
 import { verifySettlementObservation } from "../scripts/release-effects.js";
+import { stagedUpload } from "./publication-history-fixture.js";
 import { verifyRecoveryAttribution } from "../scripts/release-history.js";
 import { releasePackages } from "../scripts/release-coordinates.js";
 import { retainedCheckpointTargets } from "../scripts/prepare-release-history.js";
@@ -497,7 +498,6 @@ test("a failed native staging writer whose requests completed is exported with i
       ["Stage Linux package under reviewed channel", "success"],
       ["Verify both native archives before core staging", "skipped"],
       ["Stage coherent core under reviewed channel", "skipped"],
-      ["Run actions/upload-artifact", "failure"],
     ].map(([name, conclusion]) => ({ name, status: "completed", conclusion })),
   };
   const artifact = {
@@ -513,6 +513,8 @@ test("a failed native staging writer whose requests completed is exported with i
       head_sha: sha,
     },
   };
+  const receipt = stagedUpload(stage, artifact, "failure");
+  stage.steps.push(receipt.step);
   let artifacts = [artifact],
     downloads = 0;
   const gh = (args) => {
@@ -533,6 +535,10 @@ test("a failed native staging writer whose requests completed is exported with i
   const options = {
     env: { GH_TOKEN: "fixture" },
     gh,
+    readEvidence: async (path) => {
+      assert.equal(path, `/actions/jobs/${stage.id}/logs`);
+      return receipt.log;
+    },
     download: async ({ id, destination }) => {
       assert.equal(id, artifact.id);
       downloads++;

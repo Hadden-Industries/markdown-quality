@@ -12,14 +12,28 @@ import {
   readPublicationHistory,
   verifyPublicationHistory,
 } from "../scripts/publication-history.js";
-import { downloadPublicationArtifact } from "../scripts/publication-artifact.js";
-import { publicationHistoryFixture } from "./publication-history-fixture.js";
+import {
+  acquirePublicationArtifact,
+  downloadPublicationArtifact,
+} from "../scripts/publication-artifact.js";
+import {
+  publicationHistoryFixture,
+  stagedUpload,
+} from "./publication-history-fixture.js";
 import { providerFor } from "../scripts/release-continuation.js";
 import { verifyProvider } from "../scripts/release-assets.js";
 import { reviewedChannelStagingSteps } from "../scripts/publication-steps.js";
 import { checkWorkflows } from "../scripts/check-workflows.js";
-import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
+import {
+  readFileSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { hash } from "../scripts/release-bytes.js";
 import { parse, stringify } from "yaml";
 
 test("prewrite continuation admits only complete native proof and an authenticated admission artifact", async () => {
@@ -35,6 +49,7 @@ test("prewrite continuation admits only complete native proof and an authenticat
     attempt: 1,
     destination: "fixture",
     prewrite: f,
+    inventory: f.attempts[0].jobs,
     read: async () => ({
       total_count: 1,
       artifacts: [{ id: 77, name: "publication-admission-1" }],
@@ -47,6 +62,7 @@ test("prewrite continuation admits only complete native proof and an authenticat
   assert.equal((await downloadPublicationArtifact(input)).admissionOnly, true);
   assert.equal(downloaded, 1);
   f.set(1, [f.job(1, "failure")]);
+  input.inventory = f.attempts[0].jobs;
   await assert.rejects(
     () => downloadPublicationArtifact(input),
     /possible prior request/u,
@@ -592,15 +608,20 @@ test("completed off-branch no-write dispatches do not block later main staging",
 
 test("artifact selection preserves original attempt names and legacy recovery with authenticated download", async () => {
   const f = publicationHistoryFixture();
-  for (const name of [
-    "publication-source-and-manifest-2",
-    "publication-source-and-manifest",
+  Object.assign(f.run, { status: "completed", conclusion: "success" });
+  for (const [attempt, name] of [
+    [2, "publication-source-and-manifest-2"],
+    [1, "publication-source-and-manifest"],
   ]) {
     let downloaded;
     await downloadPublicationArtifact({
       run: f.run,
-      attempt: 2,
+      attempt,
       destination: "fixture",
+      inventory: {
+        total_count: 1,
+        jobs: [f.job(attempt, "success", "publish")],
+      },
       read: async () => ({ total_count: 1, artifacts: [{ id: 7, name }] }),
       download: async (input) => {
         downloaded = input;
@@ -631,6 +652,7 @@ test("artifact selection preserves original attempt names and legacy recovery wi
         run: f.run,
         attempt: 2,
         destination: "fixture",
+        inventory: { total_count: 1, jobs: [f.job(2, "success", "publish")] },
         read: async () => result,
         download: async () =>
           assert.fail("Uncertain artifact must not download"),
@@ -640,6 +662,8 @@ test("artifact selection preserves original attempt names and legacy recovery wi
 
 test("publication artifact lookup handles complete multi-page histories without name fallback on download failure", async () => {
   const f = publicationHistoryFixture();
+  Object.assign(f.run, { status: "completed", conclusion: "success" });
+  const inventory = { total_count: 1, jobs: [f.job(2, "success", "publish")] };
   const first = Array.from({ length: 100 }, (_, index) => ({
     id: index + 100,
     name: `prior-${index}`,
@@ -651,6 +675,7 @@ test("publication artifact lookup handles complete multi-page histories without 
     run: f.run,
     attempt: 2,
     destination: "fixture",
+    inventory,
     read: async (path) => {
       paths.push(path);
       return {
@@ -670,6 +695,7 @@ test("publication artifact lookup handles complete multi-page histories without 
       run: f.run,
       attempt: 2,
       destination: "fixture",
+      inventory,
       read: async () => ({
         total_count: 2,
         artifacts: [
@@ -689,4 +715,122 @@ test("publication artifact lookup handles complete multi-page histories without 
     1,
     "A conflicting modern artifact cannot fall back to older ownership",
   );
+});
+
+test("the original stage log selects an immutable upload even before the run artifact list can expose it", async () => {
+  const f = publicationHistoryFixture();
+  Object.assign(f.run, { status: "completed", conclusion: "failure" });
+  const writer = f.job(2, "failure");
+  const artifact = {
+    id: 22,
+    digest: `sha256:${"b".repeat(64)}`,
+    name: "publication-source-and-manifest-2",
+  };
+  const receipt = stagedUpload(writer, artifact, "failure");
+  writer.steps.push(receipt.step);
+  const inventory = { total_count: 1, jobs: [writer] };
+  const observed = [];
+  const input = {
+    run: f.run,
+    attempt: 2,
+    destination: "fixture",
+    inventory,
+    read: async (path) => {
+      observed.push(path);
+      return receipt.log;
+    },
+    download: async (transfer) => {
+      assert.equal(transfer.id, 22);
+      assert.deepEqual(transfer.expectedArtifact, artifact);
+      return artifact;
+    },
+  };
+  assert.equal((await downloadPublicationArtifact(input)).id, 22);
+  assert.deepEqual(observed, ["/actions/jobs/200/logs"]);
+  const inherited = stagedUpload(
+    writer,
+    { ...artifact, id: 11, name: "publication-source-and-manifest-1" },
+    "failure",
+  );
+  await assert.rejects(
+    downloadPublicationArtifact({
+      ...input,
+      read: async () => inherited.log,
+      download: async () =>
+        assert.fail("Copied execution must not start a transfer"),
+    }),
+    /another attempt/u,
+  );
+});
+
+test("complete signed staging inventory can supply the original bytes after Actions loses the whole run", async (t) => {
+  const f = publicationHistoryFixture(1);
+  Object.assign(f.run, { status: "completed", conclusion: "failure" });
+  const job = f.job(1, "failure");
+  const inventory = { total_count: 1, jobs: [job] };
+  const artifact = {
+    id: 70,
+    name: "publication-source-and-manifest-1",
+    expired: false,
+    size_in_bytes: 42,
+    digest: `sha256:${"e".repeat(64)}`,
+    workflow_run: {
+      id: 11,
+      repository_id: 3,
+      head_repository_id: 3,
+      head_sha: f.run.head_sha,
+    },
+  };
+  const bytes = Buffer.from('{"state":"staged-awaiting-owner"}\n');
+  const entry = {
+    run: f.run,
+    attempt: 1,
+    job,
+    inventory,
+    artifact,
+    files: {
+      "staging-journal/win32-x64.jsonl": {
+        base64: bytes.toString("base64"),
+        sha256: hash(bytes),
+      },
+      "staging-journal/linux-x64.jsonl": {
+        base64: bytes.toString("base64"),
+        sha256: hash(bytes),
+      },
+    },
+  };
+  const root = mkdtempSync(join(tmpdir(), "markdown-quality-original-stage-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const input = {
+    runId: 11,
+    attempt: 1,
+    destination: join(root, "restored"),
+    checkpoints: () => [
+      { writers: [entry], writerAttempts: [{ run: f.run, inventory }] },
+    ],
+    read: async () => {
+      throw Object.assign(new Error("expired"), { httpStatus: 404 });
+    },
+    download: async () =>
+      assert.fail("Expired original is restored from signed bytes"),
+  };
+  await assert.rejects(
+    acquirePublicationArtifact({ ...input, checkpoints: () => [] }),
+    /unavailable/u,
+  );
+  await assert.rejects(
+    acquirePublicationArtifact({
+      ...input,
+      read: async (path) => {
+        if (path === "/actions/artifacts/70")
+          return { ...artifact, digest: `sha256:${"f".repeat(64)}` };
+        return input.read();
+      },
+    }),
+    /identities disagree/u,
+  );
+  const original = await acquirePublicationArtifact(input);
+  assert.equal(original.publication.run.conclusion, "failure");
+  for (const name of Object.keys(entry.files))
+    assert.deepEqual(readFileSync(join(input.destination, name)), bytes);
 });

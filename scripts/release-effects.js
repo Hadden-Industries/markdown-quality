@@ -162,11 +162,12 @@ export function verifyEffectJournal(bytes, context) {
   });
 }
 
-/** A retained native diagnostic is a public-safe exit status and error code only. */
+/** A retained native diagnostic may also bind an exact, one-shot pilot DELETE. */
 export function verifyRequestDiagnostic(diagnostic) {
   assert.deepEqual(Object.keys(diagnostic).sort(), [
     "exitStatus",
     "npmErrorCode",
+    ...(Object.hasOwn(diagnostic, "refusal") ? ["refusal"] : []),
   ]);
   assert.ok(
     diagnostic.exitStatus === null ||
@@ -176,18 +177,46 @@ export function verifyRequestDiagnostic(diagnostic) {
     diagnostic.npmErrorCode === null ||
       /^E[0-9A-Z]{2,16}$/u.test(diagnostic.npmErrorCode),
   );
+  if (Object.hasOwn(diagnostic, "refusal")) {
+    assert.equal(diagnostic.npmErrorCode, "E401");
+    assert.ok(diagnostic.exitStatus > 0);
+    assert.deepEqual(Object.keys(diagnostic.refusal).sort(), [
+      "endpoint",
+      "method",
+      "status",
+    ]);
+    assert.equal(diagnostic.refusal.method, "DELETE");
+    assert.equal(diagnostic.refusal.status, 401);
+    assert.ok(
+      releasePackages.some(
+        (name) => diagnostic.refusal.endpoint === pilotTagDeleteEndpoint(name),
+      ),
+    );
+  }
   return diagnostic;
 }
 
 /** The writer step whose failure accompanies a refused native label request. */
 export const npmRequestStep = "Change only approved npm labels, natives first";
 
-/** The first supported rejection class: npm's structured HTTP 401 refusal. */
-export function npmRequestRejected(diagnostic) {
+/** Canonicalize the fixed native endpoint for the reviewed package family. */
+export function pilotTagDeleteEndpoint(name) {
+  assert.ok(releasePackages.includes(name));
+  return `https://registry.npmjs.org/-/package/${name.replace("/", "%2f")}/dist-tags/pilot`;
+}
+
+/** Only the exact refused pilot removal can settle this effect. */
+export function npmRequestRejected(effect) {
+  const { diagnostic } = effect;
   return (
+    effect.provider === "npm" &&
+    effect.operation === "delete-label" &&
+    effect.target === null &&
     diagnostic?.npmErrorCode === "E401" &&
-    Number.isSafeInteger(diagnostic.exitStatus) &&
-    diagnostic.exitStatus !== 0
+    diagnostic.exitStatus > 0 &&
+    diagnostic.refusal?.method === "DELETE" &&
+    diagnostic.refusal.status === 401 &&
+    diagnostic.refusal.endpoint === pilotTagDeleteEndpoint(effect.subject)
   );
 }
 
@@ -212,8 +241,13 @@ export function verifyEffectSettlement(settlement, journal, context) {
     assert.equal(settlement.decisionSha256, context.decisionSha256);
     assert.equal(effect.provider, "npm");
     assert.ok(
-      npmRequestRejected(effect.diagnostic),
-      "Only npm's structured 401 refusal can settle a request as rejected",
+      npmRequestRejected(effect),
+      "Only the exact native pilot DELETE 401 can settle a request as rejected",
+    );
+    assert.equal(effects.at(-1), effect, "The refused request must be last");
+    assert.equal(
+      effects.filter((record) => record.outcome === "outcome-unknown").length,
+      1,
     );
   }
   assert.ok(settlement.rationale?.trim().length >= 20);
@@ -297,8 +331,10 @@ function verifyRejectionObservation(settlement, effect, context, observation) {
   assert.equal(observation.observedState, "rejected");
   const observed = observation.rejection;
   assert.deepEqual(observed.diagnostic, effect.diagnostic);
-  assert.ok(npmRequestRejected(observed.diagnostic));
+  assert.ok(npmRequestRejected(effect));
   assert.equal(observed.package, effect.subject);
+  assert.equal(observed.label, "pilot");
+  assert.equal(observation.observation.npm[effect.subject], effect.prior);
   assert.equal(observed.observedPrior, effect.prior);
   assert.equal(observed.step, npmRequestStep);
   assert.ok(
@@ -319,6 +355,7 @@ function verifyRejectionObservation(settlement, effect, context, observation) {
       stepCompletedAt: observed.stepCompletedAt,
       logSha256: observed.logSha256,
       npmErrorCode: observed.diagnostic.npmErrorCode,
+      refusal: effect.diagnostic.refusal,
     },
     "Rejection settlement differs from its exact native observation",
   );

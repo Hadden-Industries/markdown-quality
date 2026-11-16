@@ -20,6 +20,7 @@ const producerOnly = new Set([
   "node-projections",
   "node-support",
   "npm-acquisition",
+  "npm-label-request",
   "packaging",
   "packed-qualification",
   "publication",
