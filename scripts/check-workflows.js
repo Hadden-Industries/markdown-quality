@@ -241,6 +241,47 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
   );
   const publication = workflows.get("./.github/workflows/publish.yml");
   const archival = workflows.get("./.github/workflows/github-release.yml");
+  // One decision branch is intentionally skipped. Explicit status functions
+  // prevent that ancestor from skipping a prepared writer and its completion.
+  const archivalCondition =
+    "${{ !cancelled() && needs.prepare.result == 'success' }}";
+  assert.equal(
+    archival.jobs.archive.needs,
+    "prepare",
+    "archival writer must follow preparation",
+  );
+  assert.equal(
+    archival.jobs.archive.if,
+    archivalCondition,
+    "archival writer must override inherited skip status without ignoring cancellation",
+  );
+  assert.deepEqual(
+    [...archival.jobs.complete.needs].sort(),
+    ["archive", "prepare"],
+    "archival completion must await both original jobs",
+  );
+  assert.equal(
+    archival.jobs.complete.if,
+    archivalCondition,
+    "archival completion must inspect an unexpectedly skipped writer",
+  );
+  const completionSteps = archival.jobs.complete.steps;
+  const completionGateIndex = completionSteps.findIndex(
+    (step) => step.name === "Require a successful archival writer",
+  );
+  const completionDownloadIndex = completionSteps.findIndex((step) =>
+    step.uses?.startsWith("actions/download-artifact@"),
+  );
+  assert.ok(
+    completionGateIndex >= 0 &&
+      completionDownloadIndex > completionGateIndex &&
+      !Object.hasOwn(completionSteps[completionGateIndex], "if") &&
+      completionSteps[completionGateIndex].env?.NEEDS_JSON ===
+        "${{ toJSON(needs) }}" &&
+      completionSteps[completionGateIndex].run.trim() ===
+        'node --input-type=module -e \'import assert from "node:assert/strict"; assert.equal(JSON.parse(process.env.NEEDS_JSON).archive.result, "success", "Archival writer did not succeed");\'',
+    "archival completion must refuse an unsuccessful writer before reading its evidence",
+  );
   const promotion = workflows.get("./.github/workflows/promote-release.yml");
   // Only the authenticated admission decides that an operation is npm-only;
   // completion may accept a skipped GitHub writer for exactly that decision.
