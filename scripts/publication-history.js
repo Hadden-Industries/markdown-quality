@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import {
   appendFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -35,6 +36,7 @@ import {
   readArchivedPublicationSubjects,
 } from "./publication-subjects.js";
 import { readSignedHistoryRefs } from "./release-history.js";
+import { writerBaseline } from "./release-writer-inventory.js";
 import {
   createLegacyProvenanceResolver,
   verifyRecoveredProvenanceWriter,
@@ -346,12 +348,17 @@ export async function readPublicationHistory(
       if (classify(entry)) continue;
       const directory = join(scratch, String(entry.run.id));
       const attempt = entry.jobs.jobs[0].run_attempt;
+      let originalArtifact;
       try {
         if (download)
-          await download({ run: entry.run, attempt, destination: directory });
+          originalArtifact = await download({
+            run: entry.run,
+            attempt,
+            destination: directory,
+          });
         else {
           const original = entry.attempts[attempt - 1];
-          await acquirePublicationArtifact({
+          originalArtifact = await acquirePublicationArtifact({
             runId: entry.run.id,
             attempt,
             destination: directory,
@@ -376,6 +383,50 @@ export async function readPublicationHistory(
       entry.manifestBytes = readFileSync(
         join(directory, "frozen-release/release-manifest.json"),
       );
+      const reviewed = (
+        baseline ?? writerBaseline
+      ).publish.noRequestAttempts?.find(
+        (record) => record.run === entry.run.id && record.attempt === attempt,
+      );
+      if (reviewed) {
+        // This is an explicit reviewed recovery decision about one immutable
+        // original artifact, not an inference from absent npm metadata or logs.
+        const job = entry.jobs.jobs[0];
+        const artifact = originalArtifact?.artifact;
+        assert.ok(
+          entry.run.status === "completed" &&
+            entry.run.conclusion === "failure" &&
+            entry.run.run_attempt === attempt &&
+            entry.run.head_sha === reviewed.controller &&
+            job.name === "stage" &&
+            job.id === reviewed.job &&
+            job.conclusion === "failure" &&
+            artifact?.id === reviewed.artifactId &&
+            artifact.name === `publication-source-and-manifest-${attempt}` &&
+            artifact.digest === reviewed.artifactDigest &&
+            hash(entry.manifestBytes) === reviewed.manifestSha256,
+          "Original staging evidence differs from the reviewed no-request decision",
+        );
+        const names = stagingStepNames(job);
+        for (const [index, name] of names.entries()) {
+          const steps = job.steps.filter((step) => step.name === name);
+          assert.ok(
+            steps.length === 1 &&
+              steps[0].status === "completed" &&
+              steps[0].conclusion === (index === 0 ? "failure" : "skipped"),
+            "Staging steps differ from the reviewed no-request decision",
+          );
+        }
+        assert.ok(
+          !existsSync(join(directory, "staging-journal")),
+          "A staging intent cannot use no-request recovery",
+        );
+        entry.reviewedNoRequest = reviewed;
+        // Preserve the complete failed attempt above. Only the possible-effect
+        // projection changes; later reruns and other attempts cannot inherit it.
+        entry.jobs = { total_count: 0, jobs: [] };
+        continue;
+      }
       const subject = publicationSubject(entry.manifestBytes);
       admitSubject(
         entry,

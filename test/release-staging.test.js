@@ -2,7 +2,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { stageReleaseArchive } from "../scripts/stage-release-package.js";
@@ -327,6 +333,114 @@ test("history includes later dispatches because concurrency does not guarantee d
     calls
       .filter((args) => args[1].includes("/jobs?"))
       .every((args) => args[1].includes("/attempts/1/jobs?per_page=100")),
+  );
+});
+
+test("reviewed no-request recovery keeps original failed staging evidence without reserving an unissued package request", async () => {
+  const current = publicationHistoryFixture(1);
+  const prior = {
+    ...current.run,
+    id: 10,
+    run_number: 1,
+    status: "completed",
+    conclusion: "failure",
+  };
+  const job = { ...current.job(1, "failure"), run_id: prior.id };
+  job.steps.slice(1).forEach((step) => {
+    step.conclusion = "skipped";
+  });
+  const manifest = Buffer.from('{"version":"3.0.3"}\n');
+  const artifact = {
+    id: 200,
+    name: "publication-source-and-manifest-1",
+    digest: "sha256:" + "c".repeat(64),
+  };
+  const attestation = {
+    run: prior.id,
+    attempt: 1,
+    job: job.id,
+    controller: prior.head_sha,
+    artifactId: artifact.id,
+    artifactDigest: artifact.digest,
+    manifestSha256: createHash("sha256").update(manifest).digest("hex"),
+  };
+  const collect = (record, response = artifact, withIntent = false) =>
+    readPublicationHistory(
+      "11",
+      (args) => {
+        if (args[1].includes("workflows/publish.yml/runs"))
+          return JSON.stringify([
+            {
+              total_count: 2,
+              workflow_runs: [{ ...current.run, run_number: 2 }, prior],
+            },
+          ]);
+        const original = args[1].includes("/10");
+        if (args[1].includes("/jobs?"))
+          return JSON.stringify(
+            original
+              ? { total_count: 1, jobs: [job] }
+              : { total_count: 0, jobs: [] },
+          );
+        return JSON.stringify(original ? prior : current.run);
+      },
+      async ({ destination }) => {
+        mkdirSync(join(destination, "frozen-release"), { recursive: true });
+        writeFileSync(
+          join(destination, "frozen-release/release-manifest.json"),
+          manifest,
+        );
+        if (withIntent) {
+          mkdirSync(join(destination, "staging-journal"));
+          writeFileSync(
+            join(destination, "staging-journal/win32-x64-startup.json"),
+            "{}",
+          );
+        }
+        return { artifact: response };
+      },
+      { baseline: { publish: { noRequestAttempts: [record] } } },
+    );
+  const history = await collect(attestation);
+  const original = history.find(({ run }) => run.id === prior.id);
+  assert.equal(
+    original.jobs.jobs.length,
+    0,
+    "No unissued stage request is reserved",
+  );
+  assert.equal(
+    original.attempts[0].jobs.jobs[0].conclusion,
+    "failure",
+    "Original failure remains inspectable",
+  );
+  for (const key of [
+    "job",
+    "controller",
+    "artifactId",
+    "artifactDigest",
+    "manifestSha256",
+  ])
+    await assert.rejects(
+      () => collect({ ...attestation, [key]: "changed" }),
+      /reviewed no-request/u,
+    );
+  await assert.rejects(
+    () =>
+      collect(attestation, { ...artifact, digest: "sha256:" + "d".repeat(64) }),
+    /reviewed no-request/u,
+  );
+  await assert.rejects(() => collect(attestation, artifact, true), /intent/u);
+  await assert.rejects(
+    () => collect(attestation, null),
+    /reviewed no-request/u,
+  );
+  job.steps[0].conclusion = "success";
+  await assert.rejects(() => collect(attestation), /reviewed no-request/u);
+  job.steps[0].conclusion = "failure";
+  const unreviewed = await collect({ ...attestation, run: 99 });
+  assert.equal(
+    unreviewed.find(({ run }) => run.id === prior.id).jobs.jobs.length,
+    1,
   );
 });
 
