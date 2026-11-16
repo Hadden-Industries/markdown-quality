@@ -36,6 +36,7 @@ import {
   readArchivedPublicationSubjects,
 } from "./publication-subjects.js";
 import { readSignedHistoryRefs } from "./release-history.js";
+import { retainedFileBytes } from "./release-retained-artifacts.js";
 import { writerBaseline } from "./release-writer-inventory.js";
 import {
   createLegacyProvenanceResolver,
@@ -232,10 +233,7 @@ function checkpointPublicationSubjects(signedCheckpoints, scratch) {
         if (entry.files["provider/staging-history.json"])
           writeFileSync(
             join(dir, "provider/staging-history.json"),
-            Buffer.from(
-              entry.files["provider/staging-history.json"].base64,
-              "base64",
-            ),
+            retainedFileBytes(entry.files["provider/staging-history.json"]),
           );
         subjects.push(
           ...readPublicationSubjects(
@@ -425,6 +423,9 @@ export async function readPublicationHistory(
         // Preserve the complete failed attempt above. Only the possible-effect
         // projection changes; later reruns and other attempts cannot inherit it.
         entry.jobs = { total_count: 0, jobs: [] };
+        // The exact manifest remains in its original authenticated artifact.
+        // A settled no-request entry needs no duplicate package-source payload.
+        delete entry.manifestBytes;
         continue;
       }
       const subject = publicationSubject(entry.manifestBytes);
@@ -541,7 +542,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     });
     writeFileSync(
       "provider/staging-history.json",
-      JSON.stringify(history, null, 2) + "\n",
+      JSON.stringify(history) + "\n",
       { flag: "wx" },
     );
     assert.deepEqual(

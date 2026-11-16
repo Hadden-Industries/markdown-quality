@@ -5,6 +5,29 @@ import { hash } from "./release-bytes.js";
 import { native } from "./commands.js";
 import { verifyReleaseAcceptance } from "./release-acceptance.js";
 import { releaseCommit } from "./release-qualification.js";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+/** Check the complete local request before spending a hosted run on owner decisions. */
+export function verifyDispatchPayload(payload) {
+  assert.equal(payload.ref, "main");
+  assert.ok(
+    payload.inputs &&
+      typeof payload.inputs === "object" &&
+      !Array.isArray(payload.inputs),
+  );
+  const entries = Object.entries(payload.inputs);
+  assert.ok(entries.length > 0 && entries.length <= 25);
+  assert.ok(entries.every(([, value]) => typeof value === "string"));
+  // GitHub documents 65,535 characters for the whole inputs payload. Using UTF-8
+  // bytes, including JSON escaping, is conservative for every supported string.
+  const bytes = Buffer.byteLength(JSON.stringify(payload.inputs));
+  assert.ok(
+    bytes <= 65535,
+    "Combined owner inputs exceed the GitHub dispatch envelope",
+  );
+  return { inputBytes: bytes };
+}
 
 /** Leave room for the other inputs in GitHub's 65,535-byte dispatch envelope. */
 export function ownerDispatchBytes(env) {
@@ -123,4 +146,17 @@ export function admitOwnerDispatch(
     "A draft-dependent stage requires the protected draft reader",
   );
   return { bytes, decision };
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  assert.equal(
+    process.argv.length,
+    3,
+    "Usage: release-decision-transport.js DISPATCH_JSON",
+  );
+  console.log(
+    JSON.stringify(
+      verifyDispatchPayload(JSON.parse(readFileSync(process.argv[2], "utf8"))),
+    ),
+  );
 }

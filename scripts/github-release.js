@@ -9,6 +9,7 @@ import { verifyReleaseTag } from "./verify-release-tag.js";
 import { waitForReleaseAttestation } from "./release-attestation.js";
 import { verifyImmutabilityObservation } from "./release-immutability.js";
 import { artifactLimits } from "./artifact-policy.js";
+import { budgets } from "./qualification-budgets.js";
 import { createEffectJournal } from "./release-effects.js";
 import { releaseSemver } from "./release-coordinates.js";
 import {
@@ -310,14 +311,17 @@ export async function deliverRelease({
         ),
         asset.sha256,
       );
-      call([
-        "release",
-        "upload",
-        tag,
-        join(directory, asset.name),
-        "--repo",
-        repository,
-      ]);
+      call(
+        [
+          "release",
+          "upload",
+          tag,
+          join(directory, asset.name),
+          "--repo",
+          repository,
+        ],
+        { timeout: budgets.upload },
+      );
     }
     release = api(`releases/${id}`);
     assert.equal(release.tag_name, tag);
@@ -326,15 +330,10 @@ export async function deliverRelease({
     verifyInventory(release, assets);
     const downloaded = join(evidenceDirectory, "draft-readback");
     mkdirSync(downloaded);
-    call([
-      "release",
-      "download",
-      tag,
-      "--repo",
-      repository,
-      "--dir",
-      downloaded,
-    ]);
+    call(
+      ["release", "download", tag, "--repo", repository, "--dir", downloaded],
+      { timeout: budgets.collection },
+    );
     for (const asset of assets)
       assert.equal(
         hash(

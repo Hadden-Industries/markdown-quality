@@ -28,6 +28,7 @@ const producerOnly = new Set([
   "python-runtime",
   "registry-readback",
   "release-continuation",
+  "release-entrypoints",
   "release-promotion",
   "release-security",
   "release-staging",

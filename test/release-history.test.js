@@ -30,6 +30,7 @@ import {
   legacyArchiveSettled,
   checkpointTargets,
   admitRetiredQualification,
+  latestPublicationWriteAt,
 } from "../scripts/release-history.js";
 import {
   retainedArtifact,
@@ -37,9 +38,18 @@ import {
   verifyRetainedFiles,
   assertRetainedArtifactIdentity,
   authenticateArtifact,
+  retainedFileBytes,
+  retainPublicationSnapshot,
 } from "../scripts/release-retained-artifacts.js";
 import { verifySettlementObservation } from "../scripts/release-effects.js";
 import { stagedUpload } from "./publication-history-fixture.js";
+import { publicationHistoryFixture } from "./publication-history-fixture.js";
+import {
+  publicationSubject,
+  readPublicationSubjects,
+} from "../scripts/publication-subjects.js";
+import { readStageInventory } from "../scripts/release-stage-guards.js";
+import { stageInventory } from "./release-fixture.js";
 import { verifyRecoveryAttribution } from "../scripts/release-history.js";
 import { releasePackages } from "../scripts/release-coordinates.js";
 import {
@@ -551,7 +561,7 @@ test("native history retains inherited original executions and signed missing at
   assert.throws(() => verify([]), /owner-signed intent/u);
 });
 
-test("a failed native staging writer whose requests completed is exported with its original evidence and never inferred without it", async () => {
+function nativeStagingHistoryFixture() {
   const repository = "Hadden-Industries/markdown-quality",
     sha = "c".repeat(40);
   // Mirrors E-03: both native requests completed, then the evidence step failed.
@@ -644,8 +654,59 @@ test("a failed native staging writer whose requests completed is exported with i
       "promote-release": { runs: [] },
     },
   };
+  return {
+    options,
+    run,
+    stage,
+    artifact,
+    get downloads() {
+      return downloads;
+    },
+    removeArtifact() {
+      artifacts = [];
+    },
+  };
+}
+
+test("authenticated writer freshness refuses missing timestamps even beside a newer publication", async () => {
+  const f = nativeStagingHistoryFixture();
+  const observed = await collectWriterHistory(f.options);
+  const newer = structuredClone(observed.writers[0]);
+  newer.run.id += 1;
+  newer.job.run_id = newer.run.id;
+  newer.artifact.workflow_run.id = newer.run.id;
+  newer.run.updated_at = new Date(Date.now() + 1000).toISOString();
+  assert.throws(
+    () => latestPublicationWriteAt([...observed.writers, newer]),
+    /timestamp is missing/u,
+  );
+  observed.writers[0].run.updated_at = "malformed";
+  assert.throws(
+    () => latestPublicationWriteAt([newer, ...observed.writers]),
+    /timestamp is missing/u,
+  );
+  observed.writers[0].run.updated_at = "2026-01-01T00:00:00+03:00";
+  const newest = latestPublicationWriteAt([newer, ...observed.writers]);
+  assert.equal(newest, newer.run.updated_at);
+  assert.throws(
+    () => readStageInventory(stageInventory(), { latestStageWriteAt: newest }),
+    /last publication/u,
+  );
+  assert.equal(latestPublicationWriteAt([]), undefined);
+  assert.equal(
+    latestPublicationWriteAt([
+      { run: { path: f.run.path, updated_at: "2026-01-01T00:10:00+03:00" } },
+      { run: { path: f.run.path, updated_at: "2026-01-01T00:00:00Z" } },
+    ]),
+    "2026-01-01T00:00:00.000Z",
+  );
+});
+
+test("a failed native staging writer whose requests completed is exported with its original evidence and never inferred without it", async () => {
+  const f = nativeStagingHistoryFixture();
+  const { options, run, stage } = f;
   const exported = await collectWriterHistory(options);
-  assert.equal(downloads, 1);
+  assert.equal(f.downloads, 1);
   assert.deepEqual(exported.missing, []);
   assert.equal(exported.writers.length, 1);
   const [writer] = exported.writers;
@@ -657,9 +718,13 @@ test("a failed native staging writer whose requests completed is exported with i
   assert.deepEqual(exported.writerAttempts, [
     { run, inventory: { total_count: 1, jobs: [stage] } },
   ]);
-  artifacts = [];
+  f.removeArtifact();
   const unproven = await collectWriterHistory(options);
-  assert.equal(downloads, 1, "No evidence is fabricated for a missing writer");
+  assert.equal(
+    f.downloads,
+    1,
+    "No evidence is fabricated for a missing writer",
+  );
   assert.deepEqual(unproven.writers, []);
   assert.deepEqual(unproven.missing, [
     {
@@ -670,6 +735,151 @@ test("a failed native staging writer whose requests completed is exported with i
       reason: "missing-original-writer-artifact",
     },
   ]);
+});
+
+test("new retained writers omit recursive snapshots only when the cold subject consumer proves equivalence", async (t) => {
+  const f = nativeStagingHistoryFixture();
+  const originalDownload = f.options.download;
+  const ownManifest = Buffer.from('{"version":"3.0.3"}');
+  const snapshots = Array.from({ length: 6 }, (_, i) => {
+    const prior = publicationHistoryFixture(1);
+    Object.assign(prior.run, {
+      id: 10 + i,
+      status: "completed",
+      conclusion: "failure",
+    });
+    prior.attempts[0].run = { ...prior.run };
+    prior.set(1, [prior.job(1, "failure")]);
+    const bytes = Buffer.from(
+      JSON.stringify({ version: `1.0.${i}`, padding: "a".repeat(950000) }),
+    );
+    return {
+      run: prior.run,
+      attempts: prior.attempts,
+      manifestSha256: hash(bytes),
+      manifestBytes: bytes.toJSON(),
+      subject: publicationSubject(bytes),
+    };
+  });
+  const expectedSubjects = snapshots.map(
+    ({ manifestBytes, ...entry }) => entry,
+  );
+  // json-identity-contract: bytes; owner: retained snapshot fixture; reason: Bind the exact original transport bytes before retention and cold restoration.
+  const snapshotBytes = Buffer.from(JSON.stringify(snapshots));
+  assert.ok(snapshotBytes.length > 16 * 1024 * 1024);
+  const receipt = {
+    schemaVersion: 1,
+    run: String(f.run.id),
+    attempt: "1",
+    manifestSha256: hash(ownManifest),
+    history: expectedSubjects,
+  };
+  let legacy = false;
+  let contradictory = false;
+  f.options.download = async (request) => {
+    await originalDownload(request);
+    const root = request.destination;
+    mkdirSync(join(root, "provider"));
+    mkdirSync(join(root, "frozen-release"));
+    writeFileSync(
+      join(root, "frozen-release/release-manifest.json"),
+      ownManifest,
+    );
+    const header = structuredClone(receipt);
+    if (legacy) delete header.history[0].subject;
+    if (contradictory) header.history[0].subject.version = "9.9.9";
+    writeFileSync(
+      join(root, "provider/publication-history.json"),
+      JSON.stringify(header),
+    );
+    writeFileSync(join(root, "provider/staging-history.json"), snapshotBytes);
+    if (!contradictory)
+      assert.deepEqual(
+        readPublicationSubjects(root, { run: f.run, attempt: 1 }, ownManifest),
+        expectedSubjects,
+      );
+  };
+  const compact = await collectWriterHistory(f.options);
+  const [writer] = compact.writers;
+  assert.equal(Boolean(writer.files["provider/staging-history.json"]), false);
+  assert.ok(writer.files["frozen-release/release-manifest.json"]);
+  assert.ok(writer.files["staging-journal/win32-x64.jsonl"]);
+  const fixture = releaseFixture(t);
+  const restored = join(fixture.input, "cold");
+  restoreRetainedFiles(restored, writer);
+  assert.deepEqual(
+    readPublicationSubjects(restored, { run: f.run, attempt: 1 }, ownManifest),
+    expectedSubjects,
+  );
+  const old = structuredClone(writer);
+  old.files["provider/staging-history.json"] = {
+    sha256: hash(snapshotBytes),
+    base64: snapshotBytes.toString("base64"),
+  };
+  const overlap = await collectWriterHistory({
+    ...f.options,
+    checkpoints: [{ writers: [old] }],
+  });
+  assert.deepEqual(
+    overlap.writers[0],
+    old,
+    "Earlier signed representation stays exact",
+  );
+  legacy = true;
+  const historical = await collectWriterHistory(f.options);
+  const retainedSnapshot =
+    historical.writers[0].files["provider/staging-history.json"];
+  assert.equal(retainedSnapshot.encoding, "gzip+base64");
+  assert.deepEqual(retainedFileBytes(retainedSnapshot), snapshotBytes);
+  assert.ok(retainedSnapshot.base64.length < snapshotBytes.length / 20);
+  const legacyCold = join(fixture.input, "legacy-cold");
+  restoreRetainedFiles(legacyCold, historical.writers[0]);
+  assert.deepEqual(
+    readPublicationSubjects(
+      legacyCold,
+      { run: f.run, attempt: 1 },
+      ownManifest,
+    ),
+    expectedSubjects,
+  );
+  legacy = false;
+  contradictory = true;
+  await assert.rejects(collectWriterHistory(f.options), /deep|equal/u);
+});
+
+test("signed compressed snapshots retain exact cold bytes and reject corrupt or unbounded representations", (t) => {
+  const f = signedCheckpointHarness(t);
+  const bytes = Buffer.from(
+    // json-identity-contract: bytes; owner: signed snapshot fixture; reason: Exercise the exact byte digest and decompression size rather than semantic JSON equality.
+    JSON.stringify([{ original: "retained".repeat(200000) }]),
+  );
+  const file = retainPublicationSnapshot(bytes);
+  f.checkpoint.writers[0].files["provider/staging-history.json"] = file;
+  const verified = f.verify(f.checkpoint, encodeHistoryCheckpoint);
+  assert.deepEqual(
+    retainedFileBytes(
+      verified.writers[0].files["provider/staging-history.json"],
+    ),
+    bytes,
+  );
+  for (const change of [
+    { encoding: "unknown" },
+    { uncompressedBytes: bytes.length - 1 },
+    { uncompressedBytes: bytes.length + 1 },
+    { uncompressedBytes: 64 * 1024 * 1024 + 1 },
+    { sha256: "0".repeat(64) },
+    { base64: file.base64 + "\n" },
+  ]) {
+    const corrupt = structuredClone(f.checkpoint);
+    Object.assign(
+      corrupt.writers[0].files["provider/staging-history.json"],
+      change,
+    );
+    assert.throws(() => f.verify(corrupt, encodeHistoryCheckpoint));
+  }
+  const wrongMember = structuredClone(f.checkpoint);
+  wrongMember.writers[0].files["effects.jsonl"] = file;
+  assert.throws(() => f.verify(wrongMember, encodeHistoryCheckpoint));
 });
 
 test("intent refs bind the protected tag name and exact annotated controller to the owner signature", () => {
@@ -1101,7 +1311,11 @@ function signedCheckpointHarness(t) {
       reference,
       annotation,
       signerPolicy: policy,
-      command: () => bytes,
+      command: (executable, args, options) => {
+        if (executable === "git" && args[0] === "show") return bytes;
+        assert.equal(executable, "ssh-keygen");
+        return native(executable, args, options);
+      },
     });
   };
   /** A complete original target record for another qualified fixture. */
@@ -1156,6 +1370,15 @@ test("compressed signed history admits the complete original target and writer e
   assert.deepEqual(
     h.verify(h.checkpoint, encodeHistoryCheckpoint),
     h.checkpoint,
+  );
+});
+
+test("the signed checkpoint harness rejects a cryptographically invalid signature", (t) => {
+  const h = signedCheckpointHarness(t);
+  h.annotation.verification.payload += "altered after signing";
+  assert.throws(
+    () => h.verify(h.checkpoint, encodeHistoryCheckpoint),
+    /ssh-keygen failed/u,
   );
 });
 

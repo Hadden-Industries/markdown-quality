@@ -155,7 +155,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   );
   assert.equal(review.schemaVersion, 2);
   assert.equal(map.decision.reviewSha256, process.env.REVIEW_SHA);
-  await admitPriorReleaseEffects(
+  const admission = await admitPriorReleaseEffects(
     {
       operation: "stage",
       operationId: review.operationId,
@@ -169,9 +169,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     },
   );
   verifyStageGuards(review, release, archive, map, journalDirectory, {
-    history: JSON.parse(
-      releaseBytes("provider/staging-history.json", 16 * 1024 * 1024),
-    ),
+    // Admission already authenticated every original writer. Reuse its compact
+    // freshness proof instead of reparsing the full retained history snapshot.
+    latestStageWriteAt: admission.latestStageWriteAt,
   });
   const result = stageReleaseArchive({
     archive,
