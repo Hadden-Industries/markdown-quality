@@ -102,6 +102,16 @@ test("workflow contracts reject broken metadata, callers and shared deadline dri
       /SDK upload requires prior frozen producer dependencies/u,
     ],
     [
+      "boolean-skipped release reuse upload tools",
+      ".github/workflows/release-qualification.yml",
+      (data) => {
+        data.jobs.resolve.steps.find(
+          (step) => step.uses === "./.github/actions/setup-producer",
+        ).if = false;
+      },
+      /SDK upload requires prior frozen producer dependencies/u,
+    ],
+    [
       "late release reuse upload tools",
       ".github/workflows/release-qualification.yml",
       (data) => {

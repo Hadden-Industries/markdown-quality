@@ -527,7 +527,7 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
                       prior["working-directory"] === "producer" &&
                       prior.run ===
                         "npm ci --ignore-scripts --no-audit --no-fund")) &&
-                  (!prior.if || prior.if === step.if),
+                  (prior.if === undefined || prior.if === step.if),
               ),
             `${path}: SDK upload requires prior frozen producer dependencies on the same path`,
           );
