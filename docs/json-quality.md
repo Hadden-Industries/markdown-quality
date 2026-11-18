@@ -2,10 +2,10 @@
 
 # JSON development checks
 
-Markdown Quality declares `@hadden-industries/json-quality` as an ordinary `>=1.0.1` devDependency in the root [package.json](../package.json).
+Markdown Quality declares `@hadden-industries/json-quality` as an ordinary `>=1.0.2` devDependency in the root [package.json](../package.json).
 Root `npm ci --ignore-scripts` installs it and its matching optional platform package using the root npm lockfile.
 Npm owns dependency resolution and package integrity, as it does for the other development dependencies.
-The 3.0.4 source lockfile resolves JSON Quality to 1.0.1.
+The 3.0.4 source lockfile resolves JSON Quality to 1.0.2.
 
 It is development tooling, outside product dependencies, exports and npm contents.
 The package's public API owns discovery, parsing, quality rules, formatting, normalization, budgets, guarded writes and streamed completion.

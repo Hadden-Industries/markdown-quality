@@ -20,8 +20,11 @@ test("file selection and dependency-cruiser use the patched Picomatch package", 
   const installed = require.resolve("picomatch/package.json");
   assert.equal(requireCruiser.resolve("picomatch/package.json"), installed);
   const pkg = JSON.parse(readFileSync(installed, "utf8"));
+  const lock = JSON.parse(
+    readFileSync(new URL("../package-lock.json", import.meta.url)),
+  );
   assert.equal(pkg.name, "@ryotsu/picomatch");
-  assert.equal(pkg.version, "4.0.7-a");
+  assert.equal(pkg.version, lock.packages["node_modules/picomatch"].version);
 
   const select = createPathDecision({
     include: ["docs/**/@(guide|index).{md,markdown}"],

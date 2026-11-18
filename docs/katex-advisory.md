@@ -3,7 +3,7 @@
 # KaTeX dependency advisory
 
 An npm audit of Markdown Quality 3.0.4 can report GHSA-238p-pmpm-9mq7 (CVE-2026-103923).
-The reviewed dependency path from Markdown Quality is `@eslint/markdown@8.0.3` → `micromark-extension-math@3.1.0` → `katex@0.16.47`.
+The reviewed dependency path from Markdown Quality is `@eslint/markdown@9.0.0` → `micromark-extension-math@3.1.0` → `katex@0.16.47`.
 The math extension declares the KaTeX range `^0.16.0`.
 The advisory lists `0.18.2` as the first patched version.
 [KaTeX advisory](https://github.com/advisories/GHSA-238p-pmpm-9mq7) · [Math extension manifest](https://github.com/micromark/micromark-extension-math/blob/3.1.0/package.json)
@@ -17,7 +17,7 @@ Its CLI and Node.js SDK parse, lint and format Markdown using package-owned ESLi
 The plugin's math option stays off.
 The affected render call is in the separate HTML extension, outside those paths.
 A host that also renders math with KaTeX needs to assess that separate call path.
-[ESLint Markdown math option](https://github.com/eslint/markdown/blob/v8.0.3/README.md#enabling-math-latex-in-both-commonmark-and-gfm)
+[ESLint Markdown math option](https://github.com/eslint/markdown/blob/v9.0.0/README.md#enabling-math-latex-in-both-commonmark-and-gfm)
 
 ## How the tests check reachability
 

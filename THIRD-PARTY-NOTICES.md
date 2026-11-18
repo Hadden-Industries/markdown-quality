@@ -13,14 +13,14 @@ That policy text retains CC BY-SA 4.0, its attribution and the indicated changes
 | ------------------------------- | ------- | --------------------------------- |
 | Prettier                        | 3.10.1  | MIT                               |
 | ESLint                          | 10.15.0 | MIT                               |
-| ESLint Markdown                 | 8.0.3   | MIT                               |
+| ESLint Markdown                 | 9.0.0   | MIT                               |
 | Ajv                             | 8.20.0  | MIT                               |
 | mdast-util-from-markdown        | 2.1.0   | MIT                               |
 | mdast-util-gfm                  | 3.1.0   | MIT                               |
 | mdast-util-frontmatter          | 2.0.1   | MIT, Titus Wormer                 |
 | micromark-extension-frontmatter | 2.0.0   | MIT, Titus Wormer                 |
 | micromark-extension-gfm         | 3.0.0   | MIT                               |
-| @ryotsu/picomatch               | 4.0.7-a | MIT                               |
+| @ryotsu/picomatch               | 4.0.7   | MIT                               |
 | parse5                          | 8.1.1   | MIT, Ivan Nikulin                 |
 | github-slugger                  | 2.0.0   | ISC                               |
 | Snapper upstream executable     | 0.11.9  | MIT, Copyright 2026 Rohit Goswami |
@@ -34,14 +34,12 @@ github-slugger was already installed through ESLint Markdown and is now imported
 The development-only conformance fixtures in `test/fixtures/unicode/` are the unchanged Unicode `NormalizationTest.txt` files for Unicode 16.0.0 and 17.0.0, stored gzip-compressed with their original SHA-256 identities.
 
 They are © Unicode, Inc. under the Unicode License V3, retained in `test/fixtures/unicode/LICENSE-Unicode-3.0.txt`, and are not shipped in consumer archives.
-Development analysis uses dependency-cruiser 18.7.2 under MIT, copyright 2016-2026 Sander Verweij.
+Development analysis uses dependency-cruiser 18.8.0 under MIT, copyright 2016-2026 Sander Verweij.
 Its installed `LICENSE` retains the original permission and copyright notice; no analyzer source is vendored or modified.
 
 The exact developer dependency graph and its integrity identities are frozen in the lockfile, and installed transitive components retain their own upstream notices.
 The compatible developer refresh also adopts `graceful-fs` 4.2.12 under its upstream BlueOak-1.0.0 terms instead of the earlier ISC declaration; its complete `LICENSE.md` is retained in the installed archive.
-New developer transitives `bare-buffer` 3.7.1 and `proxy-agent-negotiate` 1.1.0 declare Apache-2.0 and MIT respectively.
-The latter registry archive omits a standalone license; its MIT declaration is retained in the [upstream package manifest](https://github.com/TooTallNate/proxy-agents/blob/main/packages/negotiate/package.json), without a claim that the archive contains the full license text.
-These development-only components are excluded from the consumer shipment.
+The development-only transitive dependency `bare-buffer` 3.7.3 declares Apache-2.0 and is excluded from the consumer shipment.
 Acorn 8.19.0 is explicitly declared for the conservative syntax guard; its installed MIT notice credits the contributors listed in its AUTHORS file.
 
 micromark 4.0.3 and micromark-extension-math 3.1.0 are explicitly declared for security regression tests; their installed MIT notices credit Titus Wormer.
@@ -54,16 +52,16 @@ This personal development adoption does not claim organizational rights clearanc
 The directly adopted front-matter extensions retain their original MIT copyright and permission notices in their installed `license` files.
 Their terms permit use, modification and distribution subject to retaining those notices; this implementation imports them without vendoring or changing their source.
 The lockfile freezes their exact integrity identities.
-The producer's scoped dependency override resolves KaTeX 0.19.1 and its Commander 15.0.0 dependency.
+The producer's scoped dependency override resolves KaTeX 0.19.1, which uses Commander 15.1.0 in the lockfile.
 
 Their installed `LICENSE` files retain the original MIT terms and copyright notices: Khan Academy and other contributors (KaTeX), and TJ Holowaychuk (Commander).
 Those terms permit use and redistribution subject to retaining the notices.
 Consumers resolve ESLint Markdown and its dependencies through their npm lockfiles.
 [KaTeX dependency advisory](docs/katex-advisory.md)
 
-The package resolves `picomatch` to `@ryotsu/picomatch@4.0.7-a` from npm.
+The producer lockfile resolves `picomatch` to `@ryotsu/picomatch@4.0.7` from npm.
 This MIT-licensed fork retains the upstream license and patches CVE-2026-112366.
-[Fork source](https://github.com/ryotsu-kankichi/secured-picomatch/tree/3ab5a7627d480259e3d9ca67fbc14c125d374f0e) · [Picomatch advisory](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
+[Fork source](https://github.com/ryotsu-kankichi/secured-picomatch/tree/ef699ef45d5ad5ad976fb30d2939b4c814b7ca01) · [Picomatch advisory](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
 
 Native packages retain `LICENSE.snapper` and a fixed executable/repack component record.
 The AGPL declaration applies to the packaging implementation and does not relabel upstream executable bytes.

@@ -37,7 +37,10 @@ function katexRecipient() {
       [productPath]: {
         version: release.version,
         integrity: core.integrity,
-        dependencies: { "@eslint/markdown": "8.0.3" },
+        dependencies: {
+          "@eslint/markdown":
+            producer.packages[""].dependencies["@eslint/markdown"],
+        },
       },
       "node_modules/@eslint/markdown":
         producer.packages["node_modules/@eslint/markdown"],

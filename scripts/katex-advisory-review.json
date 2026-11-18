@@ -6,9 +6,9 @@
   "chain": [
     {
       "name": "@eslint/markdown",
-      "version": "8.0.3",
-      "range": "8.0.3",
-      "integrity": "sha512-rBTSSShrq7e4O+PWfeE4azH4/CWPNrC+VGxBXiW00o3vYVJnznsZiDayj3KC9JztIMVRZxZHn2nrDIUau/4j7A=="
+      "version": "9.0.0",
+      "range": "^9.0.0",
+      "integrity": "sha512-287jt3NwhChN7TLsWq44IB5vUAKwwNXafzLlR1CMcQK5/4mAwbwwAzqr/S7gCYRRJOSHCgGXzIV9uPCh1P810A=="
     },
     {
       "name": "micromark-extension-math",

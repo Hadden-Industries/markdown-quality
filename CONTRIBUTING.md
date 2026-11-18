@@ -114,8 +114,8 @@ Review any actual formatting diff and rerun the check for convergence.
 
 ## JSON ownership
 
-The manifest declares JSON Quality `>=1.0.1` as a development dependency.
-With the 3.0.4 source lockfile, `npm ci --ignore-scripts` installs JSON Quality 1.0.1 and the matching native companion for the development platform.
+The manifest declares JSON Quality `>=1.0.2` as a development dependency.
+With the 3.0.4 source lockfile, `npm ci --ignore-scripts` installs JSON Quality 1.0.2 and the matching native companion for the development platform.
 Follow [JSON development checks](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.4/docs/json-quality.md) for complete discovery, protected native evidence, real package qualification and guarded formatting.
 
 Generic Prettier excludes JSON; `npm run check:full` composes product checks, source identity lint, consumer tests, actual packed JSON and the final complete-root JSON check.

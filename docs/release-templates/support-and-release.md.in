@@ -13,7 +13,7 @@ To prepare or promote a package, follow the [release runbook]({{release.sourceUr
   The project lockfile records ESLint, ESLint Markdown and their dependencies.
   Refresh the lockfile to take compatible updates.
 - **File selection uses patched Picomatch.**
-  The package uses `@ryotsu/picomatch@4.0.7-a` to address a denial of service flaw in the glob matcher.
+  The package uses the `@ryotsu/picomatch` fork to address a denial of service flaw in the glob matcher.
   [CVE-2026-112366](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
 - **A fresh audit can report KaTeX.**
   The CLI and SDK load KaTeX through a dependency and leave its renderer unused.
