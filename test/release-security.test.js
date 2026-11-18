@@ -2,18 +2,152 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  katexNoticePath,
   verifyCodeqlAnalyses,
   verifyRecipientAudit,
   verifyCodeqlSarif,
   refreshReleaseSecurity,
   qualifiedProducerLock,
 } from "../scripts/qualify-release-security.js";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { hash } from "../scripts/release-bytes.js";
 
 const source = "a".repeat(40);
+const katexAdvisory = "GHSA-238p-pmpm-9mq7";
+const product = "@hadden-industries/markdown-quality";
+
+function katexRecipient() {
+  const productPath = `node_modules/${product}`;
+  const core = {
+    name: "core",
+    package: product,
+    integrity: "sha512-example",
+    files: [{ path: katexNoticePath }],
+  };
+  const release = { version: "3.0.4", archives: [core] };
+  const producer = JSON.parse(
+    readFileSync(new URL("../package-lock.json", import.meta.url)),
+  );
+  const lock = {
+    lockfileVersion: 3,
+    packages: {
+      "": { dependencies: { [product]: release.version } },
+      [productPath]: {
+        version: release.version,
+        integrity: core.integrity,
+        dependencies: { "@eslint/markdown": "8.0.3" },
+      },
+      "node_modules/@eslint/markdown":
+        producer.packages["node_modules/@eslint/markdown"],
+      "node_modules/micromark-extension-math":
+        producer.packages["node_modules/micromark-extension-math"],
+      "node_modules/katex": {
+        version: "0.16.47",
+        integrity:
+          "sha512-Eeo8Ys1doU1z+x8AZsPpQu+p/QcZBI5PeOo7QGQdy2x2m0MU/hYagBbGOmXwr5KVbEfVuWv9LpnQWeehogurjg==",
+      },
+    },
+  };
+  const causes = [
+    [product, "@eslint/markdown"],
+    ["@eslint/markdown", "micromark-extension-math"],
+    ["micromark-extension-math", "katex"],
+    [
+      "katex",
+      {
+        name: "katex",
+        dependency: "katex",
+        severity: "low",
+        url: `https://github.com/advisories/${katexAdvisory}`,
+      },
+    ],
+  ];
+  const audit = {
+    auditReportVersion: 2,
+    metadata: {
+      vulnerabilities: {
+        info: 0,
+        low: 4,
+        moderate: 0,
+        high: 0,
+        critical: 0,
+        total: 4,
+      },
+    },
+    vulnerabilities: Object.fromEntries(
+      causes.map(([name, cause]) => [
+        name,
+        {
+          name,
+          severity: "low",
+          nodes: [`node_modules/${name}`],
+          via: [cause],
+        },
+      ]),
+    ),
+  };
+  return { audit, lock, release };
+}
+
+test("recipient audits retain the original report and record only the scoped KaTeX disposition", () => {
+  const { audit, lock, release } = katexRecipient();
+  const original = structuredClone(audit);
+  assert.deepEqual(verifyRecipientAudit(audit, { lock, release }), {
+    advisory: katexAdvisory,
+    package: "katex",
+    version: "0.16.47",
+    notice: katexNoticePath,
+  });
+  assert.deepEqual(audit, original);
+});
+
+test("KaTeX disposition refuses unreviewed archives, graphs and findings", () => {
+  const changes = [
+    ({ release }) => {
+      release.archives[0].files = [];
+    },
+    ({ release }) => {
+      release.archives[0].integrity = "sha512-other";
+    },
+    ({ lock }) => {
+      lock.packages["node_modules/katex"].version = "0.16.46";
+    },
+    ({ lock }) => {
+      lock.packages["node_modules/katex"].integrity = "sha512-other";
+    },
+    ({ lock }) => {
+      lock.packages[""].dependencies.katex = "0.16.47";
+    },
+    ({ lock }) => {
+      lock.packages["node_modules/other/node_modules/katex"] =
+        lock.packages["node_modules/katex"];
+    },
+    ({ audit }) => {
+      audit.vulnerabilities.katex.via[0].url =
+        "https://github.com/advisories/another";
+    },
+    ({ audit }) => {
+      audit.vulnerabilities.katex.nodes.push("node_modules/another");
+    },
+    ({ audit }) => {
+      audit.vulnerabilities[product].via.push("picomatch");
+    },
+    ({ audit }) => {
+      audit.vulnerabilities.picomatch = { name: "picomatch", severity: "high" };
+    },
+    ({ audit }) => {
+      audit.metadata.vulnerabilities.high = 1;
+    },
+  ];
+  for (const change of changes) {
+    const input = katexRecipient();
+    change(input);
+    assert.throws(() => verifyRecipientAudit(input.audit, input));
+  }
+});
+
 const analyses = () =>
   ["actions", "javascript-typescript", "python"].map((language, index) => ({
     id: 100 + index,

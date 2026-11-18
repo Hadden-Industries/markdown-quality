@@ -21,6 +21,29 @@ import {
 } from "./release-qualification.js";
 import { verifyBuildEvidence } from "./release-reuse-evidence.js";
 
+export const katexNoticePath = "docs/katex-advisory.md";
+const katexAdvisory = "GHSA-238p-pmpm-9mq7";
+const reviewedKaTeXChain = [
+  [
+    "@eslint/markdown",
+    "8.0.3",
+    "8.0.3",
+    "sha512-rBTSSShrq7e4O+PWfeE4azH4/CWPNrC+VGxBXiW00o3vYVJnznsZiDayj3KC9JztIMVRZxZHn2nrDIUau/4j7A==",
+  ],
+  [
+    "micromark-extension-math",
+    "3.1.0",
+    "^3.1.0",
+    "sha512-lvEqd+fHjATVs+2v/8kg9i5Q0AP2k85H0WUOwpIVvUML8BapsMvh1XAogmQjOCsLpoKRCVQqEkQBB3NhVBcsOg==",
+  ],
+  [
+    "katex",
+    "0.16.47",
+    "^0.16.0",
+    "sha512-Eeo8Ys1doU1z+x8AZsPpQu+p/QcZBI5PeOo7QGQdy2x2m0MU/hYagBbGOmXwr5KVbEfVuWv9LpnQWeehogurjg==",
+  ],
+];
+
 /** Resolve the immutable producer graph before consulting current advisories. */
 export function qualifiedProducerLock(
   release,
@@ -120,7 +143,10 @@ export function codeqlAuthority(release, directory) {
 }
 
 /** Refresh advisories against an unchanged lock without installing dependencies or scripts. */
-export function auditRecipientLock(lock, { command = npmCommand } = {}) {
+export function auditRecipientLock(
+  lock,
+  { command = npmCommand, release } = {},
+) {
   const parsed = JSON.parse(lock);
   assert.equal(parsed.lockfileVersion, 3);
   assert.ok(parsed.packages?.[""]);
@@ -143,7 +169,7 @@ export function auditRecipientLock(lock, { command = npmCommand } = {}) {
       ],
       { cwd: directory },
     );
-    verifyRecipientAudit(JSON.parse(raw));
+    verifyRecipientAudit(JSON.parse(raw), { lock: parsed, release });
     assert.ok(readFileSync(join(directory, "package-lock.json")).equals(lock));
     return raw;
   } finally {
@@ -151,16 +177,97 @@ export function auditRecipientLock(lock, { command = npmCommand } = {}) {
   }
 }
 
-/** Require a completed native audit of the actual recipient graph, with no findings. */
-export function verifyRecipientAudit(audit) {
+/** Admit the one reviewed advisory on the exact packed recipient dependency path. */
+export function verifyRecipientAudit(audit, { lock, release } = {}) {
   assert.equal(audit.auditReportVersion, 2);
   assert.ok(!audit.error, "Recipient audit did not complete");
-  assert.equal(
-    audit.metadata?.vulnerabilities?.total,
-    0,
+  const reported = audit.metadata?.vulnerabilities?.total;
+  if (reported === 0) {
+    assert.deepEqual(audit.vulnerabilities, {});
+    return null;
+  }
+
+  const core = release?.archives?.find(({ name }) => name === "core");
+  assert.ok(
+    core?.package === "@hadden-industries/markdown-quality" &&
+      core.files.some(({ path }) => path === katexNoticePath),
     "Recipient dependencies require security disposition",
   );
-  assert.deepEqual(audit.vulnerabilities, {});
+  assert.equal(lock?.lockfileVersion, 3);
+  const chain = [core.package, ...reviewedKaTeXChain.map(([name]) => name)];
+  assert.deepEqual(
+    Object.keys(audit.vulnerabilities).sort(),
+    [...chain].sort(),
+  );
+  assert.equal(reported, chain.length);
+  assert.deepEqual(audit.metadata.vulnerabilities, {
+    info: 0,
+    low: reported,
+    moderate: 0,
+    high: 0,
+    critical: 0,
+    total: reported,
+  });
+  const packages = Object.entries(lock.packages);
+  const productPath = `node_modules/${core.package}`;
+  const product = lock.packages[productPath];
+  assert.equal(product.version, release.version);
+  assert.equal(product.integrity, core.integrity);
+  assert.equal(product.bundleDependencies, undefined);
+  assert.ok(!product.inBundle && !product.link);
+
+  let parentPath = productPath;
+  for (const [name, version, range, integrity] of reviewedKaTeXChain) {
+    const path = `node_modules/${name}`;
+    const copies = packages.filter(
+      ([location, pkg]) =>
+        pkg.name === name || location === path || location.endsWith(`/${path}`),
+    );
+    assert.deepEqual(
+      copies.map(([location]) => location),
+      [path],
+    );
+    const installed = lock.packages[path];
+    assert.equal(installed.version, version);
+    assert.equal(installed.integrity, integrity);
+    assert.ok(!installed.inBundle && !installed.link);
+    assert.equal(lock.packages[parentPath].dependencies[name], range);
+    const owners = packages.filter(([, pkg]) =>
+      [
+        pkg.dependencies,
+        pkg.devDependencies,
+        pkg.optionalDependencies,
+        pkg.peerDependencies,
+      ].some((deps) => deps && Object.hasOwn(deps, name)),
+    );
+    assert.deepEqual(
+      owners.map(([location]) => location),
+      [parentPath],
+    );
+    parentPath = path;
+  }
+  for (const [index, name] of chain.entries()) {
+    const finding = audit.vulnerabilities[name];
+    assert.equal(finding.name, name);
+    assert.equal(finding.severity, "low");
+    assert.deepEqual(finding.nodes, [`node_modules/${name}`]);
+    if (name === "katex") {
+      assert.equal(finding.via.length, 1);
+      const [cause] = finding.via;
+      assert.equal(cause.name, name);
+      assert.equal(cause.dependency, name);
+      assert.equal(cause.severity, "low");
+      assert.equal(cause.url, `https://github.com/advisories/${katexAdvisory}`);
+    } else {
+      assert.deepEqual(finding.via, [chain[index + 1]]);
+    }
+  }
+  return {
+    advisory: katexAdvisory,
+    package: "katex",
+    version: "0.16.47",
+    notice: katexNoticePath,
+  };
 }
 
 /** Retain native query/configuration and exact-source scan identity without replacing CodeQL. */
@@ -214,15 +321,14 @@ export function refreshReleaseSecurity(
   { command = npmCommand, gh = (args) => native("gh", args) } = {},
 ) {
   const original = readJson(join(logical, "codeql-analyses.json"));
+  const manifestPath = join(logical, "release-manifest.json");
+  const manifest = existsSync(manifestPath) ? regularBytes(manifestPath) : null;
+  if (manifest) assert.equal(hash(manifest), qualified.manifestSha256);
+  const release = manifest ? JSON.parse(manifest) : undefined;
   const scans = verifyCodeqlAnalyses(
     original,
     qualified.source,
-    qualified.promotion
-      ? codeqlAuthority(
-          readJson(join(logical, "release-manifest.json")),
-          logical,
-        )
-      : {},
+    qualified.promotion ? codeqlAuthority(release, logical) : {},
   );
   const alerts = JSON.parse(
     gh([
@@ -249,12 +355,18 @@ export function refreshReleaseSecurity(
           qualified.evidence[name],
           "Retained recipient lock changed",
         );
-        const raw = auditRecipientLock(lock, { command });
+        const raw = auditRecipientLock(lock, { command, release });
+        const audit = JSON.parse(raw);
+        const acceptedAdvisory = verifyRecipientAudit(audit, {
+          lock: JSON.parse(lock),
+          release,
+        });
         audits.push({
           name,
           lockSha256: hash(lock),
           auditSha256: hash(Buffer.from(raw)),
-          audit: JSON.parse(raw),
+          audit,
+          ...(acceptedAdvisory && { acceptedAdvisory }),
         });
       }
   } finally {
@@ -344,26 +456,26 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   for (const platform of release.runtimePolicy.platforms) {
     for (const layout of ["root", "isolated"]) {
       const name = `${layout}-audit.json`;
-      const path = join("recipient-security", `recipient-${platform}`, name);
+      const recipientDirectory = join(
+        "recipient-security",
+        `recipient-${platform}`,
+      );
+      const lock = regularBytes(
+        join(recipientDirectory, `${layout}-package-lock.json`),
+      );
       const audit = release.promotion
-        ? JSON.parse(
-            auditRecipientLock(
-              readFileSync(
-                join(
-                  "recipient-security",
-                  `recipient-${platform}`,
-                  `${layout}-package-lock.json`,
-                ),
-              ),
-            ),
-          )
-        : readJson(path);
-      verifyRecipientAudit(audit);
+        ? JSON.parse(auditRecipientLock(lock, { release }))
+        : readJson(join(recipientDirectory, name));
+      const acceptedAdvisory = verifyRecipientAudit(audit, {
+        lock: JSON.parse(lock),
+        release,
+      });
       record(`${platform}-${layout}-audit.json`, audit);
       recipient.push({
         platform,
         layout,
         auditSha256: hash(Buffer.from(JSON.stringify(audit, null, 2) + "\n")),
+        ...(acceptedAdvisory && { acceptedAdvisory }),
       });
     }
   }
@@ -381,7 +493,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     Source: release.source.head,
     "CodeQL analyses": selected.length,
     "Recipient audits": recipient.length,
-    "Reported vulnerabilities": 0,
+    "Unaccepted vulnerabilities": 0,
+    "KaTeX advisory exceptions": recipient.filter(
+      ({ acceptedAdvisory }) => acceptedAdvisory,
+    ).length,
     "Manifest SHA256": hash(releaseBytes),
   });
 }

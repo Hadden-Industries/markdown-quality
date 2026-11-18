@@ -165,20 +165,21 @@ export async function qualifyDistributionSbom(
       validate(raw);
       let bom = readJson(raw);
       if (archive.name === "core") {
-        verifyBundledShipment(
+        const inventory = verifyBundledShipment(
           extracted,
           archive.files,
           readJson(join(extracted, "package.json")),
           release.source.lockSha256,
         );
-        const inventory = readJson(join(extracted, bundleInventoryPath));
         bom = bindCoreSbom(bom, { archive, inventory });
         coverage.push({
           package: "core",
-          bundledPackages: inventory.packages.length,
-          bundleInventorySha256: hash(
-            readFileSync(join(extracted, bundleInventoryPath)),
-          ),
+          bundledPackages: inventory?.packages.length ?? 0,
+          ...(inventory && {
+            bundleInventorySha256: hash(
+              readFileSync(join(extracted, bundleInventoryPath)),
+            ),
+          }),
         });
       } else {
         // Use only the native binary catalog for native coverage; package metadata

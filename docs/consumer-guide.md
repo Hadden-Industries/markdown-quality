@@ -40,6 +40,7 @@ A local dependency does not put a bare `markdown-quality` executable on every sh
 Keep the consumer lockfile, and disable lifecycle scripts with `--ignore-scripts` where your acquisition policy requires it.
 An isolated `tooling/markdown` npm project supports consumers that do not use Node for their application; pass the actual repository root to its commands.
 See the [third-party notices](../THIRD-PARTY-NOTICES.md) for the versions and licenses of this release's runtime dependencies.
+If npm reports GHSA-238p-pmpm-9mq7, see the [KaTeX dependency advisory](katex-advisory.md) for its scope and the packaged reachability tests.
 
 ## Root discovery
 

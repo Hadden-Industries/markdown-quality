@@ -168,6 +168,15 @@ test("bundled SBOM coverage rejects missing, substituted and unexplained compone
     ];
   });
   const native = { metadata: { component: {} }, components };
+  const unbundled = structuredClone(native);
+  unbundled.components.length = 2;
+  assert.equal(
+    bindCoreSbom(unbundled, { archive, inventory: null }).components[1].name,
+    "package/package.json",
+  );
+  assert.throws(() =>
+    bindCoreSbom(structuredClone(native), { archive, inventory: null }),
+  );
   const valid = bindCoreSbom(structuredClone(native), { archive, inventory });
   assert.equal(valid.components[2].licenses[0].expression, "MIT");
   assert.equal(

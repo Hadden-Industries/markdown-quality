@@ -20,7 +20,7 @@ That policy text retains CC BY-SA 4.0, its attribution and the indicated changes
 | mdast-util-frontmatter          | 2.0.1   | MIT, Titus Wormer                 |
 | micromark-extension-frontmatter | 2.0.0   | MIT, Titus Wormer                 |
 | micromark-extension-gfm         | 3.0.0   | MIT                               |
-| picomatch                       | 4.0.7   | MIT                               |
+| @ryotsu/picomatch               | 4.0.7-a | MIT                               |
 | parse5                          | 8.1.1   | MIT, Ivan Nikulin                 |
 | github-slugger                  | 2.0.0   | ISC                               |
 | Snapper upstream executable     | 0.11.9  | MIT, Copyright 2026 Rohit Goswami |
@@ -58,25 +58,13 @@ The producer's scoped dependency override resolves KaTeX 0.19.1 and its Commande
 
 Their installed `LICENSE` files retain the original MIT terms and copyright notices: Khan Academy and other contributors (KaTeX), and TJ Holowaychuk (Commander).
 Those terms permit use and redistribution subject to retaining the notices.
-The core archive bundles ESLint Markdown's and ESLint's complete runtime dependency closures, including KaTeX 0.19.1 and minimatch 11.0.8, using npm's native `bundleDependencies` mechanism.
+Consumers resolve ESLint Markdown and its dependencies through their npm lockfiles.
+[KaTeX dependency advisory](docs/katex-advisory.md)
 
-Each package retains its upstream executable source and original notices.
-Vendored metadata repairs change `micromark-extension-math` 3.1.0's `dependencies.katex` declaration from `^0.16.0` to `0.19.1` for GHSA-238p-pmpm-9mq7, and ESLint 10.15.0's and `@eslint/config-array` 0.23.6's `dependencies.minimatch` declarations from `^11.0.5` to `11.0.8` for GHSA-g3hv-75wg-m249.
+The package resolves `picomatch` to `@ryotsu/picomatch@4.0.7-a` from npm.
+This MIT-licensed fork retains the upstream license and patches CVE-2026-112366.
+[Fork source](https://github.com/ryotsu-kankichi/secured-picomatch/tree/3ab5a7627d480259e3d9ca67fbc14c125d374f0e) · [Picomatch advisory](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
 
-The generated `assets/bundled-dependencies.json` records original registry URLs and integrity values, package licenses, every shipped file hash, and before/after hashes for those metadata repairs.
-The producer override remains a build input and is removed from the published manifest; it is not a recipient security control.
-The `format` 0.2.2 registry archive omits a standalone license text.
-
-Its original MIT license, copyright 2010-2016 Sami Samhuri, is preserved in [LICENSES/MIT-format.txt](LICENSES/MIT-format.txt), copied unchanged from [upstream commit 0094c51372790ca342da4b90c519edd3380deee1](https://github.com/samsonjs/format/blob/0094c51372790ca342da4b90c519edd3380deee1/License.md).
-The original per-file and readme notices also remain intact.
-The `@humanfs/types` 0.15.0 archive declares Apache-2.0 but omits a standalone license text.
-Its original author and readme notices remain intact; the bundle inventory binds the unchanged Apache-2.0 text shipped with sibling `@humanfs/node`, verified against [humanfs commit 85069f193cbacc371c3beb649ce746f8c5a493be](https://github.com/humanwhocodes/humanfs/blob/85069f193cbacc371c3beb649ce746f8c5a493be/packages/node/LICENSE).
-
-The `esrecurse` 4.3.0 and `imurmurhash` 0.1.4 readmes contain their complete BSD-2-Clause and MIT terms respectively; the bundle inventory binds those unchanged notices.
-The `natural-compare` 1.4.0 readme retains copyright 2012-2015 Lauri Rooden and its MIT declaration.
-
-The complete original MIT terms are preserved in [LICENSES/MIT-natural-compare.txt](LICENSES/MIT-natural-compare.txt), copied unchanged from [upstream commit a8e1e32c85713ba7d079445207a808ce6f4852f9](https://github.com/litejs/natural-compare-lite/blob/a8e1e32c85713ba7d079445207a808ce6f4852f9/LICENSE).
-See the [support and release boundary](docs/support-and-release.md) for acquisition, verification and removal criteria for this temporary dependency repair.
 Native packages retain `LICENSE.snapper` and a fixed executable/repack component record.
 The AGPL declaration applies to the packaging implementation and does not relabel upstream executable bytes.
 

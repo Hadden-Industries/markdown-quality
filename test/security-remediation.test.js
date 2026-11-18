@@ -10,6 +10,28 @@ import { micromark } from "micromark";
 import { math, mathHtml } from "micromark-extension-math";
 import { spawnSync } from "node:child_process";
 import { htmlFacts } from "../src/html-policy.js";
+import { createPathDecision } from "../src/documents.js";
+
+test("file selection and dependency-cruiser use the patched Picomatch package", () => {
+  const require = createRequire(import.meta.url);
+  const requireCruiser = createRequire(
+    import.meta.resolve("dependency-cruiser"),
+  );
+  const installed = require.resolve("picomatch/package.json");
+  assert.equal(requireCruiser.resolve("picomatch/package.json"), installed);
+  const pkg = JSON.parse(readFileSync(installed, "utf8"));
+  assert.equal(pkg.name, "@ryotsu/picomatch");
+  assert.equal(pkg.version, "4.0.7-a");
+
+  const select = createPathDecision({
+    include: ["docs/**/@(guide|index).{md,markdown}"],
+    exclude: ["docs/**/draft/"],
+  });
+  assert.equal(select("docs/reference/guide.markdown").decision, "selected");
+  assert.equal(select("docs/reference/index.md").decision, "selected");
+  assert.equal(select("docs/reference/draft/index.md").decision, "excluded");
+  assert.equal(select("docs/reference/images.md").decision, "not-included");
+});
 
 test("HTML facts retain lone low surrogates without the parse5 tokenizer crash", () => {
   // Upstream parse5 8.1.1 fixes decoding two low surrogates as one code point.

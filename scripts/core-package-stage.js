@@ -7,7 +7,6 @@ import {
   lstatSync,
 } from "node:fs";
 import { join } from "node:path";
-import { stageBundledDependencies } from "./bundled-dependencies.js";
 import {
   readOwned,
   safePath,
@@ -78,13 +77,13 @@ export function stageCore(root, core) {
   delete publishable.scripts;
   delete publishable.packageManager;
   delete publishable.devEngines;
+  delete publishable.overrides;
   publishable.optionalDependencies = Object.fromEntries(
     Object.values(manifest.platforms).map((spec) => [
       spec.package,
       metadata.version,
     ]),
   );
-  stageBundledDependencies(root, core, publishable);
   writeFileSync(
     join(core, "package.json"),
     JSON.stringify(publishable, null, 2) + "\n",

@@ -66,7 +66,7 @@ The `v{{release.previousVersion}}` Git tag defines the source baseline for the c
 | `fast-xml-parser`               | Floor `>=5.12.0`, lock 5.12.0 | Floor `>=5.12.1`, lock 5.12.1 |
 
 The lock also updates ESLint's `@eslint/config-array` to 0.23.6 and `fast-xml-parser`'s `fast-xml-builder` to 1.3.2.
-Bundle acquisition validates the newer upstream minimatch declarations and retains the exact patched bundle metadata and notices.
+The published 3.0.3 archive bundles ESLint with minimatch 11.0.8.
 Producer npm is 12.2.2, and the JSON Quality development graph resolves to 1.0.1.
 
 ### Upgrade
@@ -284,24 +284,14 @@ Preserve third-party license texts and attribution.
 Public registry access does not waive source obligations.
 The repository's original `LICENSE` bytes are verified by the full check.
 
-The producer's overrides in [the repository manifest](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/package.json) select patched KaTeX, glob and minimatch releases to resolve known dependency advisories.
-[npm applies overrides only from the root project](https://docs.npmjs.com/cli/v12/configuring-npm/package-json/#overrides); that alone does not protect a fresh library consumer.
-The qualification repair therefore uses [native bundled dependencies](https://docs.npmjs.com/cli/v12/configuring-npm/package-json/#bundledependencies) to ship ESLint Markdown's and ESLint's complete runtime closures, including the fixed KaTeX and minimatch versions.
+ESLint and ESLint Markdown are regular npm dependencies.
+Consumers resolve their transitive dependencies through their own lockfiles.
+Producer overrides apply only to the repository's own install.
 
-Staging obtains this closure through an offline, script-disabled `npm ci` using the producer manifest, frozen lock and npm's integrity-checked cache.
-It never copies the ambient `node_modules` tree.
-The staged math extension, ESLint and config-array manifests explicitly declare those selected patched dependencies; executable upstream source remains unchanged.
-
-The original root override is removed from the published manifest, and native `npm pack` validates the resulting dependency edges.
-The generated `assets/bundled-dependencies.json` binds the exact files, source lock, original registry identities, retained notices and those metadata repairs.
-Packing and architecture qualification verify that inventory; development tools remain excluded.
-
-Fresh root and isolated consumers must install without lifecycle scripts or overrides, have a valid native dependency tree, pass malicious-input and legitimate-rendering probes, and reinstall offline from their own frozen lock.
-Release qualification additionally requires the actual installed-recipient audit and distribution SBOM.
-
-Immutable release 1.0.3 omitted these closures.
-Version {{release.version}} retains the bundled dependency repair introduced in 2.0.0.
-Remove each vendored metadata repair when maintained upstream releases declare safe dependency ranges and the same recipient checks pass without it; remove bundling when all repairs are unnecessary.
+Fresh root and isolated consumers must install without lifecycle scripts or overrides, retain a valid native dependency tree, pass the KaTeX reachability tests, and reinstall offline from their frozen locks.
+Release qualification retains the raw recipient audits alongside the distribution and recipient SBOMs.
+The release gate accepts only the reviewed KaTeX advisory and dependency chain documented in the package.
+[KaTeX dependency advisory](katex-advisory.md)
 
 Tooling qualification allows twenty minutes per npm install or ci operation, thirty minutes per Node test suite and up to 120 minutes per enclosing job.
 Evidence uploads have a five-minute step budget; bounded acquisition and extraction have a fifteen-minute collection budget.

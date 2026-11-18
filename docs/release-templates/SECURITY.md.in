@@ -7,6 +7,8 @@ If unavailable or unsuitable, use `security@haddenindustries.com`.
 Avoid public disclosure in issues or pull requests.
 Include affected release, environment, impact, reproduction and possible mitigation, while minimizing credentials, personal data and unrelated document content.
 
+For the KaTeX advisory reported by npm audit, see the [dependency path, reachability evidence and release audit disposition](docs/katex-advisory.md).
+
 ## Supported releases
 
 Before the first stable release, security support covers the explicitly designated candidate, normally npm's `pilot` tag.

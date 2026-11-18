@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { fixtureCommandTimeoutMs } from "./helpers.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -13,7 +12,6 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import { packRelease } from "../scripts/pack.js";
 import {
   native as nativeCommand,
@@ -21,11 +19,15 @@ import {
   producerToolchain,
 } from "../scripts/commands.js";
 import { checkLinks } from "../src/analysis.js";
-import { digest, metadata as producerMetadata } from "../src/contracts.js";
+import { digest } from "../src/contracts.js";
 import { qualifyRuntime } from "../scripts/qualify-runtime.js";
 import { qualifyMinimalConsumer } from "../scripts/qualify-minimal-consumer.js";
 import { checkArchitecture } from "../scripts/architecture.js";
-import { verifyBundledShipment } from "../scripts/bundled-dependencies.js";
+import {
+  katexNoticePath,
+  verifyRecipientAudit,
+} from "../scripts/qualify-release-security.js";
+import { verifyKaTeXReachability } from "./fixtures/katex-consumer-probe.mjs";
 
 /** Emit live phase boundaries even while a synchronous child command blocks. */
 function phase(name, operation) {
@@ -46,7 +48,7 @@ function phase(name, operation) {
   }
 }
 
-test("packed root and isolated consumers install without lifecycle scripts and execute offline", (t) => {
+test("packed root and isolated consumers install without lifecycle scripts and execute offline", async (t) => {
   const temp = mkdtempSync(join(tmpdir(), "markdown-quality-install-"));
   t.after(() =>
     phase("fixture cleanup", () =>
@@ -74,9 +76,10 @@ test("packed root and isolated consumers install without lifecycle scripts and e
     (a) => a.name === `${process.platform}-${process.arch}`,
   );
   const core = release.archives.find((a) => a.name === "core");
+  assert.ok(core.files.some(({ path }) => path === katexNoticePath));
   assert.ok(
-    core.files.some((file) => file.path === "node_modules/katex/package.json"),
-    "Recipients must receive the patched KaTeX closure without root overrides",
+    core.files.every(({ path }) => !path.startsWith("node_modules/")),
+    "The core archive must use registry dependencies",
   );
   // The real archive is an independent oracle for npm's dry-run admission.
   assert.deepEqual(
@@ -132,105 +135,36 @@ test("packed root and isolated consumers install without lifecycle scripts and e
       readFileSync(join(installedCore, "package.json"), "utf8"),
     );
     assert.equal(installedMetadata.overrides, undefined);
-    verifyBundledShipment(
-      installedCore,
-      core.files,
-      installedMetadata,
-      release.source.lockSha256,
-    );
-    if (layout === "root") {
-      const bundledFile = core.files.find(({ path }) =>
-        path.endsWith("node_modules/katex/dist/katex.mjs"),
-      );
-      assert.ok(bundledFile);
-      const path = join(installedCore, bundledFile.path);
-      const original = readFileSync(path);
-      const corrupt = Buffer.from(original);
-      corrupt[0] ^= 1;
-      try {
-        writeFileSync(path, corrupt);
-        assert.throws(
-          () =>
-            verifyBundledShipment(
-              installedCore,
-              core.files,
-              installedMetadata,
-              release.source.lockSha256,
-            ),
-          /Bundled file drift/u,
-        );
-      } finally {
-        writeFileSync(path, original);
-      }
-      assert.throws(() =>
-        verifyBundledShipment(
-          installedCore,
-          core.files.filter((file) => file !== bundledFile),
-          installedMetadata,
-          release.source.lockSha256,
-        ),
-      );
-      assert.throws(() =>
-        verifyBundledShipment(
-          installedCore,
-          [
-            ...core.files,
-            { path: "node_modules/unexpected/index.js", size: 1 },
-          ],
-          installedMetadata,
-          release.source.lockSha256,
-        ),
-      );
-      assert.throws(() =>
-        verifyBundledShipment(
-          installedCore,
-          core.files,
-          installedMetadata,
-          "0".repeat(64),
-        ),
-      );
-    }
+    assert.equal(installedMetadata.bundleDependencies, undefined);
     const installedLock = JSON.parse(lockBefore);
-    const katex = Object.entries(installedLock.packages).filter(([path]) =>
-      path.endsWith("node_modules/katex"),
-    );
-    assert.ok(katex.length > 0);
-    assert.ok(
-      katex.every(
-        ([, pkg]) =>
-          pkg.version ===
-          producerMetadata.overrides["micromark-extension-math"].katex,
-      ),
-    );
-    const minimatch = Object.entries(installedLock.packages).filter(([path]) =>
-      path.endsWith("node_modules/minimatch"),
-    );
-    assert.ok(minimatch.length > 0);
-    assert.ok(
-      minimatch.every(
-        ([, pkg]) => pkg.version === producerMetadata.overrides.minimatch,
-      ),
+    for (const name of ["eslint", "@eslint/markdown", "katex"]) {
+      assert.equal(
+        installedLock.packages[`node_modules/${name}`]?.inBundle,
+        undefined,
+      );
+      assert.ok(installedLock.packages[`node_modules/${name}`]?.integrity);
+    }
+    assert.equal(
+      installedLock.packages["node_modules/picomatch"].name,
+      "@ryotsu/picomatch",
     );
     npmCommand(["ls", "--all", "--json"], { cwd: install });
-    npmCommand(["audit", "--omit=dev", "--audit-level=moderate"], {
-      cwd: install,
-    });
-    const securityProbe = spawnSync(
-      process.execPath,
-      [
-        fileURLToPath(
-          new URL("./fixtures/katex-consumer-probe.mjs", import.meta.url),
+    await t.test(`${layout} KaTeX reachability`, () =>
+      verifyKaTeXReachability({
+        install,
+        root: join(temp, `${layout}-math`),
+        cli: join(installedCore, "src/cli.js"),
+      }),
+    );
+    await t.test(`${layout} dependency audit`, () => {
+      const audit = JSON.parse(
+        npmCommand(
+          ["audit", "--json", "--ignore-scripts", "--audit-level=none"],
+          { cwd: install },
         ),
-        installedCore,
-        producerMetadata.overrides["micromark-extension-math"].katex,
-      ],
-      { encoding: "utf8", timeout: fixtureCommandTimeoutMs, windowsHide: true },
-    );
-    assert.equal(
-      securityProbe.status,
-      0,
-      securityProbe.stdout + securityProbe.stderr,
-    );
+      );
+      verifyRecipientAudit(audit, { lock: installedLock, release });
+    });
     assert.equal(
       installedMetadata.dependencies["dependency-cruiser"],
       undefined,
