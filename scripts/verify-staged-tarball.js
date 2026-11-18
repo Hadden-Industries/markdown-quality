@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Compare an owner's downloaded stage bytes; never contact npm or approve a stage. */
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { hash, releaseBytes, verifyArchiveBytes } from "./release-bytes.js";
+import {
+  archiveDigests,
+  hash,
+  releaseBytes,
+  verifyArchiveDigests,
+} from "./release-bytes.js";
 
 /** The owner authenticates the stage identity and channel separately with npm stage view. */
 export function checkStagedTarball(
@@ -70,12 +74,8 @@ export function checkStagedTarball(
       20_000_000,
       "Expected a bounded regular downloaded tarball",
     );
-    result.observed = {
-      sha256: hash(bytes),
-      integrity:
-        "sha512-" + createHash("sha512").update(bytes).digest("base64"),
-    };
-    verifyArchiveBytes(bytes, archive);
+    result.observed = archiveDigests(bytes);
+    verifyArchiveDigests(result.observed, result.expected);
     result.status = "verified";
   } catch (error) {
     result.reason = error.message;

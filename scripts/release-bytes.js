@@ -18,13 +18,18 @@ export function releaseBytes(path, maximum, message) {
   assert.ok(bytes.length <= maximum);
   return bytes;
 }
+export function archiveDigests(bytes) {
+  return {
+    sha256: hash(bytes),
+    integrity: `sha512-${createHash("sha512").update(bytes).digest("base64")}`,
+  };
+}
+
+export function verifyArchiveDigests(observed, archive) {
+  assert.equal(observed.sha256, archive.sha256);
+  assert.equal(observed.integrity, archive.integrity);
+}
+
 export function verifyArchiveBytes(bytes, archive) {
-  assert.equal(
-    createHash("sha256").update(bytes).digest("hex"),
-    archive.sha256,
-  );
-  assert.equal(
-    `sha512-${createHash("sha512").update(bytes).digest("base64")}`,
-    archive.integrity,
-  );
+  verifyArchiveDigests(archiveDigests(bytes), archive);
 }
