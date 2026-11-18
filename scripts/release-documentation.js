@@ -16,12 +16,19 @@ const documents = [
   "docs/centralized-contracts.md",
   "docs/json-quality.md",
   "docs/release-operations.md",
+  "docs/katex-advisory.md",
 ];
 const metadataPath = "docs/release-versions.json";
+const katexReviewPath = "scripts/katex-advisory-review.json";
+const jsonQualityPackage = "@hadden-industries/json-quality";
 const templatePath = (path) => `docs/release-templates/${basename(path)}.in`;
 
 export const releaseDocumentationInputs = [
   metadataPath,
+  "package.json",
+  "package-lock.json",
+  "assets/node-support.json",
+  katexReviewPath,
   ...documents.flatMap((path) => [path, templatePath(path)]),
 ];
 
@@ -33,12 +40,41 @@ export function releaseDocumentationProjection(version, read) {
   const { previousVersion } = metadata;
   assert.match(previousVersion, releaseVersionPattern);
   assert.notEqual(previousVersion, version, "Release versions must differ");
+  const core = JSON.parse(read("package.json"));
+  const repository = new URL(core.repository.url.replace(/^git\+/u, ""));
+  assert.equal(repository.origin, "https://github.com");
+  assert.match(repository.pathname, /^\/[\w.-]+\/[\w.-]+\/?$/u);
+  const repositoryPath = repository.pathname
+    .replace(/\/$/u, "")
+    .replace(/\.git$/u, "");
+  const { minimum: nodeMinimum } = JSON.parse(read("assets/node-support.json"));
+  assert.match(nodeMinimum, releaseVersionPattern);
+  const lock = JSON.parse(read("package-lock.json"));
+  const jsonQuality = lock.packages[`node_modules/${jsonQualityPackage}`];
+  assert.match(jsonQuality.version, releaseVersionPattern);
+  const katexReview = JSON.parse(read(katexReviewPath));
+  const [eslintMarkdown, mathExtension, katex] = katexReview.chain;
+  const katexDependencyPath = katexReview.chain
+    .map(({ name, version }) => `\`${name}@${version}\``)
+    .join(" → ");
   const anchorVersion = (value) => value.toLowerCase().replace(/[.+]/gu, "");
   const variables = {
     version,
     previousVersion,
     versionAnchor: `version-${anchorVersion(version)}`,
     migrationAnchor: `from-${anchorVersion(previousVersion)}-to-${anchorVersion(version)}`,
+    sourceUrl: `${repository.origin}${repositoryPath}/blob/v${encodeURIComponent(version)}`,
+    nodeMinimum,
+    jsonQualityRange: core.devDependencies[jsonQualityPackage],
+    jsonQualityVersion: jsonQuality.version,
+    jsonQualityNodeRange: jsonQuality.engines.node,
+    katexAdvisory: katexReview.advisory,
+    katexCve: katexReview.cve,
+    katexDependencyPath,
+    katexRange: katex.range,
+    katexFixedVersion: katexReview.fixedVersion,
+    mathExtensionVersion: mathExtension.version,
+    eslintMarkdownVersion: eslintMarkdown.version,
   };
   return new Map(
     documents.map((path) => {
@@ -50,7 +86,8 @@ export function releaseDocumentationProjection(version, read) {
         /\{\{release\.([A-Za-z][A-Za-z0-9]*)\}\}/gu,
         (_, name) => {
           assert.ok(
-            Object.hasOwn(variables, name),
+            Object.hasOwn(variables, name) &&
+              typeof variables[name] === "string",
             `Unknown release variable: ${name}`,
           );
           return variables[name];

@@ -4,11 +4,11 @@ import assert from "node:assert/strict";
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { hash, releaseBytes } from "./release-bytes.js";
-import { releasePackages } from "./release-coordinates.js";
+import { releasePackages, repository } from "./release-identity.js";
 
 /** Context is frozen before startup; append and flush intent before entering native provider code. */
 export function createEffectJournal(directory, context) {
-  assert.equal(context.repository, "Hadden-Industries/markdown-quality");
+  assert.equal(context.repository, repository);
   for (const name of ["controller", "source"])
     assert.match(context[name], /^[a-f0-9]{40}$/u);
   for (const name of ["manifestSha256", "decisionSha256"])

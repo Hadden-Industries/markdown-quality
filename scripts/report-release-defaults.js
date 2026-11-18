@@ -2,7 +2,7 @@
 /** Always-run read-only observations after public qualification, including a failed direct-latest matrix. */
 import { appendFileSync, writeFileSync } from "node:fs";
 import { native } from "./commands.js";
-import { releasePackages } from "./release-coordinates.js";
+import { releasePackages, repository } from "./release-identity.js";
 import { readPackageTags } from "./release-labels.js";
 
 const report = {
@@ -29,11 +29,9 @@ for (const name of releasePackages) {
 }
 try {
   report.githubLatest = JSON.parse(
-    native(
-      "gh",
-      ["api", "repos/Hadden-Industries/markdown-quality/releases/latest"],
-      { timeout: Math.max(1, deadline - performance.now()) },
-    ),
+    native("gh", ["api", `repos/${repository}/releases/latest`], {
+      timeout: Math.max(1, deadline - performance.now()),
+    }),
   );
 } catch (error) {
   report.githubLatest = {

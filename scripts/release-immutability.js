@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Admit the owner's digest-bound repository setting observation before draft effects. */
+import { repository, repositoryUrl } from "./release-identity.js";
 import assert from "node:assert/strict";
 import { hash } from "./release-bytes.js";
 
@@ -9,13 +10,10 @@ export function verifyImmutabilityObservation(
   qualified,
   now = Date.now(),
 ) {
-  assert.equal(
-    observation?.repository,
-    "https://github.com/Hadden-Industries/markdown-quality",
-  );
+  assert.equal(observation?.repository, repositoryUrl);
   assert.equal(
     observation.endpoint,
-    "https://api.github.com/repos/Hadden-Industries/markdown-quality/immutable-releases",
+    `https://api.github.com/repos/${repository}/immutable-releases`,
   );
   const checked = Date.parse(observation.checkedAt);
   assert.ok(

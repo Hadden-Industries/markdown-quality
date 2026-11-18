@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Authenticate expired artifacts only against complete owner-signed native observations. */
+import { repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -189,7 +190,7 @@ export async function authenticateArtifact(
   assert.equal(run.run_attempt, Number(expected.attempt));
   assert.equal(run.path, expected.workflow);
   assert.equal(run.head_sha, expected.controller);
-  assert.equal(run.repository.full_name, "Hadden-Industries/markdown-quality");
+  assert.equal(run.repository.full_name, repository);
   assert.equal(run.head_repository.full_name, run.repository.full_name);
   assert.equal(run.event, "workflow_dispatch");
   assert.equal(run.head_branch, "main");

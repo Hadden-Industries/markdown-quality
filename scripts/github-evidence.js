@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Adapted from OwlAPI's bounded reader and retry-after handling (source register).
+import { repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
@@ -219,8 +220,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       ? budgets.collection
       : budgets.read;
     const read = createRepositoryReader({
-      repository:
-        process.env.GITHUB_REPOSITORY ?? "Hadden-Industries/markdown-quality",
+      repository: process.env.GITHUB_REPOSITORY ?? repository,
       token: process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN,
       accept: process.argv.includes("--sarif")
         ? "application/sarif+json"

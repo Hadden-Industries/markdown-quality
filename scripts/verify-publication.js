@@ -1,4 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import {
+  corePackage,
+  releaseMemberNames,
+  releaseMembers,
+  repository,
+} from "./release-identity.js";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import {
@@ -18,7 +24,6 @@ import {
   verifyPromotion,
 } from "./release-qualification.js";
 
-const repository = "Hadden-Industries/markdown-quality";
 const digest = (bytes, algorithm = "sha256") =>
   createHash(algorithm).update(bytes).digest("hex");
 const bytes = (path, maximum) =>
@@ -110,7 +115,7 @@ export function verifyPublication({
   verifyReleaseQualificationJobs(run, jobs, release);
   const metadata = json(join(root, "package.json"));
   releaseVersion(metadata.version);
-  assert.equal(metadata.name, "@hadden-industries/markdown-quality");
+  assert.equal(metadata.name, corePackage);
   assert.equal(metadata.license, "AGPL-3.0-only");
   assert.equal(metadata.publishConfig.access, "public");
   assert.equal(release.version, metadata.version);
@@ -138,17 +143,13 @@ export function verifyPublication({
     release.sbom.sha256,
     digest(bytes(join(directory, release.sbom.filename), 4_194_304)),
   );
-  assert.equal(release.archives.length, 3);
-  const names = ["win32-x64", "linux-x64", "core"];
+  assert.equal(release.archives.length, releaseMemberNames.length);
   assert.deepEqual(
     release.archives.map((archive) => archive.name),
-    names,
+    releaseMemberNames,
   );
   for (const archive of release.archives) {
-    const packageName =
-      archive.name === "core"
-        ? metadata.name
-        : `${metadata.name}-${archive.name}`;
+    const packageName = releaseMembers[archive.name];
     const filename =
       packageName.slice(1).replace("/", "-") + `-${release.version}.tgz`;
     assert.equal(archive.package, packageName);

@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { validatePublicationOrigins } from "./publication-origins.js";
 import { verifyReleaseQualificationContext } from "./verify-publication.js";
 import { releaseVersion, releasePackages } from "./release-coordinates.js";
+import { releaseMemberNames, releaseMembers } from "./release-identity.js";
 
 const boundedBytes = (path, maximum = 1_048_576) => releaseBytes(path, maximum);
 const json = (path) => JSON.parse(boundedBytes(path).toString("utf8"));
@@ -100,9 +101,8 @@ export function preparePublicationEnvironment(
   };
   for (let index = 0; index < release.archives.length; index++) {
     const archive = release.archives[index];
-    const packageName =
-      "@hadden-industries/markdown-quality" +
-      (archive.name === "core" ? "" : `-${archive.name}`);
+    assert.ok(releaseMemberNames.includes(archive.name));
+    const packageName = releaseMembers[archive.name];
     assert.equal(archive.package, packageName);
     assert.equal(archive.version, release.version);
     assert.equal(

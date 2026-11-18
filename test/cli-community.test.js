@@ -337,8 +337,6 @@ test("true schema-4 to schema-5 comparison preserves provenance and rejects logi
 test("version projection preserves dependency resolution and validates all inputs before writing", (t) => {
   const root = consumer(t);
   for (const path of [
-    "package.json",
-    "package-lock.json",
     ".json-quality.json",
     "packages/linux-x64/package.json",
     "packages/win32-x64/package.json",
@@ -351,8 +349,26 @@ test("version projection preserves dependency resolution and validates all input
   writeFileSync(comparisonPath, JSON.stringify({ previousVersion: "3.0.2" }));
   const metadata = JSON.parse(readFileSync(join(root, "package.json")));
   metadata.version = "3.1.0";
+  metadata.repository.url =
+    "git+https://github.com/example/markdown-sample.git";
+  const jsonQualityPackage = "@hadden-industries/json-quality";
+  metadata.devDependencies[jsonQualityPackage] = ">=2.0.0";
   writeFileSync(join(root, "package.json"), JSON.stringify(metadata));
-  const before = JSON.parse(readFileSync(join(root, "package-lock.json")));
+  const lockPath = join(root, "package-lock.json");
+  const before = JSON.parse(readFileSync(lockPath));
+  before.packages[""].devDependencies[jsonQualityPackage] = ">=2.0.0";
+  const jsonQuality = before.packages[`node_modules/${jsonQualityPackage}`];
+  jsonQuality.version = "2.1.0";
+  jsonQuality.engines.node = ">=24.1.0";
+  writeFileSync(lockPath, JSON.stringify(before));
+  const nodeSupportPath = join(root, "assets/node-support.json");
+  const nodeSupport = JSON.parse(readFileSync(nodeSupportPath));
+  nodeSupport.minimum = "24.0.0";
+  writeFileSync(nodeSupportPath, JSON.stringify(nodeSupport));
+  const katexReviewPath = join(root, "scripts/katex-advisory-review.json");
+  const katexReview = JSON.parse(readFileSync(katexReviewPath));
+  katexReview.chain.at(-1).version = "0.16.48";
+  writeFileSync(katexReviewPath, JSON.stringify(katexReview));
   const jsonPolicyBefore = JSON.parse(
     readFileSync(join(root, ".json-quality.json")),
   );
@@ -360,12 +376,21 @@ test("version projection preserves dependency resolution and validates all input
   checkPackageVersions(root);
   const readmePath = join(root, "README.md");
   const readmeBytes = readFileSync(readmePath);
-  assert.match(
-    readmeBytes.toString(),
-    /^## What changed in 3\.1\.0$/mu,
-  );
+  assert.match(readmeBytes.toString(), /^## What changed in 3\.1\.0$/mu);
   assert.ok(readmeBytes.includes("markdown-quality@3.1.0"));
   assert.ok(readmeBytes.includes("#from-302-to-310"));
+  const sourceUrl = "https://github.com/example/markdown-sample/blob/v3.1.0";
+  assert.ok(readmeBytes.includes(`${sourceUrl}/assets/node-support.json`));
+  const security = readFileSync(join(root, "SECURITY.md"), "utf8");
+  assert.ok(security.includes("Node `>=24.0.0`"));
+  const jsonGuide = readFileSync(join(root, "docs/json-quality.md"), "utf8");
+  assert.ok(jsonGuide.includes("ordinary `>=2.0.0` devDependency"));
+  assert.ok(jsonGuide.includes("resolves JSON Quality to 2.1.0"));
+  assert.ok(jsonGuide.includes("declares Node.js `>=24.1.0`"));
+  const notice = readFileSync(join(root, "docs/katex-advisory.md"), "utf8");
+  assert.ok(notice.includes("Markdown Quality 3.1.0"));
+  assert.ok(notice.includes("`katex@0.16.48`"));
+  assert.ok(notice.includes(`${sourceUrl}/test/packaging.test.js`));
   assert.ok(
     readFileSync(join(root, "docs/migration-guide.md"), "utf8").includes(
       "## From 3.0.1 to 3.0.2",

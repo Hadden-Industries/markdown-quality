@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Recheck approved provider preimages immediately before one native staging request. */
+import { repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -180,9 +181,7 @@ export function verifyStageGuards(
   }
   let latest;
   try {
-    latest = JSON.parse(
-      gh(["api", "repos/Hadden-Industries/markdown-quality/releases/latest"]),
-    ).id;
+    latest = JSON.parse(gh(["api", `repos/${repository}/releases/latest`])).id;
   } catch (error) {
     let body;
     try {

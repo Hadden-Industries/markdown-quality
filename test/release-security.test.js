@@ -118,6 +118,10 @@ test("KaTeX disposition refuses unreviewed archives, graphs and findings", () =>
       lock.packages["node_modules/katex"].integrity = "sha512-other";
     },
     ({ lock }) => {
+      lock.packages["node_modules/micromark-extension-math"].integrity =
+        "sha512-other";
+    },
+    ({ lock }) => {
       lock.packages[""].dependencies.katex = "0.16.47";
     },
     ({ lock }) => {

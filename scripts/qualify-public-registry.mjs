@@ -25,6 +25,11 @@ import { bindRecipientSbom } from "./distribution-sbom.js";
 import { reportCiResult } from "./ci-result.js";
 import { repositoryPython, supportsPython } from "./python-target.js";
 import { releaseVersion } from "./release-coordinates.js";
+import {
+  corePackage,
+  nativeReleasePlatforms,
+  releasePackages,
+} from "./release-identity.js";
 
 const { values, positionals } = parseArgs({
   options: {
@@ -118,11 +123,7 @@ if (publicationOrigins) {
   );
   assert.deepEqual(
     expected.archives.map((a) => a.package),
-    [
-      "@hadden-industries/markdown-quality-win32-x64",
-      "@hadden-industries/markdown-quality-linux-x64",
-      "@hadden-industries/markdown-quality",
-    ],
+    releasePackages,
   );
 }
 const selectedArchives = values["retained-only"]
@@ -148,7 +149,7 @@ const layoutOutput = values["layout-output"]
 if (layoutOutput) mkdirSync(layoutOutput);
 const provenanceRecords = [];
 const platform = `${process.platform}-${process.arch}`;
-assert.ok(["win32-x64", "linux-x64"].includes(platform));
+assert.ok(nativeReleasePlatforms.includes(platform));
 async function acquire(url, maximum) {
   assert.equal(new URL(url).origin, "https://registry.npmjs.org");
   const response = await fetch(url, {
@@ -247,7 +248,7 @@ try {
               active.map((archive) => [archive.package, expected.version]),
             )
           : {
-              "@hadden-industries/markdown-quality": archives
+              [corePackage]: archives
                 ? "file:" +
                   join(
                     archives,

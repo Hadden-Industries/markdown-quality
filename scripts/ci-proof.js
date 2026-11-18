@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Admission structure adapted from Markdown Quality's ci-reuse.js; producing
 // attempts follow OwlAPI's authenticated execution-identity correction.
+import { repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import { isDeepStrictEqual } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
@@ -11,7 +12,7 @@ import { assertHostedPlatform } from "./ci-host.js";
 import { budgets } from "./qualification-budgets.js";
 import { validateConsumer } from "./ci-consumer.js";
 
-export const repository = "Hadden-Industries/markdown-quality";
+export { repository };
 export const workflow = ".github/workflows/ci.yml";
 export const acceptance = "CI / acceptance";
 const positive = (value) => Number.isSafeInteger(value) && value > 0;

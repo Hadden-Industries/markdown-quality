@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Derive version lookups from authenticated publication evidence, never display names. */
+import { repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -159,7 +160,6 @@ export function canOmitPublicationSnapshot(directory, owner, manifestBytes) {
 
 /** Only cryptographically verified immutable release assets can replace expired transport copies. */
 export function readArchivedPublicationSubjects(gh, scratch) {
-  const repository = "Hadden-Industries/markdown-quality";
   const releases = JSON.parse(
     gh([
       "api",

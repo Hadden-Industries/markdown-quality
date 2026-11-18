@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Read native provider history before granting any new staging effect. */
+import { repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import {
   appendFileSync,
@@ -45,7 +46,6 @@ import {
 
 export { attemptedPublicationJobs } from "./publication-attempts.js";
 
-const repository = "Hadden-Industries/markdown-quality";
 // Serialized subject fields are observations, not authority. Only this live
 // authenticated collector can admit a lookup for the corresponding entry.
 const admittedSubjects = new WeakMap();

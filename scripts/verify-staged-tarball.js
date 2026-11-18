@@ -2,6 +2,7 @@
 /** Compare an owner's downloaded stage bytes; never contact npm or approve a stage. */
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
+import { releaseMemberNames, releaseMembers } from "./release-identity.js";
 import {
   archiveDigests,
   hash,
@@ -26,7 +27,7 @@ export function checkStagedTarball(
       6,
       "Usage: verify-staged-tarball.js MANIFEST MANIFEST_SHA256 MEMBER STAGE_ID CHANNEL DOWNLOADED_TGZ",
     );
-    assert.ok(["win32-x64", "linux-x64", "core"].includes(member));
+    assert.ok(releaseMemberNames.includes(member));
     assert.ok(
       ["pilot", "latest"].includes(channel),
       "Unknown reviewed channel",
@@ -59,11 +60,7 @@ export function checkStagedTarball(
     );
     assert.equal(entries.length, 1, "Expected exactly one manifest member");
     const archive = entries[0];
-    assert.equal(
-      archive.package,
-      "@hadden-industries/markdown-quality" +
-        (member === "core" ? "" : `-${member}`),
-    );
+    assert.equal(archive.package, releaseMembers[member]);
     assert.equal(typeof manifest.version, "string");
     assert.equal(archive.version, manifest.version);
     result.package = archive.package;

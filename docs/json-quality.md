@@ -5,14 +5,15 @@
 Markdown Quality declares `@hadden-industries/json-quality` as an ordinary `>=1.0.1` devDependency in the root [package.json](../package.json).
 Root `npm ci --ignore-scripts` installs it and its matching optional platform package using the root npm lockfile.
 Npm owns dependency resolution and package integrity, as it does for the other development dependencies.
-The 3.0.4 source lockfile resolves the published JSON Quality core, Linux x64 and Windows x64 packages to 1.0.1.
+The 3.0.4 source lockfile resolves JSON Quality to 1.0.1.
 
 It is development tooling, outside product dependencies, exports and npm contents.
 The package's public API owns discovery, parsing, quality rules, formatting, normalization, budgets, guarded writes and streamed completion.
 Repository Python owners supply original admitted compressed/archive bytes and provenance, without implementing a second JSON checker.
 
 Use the producer Node and npm versions in [node-support.json](../assets/node-support.json) to reproduce the repository's JSON checks.
-JSON Quality 1.0.1 declares a Node.js minimum of 22.13.0, the same floor as Markdown Quality 3.0.4.
+The locked JSON Quality package declares Node.js `>=22.13.0`.
+Markdown Quality 3.0.4 declares Node.js `>=22.13.0`.
 
 The [runtime compatibility record](node-runtime-compatibility.md) separates consumer minima from development tooling.
 After installation, `node scripts/runRepositoryJsonQuality.mjs --version` prints the version used by the repository's JSON commands.

@@ -43,9 +43,9 @@ Changed inputs, absent or expired evidence, an unsupported merge shape or an exp
 Reuse never consumes another promotion record as its original proof.
 It has no publication authority.
 
-See [the artifact promotion contract](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/plans/2026-11-16-release-artifact-promotion.md) for the manifest and invalidation rules.
+See [the artifact promotion contract]({{release.sourceUrl}}/docs/plans/2026-11-16-release-artifact-promotion.md) for the manifest and invalidation rules.
 
-The earlier [CI convergence plan](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/plans/2026-10-29-github-actions-convergence-implementation-plan.md) records the deliberate qualification request boundary.
+The earlier [CI convergence plan]({{release.sourceUrl}}/docs/plans/2026-10-29-github-actions-convergence-implementation-plan.md) records the deliberate qualification request boundary.
 The artifact promotion contract above replaces its mandatory fresh release execution when reusable evidence is admitted.
 Verify hosted acceptance for the exact candidate and inspect the live governance settings before release.
 
@@ -95,7 +95,7 @@ The owner accepted a manual trusted-run boundary for the two pilots on 2026-10-0
 Shared qualification now additionally requires owner approval of its exact request through the protected `markdown-quality-trusted-qualification` environment before the trusted graph executes.
 
 Required reviewers and disabled administrator bypass are checked live, together with this workflow run's approval history; a named but unprotected environment does not authorize execution.
-The [Actions analysis model](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/.github/codeql/README.md) recognizes this exact admission sequence for manual workflows while preserving the native rule inventory and unchanged zero-result release gates.
+The [Actions analysis model]({{release.sourceUrl}}/.github/codeql/README.md) recognizes this exact admission sequence for manual workflows while preserving the native rule inventory and unchanged zero-result release gates.
 
 The request summary identifies the reviewed trusted commit/profile and paired producer, plus the candidate commit; changing those inputs creates a new workflow run requiring approval.
 GitHub required checks select a name/context and App identity, not a workflow revision or event.

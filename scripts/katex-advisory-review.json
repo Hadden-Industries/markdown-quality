@@ -1,0 +1,26 @@
+{
+  "advisory": "GHSA-238p-pmpm-9mq7",
+  "cve": "CVE-2026-103923",
+  "notice": "docs/katex-advisory.md",
+  "fixedVersion": "0.18.2",
+  "chain": [
+    {
+      "name": "@eslint/markdown",
+      "version": "8.0.3",
+      "range": "8.0.3",
+      "integrity": "sha512-rBTSSShrq7e4O+PWfeE4azH4/CWPNrC+VGxBXiW00o3vYVJnznsZiDayj3KC9JztIMVRZxZHn2nrDIUau/4j7A=="
+    },
+    {
+      "name": "micromark-extension-math",
+      "version": "3.1.0",
+      "range": "^3.1.0",
+      "integrity": "sha512-lvEqd+fHjATVs+2v/8kg9i5Q0AP2k85H0WUOwpIVvUML8BapsMvh1XAogmQjOCsLpoKRCVQqEkQBB3NhVBcsOg=="
+    },
+    {
+      "name": "katex",
+      "version": "0.16.47",
+      "range": "^0.16.0",
+      "integrity": "sha512-Eeo8Ys1doU1z+x8AZsPpQu+p/QcZBI5PeOo7QGQdy2x2m0MU/hYagBbGOmXwr5KVbEfVuWv9LpnQWeehogurjg=="
+    }
+  ]
+}

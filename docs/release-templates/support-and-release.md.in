@@ -3,7 +3,7 @@
 This guide covers version {{release.version}}.
 For an upgrade, start with [the release changes](#{{release.versionAnchor}}) and [migration guidance](migration-guide.md#{{release.migrationAnchor}}).
 For an installation decision, see [supported runtimes and platforms](#supported-runtimes-and-platforms).
-To prepare or promote a package, follow the [release runbook](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md).
+To prepare or promote a package, follow the [release runbook]({{release.sourceUrl}}/docs/release-operations.md).
 
 ## Version {{release.version}}
 
@@ -37,7 +37,7 @@ If file-selection patterns use bracket negation or complex repeated extglobs, re
   The input preflight checks the complete JSON request before dispatch.
   Recovery and signed history bind original attempts, package bytes and evidence digests.
 
-[Follow the release runbook](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md)
+[Follow the release runbook]({{release.sourceUrl}}/docs/release-operations.md)
 
 ## Version 3.0.3
 
@@ -53,16 +53,16 @@ See [the 3.0.2 migration notes](migration-guide.md#from-301-to-302) for that bas
 
 ## Supported runtimes and platforms
 
-Development source targets the consumer floor in the [canonical Node policy](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/assets/node-support.json).
+Development source targets the consumer floor in the [canonical Node policy]({{release.sourceUrl}}/assets/node-support.json).
 Other engine-compatible major releases receive best-effort support without a mandatory qualification claim.
-The [runtime compatibility record](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/node-runtime-compatibility.md) explains the lower bounds and distinguishes compatibility from security patch recommendations.
+The [runtime compatibility record]({{release.sourceUrl}}/docs/node-runtime-compatibility.md) explains the lower bounds and distinguishes compatibility from security patch recommendations.
 The qualification matrix covers the Node policy's declared LTS families and supported platforms.
 
 The coordinator constructs the {{release.version}} matrix from the minimum, compatibility pins and producer reference recorded in the release's Node policy.
 It checks the policy against the locked production dependency engines and requires one compatibility pin for each supported major outside the reference family.
 
 Routine CI, release construction and qualification use the same exact producer Node/npm selection.
-Contributor npm eligibility and packed-package consumer npm remain separate; see [the runtime guide](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/node-runtime-compatibility.md#contributor-and-consumer-npm) for their purpose and the limits of local verification.
+Contributor npm eligibility and packed-package consumer npm remain separate; see [the runtime guide]({{release.sourceUrl}}/docs/node-runtime-compatibility.md#contributor-and-consumer-npm) for their purpose and the limits of local verification.
 
 All lanes run product source checks and real CLI/native consumer probes in root and isolated layouts, with exact formatting bytes, fenced literal preservation, convergence, local-link failure and operational-error contracts.
 Fresh installation and offline lockfile replay enforce package engines.
@@ -79,7 +79,7 @@ Only observed passing platform evidence can establish support.
 Use the latest security-patched release in a supported family for ordinary operation; the compatibility minimum is not a security recommendation.
 
 Published 1.0.3 retains its immutable `>=24.21.0 <25` engine declaration and Node 24.21.0 qualification.
-Version {{release.version}} retains the Node `>=22.13.0` floor introduced in 2.0.0.
+Version {{release.version}} requires Node `>={{release.nodeMinimum}}`.
 Its qualification matrix covers Node 22, 24 and 26 on Windows and Linux x64.
 macOS, ARM, and musl are unqualified.
 
@@ -177,7 +177,7 @@ The unpublished private alpha.1 candidate and all rejected attempts remain histo
 
 ## Release approval and promotion
 
-The current supported path is the [deliberate release operation](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md).
+The current supported path is the [deliberate release operation]({{release.sourceUrl}}/docs/release-operations.md).
 Ordinary direct-main development remains available after local tests.
 A manual release qualification reuses eligible CI evidence or runs the full source, product, runtime and performance checks.
 Release security verifies the exact-source CodeQL result and installed recipient audits.
@@ -191,7 +191,7 @@ Release qualification binds the exact committed version on `main`.
 It requires a three-part numeric version with a positive major and accepts no prerelease suffix.
 Native packages are staged under the reviewed channel (`pilot` by default or explicitly `latest`), inspected and approved by the owner with 2FA, then publicly verified on both platforms before a manual continuation can stage core.
 Core requires another owner approval.
-Before each native or core approval, follow the [staged-tarball inspection procedure](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md#inspect-a-staged-tarball-before-approval).
+Before each native or core approval, follow the [staged-tarball inspection procedure]({{release.sourceUrl}}/docs/release-operations.md#inspect-a-staged-tarball-before-approval).
 The owner verifies the original stage identity and reviewed channel, downloads its actual tarball, and checks both SHA-256 and SHA-512 SRI before the separate 2FA approval.
 No long-lived publishing token, direct publish fallback, automatic approval or implicit latest label is used.
 
@@ -280,4 +280,4 @@ These are measured project acceptance criteria, not durations prescribed by an e
 
 The owner adopted the larger execution budgets after a successful instrumented Windows run left about thirty seconds of headroom under the former ten-minute suite ceiling.
 This decision provides execution headroom; it does not establish that the intermittent installation slowdown is fixed.
-See the [qualification repair evidence](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/research/2026-10-17-release-qualification-repair.md) for observed failures, limits, diagnosis and validation boundaries.
+See the [qualification repair evidence]({{release.sourceUrl}}/docs/research/2026-10-17-release-qualification-repair.md) for observed failures, limits, diagnosis and validation boundaries.

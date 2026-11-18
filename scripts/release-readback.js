@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 import { transientReadError, retryDelay } from "./github-evidence.js";
-import { releasePackages } from "./release-coordinates.js";
+import { releasePackages } from "./release-identity.js";
 
 /** Only native transport failures, temporary servers and identified rate limits can retry. */
 export function transientProviderRead(error) {

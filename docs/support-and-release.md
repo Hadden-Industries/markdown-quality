@@ -81,7 +81,7 @@ Only observed passing platform evidence can establish support.
 Use the latest security-patched release in a supported family for ordinary operation; the compatibility minimum is not a security recommendation.
 
 Published 1.0.3 retains its immutable `>=24.21.0 <25` engine declaration and Node 24.21.0 qualification.
-Version 3.0.4 retains the Node `>=22.13.0` floor introduced in 2.0.0.
+Version 3.0.4 requires Node `>=22.13.0`.
 Its qualification matrix covers Node 22, 24 and 26 on Windows and Linux x64.
 macOS, ARM, and musl are unqualified.
 

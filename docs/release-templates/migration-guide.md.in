@@ -33,11 +33,11 @@ Compare the selected files after updating if your include or exclude rules use t
 ### Read the audit notice
 
 The project lockfile records ESLint and ESLint Markdown after installation.
-The resulting audit can report GHSA-238p-pmpm-9mq7 for KaTeX.
+The resulting audit can report {{release.katexAdvisory}} for KaTeX.
 The advisory notice explains where Markdown Quality's parsing and formatting stop.
 [Read the KaTeX audit notice](katex-advisory.md)
 
-[Read the {{release.version}} release notes](support-and-release.md#{{release.versionAnchor}}) · [Review the release runbook](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md#manual-workflow-sequence)
+[Read the {{release.version}} release notes](support-and-release.md#{{release.versionAnchor}}) · [Review the release runbook]({{release.sourceUrl}}/docs/release-operations.md#manual-workflow-sequence)
 
 ## From 3.0.2 to 3.0.3
 
@@ -66,7 +66,7 @@ The result schema remains version 5, with its logical identifier corrected to th
 Fragment resolution, NFC planning, change reporting and path spelling avoid repeated work while retaining their existing findings and preservation rules.
 
 The 3.0.1 source adopted JSON Quality 1.0.0 with configuration schema 4, event schema 5 and cohort 6.
-The [current JSON development guide](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/json-quality.md) describes the repository checks.
+The [current JSON development guide]({{release.sourceUrl}}/docs/json-quality.md) describes the repository checks.
 
 ## From 2.0 to 3.0
 

@@ -20,29 +20,13 @@ import {
   releaseCommit,
 } from "./release-qualification.js";
 import { verifyBuildEvidence } from "./release-reuse-evidence.js";
+import { corePackage } from "./release-identity.js";
+import katexReview from "./katex-advisory-review.json" with { type: "json" };
 
-export const katexNoticePath = "docs/katex-advisory.md";
-const katexAdvisory = "GHSA-238p-pmpm-9mq7";
-const reviewedKaTeXChain = [
-  [
-    "@eslint/markdown",
-    "8.0.3",
-    "8.0.3",
-    "sha512-rBTSSShrq7e4O+PWfeE4azH4/CWPNrC+VGxBXiW00o3vYVJnznsZiDayj3KC9JztIMVRZxZHn2nrDIUau/4j7A==",
-  ],
-  [
-    "micromark-extension-math",
-    "3.1.0",
-    "^3.1.0",
-    "sha512-lvEqd+fHjATVs+2v/8kg9i5Q0AP2k85H0WUOwpIVvUML8BapsMvh1XAogmQjOCsLpoKRCVQqEkQBB3NhVBcsOg==",
-  ],
-  [
-    "katex",
-    "0.16.47",
-    "^0.16.0",
-    "sha512-Eeo8Ys1doU1z+x8AZsPpQu+p/QcZBI5PeOo7QGQdy2x2m0MU/hYagBbGOmXwr5KVbEfVuWv9LpnQWeehogurjg==",
-  ],
-];
+// Review the version and integrity of each edge independently of recipient locks.
+export const katexNoticePath = katexReview.notice;
+const reviewedKaTeX = katexReview.chain.at(-1);
+assert.equal(reviewedKaTeX.name, "katex");
 
 /** Resolve the immutable producer graph before consulting current advisories. */
 export function qualifiedProducerLock(
@@ -189,12 +173,12 @@ export function verifyRecipientAudit(audit, { lock, release } = {}) {
 
   const core = release?.archives?.find(({ name }) => name === "core");
   assert.ok(
-    core?.package === "@hadden-industries/markdown-quality" &&
+    core?.package === corePackage &&
       core.files.some(({ path }) => path === katexNoticePath),
     "Recipient dependencies require security disposition",
   );
   assert.equal(lock?.lockfileVersion, 3);
-  const chain = [core.package, ...reviewedKaTeXChain.map(([name]) => name)];
+  const chain = [core.package, ...katexReview.chain.map(({ name }) => name)];
   assert.deepEqual(
     Object.keys(audit.vulnerabilities).sort(),
     [...chain].sort(),
@@ -217,7 +201,7 @@ export function verifyRecipientAudit(audit, { lock, release } = {}) {
   assert.ok(!product.inBundle && !product.link);
 
   let parentPath = productPath;
-  for (const [name, version, range, integrity] of reviewedKaTeXChain) {
+  for (const { name, version, range, integrity } of katexReview.chain) {
     const path = `node_modules/${name}`;
     const copies = packages.filter(
       ([location, pkg]) =>
@@ -251,21 +235,24 @@ export function verifyRecipientAudit(audit, { lock, release } = {}) {
     assert.equal(finding.name, name);
     assert.equal(finding.severity, "low");
     assert.deepEqual(finding.nodes, [`node_modules/${name}`]);
-    if (name === "katex") {
+    if (name === reviewedKaTeX.name) {
       assert.equal(finding.via.length, 1);
       const [cause] = finding.via;
       assert.equal(cause.name, name);
       assert.equal(cause.dependency, name);
       assert.equal(cause.severity, "low");
-      assert.equal(cause.url, `https://github.com/advisories/${katexAdvisory}`);
+      assert.equal(
+        cause.url,
+        `https://github.com/advisories/${katexReview.advisory}`,
+      );
     } else {
       assert.deepEqual(finding.via, [chain[index + 1]]);
     }
   }
   return {
-    advisory: katexAdvisory,
-    package: "katex",
-    version: "0.16.47",
+    advisory: katexReview.advisory,
+    package: reviewedKaTeX.name,
+    version: reviewedKaTeX.version,
     notice: katexNoticePath,
   };
 }

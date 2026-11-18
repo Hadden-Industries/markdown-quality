@@ -18,6 +18,7 @@ import { releaseChannel, releaseVersion } from "./release-coordinates.js";
 import { verifyReleaseAcceptance } from "./release-acceptance.js";
 import { verifyStageGuards } from "./release-stage-guards.js";
 import { admitPriorReleaseEffects } from "./release-history.js";
+import { releaseMemberNames, releaseMembers } from "./release-identity.js";
 
 /** Persist intent before a single native request; any ambiguous result forbids replay. */
 export function stageReleaseArchive({
@@ -31,12 +32,8 @@ export function stageReleaseArchive({
 }) {
   const tag = releaseChannel(channel);
   verifyArchiveBytes(releaseBytes(path, 20_000_000), archive);
-  assert.ok(["win32-x64", "linux-x64", "core"].includes(archive.name));
-  assert.equal(
-    archive.package,
-    "@hadden-industries/markdown-quality" +
-      (archive.name === "core" ? "" : `-${archive.name}`),
-  );
+  assert.ok(releaseMemberNames.includes(archive.name));
+  assert.equal(archive.package, releaseMembers[archive.name]);
   releaseVersion(archive.version);
   assert.match(origin.source, /^[a-f0-9]{40}$/u);
   for (const value of [origin.run, origin.attempt])

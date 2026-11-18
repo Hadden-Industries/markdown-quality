@@ -2,11 +2,10 @@
 /** Deliberate, journaled label changes after immutable pilot qualification. */
 import assert from "node:assert/strict";
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
-import { npmCliPath, npmCommand, native } from "./commands.js";
+import { npmCommand, native } from "./commands.js";
 import { budgets } from "./qualification-budgets.js";
 import { gitSource } from "./github-release.js";
 import {
@@ -24,13 +23,9 @@ import {
 } from "./release-continuation.js";
 import { verifyReleaseTag } from "./verify-release-tag.js";
 import { executeFamilyLabels } from "./family-labels.js";
+import { releaseSemver as semver } from "./release-coordinates.js";
+import { releasePackages as packages } from "./release-identity.js";
 
-const semver = createRequire(npmCliPath())("semver");
-const packages = [
-  "@hadden-industries/markdown-quality-win32-x64",
-  "@hadden-industries/markdown-quality-linux-x64",
-  "@hadden-industries/markdown-quality",
-];
 const npmTagReadbackBudgetMs = 300_000;
 const npmTagReadbackMaxDelayMs = 16_000;
 

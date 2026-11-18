@@ -35,7 +35,7 @@ import { verifyReleaseCompletion } from "./release-readback.js";
 import { refreshReleaseSecurity } from "./qualify-release-security.js";
 import { createRepositoryReader } from "./github-evidence.js";
 import { budgets } from "./qualification-budgets.js";
-import { releasePackages } from "./release-coordinates.js";
+import { releasePackages } from "./release-identity.js";
 import { verifyNoPendingStages } from "./release-stage-guards.js";
 import {
   admitPriorReleaseEffects,

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Resolve the original reference producer, never a name-only or latest-attempt archive. */
+import { repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import { createRepositoryReader } from "./github-evidence.js";
@@ -8,7 +9,6 @@ import { verifyProducingAttempt } from "./ci-proof.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { verifyReleaseQualificationJobs } from "./release-qualification.js";
-const repository = "Hadden-Industries/markdown-quality";
 const read = createRepositoryReader({
   repository,
   token: process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN,

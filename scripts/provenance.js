@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { repositoryUrl } from "./release-identity.js";
 import assert from "node:assert/strict";
 import { invocation } from "./publication-origins.js";
 
@@ -52,12 +53,12 @@ export function verifyReleaseProvenance(audit, archives, expected) {
     );
     assert.deepEqual(definition.externalParameters.workflow, {
       ref: "refs/heads/main",
-      repository: "https://github.com/Hadden-Industries/markdown-quality",
+      repository: repositoryUrl,
       path: ".github/workflows/publish.yml",
     });
     assert.deepEqual(definition.resolvedDependencies, [
       {
-        uri: "git+https://github.com/Hadden-Industries/markdown-quality@refs/heads/main",
+        uri: `git+${repositoryUrl}@refs/heads/main`,
         digest: { gitCommit: origin ? origin.source : expected.source },
       },
     ]);

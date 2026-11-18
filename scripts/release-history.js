@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Retain native writer observations and original target qualification under owner-signed history refs. */
+import { releasePackages, repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import {
   decodeHistoryCheckpoint,
@@ -56,7 +57,6 @@ import {
   stagingStepNames,
 } from "./publication-steps.js";
 import { githubWriterRequired, resumesOperation } from "./release-operation.js";
-import { releasePackages } from "./release-coordinates.js";
 import { canOmitPublicationSnapshot } from "./publication-subjects.js";
 import {
   createLegacyProvenanceResolver,
@@ -64,7 +64,6 @@ import {
   verifyRecoveredProvenanceWriter,
 } from "./release-provenance-recovery.js";
 
-const repository = "Hadden-Industries/markdown-quality";
 const key = (entry) =>
   `${entry.run.path}/${entry.run.id}/${entry.attempt}/${entry.job.id}`;
 const jobIdentity = (job) =>
