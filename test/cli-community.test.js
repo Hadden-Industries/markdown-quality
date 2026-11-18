@@ -347,6 +347,8 @@ test("version projection preserves dependency resolution and validates all input
     mkdirSync(join(root, path, ".."), { recursive: true });
     cpSync(join(repository, path), join(root, path));
   }
+  const comparisonPath = join(root, "docs/release-versions.json");
+  writeFileSync(comparisonPath, JSON.stringify({ previousVersion: "3.0.2" }));
   const metadata = JSON.parse(readFileSync(join(root, "package.json")));
   metadata.version = "3.1.0";
   writeFileSync(join(root, "package.json"), JSON.stringify(metadata));
@@ -360,7 +362,7 @@ test("version projection preserves dependency resolution and validates all input
   const readmeBytes = readFileSync(readmePath);
   assert.match(
     readmeBytes.toString(),
-    /Version \*\*3\.1\.0\*\* is a compatible patch release/u,
+    /^## What changed in 3\.1\.0$/mu,
   );
   assert.ok(readmeBytes.includes("markdown-quality@3.1.0"));
   assert.ok(readmeBytes.includes("#from-302-to-310"));
@@ -370,7 +372,6 @@ test("version projection preserves dependency resolution and validates all input
     ),
   );
 
-  const comparisonPath = join(root, "docs/release-versions.json");
   writeFileSync(comparisonPath, JSON.stringify({ previousVersion: "3.0.3" }));
   syncPackageVersions(root);
   checkPackageVersions(root);

@@ -1,8 +1,20 @@
 # Implementation decisions and evidence
 
-## Release preparation recorded on 2026-11-16
+## Version 3.0.4
 
-The core package and both native package manifests prepare version 3.0.3 from the tagged 3.0.2 source.
+ESLint and ESLint Markdown install as ordinary npm dependencies.
+File selection and the development dependency analyzer use the patched Picomatch fork.
+The packed CLI and SDK tests check KaTeX renderer reachability.
+Release qualification retains the raw audit with its scoped exception.
+[Read the 3.0.4 release notes](support-and-release.md#version-304) · [Read the KaTeX audit notice](katex-advisory.md)
+
+The release workflows provision pinned npm before registry reads and require a successful archival writer for completion.
+Release dispatch checks cover the full input JSON, and continuation uses authenticated original staging evidence and bounded signed history.
+[Follow the release runbook](release-operations.md)
+
+## 3.0.3 source record from 2026-11-16
+
+Version 3.0.3 coordinated the core package and both native packages from the tagged 3.0.2 source.
 The [release notes](support-and-release.md#version-303) cover the complete change set, and the [migration guide](migration-guide.md#from-302-to-303) gives upgrade and maintainer actions.
 The source adds owner-signed writer reservations, current npm stage observations, bounded pilot retirement, exact artifact and staging recovery, legacy npm provenance recovery and retained-history verification.
 Checkpoint schema 2 can retain several original qualified subjects.
@@ -16,8 +28,7 @@ The artifact promotion contract supersedes the earlier [evidence-reuse draft](pl
 Treat each plan's proposals as pending until its implementation is recorded.
 In particular, automatic checkpoint preparation remains disabled.
 
-Hosted validation of artifact promotion, owner decisions, registry delivery and immutable archival for this source remain unverified.
-Dated evidence below belongs to its original source and package family.
+The dated records below describe checks against their original source and package families.
 
 ## Release artifact promotion recorded on 2026-11-16
 

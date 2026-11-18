@@ -1,7 +1,7 @@
 # Consumer guide
 
 This guide covers version {{release.version}}, with configuration schema 3, preset `authored-gfm@2` and result schema 5.
-Read [the {{release.version}} upgrade guidance](migration-guide.md#{{release.migrationAnchor}}) for dependency and release changes.
+For an existing installation, [upgrade from {{release.previousVersion}}](migration-guide.md#{{release.migrationAnchor}}).
 Published 1.x archives are immutable and keep their previous behavior; the [migration guide](migration-guide.md) maps old names to these contracts.
 
 For a first check, start with [installation](#installation).
@@ -38,7 +38,7 @@ A local dependency does not put a bare `markdown-quality` executable on every sh
 Keep the consumer lockfile, and disable lifecycle scripts with `--ignore-scripts` where your acquisition policy requires it.
 An isolated `tooling/markdown` npm project supports consumers that do not use Node for their application; pass the actual repository root to its commands.
 See the [third-party notices](../THIRD-PARTY-NOTICES.md) for the versions and licenses of this release's runtime dependencies.
-If npm reports GHSA-238p-pmpm-9mq7, see the [KaTeX dependency advisory](katex-advisory.md) for its scope and the packaged reachability tests.
+If `npm audit` reports GHSA-238p-pmpm-9mq7, read the [KaTeX audit notice](katex-advisory.md).
 
 ## Root discovery
 
@@ -133,6 +133,7 @@ Raise one analyzer ceiling and disable another:
 
 Unknown keys, versions and rules fail.
 Patterns are relative slash-separated picomatch globs; absolute, backslash, `..` and NUL patterns fail.
+The patched matcher supports bracket negation such as `[!abc]` and treats some complex repeated extglobs as literal text.
 Ignore files, EditorConfig, JavaScript configuration and inline disable comments have no Markdown policy authority.
 
 ## Rule defaults

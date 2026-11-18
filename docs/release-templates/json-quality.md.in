@@ -61,7 +61,6 @@ Semantic object comparisons use structural equality, while the established candi
 ## Scope and exact preservation
 
 JSON Quality's built-in policy excludes untracked npm installation trees, including nested dependencies.
-The core tarball's bundled dependency files have their own archive checks, described below.
 Hidden, ignored, untracked, generated, repository-administrative and newly added JSON remains in scope elsewhere.
 
 Repository-owned tracked installation JSON remains checked and write-protected rather than disappearing behind that exclusion.
@@ -78,11 +77,9 @@ Their containing source archive is SHA-256 `252156d485d814a0b00d4ae9a6ea1a8dc704
 Membership and bytes were independently verified inside the registry-SRI-checked immutable [Linux npm 1.0.3 archive](https://registry.npmjs.org/@hadden-industries/markdown-quality-linux-x64/-/markdown-quality-linux-x64-1.0.3.tgz) and [Windows npm 1.0.3 archive](https://registry.npmjs.org/@hadden-industries/markdown-quality-win32-x64/-/markdown-quality-win32-x64-1.0.3.tgz).
 Semantic checks still apply to these original members; the native supplier rejects changed identity.
 
-The archive reader verifies the exact staged path, size and hash of every bundled file.
-Bundled `package.json` files must be UTF-8 JSON objects with unique keys.
-The same check covers the ESLint rule replacements and Ajv schemas used by Markdown linting.
-The bundle stage verifies manifest metadata against the npm lock and records any intentional manifest repairs before packing.
-Other bundled files retain their staged bytes and receive the same archive integrity checks.
+The archive reader reconciles package contents with the paths, sizes and hashes in the release manifest.
+Version {{release.version}} uses npm dependencies outside the core tarball.
+For retained archives with bundles, the reader also checks bundled manifests and the ESLint and Ajv runtime JSON used by those archives.
 
 Exact generated native documents use their producer's JSON indentation contract and receive all semantic checks.
 Two original Linux crate-author strings retain their exact decoded NFC exceptions by JSON pointer, UTF-8 byte length and SHA-256; no whole-file normalization waiver applies.
