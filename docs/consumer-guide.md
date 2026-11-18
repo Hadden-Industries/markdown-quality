@@ -37,9 +37,11 @@ Pin the exact qualified version rather than relying on mutable `pilot` or `lates
 No configuration file is required.
 A local dependency does not put a bare `markdown-quality` executable on every shell's PATH; use [npm exec](https://docs.npmjs.com/cli/v11/commands/npm-exec/) or an npm script.
 
-Keep the consumer lockfile, and disable lifecycle scripts with `--ignore-scripts` where your acquisition policy requires it.
+Keep your project's lockfile for reproducible installs.
+You can keep the exact Markdown Quality pin and refresh the lockfile to pick up compatible runtime dependency updates.
+Disable lifecycle scripts with `--ignore-scripts` where your acquisition policy requires it.
 An isolated `tooling/markdown` npm project supports consumers that do not use Node for their application; pass the actual repository root to its commands.
-See the [third-party notices](../THIRD-PARTY-NOTICES.md) for the versions and licenses of this release's runtime dependencies.
+See the [third-party notices](../THIRD-PARTY-NOTICES.md) for the dependency versions and licenses recorded for the release.
 If `npm audit` reports GHSA-238p-pmpm-9mq7, read the [KaTeX audit notice](katex-advisory.md).
 
 ## Root discovery

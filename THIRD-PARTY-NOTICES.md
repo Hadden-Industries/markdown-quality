@@ -9,6 +9,9 @@ The qualification tests are authored here.
 The repository's [Code of Conduct](CODE_OF_CONDUCT.md) adapts the [Steam Community BBCode policy](https://github.com/MaksymShostak/steam-community-bbcode/blob/9db3103d71a4b3a608b9609dba10280890d873d7/CODE_OF_CONDUCT.md), derived from OwlAPI and Contributor Covenant 3.0.
 That policy text retains CC BY-SA 4.0, its attribution and the indicated changes; it does not change the code's AGPL-3.0-only license.
 
+The table records the source lockfile versions for npm packages and the shipped Snapper version.
+Your project's npm lockfile records the versions used by your installation.
+
 | Direct runtime dependency       | Version | Declared license                  |
 | ------------------------------- | ------- | --------------------------------- |
 | Prettier                        | 3.10.1  | MIT                               |

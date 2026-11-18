@@ -11,9 +11,9 @@ To prepare or promote a package, follow the [release runbook](https://github.com
 
 ### Dependencies and file selection
 
-- **ESLint installs through npm.**
-  The project lockfile records ESLint, ESLint Markdown and their dependencies.
-  Refresh the lockfile to take compatible updates.
+- **Compatible npm dependency updates.**
+  The package declares caret ranges for its JavaScript runtime dependencies, including ESLint and ESLint Markdown.
+  Refresh your project's lockfile to take compatible updates.
 - **File selection uses patched Picomatch.**
   The package uses the `@ryotsu/picomatch` fork to address a denial of service flaw in the glob matcher.
   [CVE-2026-112366](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
