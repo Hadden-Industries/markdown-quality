@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { verifyFailedNativeStage } from "./release-staging-evidence.js";
@@ -11,7 +12,6 @@ import {
 import { verifyNoPublicationEffects } from "./publication-attempts.js";
 import { releaseChannel } from "./release-coordinates.js";
 export { legacyPublicationSteps, stagingSteps };
-const repository = "Hadden-Industries/markdown-quality";
 const keys = (value, expected) => {
   assert.ok(value && typeof value === "object" && !Array.isArray(value));
   assert.deepEqual(Object.keys(value).sort(), [...expected].sort());

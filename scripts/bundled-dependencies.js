@@ -1,262 +1,31 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import assert from "node:assert/strict";
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { producerNpmCommand } from "./commands.js";
+import { isDeepStrictEqual } from "node:util";
 import { readOwned, safePath, sha256, limits } from "./dependency-graph.js";
 
 export const bundleInventoryPath = "assets/bundled-dependencies.json";
-const bundleRoots = ["@eslint/markdown", "eslint"];
-const supplementalNotices = [
-  {
-    name: "esrecurse",
-    version: "4.3.0",
-    license: "BSD-2-Clause",
-    path: "node_modules/esrecurse/README.md",
-    source: "https://registry.npmjs.org/esrecurse/-/esrecurse-4.3.0.tgz",
-    sha256: "a7007c78c9d9da690ef6cdb0e7a3427d05832edb00abd1f5a9882700d73be4ad",
-  },
-  {
-    name: "imurmurhash",
-    version: "0.1.4",
-    license: "MIT",
-    path: "node_modules/imurmurhash/README.md",
-    source: "https://registry.npmjs.org/imurmurhash/-/imurmurhash-0.1.4.tgz",
-    sha256: "4491517f7deb68d0b2a3bb590e785e276a60f12448447a9650d0bd50161a101c",
-  },
-  {
-    name: "natural-compare",
-    version: "1.4.0",
-    license: "MIT",
-    path: "LICENSES/MIT-natural-compare.txt",
-    source:
-      "https://github.com/litejs/natural-compare-lite/blob/a8e1e32c85713ba7d079445207a808ce6f4852f9/LICENSE",
-    sha256: "353fe762ba595bf1ffe786acf0f5984bb164205901d74f258af195fc8228c67d",
-  },
-  {
-    name: "format",
-    version: "0.2.2",
-    license: "MIT",
-    path: "LICENSES/MIT-format.txt",
-    source:
-      "https://github.com/samsonjs/format/blob/0094c51372790ca342da4b90c519edd3380deee1/License.md",
-    sha256: "0b2c94863590ca2aed327e89642b7e74b1608ec423bfec1d8f1beba2945fc4ba",
-  },
-  {
-    name: "@humanfs/types",
-    version: "0.15.0",
-    license: "Apache-2.0",
-    path: "node_modules/@humanfs/node/LICENSE",
-    source:
-      "https://github.com/humanwhocodes/humanfs/blob/85069f193cbacc371c3beb649ce746f8c5a493be/packages/node/LICENSE",
-    sha256: "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
-  },
-];
+const bundleRoots = ["@eslint/markdown"];
+const legacyBundleRoots = [...bundleRoots, "eslint"];
 
-/** Build from npm's integrity-checked lock/cache, never an ambient installed tree. */
-export function stageBundledDependencies(root, core, metadata) {
-  if (!metadata.bundleDependencies) return;
-  assert.deepEqual(metadata.bundleDependencies, bundleRoots);
-  const lockBytes = readOwned(root, "package-lock.json");
-  const lock = JSON.parse(lockBytes);
-  // npm ci validates the complete frozen graph, including omitted development
-  // and optional edges. Keep its original declarations and overrides intact;
-  // narrowing them first changes resolution and can hide an incomplete lock.
-  // npm pack selects the declared bundle closure after this admission.
-  const acquisition = JSON.parse(readOwned(root, "package.json"));
-  writeFileSync(join(core, "package.json"), JSON.stringify(acquisition) + "\n");
-  writeFileSync(join(core, "package-lock.json"), lockBytes);
-  producerNpmCommand(
-    [
-      "ci",
-      "--offline",
-      "--ignore-scripts",
-      "--omit=dev",
-      "--omit=optional",
-      "--no-audit",
-      "--no-fund",
-    ],
-    { cwd: core },
-  );
-  assert.deepEqual(
-    readOwned(core, "package-lock.json"),
-    lockBytes,
-    "Bundle acquisition changed the frozen producer lock",
-  );
-
-  // npm deliberately rejects bundling root-only overrides. Make each repaired
-  // dependency declaration truthful in the disclosed vendored copy instead.
-  // No third-party executable source changes; retain its original MIT notice.
-  assert.deepEqual(Object.keys(metadata.overrides).sort(), [
-    "fast-xml-parser",
-    "glob",
-    "micromark-extension-math",
-    "minimatch",
-  ]);
-  const selectedKaTeX = metadata.overrides["micromark-extension-math"].katex;
-  const repairs = [
-    {
-      name: "micromark-extension-math",
-      version: "3.1.0",
-      dependency: "katex",
-      before: "^0.16.0",
-      after: selectedKaTeX,
-      reason: "GHSA-238p-pmpm-9mq7",
-    },
-    {
-      name: "eslint",
-      version: metadata.dependencies.eslint,
-      dependency: "minimatch",
-      before: "^11.0.5",
-      after: metadata.overrides.minimatch,
-      reason: "GHSA-g3hv-75wg-m249",
-    },
-    {
-      name: "@eslint/config-array",
-      version: lock.packages["node_modules/@eslint/config-array"].version,
-      dependency: "minimatch",
-      before: "^11.0.5",
-      after: metadata.overrides.minimatch,
-      reason: "GHSA-g3hv-75wg-m249",
-    },
-  ].map((repair) => {
-    const path = `node_modules/${repair.name}/package.json`;
-    const before = readOwned(core, path);
-    const value = JSON.parse(before);
-    assert.equal(value.name, repair.name);
-    assert.equal(value.version, repair.version);
-    assert.equal(value.dependencies[repair.dependency], repair.before);
-    assert.equal(
-      lock.packages[`node_modules/${repair.dependency}`].version,
-      repair.after,
-    );
-    value.dependencies[repair.dependency] = repair.after;
-    const after = JSON.stringify(value, null, 2) + "\n";
-    writeFileSync(join(core, path), after);
-    return {
-      path,
-      field: `dependencies.${repair.dependency}`,
-      before: repair.before,
-      after: repair.after,
-      originalSha256: sha256(before),
-      modifiedSha256: sha256(after),
-      reason:
-        repair.reason + "; producer overrides do not constrain recipients",
-    };
-  });
-  delete metadata.overrides;
-  writeFileSync(
-    join(core, "package.json"),
-    JSON.stringify(metadata, null, 2) + "\n",
-  );
-  const response = JSON.parse(
-    producerNpmCommand(["pack", "--dry-run", "--json", "--ignore-scripts"], {
-      cwd: core,
-    }),
-  );
-  const records = Array.isArray(response) ? response : Object.values(response);
-  assert.equal(records.length, 1);
-  assert.equal(records[0].name, metadata.name);
-  const files = records[0].files
-    .filter(({ path }) => path.startsWith("node_modules/"))
-    .map(({ path, size }) => {
-      safePath(path);
-      const bytes = readOwned(core, path);
-      assert.equal(bytes.length, size);
-      return { path, size, sha256: sha256(bytes) };
-    })
-    .sort((a, b) => a.path.localeCompare(b.path, "en"));
-  assert.ok(files.length > 0 && files.length < limits.files);
-  assert.ok(files.reduce((sum, file) => sum + file.size, 0) <= limits.bytes);
-  const packages = files
-    .filter(({ path }) =>
-      /(?:^|\/)node_modules\/(?:@[^/]+\/)?[^/]+\/package\.json$/u.test(path),
-    )
-    .map(({ path, sha256: manifestSha256 }) => {
-      const location = path.slice(0, -"/package.json".length);
-      const installed = JSON.parse(readOwned(core, path));
-      const source = lock.packages[location];
-      assert.equal(installed.version, source?.version, location);
-      assert.ok(
-        source.resolved?.startsWith("https://registry.npmjs.org/"),
-        location,
-      );
-      assert.match(source.integrity, /^sha512-[A-Za-z0-9+/]+=*$/u);
-      const license =
-        installed.license ??
-        (installed.name === "format" &&
-        installed.version === "0.2.2" &&
-        installed.licenses?.length === 1
-          ? installed.licenses[0].type
-          : undefined);
-      assert.ok(typeof license === "string" && license.length > 0, location);
-      const notices = files
-        .filter(
-          ({ path }) =>
-            path.startsWith(location + "/") &&
-            !path.slice(location.length + 1).includes("/") &&
-            /^(?:licen[sc]e|copying|notice)(?:[.-]|$)/iu.test(
-              path.slice(location.length + 1),
-            ),
-        )
-        .map(({ path }) => path);
-      const supplemental = supplementalNotices.find(
-        ({ name, version }) =>
-          name === installed.name && version === installed.version,
-      );
-      if (supplemental) {
-        assert.equal(license, supplemental.license);
-        assert.equal(
-          sha256(readOwned(core, supplemental.path)),
-          supplemental.sha256,
-        );
-        notices.push(supplemental.path);
-      }
-      assert.ok(notices.length > 0, `Missing bundled license: ${location}`);
-      return {
-        path: location,
-        name: installed.name,
-        version: installed.version,
-        license,
-        resolved: source.resolved,
-        integrity: source.integrity,
-        manifestSha256,
-        notices,
-      };
-    });
-  assert.ok(packages.some(({ name }) => name === "@eslint/markdown"));
-  assert.ok(
-    packages.some(
-      ({ name, version }) => name === "katex" && version === selectedKaTeX,
-    ),
-  );
-  const inventory = {
-    schemaVersion: 1,
-    roots: metadata.bundleDependencies,
-    sourceLockSha256: sha256(lockBytes),
-    acquisition:
-      "Original producer declarations and overrides; npm ci --offline --ignore-scripts --omit=dev --omit=optional with the unchanged producer lock; npm pack selects declared bundle roots only; native integrity admission",
-    supplementalNotices,
-    repairs,
-    packages,
-    files,
-  };
-  writeFileSync(
-    join(core, bundleInventoryPath),
-    JSON.stringify(inventory, null, 2) + "\n",
-  );
-}
-
-/** A dependency exception admits only the exact npm-produced, hash-bound closure. */
+/** Verify the exact dependency inventory of a retained bundled archive. */
 export function verifyBundledShipment(core, files, metadata, lockSha256) {
   const bundled = files.filter(({ path }) => path.startsWith("node_modules/"));
   if (!metadata.bundleDependencies) {
     assert.equal(bundled.length, 0, "Unrequested bundled dependency");
-    return;
+    assert.ok(
+      !files.some(({ path }) => path === bundleInventoryPath),
+      "Unexpected bundle inventory",
+    );
+    return null;
   }
   const inventory = JSON.parse(readOwned(core, bundleInventoryPath));
   assert.equal(inventory.schemaVersion, 1);
-  assert.deepEqual(metadata.bundleDependencies, bundleRoots);
+  // Retained release archives can still contain the earlier ESLint bundle.
+  assert.ok(
+    isDeepStrictEqual(metadata.bundleDependencies, bundleRoots) ||
+      isDeepStrictEqual(metadata.bundleDependencies, legacyBundleRoots),
+    "Unknown bundle roots",
+  );
   assert.deepEqual(inventory.roots, metadata.bundleDependencies);
   assert.equal(inventory.sourceLockSha256, lockSha256);
   assert.ok(
@@ -289,4 +58,5 @@ export function verifyBundledShipment(core, files, metadata, lockSha256) {
     assert.equal(sha256(readOwned(core, notice.path)), notice.sha256);
   for (const repair of inventory.repairs)
     assert.equal(sha256(readOwned(core, repair.path)), repair.modifiedSha256);
+  return inventory;
 }

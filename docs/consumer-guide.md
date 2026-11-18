@@ -2,8 +2,8 @@
 
 # Consumer guide
 
-This guide covers version 3.0.3, with configuration schema 3, preset `authored-gfm@2` and result schema 5.
-Read [the 3.0.3 upgrade guidance](migration-guide.md#from-302-to-303) for dependency and release changes.
+This guide covers version 3.0.4, with configuration schema 3, preset `authored-gfm@2` and result schema 5.
+For an existing installation, [upgrade from 3.0.3](migration-guide.md#from-303-to-304).
 Published 1.x archives are immutable and keep their previous behavior; the [migration guide](migration-guide.md) maps old names to these contracts.
 
 For a first check, start with [installation](#installation).
@@ -13,7 +13,7 @@ To resolve findings, see [local links and fragments](#links-fragments-path-case-
 
 The CLI and SDK require Node.js, filesystem access and the [supported platform-native executables](support-and-release.md).
 Use the package in local development, builds and CI, including as a development dependency of a frontend project.
-Follow the [3.0.3 consumer runtime policy](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/node-runtime-compatibility.md#consumer-bounds) for your project.
+Follow the [3.0.4 consumer runtime policy](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.4/docs/node-runtime-compatibility.md#consumer-bounds) for your project.
 The contributor npm floor applies to development in the Markdown Quality repository.
 Packed-package qualification uses a separate consumer npm against the shipped graph.
 
@@ -29,7 +29,7 @@ Bundlers must honor package exports and use their Node.js target when bundling S
 Install the exact release version from the repository root.
 
 ```sh
-npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.3
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.4
 npm exec -- markdown-quality check --root .
 ```
 
@@ -37,9 +37,12 @@ Pin the exact qualified version rather than relying on mutable `pilot` or `lates
 No configuration file is required.
 A local dependency does not put a bare `markdown-quality` executable on every shell's PATH; use [npm exec](https://docs.npmjs.com/cli/v11/commands/npm-exec/) or an npm script.
 
-Keep the consumer lockfile, and disable lifecycle scripts with `--ignore-scripts` where your acquisition policy requires it.
+Keep your project's lockfile for reproducible installs.
+You can keep the exact Markdown Quality pin and refresh the lockfile to pick up compatible runtime dependency updates.
+Disable lifecycle scripts with `--ignore-scripts` where your acquisition policy requires it.
 An isolated `tooling/markdown` npm project supports consumers that do not use Node for their application; pass the actual repository root to its commands.
-See the [third-party notices](../THIRD-PARTY-NOTICES.md) for the versions and licenses of this release's runtime dependencies.
+See the [third-party notices](../THIRD-PARTY-NOTICES.md) for the dependency versions and licenses recorded for the release.
+If `npm audit` reports GHSA-238p-pmpm-9mq7, read the [KaTeX audit notice](katex-advisory.md).
 
 ## Root discovery
 
@@ -134,6 +137,7 @@ Raise one analyzer ceiling and disable another:
 
 Unknown keys, versions and rules fail.
 Patterns are relative slash-separated picomatch globs; absolute, backslash, `..` and NUL patterns fail.
+The patched matcher supports bracket negation such as `[!abc]` and treats some complex repeated extglobs as literal text.
 Ignore files, EditorConfig, JavaScript configuration and inline disable comments have no Markdown policy authority.
 
 ## Rule defaults

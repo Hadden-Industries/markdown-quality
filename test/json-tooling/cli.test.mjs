@@ -51,7 +51,7 @@ test("the repository CLI checks its own root and includes required native eviden
   for (const path of [
     "docs/releases/1.0.3.json",
     `dist/json-qualification/${core.filename}!/package/package.json`,
-    `dist/json-qualification/${core.filename}!/package/assets/bundled-dependencies.json`,
+    `dist/json-qualification/${core.filename}!/package/assets/tool-manifest.json`,
     "test/fixtures/performance-incumbents/owlapi.json.gz!/owlapi.json",
     "test/fixtures/performance-incumbents/webvowl.json.gz!/webvowl.json",
     ...["linux-x64", "win32-x64"].map(

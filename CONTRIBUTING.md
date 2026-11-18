@@ -9,11 +9,11 @@ Vulnerabilities use the private reporting channel in [SECURITY.md](SECURITY.md),
 
 ## Development setup
 
-Use the reference Node version in [node-support.json](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/assets/node-support.json) and an existing stable Python interpreter at least as new as [.python-version](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/.python-version) for explicit native asset preparation.
+Use the reference Node version in [node-support.json](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.4/assets/node-support.json) and an existing stable Python interpreter at least as new as [.python-version](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.4/.python-version) for explicit native asset preparation.
 Change Node selections in that policy and run `npm run sync:node`; `npm run check:node` verifies the generated declarations.
 The same policy owns the exact producer npm and the separate consumer-qualification npm.
 Contributor installs enforce the generated npm minimum in `devEngines.packageManager`; use the producer selection to reproduce CI.
-See [why contributor and consumer npm requirements differ](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/node-runtime-compatibility.md#contributor-and-consumer-npm) before changing either requirement.
+See [why contributor and consumer npm requirements differ](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.4/docs/node-runtime-compatibility.md#contributor-and-consumer-npm) before changing either requirement.
 
 The [support policy](docs/support-and-release.md) records the qualified source matrix and explains why published 1.0.3 still has different immutable runtime metadata.
 Do not assume an unreleased source qualification changes an installed npm release.
@@ -33,7 +33,7 @@ The verification driver selects that interpreter explicitly, or uses the hosted 
 
 To use already verified archives offline, run `python scripts/prepare-native.py --archives /path/to/verified/archives` instead.
 Check and format operations never acquire native executables; consumers do not need Python.
-Retain the lockfile and follow [native build requirements](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/native-builds.md) for an actual native upgrade.
+Retain the lockfile and follow [native build requirements](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.4/docs/native-builds.md) for an actual native upgrade.
 
 ## Release versions and documentation
 
@@ -81,7 +81,7 @@ Use the full profile for a consolidated source candidate; installed/transported 
 Record commands, results and actual gaps in the PR or task; a local pass is not hosted, release or consumer acceptance.
 The maintainer may iterate directly on `main`; these instructions do not require a PR or change branch controls.
 
-Development-only [dependency graphs and affected JavaScript tests](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/dependency-graph-and-tests.md) support explicit baseline inspection, selected execution and shadow comparisons.
+Development-only [dependency graphs and affected JavaScript tests](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.4/docs/dependency-graph-and-tests.md) support explicit baseline inspection, selected execution and shadow comparisons.
 Without an explicit baseline, `check:affected` runs the full JavaScript inventory.
 Keep the complete `npm test` and `check:full` paths for final assurance.
 Full verification checks code formatting and source identity lint before native evidence and the test suite, and checks Markdown before those expensive stages.
@@ -114,9 +114,9 @@ Review any actual formatting diff and rerun the check for convergence.
 
 ## JSON ownership
 
-The manifest declares JSON Quality `>=1.0.1` as a development dependency.
-With the 3.0.3 source lockfile, `npm ci --ignore-scripts` installs JSON Quality 1.0.1 and the matching native companion for the development platform.
-Follow [JSON development checks](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/json-quality.md) for complete discovery, protected native evidence, real package qualification and guarded formatting.
+The manifest declares JSON Quality `>=1.0.2` as a development dependency.
+With the 3.0.4 source lockfile, `npm ci --ignore-scripts` installs JSON Quality 1.0.2 and the matching native companion for the development platform.
+Follow [JSON development checks](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.4/docs/json-quality.md) for complete discovery, protected native evidence, real package qualification and guarded formatting.
 
 Generic Prettier excludes JSON; `npm run check:full` composes product checks, source identity lint, consumer tests, actual packed JSON and the final complete-root JSON check.
 `check:product` retains the product suite on Node 22 and future declared product runtimes; it does not claim JSON-tool qualification there.
@@ -130,5 +130,5 @@ Use the repository issue forms or concise PR template; do not upload credentials
 
 Dependabot proposes npm and Action updates for review; it does not merge them or upgrade frozen native assets automatically.
 Native upgrades require fresh source/component, rights, parity and platform evidence.
-Follow [release operations](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/release-operations.md) for coordinated immutable archives and recoverable publication.
+Follow [release operations](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.4/docs/release-operations.md) for coordinated immutable archives and recoverable publication.
 Publication and tag promotion each require a separate owner decision.

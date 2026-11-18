@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { repository as publicationRepository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import { ownerDispatchBytes } from "./release-decision-transport.js";
-export const publicationRepository = "Hadden-Industries/markdown-quality";
+export { publicationRepository };
 /** Pure common controls; every gate calls this against its current input. */
 export function validatePublicationContext(context) {
   assert.equal(context.repository, publicationRepository);

@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-/** Canonical npm coordinates shared by release admission, writers and historical readers. */
+/** Npm version and channel validation shared by release workflows. */
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { npmCliPath } from "./commands.js";
 
-export const releasePackages = Object.freeze([
-  "@hadden-industries/markdown-quality-win32-x64",
-  "@hadden-industries/markdown-quality-linux-x64",
-  "@hadden-industries/markdown-quality",
-]);
+export { releasePackages } from "./release-identity.js";
 export const releaseSemver = createRequire(npmCliPath())("semver");
 
 /** npm owns SemVer parsing; reject aliases and metadata npm would normalize away. */

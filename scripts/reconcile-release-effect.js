@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Read-only independent observations for an owner's exact unknown original effect. */
+import { repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -25,7 +26,6 @@ import { verifyReleaseCompletion } from "./release-readback.js";
 import { budgets } from "./qualification-budgets.js";
 import { verifyReleaseTag } from "./verify-release-tag.js";
 
-const repository = "Hadden-Industries/markdown-quality";
 export function reconciliationSelection(env) {
   const operation = JSON.parse(
     ownerDispatchBytes({

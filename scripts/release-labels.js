@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { npmCommand } from "./commands.js";
 import { budgets } from "./qualification-budgets.js";
-import { releasePackages } from "./release-coordinates.js";
+import { releasePackages } from "./release-identity.js";
 
 /** A successful object/singleton-array response owns label absence; errors never silently do. */
 export function readPackageTags(

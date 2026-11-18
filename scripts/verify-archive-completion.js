@@ -23,7 +23,7 @@ import { verifyReleaseTag } from "./verify-release-tag.js";
 import { createRepositoryReader } from "./github-evidence.js";
 import { readSignedHistoryRefs } from "./release-history.js";
 import { budgets } from "./qualification-budgets.js";
-import { releasePackages } from "./release-coordinates.js";
+import { releasePackages } from "./release-identity.js";
 import { readFamilyLabels } from "./release-labels.js";
 
 export async function verifyArchiveCompletion(

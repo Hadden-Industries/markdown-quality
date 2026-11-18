@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Acquire original Actions inputs, or an immutable target backed by complete signed recovery evidence. */
+import { repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -21,7 +22,6 @@ export async function acquireReleaseInputs(
     read: suppliedRead,
   } = {},
 ) {
-  const repository = "Hadden-Industries/markdown-quality";
   for (const key of ["ARCHIVE_RUN", "ARCHIVE_ATTEMPT"])
     assert.match(env[key], /^[1-9]\d{0,15}$/u);
   assert.match(env.QUALIFICATION_SHA, /^[a-f0-9]{64}$/u);

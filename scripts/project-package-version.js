@@ -8,6 +8,7 @@ import {
   releaseDocumentationProjection,
   releaseVersionPattern,
 } from "./release-documentation.js";
+import { corePackage, nativeReleasePackages } from "./release-identity.js";
 const repository = fileURLToPath(new URL("../", import.meta.url));
 
 /** Compute the complete version-only projection before any writes. */
@@ -23,33 +24,34 @@ export function packageVersionProjection(root = repository) {
   const read = (name) => JSON.parse(readText(name));
   const core = read("package.json"),
     lock = read("package-lock.json");
-  assert.equal(core.name, "@hadden-industries/markdown-quality");
+  assert.equal(core.name, corePackage);
   assert.match(core.version, releaseVersionPattern);
   assert.equal(lock.name, core.name);
   assert.equal(lock.lockfileVersion, 3);
   assert.equal(lock.packages[""].name, core.name);
   const projection = new Map();
   lock.version = lock.packages[""].version = core.version;
-  for (const platform of ["linux-x64", "win32-x64"]) {
-    const path = `packages/${platform}/package.json`,
+  for (const [platform, packageName] of Object.entries(nativeReleasePackages)) {
+    const directory = `packages/${platform}`;
+    const path = `${directory}/package.json`,
       companion = read(path);
-    assert.equal(companion.name, core.name + "-" + platform);
+    assert.equal(companion.name, packageName);
     assert.equal(
       core.optionalDependencies[companion.name],
-      `file:packages/${platform}`,
+      `file:${directory}`,
     );
     assert.equal(
       lock.packages[""].optionalDependencies[companion.name],
-      `file:packages/${platform}`,
+      `file:${directory}`,
     );
     assert.equal(
       lock.packages[`node_modules/${companion.name}`].resolved,
-      `packages/${platform}`,
+      directory,
     );
     assert.equal(lock.packages[`node_modules/${companion.name}`].link, true);
-    assert.ok(lock.packages[`packages/${platform}`]);
+    assert.ok(lock.packages[directory]);
     companion.version = core.version;
-    lock.packages[`packages/${platform}`].version = core.version;
+    lock.packages[directory].version = core.version;
     projection.set(path, companion);
   }
   projection.set("package-lock.json", lock);

@@ -22,6 +22,10 @@ import { hash, readJson } from "./release-assets.js";
 import { ubuntuRunner, windowsRunner } from "./runner-policy.js";
 import { verifyArchiveBytes } from "./release-bytes.js";
 import {
+  nativeReleasePlatforms,
+  releaseMemberNames,
+} from "./release-identity.js";
+import {
   bindNativeSbom,
   bindCoreSbom,
   reconcileMergedSbom,
@@ -38,7 +42,7 @@ const pacote = createRequire(npmCliPath())("pacote");
 /** Obtain exact reviewed release assets with gh; never run a downloaded install script. */
 function acquireTools(scratch) {
   const platform = `${process.platform}-${process.arch}`;
-  assert.ok(["win32-x64", "linux-x64"].includes(platform));
+  assert.ok(nativeReleasePlatforms.includes(platform));
   const result = {};
   for (const name of ["syft", "cyclonedx"]) {
     const tool = tools[name],
@@ -135,7 +139,7 @@ export async function qualifyDistributionSbom(
     const inputs = [];
     const coverage = [];
     for (const archive of release.archives) {
-      assert.ok(["win32-x64", "linux-x64", "core"].includes(archive.name));
+      assert.ok(releaseMemberNames.includes(archive.name));
       const tarball = resolve(directory, archive.filename);
       verifyArchiveBytes(readFileSync(tarball), archive);
       const extracted = join(scratch, `package-${archive.name}`);
@@ -165,20 +169,21 @@ export async function qualifyDistributionSbom(
       validate(raw);
       let bom = readJson(raw);
       if (archive.name === "core") {
-        verifyBundledShipment(
+        const inventory = verifyBundledShipment(
           extracted,
           archive.files,
           readJson(join(extracted, "package.json")),
           release.source.lockSha256,
         );
-        const inventory = readJson(join(extracted, bundleInventoryPath));
         bom = bindCoreSbom(bom, { archive, inventory });
         coverage.push({
           package: "core",
-          bundledPackages: inventory.packages.length,
-          bundleInventorySha256: hash(
-            readFileSync(join(extracted, bundleInventoryPath)),
-          ),
+          bundledPackages: inventory?.packages.length ?? 0,
+          ...(inventory && {
+            bundleInventorySha256: hash(
+              readFileSync(join(extracted, bundleInventoryPath)),
+            ),
+          }),
         });
       } else {
         // Use only the native binary catalog for native coverage; package metadata

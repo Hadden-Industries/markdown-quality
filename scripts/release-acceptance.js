@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Admit explicit owner decisions about the exact release; never infer them from passing CI. */
+import { repository as releaseRepository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -23,7 +24,7 @@ export function readDraftDecisions(
     allowImmutableRelease = false,
   },
 ) {
-  assert.equal(repository, "Hadden-Industries/markdown-quality");
+  assert.equal(repository, releaseRepository);
   const draft = JSON.parse(
     gh([
       "release",
@@ -150,7 +151,7 @@ export function verifyReleaseAcceptance(
   );
   if (current) {
     releaseVersion(record.version);
-    assert.equal(record.repository, "Hadden-Industries/markdown-quality");
+    assert.equal(record.repository, releaseRepository);
     assert.match(record.operationId, /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u);
     assert.match(record.controller, /^[a-f0-9]{40}$/u);
     assert.match(record.controllerDeltaSha256, /^[a-f0-9]{64}$/u);

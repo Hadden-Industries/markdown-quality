@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Owner-reviewed family operations and their exact preimages; no provider effects here. */
+import { repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import {
   releasePackages,
@@ -21,7 +22,7 @@ export function readReleaseOperation(
   });
   const operation = JSON.parse(bytes);
   assert.equal(operation.schemaVersion, 1);
-  assert.equal(operation.repository, "Hadden-Industries/markdown-quality");
+  assert.equal(operation.repository, repository);
   assert.equal(operation.owner, "maksymshostak");
   assert.match(operation.controller, /^[a-f0-9]{40}$/u);
   if (!allowHistoricalController)

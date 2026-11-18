@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Attribute a partial recovery to original staging before the candidate has a complete public archive. */
+import { releasePackages, repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import {
   mkdtempSync,
@@ -12,12 +13,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { native, npmCommand } from "./commands.js";
 import { hash } from "./release-bytes.js";
-import { releasePackages } from "./release-coordinates.js";
 import { verifyReleaseAcceptance } from "./release-acceptance.js";
 import { verifyReleaseTag } from "./verify-release-tag.js";
 import { verifyReleaseProvenance } from "./provenance.js";
 
-const repository = "Hadden-Industries/markdown-quality";
 /** npm owns tarball integrity and cryptographic provenance verification; no candidate code executes. */
 export function verifyPublishedStageOrigins(
   manifest,

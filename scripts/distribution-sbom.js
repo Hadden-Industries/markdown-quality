@@ -17,7 +17,7 @@ export function bindCoreSbom(bom, { archive, inventory }) {
       license: "AGPL-3.0-only",
       manifestSha256: rootFile.sha256,
     },
-    ...inventory.packages,
+    ...(inventory?.packages ?? []),
   ];
   const seen = new Set(),
     seenFiles = new Set();

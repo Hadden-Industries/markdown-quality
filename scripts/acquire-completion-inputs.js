@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Restore the original read-only completion inputs (admission, npm and any GitHub writer) by immutable ID, including signed expiry fallback. */
+import { repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import { native } from "./commands.js";
 import { downloadEvidence } from "./download-evidence.js";
@@ -13,8 +14,7 @@ import {
 } from "./release-retained-artifacts.js";
 import { budgets } from "./qualification-budgets.js";
 
-const env = process.env,
-  repository = "Hadden-Industries/markdown-quality";
+const env = process.env;
 const read = createRepositoryReader({
   repository,
   token: env.GH_TOKEN ?? env.GITHUB_TOKEN,

@@ -3,83 +3,47 @@
 This guide covers version {{release.version}}.
 For an upgrade, start with [the release changes](#{{release.versionAnchor}}) and [migration guidance](migration-guide.md#{{release.migrationAnchor}}).
 For an installation decision, see [supported runtimes and platforms](#supported-runtimes-and-platforms).
-To prepare or promote a package, follow the [release runbook](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md).
-
-Latest-commit adoption does not require a new npm release.
-Qualify and freeze the full producer commit, exact transported core/native archives, installed JavaScript graph, shared assets and paired reusable workflow revision.
-Packing includes a clean/dirty source identity; trusted qualification refuses a dirty or mismatched source tuple.
-Public release, semver selection, registry qualification and `latest` promotion remain separate effects.
-
-The [centralized contracts guide](centralized-contracts.md) describes configuration schema 3, result schema 5, execution schema 2, comparison schema 3 and the shared trusted qualification/profile contract.
-Local source tests do not establish hosted Windows/Linux qualification or downstream acceptance of a new tuple.
+To prepare or promote a package, follow the [release runbook]({{release.sourceUrl}}/docs/release-operations.md).
 
 ## Version {{release.version}}
 
-The package family comprises the core, Linux x64 and Windows x64 packages at version {{release.version}}.
-The `v{{release.previousVersion}}` Git tag defines the source baseline for the changes below.
+### Dependencies and file selection
 
-### Changes since {{release.previousVersion}}
-
-- **Promote the archives CI tested.**
-  Eligible normal merges reuse complete PR qualification and the original package bytes during release preparation.
-  Build provenance retains the original commit, while promotion records the landed release commit.
-  Current security and publication checks still run; unavailable evidence selects the fresh fallback.
-  See [qualification reuse](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md#qualify-once-and-choose-the-channel).
-- **Audit the qualified source.**
-  Fresh and promoted candidates retain the original producer lock, and security checks verify its manifest digest before auditing it.
-  Historical candidates recover that lock from the exact source commit, so a later controller cannot substitute its own dependency graph.
-- **Keep proof through approval delays.**
-  Promoted bundles retain the original candidate reports, recipient observations and performance records.
-  Archival reads these authenticated copies when the original CI artifacts have expired.
-  Compressed signed history exports retain admission receipts and locks within bounded transport and decompression limits, while immutable assets retain packages and verbose logs.
-- **Authorize each writer.**
-  Owner-signed reservations identify the exact workflow, run number, attempt, controller and decision digest.
-  Admission accounts for missing and deleted writer runs through a complete signed inventory.
-  See [writer reservations](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md#reserve-each-release-writer-before-dispatch).
-- **Check pending approvals.**
-  Staging, archival and family operations require a fresh owner-captured npm stage inventory.
-  Archival also checks a fresh immutability observation, with an optional preflight refresh after a delayed approval.
-  See [owner decisions](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md#exact-owner-decisions).
-- **Retire an evaluated pilot.**
-  An owner-reviewed npm operation can remove the three `pilot` aliases while guarding the stable family and GitHub release.
-  See [pilot retirement](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md#retire-an-evaluated-pilot-alias).
-- **Recover original evidence.**
-  Readers bind the selected upload to its original job, artifact ID, name and digest, including recovery uploads and retained jobs on partial reruns.
-  Signed checkpoints carry the original artifacts and staging evidence after expiry, and retained publication checks fetch the exact signed history needed for verification.
-  See [interruption and retained proof](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md#interruption-partial-recovery-and-retained-proof).
-- **Settle exact failed requests.**
-  Read-only reconciliation can authenticate a native HTTP 401 refusal for the exact package's `pilot` DELETE.
-  A fresh owner decision binds that settlement before a further removal.
-  The legacy reader also authenticates the seven closed October publisher runs through verified npm provenance and its bounded preemption rules.
-  See [the recovery procedure](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md#interruption-partial-recovery-and-retained-proof) and [legacy inventory](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md#reserve-each-release-writer-before-dispatch).
-- **Retain qualification for later use.**
-  Schema-2 history can retain several qualified subjects, including an older retired pilot beside the current stable target.
-  Checkpoint preparation stays an explicit owner dispatch.
-
-### Dependency updates
-
-| Dependency                      | {{release.previousVersion}} source                  | {{release.version}} source                  |
-| ------------------------------- | ----------------------------- | ----------------------------- |
-| Development and release Node.js | 26.13.0                       | 26.13.1                       |
-| ESLint                          | 10.14.0                       | 10.15.0                       |
-| `glob` override                 | 14.0.3                        | 14.0.6                        |
-| `fast-xml-parser`               | Floor `>=5.12.0`, lock 5.12.0 | Floor `>=5.12.1`, lock 5.12.1 |
-
-The lock also updates ESLint's `@eslint/config-array` to 0.23.6 and `fast-xml-parser`'s `fast-xml-builder` to 1.3.2.
-Bundle acquisition validates the newer upstream minimatch declarations and retains the exact patched bundle metadata and notices.
-Producer npm is 12.2.2, and the JSON Quality development graph resolves to 1.0.1.
+- **Compatible npm dependency updates.**
+  The package declares caret ranges for its JavaScript runtime dependencies, including ESLint and ESLint Markdown.
+  Refresh your project's lockfile to take compatible updates.
+- **File selection uses patched Picomatch.**
+  The package uses the `@ryotsu/picomatch` fork to address a denial of service flaw in the glob matcher.
+  [CVE-2026-112366](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
+- **A fresh audit can report KaTeX.**
+  The CLI and SDK load KaTeX through a dependency and leave its renderer unused.
+  [Read the advisory and reachability evidence](katex-advisory.md)
 
 ### Upgrade
 
-Patch version {{release.version}} follows the [Semantic Versioning rules](https://semver.org/spec/v2.0.0.html) for compatible fixes.
-The changes from the tagged {{release.previousVersion}} source add release maintenance capabilities and refresh dependencies.
-The CLI and SDK contracts, schema versions and Snapper executables carry forward from {{release.previousVersion}}.
-Configuration schema 3, preset `authored-gfm@2`, result schema 5, execution schema 2 and comparison schema 3 apply to this version.
+Update the exact package pin and lockfile, then run the project's Markdown checks.
+Existing CLI commands, SDK calls and configuration schema 3 work with {{release.version}}.
+If file-selection patterns use bracket negation or complex repeated extglobs, review which files the check selects.
+[Upgrade from {{release.previousVersion}}](migration-guide.md#{{release.migrationAnchor}})
 
-Update the exact version pin and consumer lock, then review the existing project checks.
-Every release requires qualification of its exact source and transported package family.
-Eligible releases satisfy that requirement with verified original CI evidence and unchanged archives; new release run IDs do not require repeating the same matrices.
-Local source verification and earlier release evidence remain bound to the source and archives they checked.
+### Release operations
+
+- **Use the pinned npm for registry checks.**
+  Public registry qualification, archival and history jobs acquire the producer npm before reading registry state.
+- **Require successful archival before completion.**
+  Public qualification verifies every required job.
+  Read-only archive completion requires a successful archival writer.
+- **Check dispatch and recovery evidence.**
+  The input preflight checks the complete JSON request before dispatch.
+  Recovery and signed history bind original attempts, package bytes and evidence digests.
+
+[Follow the release runbook]({{release.sourceUrl}}/docs/release-operations.md)
+
+## Version 3.0.3
+
+Version 3.0.3 introduced reuse of exact CI archives for eligible releases, signed writer reservations and retained evidence for approval delays and recovery.
+Its core tarball bundled ESLint and ESLint Markdown with patched KaTeX and minimatch.
+[Read the 3.0.3 release notes](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/support-and-release.md#version-303)
 
 ## Version 3.0.2
 
@@ -89,16 +53,16 @@ See [the 3.0.2 migration notes](migration-guide.md#from-301-to-302) for that bas
 
 ## Supported runtimes and platforms
 
-Development source targets the consumer floor in the [canonical Node policy](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/assets/node-support.json).
+Development source targets the consumer floor in the [canonical Node policy]({{release.sourceUrl}}/assets/node-support.json).
 Other engine-compatible major releases receive best-effort support without a mandatory qualification claim.
-The [runtime compatibility record](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/node-runtime-compatibility.md) explains the lower bounds and distinguishes compatibility from security patch recommendations.
+The [runtime compatibility record]({{release.sourceUrl}}/docs/node-runtime-compatibility.md) explains the lower bounds and distinguishes compatibility from security patch recommendations.
 The qualification matrix covers the Node policy's declared LTS families and supported platforms.
 
 The coordinator constructs the {{release.version}} matrix from the minimum, compatibility pins and producer reference recorded in the release's Node policy.
 It checks the policy against the locked production dependency engines and requires one compatibility pin for each supported major outside the reference family.
 
 Routine CI, release construction and qualification use the same exact producer Node/npm selection.
-Contributor npm eligibility and packed-package consumer npm remain separate; see [the runtime guide](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/node-runtime-compatibility.md#contributor-and-consumer-npm) for their purpose and the limits of local verification.
+Contributor npm eligibility and packed-package consumer npm remain separate; see [the runtime guide]({{release.sourceUrl}}/docs/node-runtime-compatibility.md#contributor-and-consumer-npm) for their purpose and the limits of local verification.
 
 All lanes run product source checks and real CLI/native consumer probes in root and isolated layouts, with exact formatting bytes, fenced literal preservation, convergence, local-link failure and operational-error contracts.
 Fresh installation and offline lockfile replay enforce package engines.
@@ -115,7 +79,7 @@ Only observed passing platform evidence can establish support.
 Use the latest security-patched release in a supported family for ordinary operation; the compatibility minimum is not a security recommendation.
 
 Published 1.0.3 retains its immutable `>=24.21.0 <25` engine declaration and Node 24.21.0 qualification.
-Version {{release.version}} retains the Node `>=22.13.0` floor introduced in 2.0.0.
+Version {{release.version}} requires Node `>={{release.nodeMinimum}}`.
 Its qualification matrix covers Node 22, 24 and 26 on Windows and Linux x64.
 macOS, ARM, and musl are unqualified.
 
@@ -140,7 +104,7 @@ Published 1.0.3 remains unchanged; its schemas, preset and behavior are history,
 The [contract versions](centralized-contracts.md#contract-versions) section owns schema admission, resource ceilings and the result, execution and comparison versions.
 
 Do not republish existing archives or describe 2.0 behavior as the published 1.0.3 behavior.
-For {{release.version}} the owner reviews the staging channel before publication.
+The owner reviews the staging channel for each release.
 The default is `pilot`, and the owner may explicitly select `latest`.
 `pilot` names a candidate that is actively being evaluated and may be absent between candidates.
 After an evaluated candidate is retired, an explicit `@pilot` install can fail until the next candidate is staged.
@@ -169,6 +133,11 @@ The earlier literal-preservation releases retained their exact platform, registr
 Changed/referrer mode and later fleet adoptions remain deferred.
 
 ## Prepare and inspect the package family
+
+Consumers can adopt an exact qualified Git commit independently of an npm release.
+Qualify and freeze the producer commit, transported core and native archives, installed dependency graph, shared assets and reusable workflow revision.
+The packer records source identity, and trusted qualification requires a clean, matching source tree.
+Hosted Windows and Linux qualification and downstream acceptance have their own evidence.
 
 Prepare assets explicitly from their frozen manifest.
 Install source dependencies with `npm ci --ignore-scripts`.
@@ -208,19 +177,21 @@ The unpublished private alpha.1 candidate and all rejected attempts remain histo
 
 ## Release approval and promotion
 
-The current supported path is the [deliberate release operation](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md).
+The current supported path is the [deliberate release operation]({{release.sourceUrl}}/docs/release-operations.md).
 Ordinary direct-main development remains available after local tests.
-A manual release qualification composes fresh product, JSON, architecture, transported matrix, performance, exact-source CodeQL, actual recipient audit and distribution SBOM gates.
+A manual release qualification reuses eligible CI evidence or runs the full source, product, runtime and performance checks.
+Release security verifies the exact-source CodeQL result and installed recipient audits.
+Distribution qualification verifies the shipped package inventories.
 Ordinary CI success alone cannot authorize staging.
 
 The owner prepares a verified signed exact-source tag and exact archive-bound review decisions through authenticated dispatch bytes.
 The stage-only npm connection uses publish.yml and the main-only npm-publication environment.
 
-Release qualification admits the final `{{release.version}}` coordinate from `main`.
+Release qualification binds the exact committed version on `main`.
 It requires a three-part numeric version with a positive major and accepts no prerelease suffix.
 Native packages are staged under the reviewed channel (`pilot` by default or explicitly `latest`), inspected and approved by the owner with 2FA, then publicly verified on both platforms before a manual continuation can stage core.
 Core requires another owner approval.
-Before each native or core approval, follow the [staged-tarball inspection procedure](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/release-operations.md#inspect-a-staged-tarball-before-approval).
+Before each native or core approval, follow the [staged-tarball inspection procedure]({{release.sourceUrl}}/docs/release-operations.md#inspect-a-staged-tarball-before-approval).
 The owner verifies the original stage identity and reviewed channel, downloads its actual tarball, and checks both SHA-256 and SHA-512 SRI before the separate 2FA approval.
 No long-lived publishing token, direct publish fallback, automatic approval or implicit latest label is used.
 
@@ -284,24 +255,14 @@ Preserve third-party license texts and attribution.
 Public registry access does not waive source obligations.
 The repository's original `LICENSE` bytes are verified by the full check.
 
-The producer's overrides in [the repository manifest](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/package.json) select patched KaTeX, glob and minimatch releases to resolve known dependency advisories.
-[npm applies overrides only from the root project](https://docs.npmjs.com/cli/v12/configuring-npm/package-json/#overrides); that alone does not protect a fresh library consumer.
-The qualification repair therefore uses [native bundled dependencies](https://docs.npmjs.com/cli/v12/configuring-npm/package-json/#bundledependencies) to ship ESLint Markdown's and ESLint's complete runtime closures, including the fixed KaTeX and minimatch versions.
+ESLint and ESLint Markdown are regular npm dependencies.
+Consumers resolve their transitive dependencies through their own lockfiles.
+Producer overrides apply only to the repository's own install.
 
-Staging obtains this closure through an offline, script-disabled `npm ci` using the producer manifest, frozen lock and npm's integrity-checked cache.
-It never copies the ambient `node_modules` tree.
-The staged math extension, ESLint and config-array manifests explicitly declare those selected patched dependencies; executable upstream source remains unchanged.
-
-The original root override is removed from the published manifest, and native `npm pack` validates the resulting dependency edges.
-The generated `assets/bundled-dependencies.json` binds the exact files, source lock, original registry identities, retained notices and those metadata repairs.
-Packing and architecture qualification verify that inventory; development tools remain excluded.
-
-Fresh root and isolated consumers must install without lifecycle scripts or overrides, have a valid native dependency tree, pass malicious-input and legitimate-rendering probes, and reinstall offline from their own frozen lock.
-Release qualification additionally requires the actual installed-recipient audit and distribution SBOM.
-
-Immutable release 1.0.3 omitted these closures.
-Version {{release.version}} retains the bundled dependency repair introduced in 2.0.0.
-Remove each vendored metadata repair when maintained upstream releases declare safe dependency ranges and the same recipient checks pass without it; remove bundling when all repairs are unnecessary.
+Fresh root and isolated consumers must install without lifecycle scripts or overrides, retain a valid native dependency tree, pass the KaTeX reachability tests, and reinstall offline from their frozen locks.
+Release qualification retains the raw recipient audits alongside the distribution and recipient SBOMs.
+The release gate accepts only the reviewed KaTeX advisory and dependency chain documented in the package.
+[KaTeX dependency advisory](katex-advisory.md)
 
 Tooling qualification allows twenty minutes per npm install or ci operation, thirty minutes per Node test suite and up to 120 minutes per enclosing job.
 Evidence uploads have a five-minute step budget; bounded acquisition and extraction have a fifteen-minute collection budget.
@@ -319,4 +280,4 @@ These are measured project acceptance criteria, not durations prescribed by an e
 
 The owner adopted the larger execution budgets after a successful instrumented Windows run left about thirty seconds of headroom under the former ten-minute suite ceiling.
 This decision provides execution headroom; it does not establish that the intermittent installation slowdown is fixed.
-See the [qualification repair evidence](https://github.com/Hadden-Industries/markdown-quality/blob/v{{release.version}}/docs/research/2026-10-17-release-qualification-repair.md) for observed failures, limits, diagnosis and validation boundaries.
+See the [qualification repair evidence]({{release.sourceUrl}}/docs/research/2026-10-17-release-qualification-repair.md) for observed failures, limits, diagnosis and validation boundaries.

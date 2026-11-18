@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Read public-safe owner dispatch bytes without draft visibility or project dependencies. */
+import { repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import { hash } from "./release-bytes.js";
 import { native } from "./commands.js";
@@ -63,7 +64,7 @@ export function archivePreflight(env, qualified, acceptance) {
   const record = JSON.parse(bytes);
   for (const [name, expected] of Object.entries({
     schemaVersion: 1,
-    repository: "Hadden-Industries/markdown-quality",
+    repository,
     owner: "maksymshostak",
     version: qualified.version,
     source: qualified.source,

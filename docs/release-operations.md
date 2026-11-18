@@ -2,10 +2,9 @@
 
 # Deliberate release operations
 
-This runbook covers the 3.0.3 core package, Linux x64 native package and Windows x64 native package.
+This runbook covers the 3.0.4 core package, Linux x64 native package and Windows x64 native package.
 Qualification and release decisions bind that exact version and source tuple.
-Complete exact-source qualification and owner approval before publication.
-For changes from the tagged 3.0.2 source, read [the release notes](support-and-release.md#version-303).
+For changes since 3.0.3, [read the 3.0.4 release notes](support-and-release.md#version-304).
 
 Start with [the workflow sequence](#manual-workflow-sequence).
 Before a writer dispatch, prepare [the owner decision](#exact-owner-decisions) and [signed reservation](#reserve-each-release-writer-before-dispatch).
@@ -38,7 +37,7 @@ A changed preimage requires a new owner review.
 ## Qualify once and choose the channel
 
 Set the coordinated version in root package.json, project it with `npm run sync:version`, and check version consistency before freezing.
-Dispatch `release-qualification.yml` on `main` with the committed version `3.0.3`.
+Dispatch `release-qualification.yml` on `main` with the exact committed version.
 The workflow requires a three-part numeric version with a positive major and accepts no prerelease suffix.
 The workflow first looks for complete successful CI qualification of the same ordinary merged PR.
 It authenticates the original run and producing attempts, complete tree and ordered parents, current runtime matrix and retained artifact digests.
@@ -63,7 +62,8 @@ Promoted reports and observations are read from the retained qualification bundl
 The owner approves the new release-manifest digest; package provenance and checksums continue to describe the original bytes.
 Preserve earlier manifests and approvals under their original tuples; leave checksum pins for unchanged native executables, corresponding source archives and acquisition tools intact.
 
-For 3.0.3 choose the default channel `pilot` or explicitly select `latest` in the owner review.
+Select the npm channel in the owner review.
+The workflow defaults to `pilot` and accepts an explicit `latest` selection.
 Npm channel selection is independent of GitHub classification.
 The downstream family-operation rules also support an already qualified RC as npm's default while GitHub latest remains the prior stable security line.
 Both channels retain native-first staging, separate owner 2FA approvals, public qualification of the exact tuple and immutable archival.

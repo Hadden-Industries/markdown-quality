@@ -2,41 +2,50 @@
 
 # Migration guide
 
-Choose the section for the version you are upgrading **from**.
+Choose the version you are upgrading from.
 
-- **3.0.2 source adopters** can follow [the 3.0.3 update](#from-302-to-303).
-- **3.0.1 consumers** keep their CLI, SDK and configuration contracts.
-  Read [the 3.0.2 update](#from-301-to-302), then [the 3.0.3 update](#from-302-to-303).
-- **3.0.0 consumers** retain their CLI, SDK and configuration contracts.
-  Apply [the 3.0.1 repairs](#from-300-to-301), then read the 3.0.2 and 3.0.3 updates below.
-- **2.x consumers** can keep configuration schema 3.
-  Start with [CLI, SDK and report changes in 3.0](#from-20-to-30).
-- **1.x consumers and users of development schema 2** should apply the [2.0 configuration and contract changes](#from-1x-to-20) first.
-  If your destination is 3.0, continue with [the 3.0 changes](#from-20-to-30).
+- [3.0.3 to 3.0.4](#from-303-to-304)
+- [3.0.2 to 3.0.3](#from-302-to-303)
+- [3.0.1 to 3.0.2](#from-301-to-302)
+- [3.0.0 to 3.0.1](#from-300-to-301)
+- [2.x to 3.0](#from-20-to-30)
+- [1.x or development schema 2 to 2.0](#from-1x-to-20)
+
+Read the intervening notes when upgrading across several versions.
+
+## From 3.0.3 to 3.0.4
+
+Existing CLI commands, SDK calls and configuration schema 3 work with 3.0.4.
+Update the exact package pin and lockfile from the npm project root.
+
+```sh
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.4
+npm exec -- markdown-quality check --root .
+```
+
+If the package is installed under `tooling/markdown`, update it there and pass the actual repository path to `--root` when checking.
+[Root and isolated installation](consumer-guide.md#installation)
+
+### Review file selection
+
+The patched Picomatch matcher handles bracket negation according to POSIX glob syntax and can treat complex repeated extglobs as literal text.
+Compare the selected files after updating if your include or exclude rules use those patterns.
+[File selection patterns](consumer-guide.md#selection-boundaries-and-omissions)
+
+### Read the audit notice
+
+The project lockfile records ESLint and ESLint Markdown after installation.
+The resulting audit can report GHSA-238p-pmpm-9mq7 for KaTeX.
+The advisory notice explains where Markdown Quality's parsing and formatting stop.
+[Read the KaTeX audit notice](katex-advisory.md)
+
+[Read the 3.0.4 release notes](support-and-release.md#version-304) · [Review the release runbook](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.4/docs/release-operations.md#manual-workflow-sequence)
 
 ## From 3.0.2 to 3.0.3
 
-Version 3.0.3 is a compatible patch of the tagged 3.0.2 source.
-The CLI, SDK, configuration schema 3, preset `authored-gfm@2`, result schema 5, execution schema 2 and comparison schema 3 need no migration.
-The package keeps the Node `>=22.13.0` consumer floor and the Snapper 0.11.9 native executables.
-
-Update the exact package pin and lockfile using [the installation example](consumer-guide.md#installation), then run the project's existing Markdown checks.
-The dependency refresh includes ESLint 10.15.0 and its bundled dependencies, so review the project's actual diagnostics and formatting output when accepting the new lock.
-
-Contributors use Node 26.13.1 and npm 12.2.2.
-The source lock selects `glob` 14.0.6 and `fast-xml-parser` 5.12.1, with an override floor of `>=5.12.1`.
-The JSON Quality development dependency resolves to 1.0.1.
-
-Release maintainers should start with [the operation sequence](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/release-operations.md#manual-workflow-sequence).
-Release qualification can reuse complete PR evidence after an authenticated normal merge and promote the original tested archives.
-Inspect `REUSED` or `FRESH_REQUIRED` in the qualification summary; unavailable or changed evidence selects the complete fresh graph, and `force-fresh` deliberately requests a rebuild.
-For a promoted candidate, sign the version tag at `promotion.releaseCommit`; package identity retains the original build commit.
-Bind the owner review to the new release manifest's SHA-256, rather than the retained build manifest's digest.
-Before a writer dispatch, reserve its exact attempt with an owner-signed intent tag and capture the current private npm stage inventory.
-Archive acceptance can refresh its stage and immutability observations after an approval delay while retaining the approved package identities.
-Pilot retirement removes the reviewed `pilot` aliases through its own owner decision.
-Interrupted writes use the original upload receipt, signed history and exact request settlement described in [recovery guidance](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/release-operations.md#interruption-partial-recovery-and-retained-proof).
-The [release notes](support-and-release.md#version-303) summarize the complete change set.
+Version 3.0.3 updated the producer toolchain and bundled ESLint and ESLint Markdown.
+It added release preparation from eligible CI archives and retained evidence through approval and recovery.
+[Read the 3.0.3 migration guide](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/migration-guide.md#from-302-to-303)
 
 ## From 3.0.1 to 3.0.2
 
@@ -59,11 +68,11 @@ The result schema remains version 5, with its logical identifier corrected to th
 Fragment resolution, NFC planning, change reporting and path spelling avoid repeated work while retaining their existing findings and preservation rules.
 
 The 3.0.1 source adopted JSON Quality 1.0.0 with configuration schema 4, event schema 5 and cohort 6.
-The [current JSON development guide](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/json-quality.md) describes the repository checks.
+The [current JSON development guide](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.4/docs/json-quality.md) describes the repository checks.
 
 ## From 2.0 to 3.0
 
-The 3.0 CLI and SDK contracts introduced the following major-version changes, retained by 3.0.3.
+The 3.0 CLI and SDK contracts introduced the following major-version changes, retained by 3.0.4.
 Configuration schema 3, `authored-gfm@2`, execution schema 2, comparison schema 3 and Snapper 0.11.9 are retained.
 
 - Import the SDK from Node.js code only; the package root now explicitly rejects browser and unmatched resolver environments.
@@ -286,7 +295,7 @@ A successful format, normalize or preview result is never check evidence, even w
 | `scripts/compare-quality-reports.js` | `scripts/compare-check-reports.js` |
 
 Version 2.0 read check reports with result schemas 1 through 4.
-Version 3.0.3 also reads result schema 5 and continues to refuse repair or preview receipts.
+Version 3.0.4 also reads result schema 5 and continues to refuse repair or preview receipts.
 `formattingDriftPaths` lists paths with formatter-layout diagnostics; it does not predict that formatting will succeed.
 
 ## Qualification identities, workflow inputs and environment
@@ -331,7 +340,7 @@ Capture package, lock, configuration and workflow identities and exact document 
 Then run each step and review its result before the next:
 
 ```sh
-npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.3
+npm install --save-dev --save-exact @hadden-industries/markdown-quality@3.0.4
 npm exec -- markdown-quality inspect --root . --json
 npm exec -- markdown-quality check --root .
 npm exec -- markdown-quality normalize --root . --dry-run
@@ -340,7 +349,7 @@ npm exec -- markdown-quality format --write --root .
 npm exec -- markdown-quality check --root .
 ```
 
-The install pins 3.0.3 in the manifest and lock regardless of the current npm distribution tags.
+The install pins 3.0.4 in the manifest and lock regardless of the current npm distribution tags.
 `inspect` confirms the root, selection, omissions and effective policy.
 
 The first `check` reports the new default errors: non-NFC prose, generic link text, duplicate sibling headings, bare URLs, unresolved fragments, path case, image alternatives and disallowed HTML.

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Verify retained evidence against its original subject before composing promotion evidence. */
+import { repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import {
   cpSync,
@@ -49,7 +50,7 @@ export function verifyBuildEvidence(release, directory) {
   assert.deepEqual(receipt.snapshot.parents, promotion.parents);
   assert.deepEqual(receipt.matrix, release.qualificationMatrix);
   assert.equal(receipt.mode, "FULL");
-  assert.equal(receipt.repository, "Hadden-Industries/markdown-quality");
+  assert.equal(receipt.repository, repository);
   return receipt;
 }
 

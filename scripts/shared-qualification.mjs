@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Trusted reusable-workflow driver. Candidate input is never interpolated as code.
+import { repository } from "./release-identity.js";
 import { readFileSync, appendFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { createRequire } from "node:module";
@@ -69,7 +70,7 @@ if (process.argv[2] === "bootstrap") {
     .split(/\r?\n/u)[0];
   if (
     !/^[a-f0-9]{40}$/u.test(process.env.MQ_WORKFLOW_COMMIT_ID ?? "") ||
-    process.env.MQ_WORKFLOW_REPOSITORY !== "Hadden-Industries/markdown-quality"
+    process.env.MQ_WORKFLOW_REPOSITORY !== repository
   )
     fail(
       "WORKFLOW_IDENTITY",

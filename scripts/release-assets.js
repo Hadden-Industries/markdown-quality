@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { releasePackages, repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import {
   lstatSync,
@@ -39,7 +40,7 @@ import { validateConsumer } from "./ci-consumer.js";
 import { releaseVersion, releaseChannel } from "./release-coordinates.js";
 import { verifyBuildEvidence } from "./release-reuse-evidence.js";
 
-export const repository = "Hadden-Industries/markdown-quality";
+export { repository };
 export { hash } from "./release-bytes.js";
 export const regularBytes = (path, maximum = 64 * 1024 * 1024) =>
   releaseBytes(path, maximum);
@@ -278,11 +279,10 @@ export function verifyProvider(provider, expected) {
 export function verifyPayloads(qualified, directory, sourceArchive) {
   verifyQualification(qualified);
   assert.equal(qualified.archives.length, 3);
-  assert.deepEqual(qualified.archives.map((a) => a.package).sort(), [
-    "@hadden-industries/markdown-quality",
-    "@hadden-industries/markdown-quality-linux-x64",
-    "@hadden-industries/markdown-quality-win32-x64",
-  ]);
+  assert.deepEqual(
+    qualified.archives.map((a) => a.package).sort(),
+    [...releasePackages].sort(),
+  );
   const manifestBytes = regularBytes(join(directory, "release-manifest.json"));
   assert.equal(hash(manifestBytes), qualified.manifestSha256);
   const manifest = JSON.parse(manifestBytes);

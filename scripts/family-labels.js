@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 import { npmCommand } from "./commands.js";
-import { releasePackages } from "./release-coordinates.js";
+import { releasePackages } from "./release-identity.js";
 import { transientProviderRead } from "./release-readback.js";
 import { retryDelay } from "./github-evidence.js";
 import { pilotTagDeleteEndpoint } from "./release-effects.js";

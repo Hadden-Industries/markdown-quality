@@ -18,10 +18,19 @@ The owner may place an RC under npm `latest`; that default does not replace the 
 Consumers should pin exact versions and qualify upgrades.
 Older releases remaining downloadable does not imply maintenance or backport support.
 
-Version 3.0.3 declares Node `>=22.13.0` for Windows x64 and Linux x64 with glibc 2.39 or later.
+Version 3.0.4 declares Node `>=22.13.0` for Windows x64 and Linux x64 with glibc 2.39 or later.
 The [support policy](docs/support-and-release.md) describes the exact minimum, compatibility pins and producer reference used for qualification.
 Use current security patches within a supported family for ordinary operation.
 The historical 1.0.3 qualification covered Node 24.21.0 on Windows x64 and Ubuntu 24.04 x64 with glibc 2.39.
+
+## Dependency advisories
+
+Version 3.0.4 uses a patched Picomatch to address CVE-2026-112366.
+[Picomatch advisory](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
+
+Consumer audits can report GHSA-238p-pmpm-9mq7.
+The KaTeX notice explains the dependency path, reachability tests and release audit decision.
+[Read the KaTeX audit notice](docs/katex-advisory.md)
 
 ## Response and disclosure
 

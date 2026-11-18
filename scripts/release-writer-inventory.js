@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 /** Independent writer expectations from protected main and immutable owner-signed intent tags. */
+import { repository } from "./release-identity.js";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { native } from "./commands.js";
@@ -8,7 +9,6 @@ import { verifyOwnerTagSignature } from "./release-signature.js";
 export const writerBaseline = JSON.parse(
   readFileSync(new URL("./release-writer-baseline.json", import.meta.url)),
 );
-const repository = "Hadden-Industries/markdown-quality";
 export const writerJobs = {
   publish: ["stage", "publish"],
   "github-release": ["archive", "Read-only archive completion"],

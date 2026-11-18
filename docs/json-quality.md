@@ -2,17 +2,18 @@
 
 # JSON development checks
 
-Markdown Quality declares `@hadden-industries/json-quality` as an ordinary `>=1.0.1` devDependency in the root [package.json](../package.json).
+Markdown Quality declares `@hadden-industries/json-quality` as an ordinary `>=1.0.2` devDependency in the root [package.json](../package.json).
 Root `npm ci --ignore-scripts` installs it and its matching optional platform package using the root npm lockfile.
 Npm owns dependency resolution and package integrity, as it does for the other development dependencies.
-The 3.0.3 source lockfile resolves the published JSON Quality core, Linux x64 and Windows x64 packages to 1.0.1.
+The 3.0.4 source lockfile resolves JSON Quality to 1.0.2.
 
 It is development tooling, outside product dependencies, exports and npm contents.
 The package's public API owns discovery, parsing, quality rules, formatting, normalization, budgets, guarded writes and streamed completion.
 Repository Python owners supply original admitted compressed/archive bytes and provenance, without implementing a second JSON checker.
 
 Use the producer Node and npm versions in [node-support.json](../assets/node-support.json) to reproduce the repository's JSON checks.
-JSON Quality 1.0.1 declares a Node.js minimum of 22.13.0, the same floor as Markdown Quality 3.0.3.
+The locked JSON Quality package declares Node.js `>=22.13.0`.
+Markdown Quality 3.0.4 declares Node.js `>=22.13.0`.
 
 The [runtime compatibility record](node-runtime-compatibility.md) separates consumer minima from development tooling.
 After installation, `node scripts/runRepositoryJsonQuality.mjs --version` prints the version used by the repository's JSON commands.
@@ -63,7 +64,6 @@ Semantic object comparisons use structural equality, while the established candi
 ## Scope and exact preservation
 
 JSON Quality's built-in policy excludes untracked npm installation trees, including nested dependencies.
-The core tarball's bundled dependency files have their own archive checks, described below.
 Hidden, ignored, untracked, generated, repository-administrative and newly added JSON remains in scope elsewhere.
 
 Repository-owned tracked installation JSON remains checked and write-protected rather than disappearing behind that exclusion.
@@ -80,11 +80,9 @@ Their containing source archive is SHA-256 `252156d485d814a0b00d4ae9a6ea1a8dc704
 Membership and bytes were independently verified inside the registry-SRI-checked immutable [Linux npm 1.0.3 archive](https://registry.npmjs.org/@hadden-industries/markdown-quality-linux-x64/-/markdown-quality-linux-x64-1.0.3.tgz) and [Windows npm 1.0.3 archive](https://registry.npmjs.org/@hadden-industries/markdown-quality-win32-x64/-/markdown-quality-win32-x64-1.0.3.tgz).
 Semantic checks still apply to these original members; the native supplier rejects changed identity.
 
-The archive reader verifies the exact staged path, size and hash of every bundled file.
-Bundled `package.json` files must be UTF-8 JSON objects with unique keys.
-The same check covers the ESLint rule replacements and Ajv schemas used by Markdown linting.
-The bundle stage verifies manifest metadata against the npm lock and records any intentional manifest repairs before packing.
-Other bundled files retain their staged bytes and receive the same archive integrity checks.
+The archive reader reconciles package contents with the paths, sizes and hashes in the release manifest.
+Version 3.0.4 uses npm dependencies outside the core tarball.
+For retained archives with bundles, the reader also checks bundled manifests and the ESLint and Ajv runtime JSON used by those archives.
 
 Exact generated native documents use their producer's JSON indentation contract and receive all semantic checks.
 Two original Linux crate-author strings retain their exact decoded NFC exceptions by JSON pointer, UTF-8 byte length and SHA-256; no whole-file normalization waiver applies.

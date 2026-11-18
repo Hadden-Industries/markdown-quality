@@ -37,14 +37,17 @@ Manual `release-qualification.yml` can promote the exact archives from an authen
 Its successful resolver supplies original source, native, runtime and corpus evidence; the fresh branch is skipped only after that admission.
 CI retains the recipient locks and distribution inventories during the original qualification.
 Release security refreshes current alerts and advisory checks against those locks; it reuses the original exact-source CodeQL executions.
+The recipient audit retains its report and records the reviewed KaTeX exception separately.
+[Read the KaTeX audit notice](katex-advisory.md)
+
 The original build commit stays in package identity and provenance, while separate promotion metadata authorizes the landed release commit and its signed tag.
 Changed inputs, absent or expired evidence, an unsupported merge shape or an explicit `force-fresh` request runs the fresh qualification graph.
 Reuse never consumes another promotion record as its original proof.
 It has no publication authority.
 
-See [the artifact promotion contract](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/plans/2026-11-16-release-artifact-promotion.md) for the manifest and invalidation rules.
+See [the artifact promotion contract](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.4/docs/plans/2026-11-16-release-artifact-promotion.md) for the manifest and invalidation rules.
 
-The earlier [CI convergence plan](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/docs/plans/2026-10-29-github-actions-convergence-implementation-plan.md) records the deliberate qualification request boundary.
+The earlier [CI convergence plan](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.4/docs/plans/2026-10-29-github-actions-convergence-implementation-plan.md) records the deliberate qualification request boundary.
 The artifact promotion contract above replaces its mandatory fresh release execution when reusable evidence is admitted.
 Verify hosted acceptance for the exact candidate and inspect the live governance settings before release.
 
@@ -54,9 +57,9 @@ Core and both native packages declare public access; anonymous installation is a
 Ordinary fork pull requests need no registry credential or paid npm subscription.
 
 The direct CLI and public APIs are canonical integrations.
-Version 3.0.3 retains the public SHA-pinned reusable workflow introduced in 2.0 and described in the [centralized contracts guide](centralized-contracts.md).
+Version 3.0.4 retains the public SHA-pinned reusable workflow introduced in 2.0 and described in the [centralized contracts guide](centralized-contracts.md).
 Adoption uses the latest qualified producer commit and locked archive/workflow tuple regardless of npm release status.
-The historical pilot/publication evidence below does not establish qualification of these new source contracts.
+The evidence below records earlier pilot and publication checks for their original versions.
 
 | Event                    | Trusted graph and policy                              | Acquisition                                     | Candidate processing                                 | Historical evidence                           |
 | ------------------------ | ----------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------- | --------------------------------------------- |
@@ -75,7 +78,7 @@ After the owner's 2FA approvals, public registry qualification uses anonymous ac
 A subsequent change of stable defaults requires a separate owner decision.
 Packed-consumer tests acquire public JavaScript dependencies before testing offline frozen-lock reinstallation and runtime execution.
 
-Packing, bundled-dependency acquisition, source SBOM generation and shipment inspection use the retained producer Node/npm pair even when invoked from a consumer lane.
+Packing, source SBOM generation and shipment inspection use the retained producer Node and npm even when invoked from a consumer lane.
 Fixture archives follow that same producer route; consumer installation, dependency-tree checks and runtime tests retain the separately provisioned floor-compatible npm.
 
 CI passes the frozen consumer npm version into acquisition and selects that CLI for runtime-sensitive source tests as well as installed-package qualification.
@@ -94,7 +97,7 @@ The owner accepted a manual trusted-run boundary for the two pilots on 2026-10-0
 Shared qualification now additionally requires owner approval of its exact request through the protected `markdown-quality-trusted-qualification` environment before the trusted graph executes.
 
 Required reviewers and disabled administrator bypass are checked live, together with this workflow run's approval history; a named but unprotected environment does not authorize execution.
-The [Actions analysis model](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.3/.github/codeql/README.md) recognizes this exact admission sequence for manual workflows while preserving the native rule inventory and unchanged zero-result release gates.
+The [Actions analysis model](https://github.com/Hadden-Industries/markdown-quality/blob/v3.0.4/.github/codeql/README.md) recognizes this exact admission sequence for manual workflows while preserving the native rule inventory and unchanged zero-result release gates.
 
 The request summary identifies the reviewed trusted commit/profile and paired producer, plus the candidate commit; changing those inputs creates a new workflow run requiring approval.
 GitHub required checks select a name/context and App identity, not a workflow revision or event.

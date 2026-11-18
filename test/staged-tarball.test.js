@@ -8,7 +8,11 @@ const members = ["win32-x64", "linux-x64", "core"];
 const sha = (bytes, algorithm = "sha256", encoding = "hex") =>
   createHash(algorithm).update(bytes).digest(encoding);
 
-function fixture(member = "win32-x64", channel = "pilot") {
+function fixture(
+  member = "win32-x64",
+  channel = "pilot",
+  digestOverrides = {},
+) {
   const tarballs = Object.fromEntries(
     members.map((name) => [name, Buffer.from(`Downloaded ${name} fixture`)]),
   );
@@ -23,6 +27,7 @@ function fixture(member = "win32-x64", channel = "pilot") {
         version: "3.0.2",
         sha256: sha(tarballs[name]),
         integrity: "sha512-" + sha(tarballs[name], "sha512", "base64"),
+        ...(name === member ? digestOverrides : {}),
       })),
     }),
   );
@@ -81,6 +86,22 @@ test("a one-byte modification refuses approval evidence with both observed diges
   assert.equal(result.stageId, "original-win32-x64-stage");
   assert.notEqual(result.observed.sha256, result.expected.sha256);
   assert.notEqual(result.observed.integrity, result.expected.integrity);
+});
+
+test("either digest mismatch independently refuses the same downloaded bytes", () => {
+  const otherBytes = Buffer.from("Different archive bytes");
+  for (const [field, value, matching] of [
+    ["sha256", sha(otherBytes), "integrity"],
+    ["integrity", "sha512-" + sha(otherBytes, "sha512", "base64"), "sha256"],
+  ]) {
+    const { status, result } = fixture("win32-x64", "pilot", {
+      [field]: value,
+    }).run();
+    assert.equal(status, 1);
+    assert.equal(result.status, "refused");
+    assert.notEqual(result.observed[field], result.expected[field]);
+    assert.equal(result.observed[matching], result.expected[matching]);
+  }
 });
 
 test("another package member's tarball cannot satisfy the selected stage check", () => {

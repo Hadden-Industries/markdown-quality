@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { nodeSupport } from "./node-matrix.js";
 import { createHash } from "node:crypto";
 import { supportsPython } from "./python-target.js";
+import { releasePackages } from "./release-identity.js";
 
 /** Admission is independent of presentation and requires both actual installations. */
 export function validateConsumer(
@@ -26,12 +27,11 @@ export function validateConsumer(
     os.startsWith("windows") ? "win32-x64" : "linux-x64",
   );
   assert.match(report.manifestSha256, /^[a-f0-9]{64}$/u);
-  assert.equal(report.archives.length, 3);
-  assert.deepEqual(report.archives.map((a) => a.package).sort(), [
-    "@hadden-industries/markdown-quality",
-    "@hadden-industries/markdown-quality-linux-x64",
-    "@hadden-industries/markdown-quality-win32-x64",
-  ]);
+  assert.equal(report.archives.length, releasePackages.length);
+  assert.deepEqual(
+    report.archives.map((a) => a.package).sort(),
+    [...releasePackages].sort(),
+  );
   for (const archive of report.archives)
     assert.match(archive.sha256, /^[a-f0-9]{64}$/u);
   const layouts = report.records.filter((record) =>
