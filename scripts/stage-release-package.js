@@ -112,12 +112,13 @@ export function stageReleaseArchive({
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const [name, directory, journalDirectory] = process.argv.slice(2);
+  const preflight = name === "--preflight";
   assert.equal(
     process.argv.length,
-    5,
-    "Usage: stage-release-package.js PLATFORM ARCHIVES JOURNAL_DIRECTORY",
+    preflight ? 4 : 5,
+    "Usage: stage-release-package.js PLATFORM ARCHIVES JOURNAL_DIRECTORY | --preflight ARCHIVES",
   );
-  const [name, directory, journalDirectory] = process.argv.slice(2);
   const manifestBytes = readFileSync(join(directory, "release-manifest.json"));
   const manifestSha = createHash("sha256").update(manifestBytes).digest("hex");
   assert.equal(manifestSha, process.env.MANIFEST_SHA);
@@ -132,12 +133,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     map,
     context,
   );
-  assert.equal(
-    environment[`STAGE_${name.replaceAll("-", "_").toUpperCase()}`],
-    "true",
-    "This package is not eligible for this staging phase",
-  );
-  const archive = release.archives.find((candidate) => candidate.name === name);
+  if (!preflight)
+    assert.equal(
+      environment[`STAGE_${name.replaceAll("-", "_").toUpperCase()}`],
+      "true",
+      "This package is not eligible for this staging phase",
+    );
   const reviewBytes = releaseBytes("provider/release-review.json", 48 * 1024);
   assert.ok(
     reviewBytes.equals(Buffer.from(process.env.REVIEW_JSON ?? "")),
@@ -165,22 +166,27 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       checkpoint: process.env.HISTORY_CHECKPOINT,
     },
   );
-  verifyStageGuards(review, release, archive, map, journalDirectory, {
-    // Admission already authenticated every original writer. Reuse its compact
-    // freshness proof instead of reparsing the full retained history snapshot.
-    latestStageWriteAt: admission.latestStageWriteAt,
-  });
-  const result = stageReleaseArchive({
-    archive,
-    path: resolve(directory, archive.filename),
-    journalDirectory,
-    origin: map.records.find((record) => record.package === archive.package),
-    channel: map.decision.channel,
-    decision: map.decision,
-  });
-  if (process.env.GITHUB_STEP_SUMMARY)
-    appendFileSync(
-      process.env.GITHUB_STEP_SUMMARY,
-      `Staged ${result.package}@${result.version} under ${result.tag}. Recheck stage identity, digest, channel and current defaults before owner approval with 2FA. Public availability has not been established.\n`,
+  if (!preflight) {
+    const archive = release.archives.find(
+      (candidate) => candidate.name === name,
     );
+    verifyStageGuards(review, release, archive, map, journalDirectory, {
+      // Admission already authenticated every original writer. Reuse its compact
+      // freshness proof instead of reparsing the full retained history snapshot.
+      latestStageWriteAt: admission.latestStageWriteAt,
+    });
+    const result = stageReleaseArchive({
+      archive,
+      path: resolve(directory, archive.filename),
+      journalDirectory,
+      origin: map.records.find((record) => record.package === archive.package),
+      channel: map.decision.channel,
+      decision: map.decision,
+    });
+    if (process.env.GITHUB_STEP_SUMMARY)
+      appendFileSync(
+        process.env.GITHUB_STEP_SUMMARY,
+        `Staged ${result.package}@${result.version} under ${result.tag}. Recheck stage identity, digest, channel and current defaults before owner approval with 2FA. Public availability has not been established.\n`,
+      );
+  }
 }

@@ -360,18 +360,54 @@ export function checkWorkflows({ root = repository, overrides = {} } = {}) {
   assert.equal(publication.jobs.decision.needs, "admit");
   assert.equal(publication.jobs.decision.permissions?.["id-token"], undefined);
   assert.equal(publication.jobs.decision.environment, undefined);
+  assert.equal(publication.jobs.decision["continue-on-error"], undefined);
+  const checkpointDefault = JSON.parse(
+    publication.on.workflow_dispatch.inputs["history-checkpoints"].default ??
+      "[]",
+  );
+  assert.ok(
+    Array.isArray(checkpointDefault) &&
+      checkpointDefault.length > 0 &&
+      checkpointDefault.every(
+        (ref) =>
+          typeof ref === "string" &&
+          /^release-history-(?!intent-)[A-Za-z0-9._-]+$/u.test(ref),
+      ),
+    "Publication needs a signed history checkpoint default",
+  );
   assert.equal(
     publication.on.workflow_dispatch.inputs["review-json"].required,
     true,
   );
+  const decisionSteps = publication.jobs.decision.steps;
+  const ownerDecision = decisionSteps.findIndex(
+    (step) =>
+      step.run ===
+      "node scripts/verify-release-tag.js frozen-release/release-manifest.json provider --owner-decision",
+  );
   assert.ok(
-    publication.jobs.decision.steps.some(
-      (step) =>
-        step.run ===
-        "node scripts/verify-release-tag.js frozen-release/release-manifest.json provider --owner-decision",
-    ),
+    ownerDecision >= 0,
     "Read-only review must authenticate the exact owner dispatch",
   );
+  const priorEffects = decisionSteps.filter(
+    (step) => step.id === "prior_effects",
+  );
+  assert.equal(priorEffects.length, 1, "Missing read-only history preflight");
+  const [historyPreflight] = priorEffects;
+  const historyIndex = decisionSteps.indexOf(historyPreflight);
+  assert.ok(
+    historyIndex > ownerDecision &&
+      historyIndex < decisionSteps.findIndex((step) => step.id === "review"),
+    "History must pass after owner authentication and before staging admission",
+  );
+  assert.equal(
+    historyPreflight.run,
+    "node scripts/stage-release-package.js --preflight frozen-release",
+  );
+  assert.equal(historyPreflight.if, undefined);
+  assert.equal(historyPreflight["continue-on-error"], undefined);
+  assert.equal(historyPreflight["working-directory"], undefined);
+  assert.deepEqual(historyPreflight.env, { GH_TOKEN: "${{ github.token }}" });
   assert.ok(
     publication.jobs.stage.needs.includes("decision"),
     "Staging requires the protected review",
