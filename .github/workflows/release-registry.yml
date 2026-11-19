@@ -55,11 +55,11 @@ jobs:
       consumer-npm: ${{ steps.admit.outputs.consumer-npm }}
       source: ${{ steps.admit.outputs.source }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
           package-manager-cache: false
@@ -82,7 +82,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/release-continuation.js frozen-release previous-stage stage-provider
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: public-release-inputs-${{ github.run_attempt }}
           path: frozen-release/
@@ -96,10 +96,10 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.admit.outputs.runtimes) }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ needs.admit.outputs.reference }}
           package-manager-cache: false
@@ -109,11 +109,11 @@ jobs:
       - run: node scripts/qualification-process.js consumer-npm "${{ runner.temp }}/consumer-npm"
         env:
           CONSUMER_NPM: ${{ needs.admit.outputs.consumer-npm }}
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node }}
           package-manager-cache: false
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: public-release-inputs-${{ github.run_attempt }}
           path: frozen-release
@@ -124,13 +124,13 @@ jobs:
           RELEASE_SECURITY_OUTPUT: ${{ matrix.node == needs.admit.outputs.reference && 'recipient-security' || '' }}
           MARKDOWN_QUALITY_CONSUMER_NPM: ${{ runner.temp }}/consumer-npm/node_modules/npm/bin/npm-cli.js
         run: node scripts/verify-public-tuple.js frozen-release registry-qualification.json
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: registry-${{ matrix.os }}-${{ matrix.node }}-${{ github.run_attempt }}
           path: registry-qualification.json
           if-no-files-found: error
           retention-days: 90
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always() && matrix.node == needs.admit.outputs.reference
         with:
           name: recipient-${{ matrix.os }}
@@ -147,21 +147,21 @@ jobs:
       contents: read
       security-events: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
           package-manager-cache: false
       - run: node scripts/publication-npm.js isolate
       - run: node scripts/publication-npm.js acquire
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: public-release-inputs-${{ github.run_attempt }}
           path: frozen-release
           digest-mismatch: error
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: recipient-*
           path: recipient-security
@@ -171,7 +171,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SOURCE: ${{ needs.admit.outputs.source }}
         run: node scripts/qualify-release-security.js frozen-release release-security
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: public-release-security-${{ github.run_attempt }}
@@ -187,10 +187,10 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
           package-manager-cache: false
@@ -201,7 +201,7 @@ jobs:
           NEEDS_JSON: ${{ toJSON(needs) }}
           GH_TOKEN: ${{ github.token }}
         run: node scripts/report-release-defaults.js
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: observed-defaults-${{ github.run_attempt }}

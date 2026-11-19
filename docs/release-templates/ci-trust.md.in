@@ -1,5 +1,11 @@
 # CI trust and acquisition
 
+## Update GitHub Action pins
+
+In a source checkout, `docs/release/action-versions.json` declares each external action's release tag and full commit SHA.
+After changing a catalog entry, run `node scripts/project-action-versions.mjs --write` to update the literal references and tag comments in workflows and composite actions.
+The source checks run the same drift validation as `node scripts/project-action-versions.mjs --check`.
+
 ## Request PR qualification
 
 Ordinary full qualification starts when a PR targeting `main` receives `ready_for_review`, or when an operator dispatches `main-qualification.yml` on `main` with `qualification: full`.

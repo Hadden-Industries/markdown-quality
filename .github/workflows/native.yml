@@ -25,7 +25,7 @@ jobs:
             platform: linux-x64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Preserve frozen upstream source bytes
@@ -39,7 +39,7 @@ jobs:
       # native-source-checkouts:start
       - name: Check out native source for assets/native-build.json
         if: inputs.build-config == 'assets/native-build.json'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: TurtleTech-ehf/snapper
           ref: 407c2beb04607f6ccb421e6f6418dcc00e4c1e94
@@ -47,7 +47,7 @@ jobs:
           persist-credentials: false
       - name: Check out native source for scripts/native-build-next.json
         if: inputs.build-config == 'scripts/native-build-next.json'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: TurtleTech-ehf/snapper
           ref: 8981607b484dd123b5e4bec00dd6415e5725aff9
@@ -61,13 +61,13 @@ jobs:
         run: python scripts/build-native.py --config "$BUILD_CONFIG" --platform ${{ matrix.platform }} --source native-source --output native-output --raw-evidence "${{ runner.temp }}/native-originals/cargo-${{ matrix.platform }}.json"
       - name: Retain original cargo-about bytes separately from recipient files
         if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-originals-${{ matrix.platform }}
           path: ${{ runner.temp }}/native-originals/
           if-no-files-found: warn
           retention-days: 30
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-${{ matrix.platform }}
           path: native-output/
