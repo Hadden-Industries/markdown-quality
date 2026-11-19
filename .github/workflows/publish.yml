@@ -39,8 +39,9 @@ on:
         required: false
         type: string
       history-checkpoints:
-        description: Optional JSON array of owner-signed complete release-history refs for earlier writers
+        description: JSON array of owner-signed complete history refs for earlier writers
         required: false
+        default: '["release-history-20261117-3.0.3-47c17e1ab539"]'
         type: string
 permissions:
   contents: read
@@ -179,6 +180,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/verify-release-tag.js frozen-release/release-manifest.json provider --owner-decision
+      - name: Select isolated npm configuration
+        shell: bash
+        run: node scripts/publication-npm.js isolate
+      - uses: ./.github/actions/setup-python
+      - name: Acquire pinned hosted npm for history preflight
+        shell: bash
+        run: node scripts/publication-npm.js acquire
+      - id: prior_effects
+        name: Preflight all prior release writer effects
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/stage-release-package.js --preflight frozen-release
       - id: review
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()

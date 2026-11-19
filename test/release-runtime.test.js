@@ -471,6 +471,28 @@ test("workflow contracts reject draft-permission, dependency-order and snapshot 
     [
       "publish.yml",
       (doc) => {
+        delete doc.on.workflow_dispatch.inputs["history-checkpoints"].default;
+      },
+    ],
+    [
+      "publish.yml",
+      (doc) => {
+        doc.jobs.decision.steps = doc.jobs.decision.steps.filter(
+          (step) => step.id !== "prior_effects",
+        );
+      },
+    ],
+    [
+      "publish.yml",
+      (doc) => {
+        doc.jobs.decision.steps.find((step) => step.id === "prior_effects")[
+          "continue-on-error"
+        ] = true;
+      },
+    ],
+    [
+      "publish.yml",
+      (doc) => {
         doc.jobs.stage.needs = ["admit", "retained"];
       },
     ],

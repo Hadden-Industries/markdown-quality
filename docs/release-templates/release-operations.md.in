@@ -26,6 +26,10 @@ GitHub user ID 6131830 identifies the release owner.
 Activate these policies through an owner-authorized provider cutover before a release.
 
 Before a live writer, verify main-only protected environments and all three package-specific staging/promotion OIDC bindings.
+The staging workflow defaults to an owner-signed complete history checkpoint.
+Use `history-checkpoints` to select a newer complete checkpoint when the retained evidence advances.
+The read-only decision job checks prior writer effects before staging can start.
+The staging job refreshes those checks before each request.
 No alternate npm token, personal signing key, automatic stage approval or direct-publish fallback belongs in Actions.
 Keep one pending release decision across approval boundaries.
 Before superseding it, stop the old run, inspect outstanding npm stages that could still move defaults on late approval, and reconcile every possible effect.
