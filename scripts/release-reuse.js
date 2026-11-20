@@ -14,41 +14,16 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { gitSnapshot, readRawProof, publishCiResult } from "./ci-command.js";
+import { selectQualificationArtifact } from "./github-job-execution.js";
 import { selectProof, verifyProof, repository } from "./ci-proof.js";
-import { createRepositoryReader } from "./github-evidence.js";
+import { createReleaseCollectionReader as createReleaseReuseReader } from "./github-evidence.js";
 import { downloadEvidence } from "./download-evidence.js";
 import { verifyArchiveBytes } from "./release-bytes.js";
 import { verifyPromotion } from "./release-qualification.js";
-import { budgets } from "./qualification-budgets.js";
 
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
-/** One bounded collection covers the original proof and its retained bundles. */
-export function createReleaseReuseReader(token, options = {}) {
-  return createRepositoryReader({
-    ...options,
-    repository,
-    token,
-    budgetMs: budgets.collection,
-    maximumRequests: 128,
-  });
-}
-
-/** Bind a retained artifact to its original successful job, including partial reruns. */
-export function selectQualificationArtifact(inventory, name, execution) {
-  const matches = inventory.filter((artifact) => artifact.name === name);
-  assert.equal(matches.length, 1, `Missing or ambiguous retained ${name}`);
-  const artifact = matches[0];
-  assert.equal(artifact.expired, false);
-  assert.match(artifact.digest, /^sha256:[a-f0-9]{64}$/u);
-  const created = Date.parse(artifact.created_at);
-  assert.ok(
-    created >= Date.parse(execution.job.started_at) &&
-      created <= Date.parse(execution.job.completed_at),
-    `Retained ${name} differs from the original producing execution`,
-  );
-  return artifact;
-}
+export { createReleaseReuseReader, selectQualificationArtifact };
 
 /** Add promotion authorization to a new manifest; original manifest and archive bytes survive. */
 export function promoteManifest({

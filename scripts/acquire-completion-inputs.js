@@ -39,11 +39,17 @@ for (const [id, name, job, directory] of [
   checkpoints ??= readSignedHistoryRefs(
     JSON.parse(env.HISTORY_CHECKPOINT || "[]"),
   );
+  const attempt =
+    (job === "admit"
+      ? env.ADMISSION_ATTEMPT
+      : job === "npm"
+        ? env.NPM_RESULT_ATTEMPT
+        : undefined) ?? env.WRITER_ATTEMPT;
   const expected = {
-    name: `${name}-${env.WRITER_ATTEMPT}`,
+    name: `${name}-${attempt}`,
     job,
     run: env.WRITER_RUN,
-    attempt: env.WRITER_ATTEMPT,
+    attempt,
     controller: operation.controller,
     workflow: ".github/workflows/promote-release.yml",
   };

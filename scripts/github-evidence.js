@@ -7,6 +7,17 @@ import { fileURLToPath } from "node:url";
 import { budgets } from "./qualification-budgets.js";
 import { artifactLimits } from "./artifact-policy.js";
 
+/** One bounded collection covers original job inventories and retained payload transfers. */
+export function createReleaseCollectionReader(token, options = {}) {
+  return createRepositoryReader({
+    ...options,
+    repository,
+    token,
+    budgetMs: budgets.collection,
+    maximumRequests: 128,
+  });
+}
+
 const transientCodes = new Set([
   "ECONNRESET",
   "ECONNREFUSED",

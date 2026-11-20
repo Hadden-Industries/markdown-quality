@@ -247,8 +247,8 @@ The upload-time local archive and npm JSON receipt checks in `stage-release-pack
 
 ### Continue the release sequence
 
-Staging reruns are refused.
-Use a new dispatch with exact original run, attempt, manifest and origin-map digests.
+An owner-authorized staging rerun may make its first request when complete provider history proves every earlier request was skipped.
+After a possible request, recover with a new dispatch bound to the exact original run, attempt, manifest and origin-map digests.
 Each stage rechecks all approved defaults and earlier attributable approvals immediately before requesting the next package.
 A later default, foreign origin or incomplete provider history blocks the request.
 An attempted stage remains pending or outcome-unknown until original provider evidence settles it; a public 404 does not authorize another request.
@@ -316,12 +316,19 @@ It authenticates the sealed npm artifact by immutable ID/digest/original run, at
 A green needs result alone is insufficient.
 
 The independent read-only completion command authenticates original writer attempts before provider observation.
+When promotion first reaches a writer on a later attempt, it authenticates the signed intent for that attempt and compares the protected workflow runs and signed reservations against the read-only admission.
+If another release operation changed that history, refresh the read-only admission before using the writer.
+A skipped npm writer and a skipped GitHub writer are assessed independently.
+A prior possible request by the selected writer requires read-only verification or explicit owner reconciliation.
 One five-minute deadline covers preliminary family/release/latest reads, child timeouts, internal fetch retries and sleeps.
 Approved prior-to-target propagation, transient resets/timeouts, temporary server failures and identified rate limits may retry idempotent reads with capped jittered backoff and provider hints.
 A third value, identity/digest/schema failure or ordinary authorization denial stops immediately.
 At expiry, completion.json records completion-unconfirmed, last confirmed observations, original writers and earliest useful retry where known.
 
 To rerun only final observation, select mode verify with the **original operation bytes/digest** and continuation-json containing admissionId, npmId, writerRun and writerAttempt, plus githubId when the operation has a GitHub writer.
+Use the final writer's actual attempt for writerAttempt.
+If admission or npm ran on an earlier attempt, supply its original admissionAttempt or npmAttempt.
+For historical operations with a single producing attempt, writerAttempt covers all three artifacts.
 Completion refuses a missing GitHub writer for an operation that has one and any GitHub writer for an npm-only retirement.
 The writer jobs are skipped and no OIDC or contents-write authority is granted.
 

@@ -14,7 +14,9 @@ let selected;
 if (mode === "verify") {
   assert.ok(Buffer.byteLength(process.env.CONTINUATION_JSON ?? "") <= 4096);
   selected = JSON.parse(process.env.CONTINUATION_JSON);
-  const keys = Object.keys(selected).sort();
+  const keys = Object.keys(selected)
+    .filter((key) => !["admissionAttempt", "npmAttempt"].includes(key))
+    .sort();
   assert.ok(
     [required, [...required, "githubId"]].some(
       (expected) => keys.join() === [...expected].sort().join(),
@@ -43,19 +45,36 @@ if (mode === "verify") {
       ? { githubId: needs.github.outputs["artifact-id"] }
       : {}),
     writerRun: process.env.GITHUB_RUN_ID,
-    // Execute-mode writers refuse reruns. A copied successful job still came
-    // from attempt one when only this read-only completion job is rerun.
-    writerAttempt: "1",
+    admissionAttempt: needs.admit.outputs["producer-attempt"],
+    npmAttempt: needs.npm.outputs["producer-attempt"],
+    writerAttempt: (githubWriter === "true" ? needs.github : needs.npm).outputs[
+      "producer-attempt"
+    ],
   };
 }
 for (const value of Object.values(selected))
   assert.match(String(value), /^[1-9]\d{0,15}$/u);
+// Historical continuations used one attempt for all three artifacts.
+selected.admissionAttempt ??= selected.writerAttempt;
+selected.npmAttempt ??= selected.writerAttempt;
+assert.ok(
+  BigInt(selected.admissionAttempt) <= BigInt(selected.npmAttempt) &&
+    BigInt(selected.npmAttempt) <= BigInt(selected.writerAttempt),
+);
+if (!selected.githubId)
+  assert.equal(String(selected.npmAttempt), String(selected.writerAttempt));
+if (mode === "execute")
+  assert.ok(
+    BigInt(selected.writerAttempt) <= BigInt(process.env.GITHUB_RUN_ATTEMPT),
+  );
 assert.ok(process.env.GITHUB_ENV && process.env.GITHUB_OUTPUT);
 for (const [field, environment, output] of [
   ["admissionId", "ADMISSION_ID", "admission-id"],
   ["npmId", "NPM_RESULT_ID", "npm-id"],
   ["githubId", "RELEASE_GITHUB_RESULT_ID", "github-id"],
   ["writerRun", "WRITER_RUN", "writer-run"],
+  ["admissionAttempt", "ADMISSION_ATTEMPT", "admission-attempt"],
+  ["npmAttempt", "NPM_RESULT_ATTEMPT", "npm-attempt"],
   ["writerAttempt", "WRITER_ATTEMPT", "writer-attempt"],
 ]) {
   if (selected[field] === undefined) continue;

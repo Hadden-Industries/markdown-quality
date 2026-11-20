@@ -31,7 +31,7 @@ on:
           - verify
           - reconcile
       continuation-json:
-        description: Verification-only admissionId, npmId, writerRun, writerAttempt and githubId when the operation has a GitHub writer
+        description: Original admissionId, npmId, writerRun and final writerAttempt; include githubId when applicable and admissionAttempt or npmAttempt for earlier producers
         required: false
         type: string
       history-checkpoints:
@@ -72,6 +72,7 @@ jobs:
       security-events: read
     outputs:
       artifact-id: ${{ steps.admission.outputs.artifact-id }}
+      producer-attempt: ${{ github.run_attempt }}
       github-writer: ${{ steps.admitted.outputs.github-writer }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -113,6 +114,7 @@ jobs:
       id-token: write
     outputs:
       artifact-id: ${{ steps.npm.outputs.artifact-id }}
+      producer-attempt: ${{ github.run_attempt }}
     env:
       ADMISSION_ID: ${{ needs.admit.outputs.artifact-id }}
     steps:
@@ -156,6 +158,7 @@ jobs:
       actions: read
     outputs:
       artifact-id: ${{ steps.github.outputs.artifact-id }}
+      producer-attempt: ${{ github.run_attempt }}
     env:
       ADMISSION_ID: ${{ needs.admit.outputs.artifact-id }}
       NPM_RESULT_ID: ${{ needs.npm.outputs.artifact-id }}

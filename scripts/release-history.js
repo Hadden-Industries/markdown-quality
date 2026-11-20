@@ -499,6 +499,213 @@ export function writerNeverRequested(job) {
   );
 }
 
+function listWriterRuns(name, gh) {
+  const pages = JSON.parse(
+    gh([
+      "api",
+      `repos/${repository}/actions/workflows/${name}.yml/runs?per_page=100`,
+      "--paginate",
+      "--slurp",
+    ]),
+  );
+  const runs = pages.flatMap((page) => page.workflow_runs);
+  assert.ok(
+    pages.length && pages.every((page) => page.total_count === runs.length),
+    "Incomplete workflow run inventory",
+  );
+  assert.equal(new Set(runs.map((run) => run.id)).size, runs.length);
+  assert.ok(runs.every((run) => run.path === `.github/workflows/${name}.yml`));
+  return runs;
+}
+
+/** Only admission recovers historical archives. A writer can reuse that decision
+ * while other protected runs and their signed reservations still match it. */
+export function promotionGuard(runs, intents, env, admittedAttempt) {
+  const current = runs.filter((run) => String(run.id) === env.GITHUB_RUN_ID);
+  assert.equal(current.length, 1);
+  const run = current[0];
+  assert.equal(writerWorkflow(run), "promote-release");
+  assert.equal(run.head_sha, env.GITHUB_SHA);
+  assert.equal(run.run_number, Number(env.GITHUB_RUN_NUMBER));
+  assert.equal(run.run_attempt, Number(env.GITHUB_RUN_ATTEMPT));
+  assert.equal(run.status, "in_progress");
+  assert.ok(
+    Number.isSafeInteger(admittedAttempt) &&
+      admittedAttempt > 0 &&
+      admittedAttempt <= run.run_attempt,
+  );
+  const ownIntent = (entry) =>
+    entry.workflow === "promote-release" &&
+    entry.number === run.run_number &&
+    entry.controller === run.head_sha &&
+    entry.decision === env.OPERATION_SHA;
+  assert.equal(
+    intents.filter(
+      (entry) => ownIntent(entry) && entry.attempt === run.run_attempt,
+    ).length,
+    1,
+    "Writer requires an owner-signed intent for this controller, decision and attempt",
+  );
+  const otherRuns = runs
+    .filter((entry) => entry.id !== run.id && !outsideWriterRef(entry))
+    .map((entry) => {
+      writerWorkflow(entry);
+      assert.equal(
+        entry.status,
+        "completed",
+        "Another release workflow can still write",
+      );
+      return [
+        entry.id,
+        entry.workflow_id,
+        entry.run_number,
+        entry.run_attempt,
+        entry.head_sha,
+        entry.conclusion,
+      ];
+    })
+    .sort((a, b) => a[0] - b[0]);
+  const reservations = intents
+    .filter(
+      (entry) =>
+        !(
+          ownIntent(entry) &&
+          entry.attempt > admittedAttempt &&
+          entry.attempt <= run.run_attempt
+        ),
+    )
+    .map((entry) => [
+      entry.workflow,
+      entry.number,
+      entry.attempt,
+      entry.controller,
+      entry.decision,
+    ])
+    .sort();
+  return hash(Buffer.from(JSON.stringify([otherRuns, reservations])));
+}
+
+/** Recheck native requests and signed reservations without acquiring any package in the writer. */
+export async function authorizePromotionRetry(
+  service,
+  admission,
+  npmAttempt,
+  env,
+  { gh, api, intents = readWriterIntents(gh) },
+) {
+  const attempt = Number(env.GITHUB_RUN_ATTEMPT);
+  assert.ok(Number.isSafeInteger(attempt) && attempt > 1 && attempt <= 50);
+  const runs = Object.keys(writerJobs).flatMap((name) =>
+    listWriterRuns(name, gh),
+  );
+  assert.equal(
+    promotionGuard(runs, intents, env, Number(admission.context.attempt)),
+    admission.history.promotionGuard,
+    "Release activity changed; refresh read-only admission before retrying a writer",
+  );
+  const path = `actions/runs/${env.GITHUB_RUN_ID}/attempts/`;
+  const earlier = [];
+  for (let n = 1; n < attempt; n++)
+    earlier.push({
+      run: await api(path + n),
+      inventory: await api(`${path}${n}/jobs?per_page=100`),
+    });
+  firstPromotionWrite(earlier, env, service, npmAttempt);
+  const current = await api(`${path}${attempt}/jobs?per_page=100`);
+  assert.equal(current.total_count, current.jobs.length);
+  const own = current.jobs.filter((job) => job.name === service);
+  assert.ok(
+    own.length === 1 &&
+      own[0].run_id === Number(env.GITHUB_RUN_ID) &&
+      own[0].head_sha === env.GITHUB_SHA &&
+      own[0].run_attempt === attempt &&
+      own[0].status === "in_progress",
+    "Outside the current protected promotion writer",
+  );
+}
+
+/** A prior sealed npm success may precede the first GitHub write. Other possible writes block. */
+export function firstPromotionWrite(writerAttempts, env, service, npmAttempt) {
+  const attempt = Number(env.GITHUB_RUN_ATTEMPT);
+  assert.ok(["npm", "github"].includes(service) && env.GITHUB_JOB === service);
+  assert.ok(Number.isSafeInteger(attempt) && attempt > 1 && attempt <= 50);
+  for (let n = 1; n < attempt; n++) {
+    const matches = writerAttempts.filter(
+      ({ run }) =>
+        String(run.id) === env.GITHUB_RUN_ID && run.run_attempt === n,
+    );
+    assert.equal(
+      matches.length,
+      1,
+      "Missing or ambiguous original promotion attempt",
+    );
+    const { run, inventory } = matches[0];
+    assert.equal(writerWorkflow(run), "promote-release");
+    assert.equal(run.head_sha, env.GITHUB_SHA);
+    assert.equal(run.run_number, Number(env.GITHUB_RUN_NUMBER));
+    assert.equal(run.status, "completed");
+    const jobs = inventory.jobs;
+    assert.ok(
+      Array.isArray(jobs) &&
+        jobs.length > 0 &&
+        jobs.length === inventory.total_count,
+    );
+    assert.equal(new Set(jobs.map((job) => job.name)).size, jobs.length);
+    assert.equal(new Set(jobs.map((job) => job.id)).size, jobs.length);
+    for (const job of jobs) {
+      assert.ok(Number.isSafeInteger(job.id) && job.id > 0);
+      assert.equal(job.run_id, run.id);
+      assert.equal(job.run_attempt, n);
+      assert.equal(job.head_sha, run.head_sha);
+      assert.equal(job.status, "completed");
+    }
+    for (const role of ["npm", "github"]) {
+      const writer = jobs.find((job) => job.name === role);
+      if (!writer) {
+        const prerequisites = role === "npm" ? ["admit"] : ["admit", "npm"];
+        assert.ok(
+          jobs.some(
+            (job) =>
+              prerequisites.includes(job.name) &&
+              ["failure", "skipped", "cancelled", "timed_out"].includes(
+                job.conclusion,
+              ),
+          ),
+          "Missing promotion writer without an unsuccessful prerequisite",
+        );
+      } else if (writer.conclusion === "skipped") {
+        assert.ok(
+          (writer.steps ?? []).every(
+            (step) =>
+              step.status === "completed" && step.conclusion === "skipped",
+          ),
+          "Skipped writer contains a possible request",
+        );
+      } else if (
+        service === "github" &&
+        role === "npm" &&
+        n >= Number(npmAttempt) &&
+        writer.conclusion === "success"
+      ) {
+        const original = writerAttempts
+          .find(({ run }) => run.run_attempt === Number(npmAttempt))
+          ?.inventory.jobs.find((job) => job.name === "npm");
+        assert.ok(
+          original?.conclusion === "success" &&
+            sameJobExecution(original, writer) &&
+            isDeepStrictEqual(original.steps, writer.steps),
+          "Unexpected earlier npm execution before GitHub promotion",
+        );
+      } else {
+        assert.ok(
+          writerNeverRequested(writer),
+          "A prior possible promotion write requires verification or owner reconciliation",
+        );
+      }
+    }
+  }
+}
+
 /** Recognize only a failed first preflight GET, whose exact argv cannot select a write method. */
 function legacyArchiveStoppedAtImmutabilityRead(entry) {
   if (
@@ -633,6 +840,7 @@ export async function collectWriterHistory({
   approvedControllers = protectedControllerHistory(env.GITHUB_SHA),
   intents = readWriterIntents(gh),
   requireIntent = false,
+  capturePromotionGuard = false,
   baseline,
   npm,
   readPackument,
@@ -661,6 +869,7 @@ export async function collectWriterHistory({
       "Historical controller is outside protected main history",
     );
   }
+  const promotionRuns = [];
   const live = [],
     missing = [];
   const scratch = mkdtempSync(
@@ -680,19 +889,8 @@ export async function collectWriterHistory({
     for (const [name, jobsForWorkflow] of Object.entries(writerJobs)) {
       const workflow = name + ".yml";
       const observedAt = Date.now();
-      const pages = JSON.parse(
-        gh([
-          "api",
-          `repos/${repository}/actions/workflows/${workflow}/runs?per_page=100`,
-          "--paginate",
-          "--slurp",
-        ]),
-      );
-      const runs = pages.flatMap((page) => page.workflow_runs);
-      assert.ok(
-        pages.length && pages.every((page) => page.total_count === runs.length),
-        "Incomplete workflow run inventory",
-      );
+      const runs = listWriterRuns(name, gh);
+      if (capturePromotionGuard) promotionRuns.push(...runs);
       verifyWriterInventory(
         name,
         runs,
@@ -991,6 +1189,16 @@ export async function collectWriterHistory({
       writers: mergeWriterHistory(retained, live),
       missing,
       writerAttempts: [...attempts.values()],
+      ...(capturePromotionGuard
+        ? {
+            promotionGuard: promotionGuard(
+              promotionRuns,
+              intents,
+              env,
+              Number(env.GITHUB_RUN_ATTEMPT),
+            ),
+          }
+        : {}),
       closedWriterRuns: [...closedWriterRuns.values()],
       nonWriterRuns: [...nonWriterRuns.values()],
     };
@@ -1275,6 +1483,7 @@ export async function admitPriorReleaseEffects(
     checkpoints,
     gh,
     requireIntent: true,
+    capturePromotionGuard: workflow === "promote-release",
   });
   assert.equal(
     observed.missing.length,
@@ -1564,6 +1773,9 @@ export async function admitPriorReleaseEffects(
     settledGithub,
     stagingReconciliations,
     latestStageWriteAt: latestPublicationWriteAt(observed.writers),
+    ...(observed.promotionGuard
+      ? { promotionGuard: observed.promotionGuard }
+      : {}),
   };
 }
 

@@ -36,6 +36,8 @@ import { bindStagingReconciliation } from "./release-staging-evidence.js";
 import { acquirePublicationArtifact } from "./publication-artifact.js";
 import { readSignedHistoryRefs } from "./release-history.js";
 import { qualificationArtifactDirectory } from "./release-reuse-evidence.js";
+import { producedArtifacts } from "./release-job-artifacts.js";
+import { createReleaseCollectionReader } from "./github-evidence.js";
 
 assert.equal(
   process.argv.length,
@@ -73,9 +75,12 @@ try {
     downloaded.set(path, true);
     return path;
   };
-  const frozen = download(
-    registry.run.id,
-    `public-release-inputs-${registry.run.run_attempt}`,
+  const read = createReleaseCollectionReader(process.env.GH_TOKEN);
+  const registryArtifact = producedArtifacts(registry, { read });
+  const frozen = await registryArtifact(
+    "admit",
+    "public-release-inputs",
+    join(scratch, "registry-inputs"),
   );
   const bytes = regularBytes(join(frozen, "release-manifest.json"));
   assert.match(process.env.MANIFEST_SHA, /^[a-f0-9]{64}$/u);
@@ -92,6 +97,7 @@ try {
     context.qualification.run,
     context.qualification.attempt,
   );
+  const candidateArtifact = producedArtifacts(candidate, { read });
   let signed;
   const stagingArtifacts = new Map();
   const stagingArtifact = async ({ run, attempt }) => {
@@ -220,7 +226,7 @@ try {
             ? node === release.runtimePolicy.reference
               ? `candidate-${os}`
               : `candidate-${os}-${node}`
-            : `registry-${os}-${node}-${publication.attempt}`;
+            : `registry-${os}-${node}`;
         const reportDirectory =
           kind === "candidate"
             ? qualificationArtifactDirectory({
@@ -230,7 +236,11 @@ try {
                 name: artifact,
                 download,
               })
-            : download(publication.run, artifact);
+            : await registryArtifact(
+                `registry (${os}, ${node})`,
+                artifact,
+                join(scratch, artifact),
+              );
         const reportBytes = regularBytes(
           join(reportDirectory, `${kind}-qualification.json`),
         );
@@ -245,9 +255,10 @@ try {
           sha256: save(name, reportBytes),
         };
       }
-  const distribution = download(
-    qualified.candidate.run,
-    `release-distribution-${qualified.candidate.attempt}`,
+  const distribution = await candidateArtifact(
+    "distribution",
+    "release-distribution",
+    join(scratch, "distribution"),
   );
   const inventory = readJson(join(distribution, "distribution-evidence.json"));
   for (const { name, sha256 } of inventory.payloads) {
@@ -264,19 +275,15 @@ try {
       "build-distribution-evidence.json",
       join(distribution, "build-distribution-evidence.json"),
     );
-  for (const [run, artifact, prefix] of [
-    [
-      qualified.candidate.run,
-      `release-security-${qualified.candidate.attempt}`,
-      "",
-    ],
-    [
-      publication.run,
-      `public-release-security-${publication.attempt}`,
-      "public-",
-    ],
+  for (const [acquire, artifact, prefix] of [
+    [candidateArtifact, "release-security", ""],
+    [registryArtifact, "public-release-security", "public-"],
   ]) {
-    const security = download(run, artifact);
+    const security = await acquire(
+      "security",
+      artifact,
+      join(scratch, artifact),
+    );
     for (const name of readdirSync(security))
       evidence(`${prefix}${name}`, join(security, name));
     for (const os of release.qualificationMatrix.os) {
@@ -285,11 +292,16 @@ try {
           ? qualificationArtifactDirectory({
               release,
               frozen,
-              run,
+              run: qualified.candidate.run,
               name: `recipient-${os}`,
               download,
             })
-          : download(run, `recipient-${os}`);
+          : await registryArtifact(
+              `registry (${os}, ${release.runtimePolicy.reference})`,
+              `recipient-${os}`,
+              join(scratch, `public-recipient-${os}`),
+              { recipient: true },
+            );
       for (const name of readdirSync(recipient))
         evidence(`${prefix}recipient-${os}-${name}`, join(recipient, name));
     }

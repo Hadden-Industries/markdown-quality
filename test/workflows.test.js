@@ -11,6 +11,34 @@ const text = (path) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const workflow = (name) => parse(text(`.github/workflows/${name}.yml`));
 
+test("release transfers bind the producing job outputs across partial reruns", () => {
+  const registry = workflow("release-registry").jobs;
+  const inputs = registry.admit.steps.find((step) => step.id === "inputs");
+  assert.ok(inputs.uses.startsWith("actions/upload-artifact@"));
+  assert.equal(
+    registry.admit.outputs["artifact-id"],
+    "${{ steps.inputs.outputs.artifact-id }}",
+  );
+  for (const job of [registry.registry, registry.security]) {
+    const transfer = job.steps.find(
+      (step) =>
+        step.with?.path === "frozen-release" &&
+        step.uses?.startsWith("actions/download-artifact@"),
+    );
+    assert.equal(
+      transfer.with["artifact-ids"],
+      "${{ needs.admit.outputs.artifact-id }}",
+    );
+    assert.equal(transfer.with["digest-mismatch"], "error");
+  }
+  const promotion = workflow("promote-release").jobs;
+  for (const role of ["admit", "npm", "github"])
+    assert.equal(
+      promotion[role].outputs["producer-attempt"],
+      "${{ github.run_attempt }}",
+    );
+});
+
 test("native Python provisioning preserves the minimum selector and isolated hosted environment", () => {
   const action = parse(text(".github/actions/setup-python/action.yml"));
   const [target, provider, environment] = action.runs.steps;

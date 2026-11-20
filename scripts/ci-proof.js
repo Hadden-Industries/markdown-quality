@@ -7,7 +7,7 @@ import { isDeepStrictEqual } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { nodeSupport } from "./node-matrix.js";
 import { validateFrozenMatrix } from "./node-matrix.js";
-import { sameJobExecution } from "./github-job-execution.js";
+import { sameJobExecution, originalExecution } from "./github-job-execution.js";
 import { assertHostedPlatform } from "./ci-host.js";
 import { budgets } from "./qualification-budgets.js";
 import { validateConsumer } from "./ci-consumer.js";
@@ -222,46 +222,6 @@ export async function verifyProducingAttempt(job, attempt, run, read) {
       "Retained job was relabelled as a new producer",
     );
   }
-}
-async function originalExecution(job, run, read) {
-  for (let attempt = 1; attempt <= run.run_attempt; attempt++) {
-    const inventory = await read(
-      `/actions/runs/${run.id}/attempts/${attempt}/jobs?per_page=100`,
-    );
-    assert.equal(inventory.total_count, inventory.jobs.length);
-    assert.equal(
-      new Set(inventory.jobs.map((value) => value.name)).size,
-      inventory.jobs.length,
-    );
-    assert.ok(
-      inventory.jobs.every(
-        (value) =>
-          value.run_id === run.id &&
-          value.head_sha === run.head_sha &&
-          value.run_attempt === attempt,
-      ),
-    );
-    const original = inventory.jobs.find((value) => value.name === job.name);
-    if (!original || original.conclusion === "skipped") continue;
-    if (sameJobExecution(original, job)) {
-      assert.equal(original.status, "completed");
-      assert.equal(original.conclusion, "success");
-      return {
-        runAttempt: attempt,
-        job: Object.fromEntries(
-          [
-            "name",
-            "run_id",
-            "head_sha",
-            "runner_id",
-            "started_at",
-            "completed_at",
-          ].map((key) => [key, original[key]]),
-        ),
-      };
-    }
-  }
-  throw new Error("No authenticated original job execution");
 }
 function lanes(records, ctx, matrix) {
   assert.equal(

@@ -33,12 +33,16 @@ import { admitServiceArtifact } from "./promotion-handoff.js";
 import { executeFamilyLabels } from "./family-labels.js";
 import { verifyReleaseCompletion } from "./release-readback.js";
 import { refreshReleaseSecurity } from "./qualify-release-security.js";
-import { createRepositoryReader } from "./github-evidence.js";
+import {
+  createRepositoryReader,
+  createReleaseCollectionReader,
+} from "./github-evidence.js";
 import { budgets } from "./qualification-budgets.js";
 import { releasePackages } from "./release-identity.js";
 import { verifyNoPendingStages } from "./release-stage-guards.js";
 import {
   admitPriorReleaseEffects,
+  authorizePromotionRetry,
   admitRetiredQualification,
   readSignedHistoryRefs,
 } from "./release-history.js";
@@ -112,6 +116,23 @@ export function nativeReleaseProvider(
         admittedTarget,
         checkpoints: checkpoints(Date.now() + budgets.collection),
       }),
+    authorizeRetry: (service, admission, npmAttempt, deadline) => {
+      const read = createReleaseCollectionReader(
+        env.GH_TOKEN ?? env.GITHUB_TOKEN,
+        { deadline },
+      );
+      return authorizePromotionRetry(service, admission, npmAttempt, env, {
+        api: (path) => read(`/${path}`),
+        gh: (args) => {
+          const timeout = Math.floor(deadline - Date.now());
+          assert.ok(
+            timeout > 0,
+            "Promotion writer admission deadline exhausted",
+          );
+          return native("gh", args, { timeout });
+        },
+      });
+    },
     checkpoints,
     service: (service, directory, id, expected, gh, deadline) =>
       admitServiceArtifact(service, directory, id, expected, gh, {
@@ -277,11 +298,7 @@ export async function runReleaseController({
       flag: "wx",
       flush: true,
     });
-    assert.equal(
-      String(env.GITHUB_RUN_ATTEMPT),
-      "1",
-      "Writer reruns are forbidden; authenticate original effects in a fresh owner dispatch or rerun verification only",
-    );
+    assert.match(env.GITHUB_RUN_ATTEMPT, /^[1-9]\d*$/u);
   }
   let deadline = now() + (phase === "admit" ? budgets.collection : 300000);
   const checkController = async () => {
@@ -446,6 +463,14 @@ export async function runReleaseController({
     admission.context,
   );
   assert.deepEqual(admission.context, admissionContext);
+  const upperAttempt = Number(env.WRITER_ATTEMPT ?? env.GITHUB_RUN_ATTEMPT);
+  assert.ok(
+    Number.isSafeInteger(Number(admissionContext.attempt)) &&
+      Number(admissionContext.attempt) > 0 &&
+      Number(admissionContext.attempt) <= upperAttempt,
+  );
+  if (env.ADMISSION_ATTEMPT)
+    assert.equal(admissionContext.attempt, env.ADMISSION_ATTEMPT);
   assert.equal(
     admission.context.run,
     String(env.WRITER_RUN ?? env.GITHUB_RUN_ID),
@@ -463,6 +488,14 @@ export async function runReleaseController({
     const record = readJson(join(directory, `${service}-result.json`));
     const context = contextFor(service, operation, env, record.context);
     assert.equal(context.run, String(env.WRITER_RUN ?? env.GITHUB_RUN_ID));
+    if (env.WRITER_RUN) {
+      assert.equal(
+        context.attempt,
+        service === "npm"
+          ? (env.NPM_RESULT_ATTEMPT ?? env.WRITER_ATTEMPT)
+          : env.WRITER_ATTEMPT,
+      );
+    }
     assert.ok(
       Number(context.attempt) <=
         Number(env.WRITER_ATTEMPT ?? env.GITHUB_RUN_ATTEMPT),
@@ -483,7 +516,21 @@ export async function runReleaseController({
       deadline,
     );
   };
+  if (writerEffects && env.GITHUB_RUN_ATTEMPT !== "1")
+    assert.ok(
+      provider.authorizeRetry,
+      "Writer reruns require authenticated first-write history",
+    );
+  const authorizeRetry = async (npmAttempt) => {
+    if (env.GITHUB_RUN_ATTEMPT === "1") return;
+    await provider.authorizeRetry(phase, admission, npmAttempt, deadline);
+    assert.ok(
+      now() < deadline,
+      "Promotion writer admission deadline exhausted",
+    );
+  };
   if (phase === "npm") {
+    await authorizeRetry();
     await checkController();
     verifyNoPendingStages(operation.stageInventory, {
       latestStageWriteAt: admission.history.latestStageWriteAt,
@@ -559,6 +606,7 @@ export async function runReleaseController({
       githubWriterRequired(operation),
       "This npm-only operation has no GitHub writer",
     );
+    await authorizeRetry(npm.record.context.attempt);
     await checkController();
     verifyNoPendingStages(operation.stageInventory, {
       latestStageWriteAt: admission.history.latestStageWriteAt,

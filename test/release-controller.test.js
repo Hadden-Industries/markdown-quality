@@ -31,7 +31,11 @@ import {
   verifyActiveOperations,
   completedStagingRecovery,
   admitRetiredQualification,
+  firstPromotionWrite,
+  authorizePromotionRetry,
+  promotionGuard,
 } from "../scripts/release-history.js";
+import { writerBaseline } from "../scripts/release-writer-inventory.js";
 import {
   pilotTagDeleteEndpoint,
   verifyEffectJournal,
@@ -149,6 +153,16 @@ function fixture(t, change = () => {}, version) {
       conclusion: "success",
     })),
   };
+  const attempts = new Map([[1, { run, jobs }]]);
+  function attemptResource(path) {
+    const [, attempt, list] =
+      /^actions\/runs\/80\/attempts\/([1-9]\d*)(\/jobs\?per_page=100)?$/u.exec(
+        path,
+      ) ?? [];
+    const saved = attempts.get(Number(attempt));
+    if (saved) return structuredClone(list ? saved.jobs : saved.run);
+    throw new Error(`Unexpected fixture attempt: ${path}`);
+  }
   const artifacts = Object.fromEntries(
     ["promotion-admission", "npm-operation", "github-operation"].map(
       (name, index) => [
@@ -190,8 +204,8 @@ function fixture(t, change = () => {}, version) {
       return latest === null ? null : { id: latest };
     if (path.startsWith("actions/artifacts/"))
       return structuredClone(artifacts[path.split("/").at(-1)]);
-    if (path.endsWith("/jobs?per_page=100")) return structuredClone(jobs);
-    if (path === "actions/runs/80/attempts/1") return structuredClone(run);
+    if (path.startsWith("actions/runs/80/attempts/"))
+      return attemptResource(path);
     throw new Error(`Unexpected fixture API: ${path}`);
   };
   const gh = (args) => {
@@ -199,8 +213,8 @@ function fixture(t, change = () => {}, version) {
       const path = args[1].slice(`repos/${repository}/`.length);
       if (path.startsWith("actions/artifacts/"))
         return JSON.stringify(artifacts[path.split("/").at(-1)]);
-      if (path.endsWith("/jobs?per_page=100")) return JSON.stringify(jobs);
-      if (path === "actions/runs/80/attempts/1") return JSON.stringify(run);
+      if (path.startsWith("actions/runs/80/attempts/"))
+        return JSON.stringify(attemptResource(path));
       throw new Error(`Unexpected fixture gh API: ${path}`);
     }
     if (args[0] === "release" && args[1] === "edit") {
@@ -284,6 +298,7 @@ function fixture(t, change = () => {}, version) {
     releases,
     tags,
     artifacts,
+    attempts,
     provider,
     runPhase,
     root,
@@ -400,6 +415,198 @@ test("fresh-workspace writer reruns cannot reuse pre-failure admission", async (
     /Writer reruns/u,
   );
   assert.equal(f.writes.length, 0);
+});
+
+function promotionIntent(f, attempt) {
+  return {
+    workflow: "promote-release",
+    number: 9,
+    attempt,
+    controller: f.env.GITHUB_SHA,
+    decision: f.env.OPERATION_SHA,
+  };
+}
+
+function bindPromotionAdmission(f) {
+  f.env.GITHUB_RUN_NUMBER = "9";
+  const { run } = f.attempts.get(1);
+  Object.assign(run, {
+    status: "in_progress",
+    run_number: 9,
+    workflow_id: writerBaseline["promote-release"].workflowId,
+  });
+  const history = f.provider.history;
+  f.provider.history = async (...args) => ({
+    ...(await history(...args)),
+    promotionGuard: promotionGuard([run], [promotionIntent(f, 1)], f.env, 1),
+  });
+}
+
+function promotionRerun(f, service) {
+  const attempt = f.attempts.get(1);
+  Object.assign(attempt.run, {
+    status: "completed",
+    run_number: 9,
+    workflow_id: writerBaseline["promote-release"].workflowId,
+  });
+  const target = attempt.jobs.jobs.find((job) => job.name === service);
+  Object.assign(target, { conclusion: "skipped", steps: [] });
+  const other = attempt.jobs.jobs.find(
+    (job) => job.name === (service === "npm" ? "github" : "npm"),
+  );
+  Object.assign(
+    other,
+    service === "npm"
+      ? { conclusion: "skipped", steps: [] }
+      : {
+          runner_id: 19,
+          started_at: "2026-11-20T10:00:00Z",
+          completed_at: "2026-11-20T10:01:00Z",
+          steps: [
+            { name: npmStep, status: "completed", conclusion: "success" },
+          ],
+        },
+  );
+  const latest = structuredClone(attempt);
+  latest.run.run_attempt = 2;
+  for (const job of latest.jobs.jobs) {
+    job.run_attempt = 2;
+    job.id += 100;
+  }
+  latest.jobs.jobs.find((job) => job.name === service).conclusion = "success";
+  f.attempts.set(2, latest);
+  Object.assign(f.env, {
+    GITHUB_RUN_ATTEMPT: "2",
+    GITHUB_RUN_NUMBER: "9",
+    GITHUB_JOB: service,
+  });
+  f.intents = [promotionIntent(f, 1), promotionIntent(f, 2)];
+  f.otherRuns = [];
+  f.provider.authorizeRetry = (role, admission, npmAttempt) =>
+    authorizePromotionRetry(role, admission, npmAttempt, f.env, {
+      intents: f.intents,
+      gh: (args) => {
+        const runs = args[1].includes("/promote-release.yml/")
+          ? [{ ...latest.run, status: "in_progress" }, ...f.otherRuns]
+          : [];
+        return JSON.stringify([
+          { total_count: runs.length, workflow_runs: runs },
+        ]);
+      },
+      api: async (path) => {
+        if (path.endsWith("/attempts/2/jobs?per_page=100")) {
+          const active = structuredClone(latest.jobs);
+          active.jobs.find((job) => job.name === service).status =
+            "in_progress";
+          return active;
+        }
+        return f.provider.api(path);
+      },
+    });
+  return target;
+}
+
+test("a first npm or GitHub promotion can run after upstream failure with its own authorized attempt", async (t) => {
+  for (const service of ["npm", "github"]) {
+    const f = fixture(t);
+    bindPromotionAdmission(f);
+    await f.runPhase("admit");
+    if (service === "github") await f.runPhase("npm");
+    const prior = promotionRerun(f, service);
+    f.artifacts[service === "npm" ? 102 : 103].name = `${service}-operation-2`;
+    const before = f.writes.length;
+    await f.runPhase(service);
+    assert.ok(f.writes.length > before);
+    if (service === "github") {
+      Object.assign(f.env, {
+        WRITER_RUN: "80",
+        WRITER_ATTEMPT: "2",
+        ADMISSION_ATTEMPT: "1",
+        NPM_RESULT_ATTEMPT: "1",
+      });
+      assert.equal((await f.runPhase("verify")).status, "complete");
+    }
+    // A prior possible request cannot be retried with a valid new intent.
+    Object.assign(prior, {
+      conclusion: "failure",
+      steps: [
+        {
+          name:
+            service === "npm"
+              ? npmStep
+              : "Authenticate the sealed npm result before the isolated GitHub effect",
+          status: "completed",
+          conclusion: "failure",
+        },
+      ],
+    });
+    const after = f.writes.length;
+    await assert.rejects(
+      f.runPhase(service, join(f.root, "replay")),
+      /prior possible promotion write/u,
+    );
+    assert.equal(f.writes.length, after);
+  }
+});
+
+test("later first writes still require their own signed intent and unchanged release history", async (t) => {
+  const f = fixture(t);
+  bindPromotionAdmission(f);
+  await f.runPhase("admit");
+  promotionRerun(f, "npm");
+  const intent = f.intents.pop();
+  await assert.rejects(
+    f.runPhase("npm", join(f.root, "no-intent")),
+    /owner-signed intent/u,
+  );
+  f.intents.push(intent);
+  f.otherRuns.push({ ...f.attempts.get(1).run, id: 44, run_number: 8 });
+  await assert.rejects(
+    f.runPhase("npm", join(f.root, "changed-history")),
+    /Release activity changed/u,
+  );
+  f.otherRuns.length = 0;
+  f.intents.push({ ...intent, number: 8 });
+  await assert.rejects(
+    f.runPhase("npm", join(f.root, "deleted-run-reserved")),
+    /Release activity changed/u,
+  );
+  assert.equal(f.writes.length, 0);
+});
+
+test("later promotion admission rejects unavailable, foreign and ambiguous writer history", (t) => {
+  const f = fixture(t);
+  const writer = promotionRerun(f, "npm");
+  const { run, jobs: inventory } = f.attempts.get(1);
+  const proof = () => firstPromotionWrite([{ run, inventory }], f.env, "npm");
+  assert.throws(() => firstPromotionWrite([], f.env, "npm"));
+  assert.throws(() =>
+    firstPromotionWrite(
+      [
+        { run, inventory },
+        { run, inventory },
+      ],
+      f.env,
+      "npm",
+    ),
+  );
+  inventory.total_count++;
+  assert.throws(proof);
+  inventory.total_count--;
+  writer.head_sha = "c".repeat(40);
+  assert.throws(proof);
+  writer.head_sha = run.head_sha;
+  writer.steps = [
+    { name: npmStep, status: "completed", conclusion: "failure" },
+  ];
+  assert.throws(proof);
+  writer.conclusion = "failure";
+  writer.steps = [];
+  assert.throws(proof);
+  writer.steps = [
+    { name: npmStep, status: "completed", conclusion: "skipped" },
+  ];
+  assert.doesNotThrow(proof);
 });
 
 test("interrupted native latest staging restores qualified RC priors through the real family controller without an incomplete candidate archive", async (t) => {
@@ -1041,6 +1248,7 @@ test("completion binds the GitHub writer only when the admitted operation produc
           NATIVE_RESULTS: JSON.stringify(results),
           CONTINUATION_JSON: continuation,
           GITHUB_RUN_ID: "80",
+          GITHUB_RUN_ATTEMPT: "4",
           GITHUB_ENV: files[0],
           GITHUB_OUTPUT: files[1],
         },
@@ -1054,17 +1262,30 @@ test("completion binds the GitHub writer only when the admitted operation produc
   const results = (writer, github) => ({
     admit: {
       result: "success",
-      outputs: { "artifact-id": "101", "github-writer": writer },
+      outputs: {
+        "artifact-id": "101",
+        "github-writer": writer,
+        "producer-attempt": "1",
+      },
     },
-    npm: { result: "success", outputs: { "artifact-id": "102" } },
+    npm: {
+      result: "success",
+      outputs: { "artifact-id": "102", "producer-attempt": "2" },
+    },
     github:
       github === "success"
-        ? { result: "success", outputs: { "artifact-id": "103" } }
+        ? {
+            result: "success",
+            outputs: { "artifact-id": "103", "producer-attempt": "3" },
+          }
         : { result: github, outputs: {} },
   });
   const promoted = bind("execute", results("true", "success"));
   assert.equal(promoted.status, 0);
   assert.match(promoted.env, /^RELEASE_GITHUB_RESULT_ID=103$/mu);
+  assert.match(promoted.env, /^ADMISSION_ATTEMPT=1$/mu);
+  assert.match(promoted.env, /^NPM_RESULT_ATTEMPT=2$/mu);
+  assert.match(promoted.env, /^WRITER_ATTEMPT=3$/mu);
   const retired = bind("execute", results("false", "skipped"));
   assert.equal(retired.status, 0);
   assert.match(retired.env, /^NPM_RESULT_ID=102$/mu);
@@ -1083,6 +1304,8 @@ test("completion binds the GitHub writer only when the admitted operation produc
     }),
   );
   assert.equal(verified.status, 0);
+  assert.match(verified.env, /^ADMISSION_ATTEMPT=1$/mu);
+  assert.match(verified.env, /^NPM_RESULT_ATTEMPT=1$/mu);
   assert.doesNotMatch(verified.env, /RELEASE_GITHUB_RESULT_ID/u);
 });
 
