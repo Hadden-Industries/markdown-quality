@@ -2,7 +2,13 @@
 import { fixtureCommandTimeoutMs } from "./helpers.js";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -38,8 +44,11 @@ test("first-party tracked inputs have LF bytes before provenance hashing", () =>
   assert.deepEqual(violations(root), []);
 });
 
-test("native Git fixture rejects checkout drift while preserving upstream licence bytes", () => {
+test("native Git fixture rejects checkout drift while preserving upstream licence bytes", (t) => {
   const directory = mkdtempSync(join(tmpdir(), "markdown-quality-eol-"));
+  t.after(() =>
+    rmSync(directory, { recursive: true, force: true, maxRetries: 3 }),
+  );
   git(directory, "init", "--quiet");
   git(directory, "config", "core.autocrlf", "false");
   writeFileSync(
